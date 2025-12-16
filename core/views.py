@@ -1,6 +1,6 @@
 
 from django.shortcuts import render
-from .models import Operacion
+# from .models import Operacion
 from django.http import HttpResponse
 
 # =====================
