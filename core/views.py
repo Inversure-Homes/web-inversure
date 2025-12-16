@@ -78,6 +78,6 @@ def simulador(request):
         # =====================
         # VENTA
         # =====================
-        plusvalia = to_float(request.POST.get("plusvalia))
+        plusvalia = to_float(request.POST.get("plusvalia", 0)          
         inmobiliaria = to_float(request.POST.get("inmobiliaria"))
         gestoria_venta = to_float(request.POST.get("gesto
