@@ -73,6 +73,7 @@ def simulador(request):
 
         beneficio_bruto = precio_venta - precio_compra - gastos_venta
 
+      
         result = {
             "beneficio_bruto": beneficio_bruto,
             "itp": itp,
@@ -80,9 +81,7 @@ def simulador(request):
             "registro": registro,
         }
 
-    return render(request, "core/simulador.html", result or {})
-
-
+        return render(request, "core/simulador.html", result)
 # =====================
 # OPERACIONES
 # =====================
