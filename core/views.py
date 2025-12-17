@@ -3,14 +3,13 @@ from django.shortcuts import render
 def simulador(request):
     resultado = None
 
+    def f(v):
+        try:
+            return float(v)
+        except:
+            return 0.0
+
     if request.method == "POST":
-
-        def f(v):
-            try:
-                return float(v)
-            except:
-                return 0.0
-
         precio_compra = f(request.POST.get("precio_compra"))
         precio_venta = f(request.POST.get("precio_venta"))
         meses = f(request.POST.get("meses"))
@@ -39,8 +38,8 @@ def simulador(request):
         inversion_total = precio_compra + gastos
         beneficio_bruto = precio_venta - inversion_total
 
-        rentabilidad = 0
-        rentabilidad_anual = 0
+        rentabilidad = 0.0
+        rentabilidad_anual = 0.0
 
         if inversion_total > 0:
             rentabilidad = (beneficio_bruto / inversion_total) * 100
@@ -54,6 +53,15 @@ def simulador(request):
             "rentabilidad_anual": round(rentabilidad_anual, 2),
         }
 
+    # Debug visible en la página (para ver qué llega)
+    debug_info = {
+        "method": request.method,
+        "post_keys": list(request.POST.keys()),
+        "post_dict": {k: request.POST.get(k) for k in request.POST.keys()},
+        "resultado": resultado,
+    }
+
     return render(request, "core/simulador.html", {
-        "resultado": resultado
+        "resultado": resultado,
+        "debug": debug_info,
     })
