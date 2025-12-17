@@ -1,163 +1,180 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <title>Inversure · Simulador de operaciones</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 900px;
-      margin: 40px auto;
-    }
-    h1 {
-      margin-bottom: 30px;
-    }
-    .box {
-      border: 1px solid #ddd;
-      padding: 20px;
-      margin-bottom: 25px;
-      border-radius: 6px;
-    }
-    label {
-      display: block;
-      margin-top: 10px;
-      font-weight: bold;
-    }
-    input {
-      width: 100%;
-      padding: 6px;
-      margin-top: 4px;
-    }
-    button {
-      margin-top: 20px;
-      padding: 10px 20px;
-      font-size: 16px;
-    }
-    header {
-      text-align: center;
-      margin-bottom: 40px;
-    }
-    header img {
-      max-height: 90px;
-      width: auto;
-    }
-  </style>
-</head>
+{% extends "core/base.html" %}
 
-<body>
+{% block title %}Inversure · Simulador{% endblock %}
 
-<header>
-  <img src="{% static 'core/logo.png' %}" alt="Inversure">
-</header>
+{% block content %}
+  <h1 class="page-title">Simulador de operaciones</h1>
+  <p class="page-subtitle">Introduce los datos para calcular rentabilidad y métricas clave.</p>
 
-<h1>Inversure · Simulador de operaciones</h1>
+  <form method="post">
+    {% csrf_token %}
 
-<form method="post">
-  {% csrf_token %}
+    <div class="card">
+      <h2>1️⃣ Datos principales</h2>
+      <div class="grid">
+        <div class="field">
+          <label>Precio compra</label>
+          <input type="number" step="0.01" name="precio_compra">
+        </div>
+        <div class="field">
+          <label>Precio venta</label>
+          <input type="number" step="0.01" name="precio_venta">
+        </div>
+        <div class="field">
+          <label>Meses de la operación</label>
+          <input type="number" step="1" name="meses">
+        </div>
+        <div class="field">
+          <label>% Financiación</label>
+          <input type="number" step="0.01" name="financiacion">
+        </div>
+      </div>
+    </div>
 
-  <div class="box">
-    <h2>1️⃣ Datos principales</h2>
+    <div class="card">
+      <h2>2️⃣ Gastos de adquisición</h2>
+      <p class="help">ITP (2%), notaría (0,2%) y registro (0,2%) se calcularán automáticamente en la lógica.</p>
+      <div class="grid">
+        <div class="field">
+          <label>Gestoría compra</label>
+          <input type="number" step="0.01" name="gestoria_compra">
+        </div>
+        <div class="field">
+          <label>Captación / reservas</label>
+          <input type="number" step="0.01" name="captacion">
+        </div>
+        <div class="field">
+          <label>Otros gastos adquisición</label>
+          <input type="number" step="0.01" name="otros_adquisicion">
+        </div>
+      </div>
+    </div>
 
-    <label>Precio compra</label>
-    <input type="number" step="0.01" name="precio_compra" required>
+    <div class="card">
+      <h2>3️⃣ Inversión inicial</h2>
+      <div class="grid">
+        <div class="field">
+          <label>Reforma</label>
+          <input type="number" step="0.01" name="reforma">
+        </div>
+        <div class="field">
+          <label>Limpieza inicial</label>
+          <input type="number" step="0.01" name="limpieza_inicial">
+        </div>
+        <div class="field">
+          <label>Mobiliario</label>
+          <input type="number" step="0.01" name="mobiliario">
+        </div>
+        <div class="field">
+          <label>Otros puesta en marcha</label>
+          <input type="number" step="0.01" name="otros_puesta_marcha">
+        </div>
+      </div>
+    </div>
 
-    <label>Precio venta</label>
-    <input type="number" step="0.01" name="precio_venta" required>
+    <div class="card">
+      <h2>4️⃣ Gastos recurrentes</h2>
+      <div class="grid">
+        <div class="field">
+          <label>Comunidad</label>
+          <input type="number" step="0.01" name="comunidad">
+        </div>
+        <div class="field">
+          <label>IBI</label>
+          <input type="number" step="0.01" name="ibi">
+        </div>
+        <div class="field">
+          <label>Seguros</label>
+          <input type="number" step="0.01" name="seguros">
+        </div>
+        <div class="field">
+          <label>Suministros</label>
+          <input type="number" step="0.01" name="suministros">
+        </div>
+        <div class="field">
+          <label>Limpieza periódica</label>
+          <input type="number" step="0.01" name="limpieza_periodica">
+        </div>
+        <div class="field">
+          <label>Ocupas / incidencias</label>
+          <input type="number" step="0.01" name="ocupas">
+        </div>
+        <div class="field">
+          <label>Otros recurrentes</label>
+          <input type="number" step="0.01" name="otros_recurrentes">
+        </div>
+      </div>
+    </div>
 
-    <label>Meses de la operación</label>
-    <input type="number" name="meses" required>
+    <div class="card">
+      <h2>5️⃣ Gastos de venta</h2>
+      <div class="grid">
+        <div class="field">
+          <label>Plusvalía municipal</label>
+          <input type="number" step="0.01" name="plusvalia">
+        </div>
+        <div class="field">
+          <label>Inmobiliaria</label>
+          <input type="number" step="0.01" name="inmobiliaria">
+        </div>
+        <div class="field">
+          <label>Gestoría venta</label>
+          <input type="number" step="0.01" name="gestoria_venta">
+        </div>
+        <div class="field">
+          <label>Otros gastos venta</label>
+          <input type="number" step="0.01" name="otros_venta">
+        </div>
+      </div>
+    </div>
 
-    <label>% Financiación</label>
-    <input type="number" step="0.01" name="financiacion">
-  </div>
+    <div class="actions">
+      <button class="btn" type="submit">Calcular operación</button>
+      <span class="pill">ROI mínimo objetivo: 15%</span>
+    </div>
+  </form>
 
-  <div class="box">
-    <h2>2️⃣ Gastos de adquisición</h2>
+  {% if resultado %}
+    <div class="card">
+      <h2>📊 Resultados</h2>
 
-    <p><em>ITP (2 %), notaría y registro se calculan automáticamente</em></p>
+      <div class="kpis">
+        <div class="kpi">
+          <div class="label">Inversión total</div>
+          <div class="value">{{ resultado.inversion_total }} €</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Beneficio bruto</div>
+          <div class="value">{{ resultado.beneficio_bruto }} €</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Beneficio partícipes</div>
+          <div class="value">{{ resultado.beneficio_participes }} €</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Rentabilidad total</div>
+          <div class="value">{{ resultado.rentabilidad }} %</div>
+        </div>
+      </div>
 
-    <label>Gestoría compra</label>
-    <input type="number" step="0.01" name="gestoria_compra">
-
-    <label>Captación / reservas</label>
-    <input type="number" step="0.01" name="captacion">
-
-    <label>Otros gastos adquisición</label>
-    <input type="number" step="0.01" name="otros_adquisicion">
-  </div>
-
-  <div class="box">
-    <h2>3️⃣ Inversión inicial</h2>
-
-    <label>Reforma</label>
-    <input type="number" step="0.01" name="reforma">
-
-    <label>Limpieza inicial</label>
-    <input type="number" step="0.01" name="limpieza_inicial">
-
-    <label>Mobiliario</label>
-    <input type="number" step="0.01" name="mobiliario">
-
-    <label>Otros puesta en marcha</label>
-    <input type="number" step="0.01" name="otros_puesta_marcha">
-  </div>
-
-  <div class="box">
-    <h2>4️⃣ Gastos recurrentes</h2>
-
-    <label>Comunidad</label>
-    <input type="number" step="0.01" name="comunidad">
-
-    <label>IBI</label>
-    <input type="number" step="0.01" name="ibi">
-
-    <label>Seguros</label>
-    <input type="number" step="0.01" name="seguros">
-
-    <label>Suministros</label>
-    <input type="number" step="0.01" name="suministros">
-
-    <label>Limpieza periódica</label>
-    <input type="number" step="0.01" name="limpieza_periodica">
-
-    <label>Ocupas / incidencias</label>
-    <input type="number" step="0.01" name="incidencias">
-
-    <label>Otros recurrentes</label>
-    <input type="number" step="0.01" name="otros_recurrentes">
-  </div>
-
-  <div class="box">
-    <h2>5️⃣ Gastos de venta</h2>
-
-    <label>Plusvalía municipal</label>
-    <input type="number" step="0.01" name="plusvalia">
-
-    <label>Inmobiliaria</label>
-    <input type="number" step="0.01" name="inmobiliaria">
-
-    <label>Gestoría venta</label>
-    <input type="number" step="0.01" name="gestoria_venta">
-
-    <label>Otros gastos venta</label>
-    <input type="number" step="0.01" name="otros_venta">
-  </div>
-
-  <button type="submit">Calcular operación</button>
-</form>
-
-{% if resultado %}
-<div class="box">
-  <h2>📊 Resultados económicos</h2>
-
-  <p><strong>Inversión total:</strong> {{ resultado.inversion_total }} €</p>
-  <p><strong>Beneficio bruto:</strong> {{ resultado.beneficio_bruto }} €</p>
-  <p><strong>Beneficio partícipes:</strong> {{ resultado.beneficio_participes }} €</p>
-  <p><strong>Rentabilidad total:</strong> {{ resultado.rentabilidad }} %</p>
-  <p><strong>Rentabilidad anualizada:</strong> {{ resultado.rentabilidad_anual }} %</p>
-</div>
-{% endif %}
-
-</body>
-</html>
+      <div class="kpis" style="margin-top:12px;">
+        <div class="kpi">
+          <div class="label">Rentabilidad anualizada</div>
+          <div class="value">{{ resultado.rentabilidad_anual }} %</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Ratio beneficio / coste</div>
+          <div class="value">{{ resultado.ratio }}</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Break-even</div>
+          <div class="value">{{ resultado.breakeven }} €</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Colchón de seguridad</div>
+          <div class="value">{{ resultado.colchon }} €</div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}
