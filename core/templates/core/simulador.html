@@ -4,63 +4,43 @@
   <meta charset="UTF-8">
   <title>Inversure · Simulador</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    label { display:block; margin-top:10px; font-weight: bold; }
-    input { width: 320px; padding: 6px; }
-    button { margin-top: 18px; padding: 10px 14px; cursor:pointer; }
-    .box { margin-top: 22px; padding: 12px; border: 1px solid #ddd; }
-    pre { white-space: pre-wrap; }
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    label { display:block; margin-top:10px; font-weight:bold; }
+    input { width: 300px; padding:6px; }
+    button { margin-top:15px; padding:10px; }
+    .box { margin-top:25px; border:1px solid #ccc; padding:15px; }
   </style>
 </head>
 <body>
 
-  <h1>Inversure · Simulador de operaciones</h1>
+<h1>Inversure · Simulador de operaciones</h1>
 
-  <form method="post">
-    {% csrf_token %}
+<form method="post">
+  {% csrf_token %}
 
-    <h2>Datos principales</h2>
-    <label>Precio compra</label>
-    <input type="number" step="0.01" name="precio_compra" required>
+  <h2>Datos principales</h2>
+  <label>Precio compra</label>
+  <input type="number" step="0.01" name="precio_compra">
 
-    <label>Precio venta</label>
-    <input type="number" step="0.01" name="precio_venta" required>
+  <label>Precio venta</label>
+  <input type="number" step="0.01" name="precio_venta">
 
-    <label>Meses operación</label>
-    <input type="number" step="1" name="meses" required>
+  <label>Meses operación</label>
+  <input type="number" name="meses">
 
-    <h2>Gastos (ejemplo)</h2>
-    <label>Gestoría compra</label>
-    <input type="number" step="0.01" name="gestoria_compra">
+  <button type="submit">Calcular operación</button>
+</form>
 
-    <label>Reforma</label>
-    <input type="number" step="0.01" name="reforma">
-
-    <label>Plusvalía municipal</label>
-    <input type="number" step="0.01" name="plusvalia">
-
-    <button type="submit">Calcular operación</button>
-  </form>
-
-  {% if resultado %}
-    <div class="box">
-      <h2>📊 Resultados económicos</h2>
-      <p><strong>Inversión total:</strong> {{ resultado.inversion_total }} €</p>
-      <p><strong>Beneficio bruto:</strong> {{ resultado.beneficio_bruto }} €</p>
-      <p><strong>Rentabilidad total:</strong> {{ resultado.rentabilidad }} %</p>
-      <p><strong>Rentabilidad anualizada:</strong> {{ resultado.rentabilidad_anual }} %</p>
-    </div>
-  {% endif %}
-
-  <div class="box">
-    <h2>🧪 DEBUG (temporal)</h2>
-    <p><strong>Método:</strong> {{ debug.method }}</p>
-    <p><strong>POST keys:</strong> {{ debug.post_keys }}</p>
-    <p><strong>POST dict:</strong></p>
-    <pre>{{ debug.post_dict }}</pre>
-    <p><strong>Resultado (raw):</strong></p>
-    <pre>{{ debug.resultado }}</pre>
-  </div>
+{% if resultado %}
+<div class="box">
+  <h2>📊 Resultados</h2>
+  <p><strong>Inversión total:</strong> {{ resultado.inversion_total }} €</p>
+  <p><strong>Beneficio bruto:</strong> {{ resultado.beneficio_bruto }} €</p>
+  <p><strong>Rentabilidad:</strong> {{ resultado.rentabilidad }} %</p>
+  <p><strong>Rentabilidad anual:</strong> {{ resultado.rentabilidad_anual }} %</p>
+</div>
+{% endif %}
 
 </body>
 </html>
+
