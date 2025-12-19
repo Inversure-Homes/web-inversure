@@ -10,6 +10,42 @@
     {% csrf_token %}
 
     <div class="card">
+      <h2>📍 Datos del inmueble</h2>
+
+      <div class="grid">
+        <div class="field">
+          <label>Precio de compra del inmueble</label>
+          <input type="number" step="0.01" name="precio_inmueble">
+        </div>
+
+        <div class="field">
+          <label>Precio estimado de venta</label>
+          <input type="number" step="0.01" name="precio_venta_estimado">
+        </div>
+
+        <div class="field">
+          <label>Referencia catastral</label>
+          <div style="display:flex; gap:8px;">
+            <input type="text" name="ref_catastral">
+            <a
+              href="https://www.sedecatastro.gob.es"
+              target="_blank"
+              class="btn"
+              style="white-space:nowrap; padding:8px 12px; font-size:13px;"
+            >
+              Ver Catastro
+            </a>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Valor de referencia catastral</label>
+          <input type="number" step="0.01" name="valor_referencia">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
       <h2>1️⃣ Datos principales</h2>
       <div class="grid">
         <div class="field">
@@ -31,52 +67,41 @@
       </div>
     </div>
 
-    <div class="card mb-4">
-    <div class="card-header fw-semibold">
-        2️⃣ Gastos de adquisición
-        <span class="text-muted fw-normal">(notaría y registro automáticos)</span>
-    </div>
+    <div class="card">
+      <h2>2️⃣ Gastos de adquisición</h2>
+      <p class="page-subtitle">(notaría y registro automáticos)</p>
 
-    <div class="card-body row g-3">
+      <div class="grid">
 
-        <div class="col-md-3">
-    <label class="form-label">
-        Notaría (0,20 %)
-    </label>
-    <input type="text"
-           name="notaria"
-           id="notaria"
-           class="form-control"
-           data-euro
-           readonly>
-    <small class="text-muted">Calculado automáticamente</small>
-</div>
-
-<div class="col-md-3">
-    <label class="form-label">
-        Registro (0,20 %)
-    </label>
-    <input type="text"
-           name="registro"
-           id="registro"
-           class="form-control"
-           data-euro
-           readonly>
-    <small class="text-muted">Calculado automáticamente</small>
-</div>
-
-        <div class="col-md-3">
-            <label class="form-label">Gestoría</label>
-            <input type="text" name="gestoria" class="form-control" data-euro>
+        <div class="field">
+          <label>Notaría (0,20 %)</label>
+          <input type="text" name="notaria" id="notaria" data-euro readonly>
+          <small class="text-muted">Calculado automáticamente</small>
         </div>
 
-        <div class="col-md-3">
-            <label class="form-label">Otros gastos</label>
-            <input type="text" name="otros_gastos" class="form-control" data-euro>
+        <div class="field">
+          <label>Registro (0,20 %)</label>
+          <input type="text" name="registro" id="registro" data-euro readonly>
+          <small class="text-muted">Calculado automáticamente</small>
         </div>
 
+        <div class="field">
+          <label>ITP</label>
+          <input type="text" name="itp" data-euro>
+        </div>
+
+        <div class="field">
+          <label>Gestoría</label>
+          <input type="text" name="gestoria" data-euro>
+        </div>
+
+        <div class="field">
+          <label>Otros gastos</label>
+          <input type="text" name="otros_gastos" data-euro>
+        </div>
+
+      </div>
     </div>
-</div>
 
     <div class="card">
       <h2>3️⃣ Inversión inicial</h2>
@@ -152,6 +177,16 @@
         <div class="field">
           <label>Otros gastos venta</label>
           <input type="number" step="0.01" name="otros_venta">
+        </div>
+
+        <div class="field">
+          <label>Coste administración (0,5 %)</label>
+          <input type="text" name="coste_administracion" data-euro readonly>
+        </div>
+
+        <div class="field">
+          <label>Coste comercialización (0,5 %)</label>
+          <input type="text" name="coste_comercializacion" data-euro readonly>
         </div>
       </div>
     </div>
