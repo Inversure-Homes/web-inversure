@@ -1,0 +1,83 @@
+
+
+{% extends "core/base.html" %}
+{% block content %}
+
+<div class="container mt-5">
+
+    <div class="text-center mb-5">
+        <h1 class="mb-1">Nuevo cliente</h1>
+        <p class="text-muted">
+            Alta de cuenta partícipe (persona física o jurídica)
+        </p>
+    </div>
+
+    <form method="post" class="card shadow-sm border-0 p-4">
+        {% csrf_token %}
+
+        <!-- TIPO DE CLIENTE -->
+        <div class="mb-4">
+            <label class="form-label fw-semibold">Tipo de cliente</label>
+            <select name="tipo_persona" class="form-select form-select-lg" required>
+                <option value="F">Persona física</option>
+                <option value="J">Persona jurídica</option>
+            </select>
+        </div>
+
+        <!-- DATOS IDENTIFICATIVOS -->
+        <div class="row">
+            <div class="col-md-8 mb-3">
+                <label class="form-label fw-semibold">
+                    Nombre / Razón social
+                </label>
+                <input type="text" name="nombre" class="form-control form-control-lg" required>
+            </div>
+
+            <div class="col-md-4 mb-3">
+                <label class="form-label fw-semibold">
+                    DNI / CIF
+                </label>
+                <input type="text" name="dni_cif" class="form-control form-control-lg" required>
+            </div>
+        </div>
+
+        <!-- CONTACTO -->
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Email</label>
+                <input type="email" name="email" class="form-control form-control-lg">
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Teléfono</label>
+                <input type="text" name="telefono" class="form-control form-control-lg">
+            </div>
+        </div>
+
+        <!-- DATOS BANCARIOS -->
+        <div class="mb-3">
+            <label class="form-label fw-semibold">IBAN</label>
+            <input type="text" name="iban" class="form-control form-control-lg">
+        </div>
+
+        <!-- OBSERVACIONES -->
+        <div class="mb-4">
+            <label class="form-label fw-semibold">Observaciones</label>
+            <textarea name="observaciones" rows="3" class="form-control"></textarea>
+        </div>
+
+        <!-- ACCIONES -->
+        <div class="d-flex justify-content-between mt-4">
+            <a href="{% url 'clientes' %}" class="btn btn-outline-secondary">
+                Volver
+            </a>
+            <button type="submit" class="btn btn-dark">
+                Guardar cliente
+            </button>
+        </div>
+
+    </form>
+
+</div>
+
+{% endblock %}

@@ -118,3 +118,70 @@ class Proyecto(models.Model):
 
     def __str__(self):
         return f"{self.nombre} ({self.fecha})"
+
+
+# =========================
+# MODELO CLIENTE
+# =========================
+class Cliente(models.Model):
+    TIPO_PERSONA_CHOICES = (
+        ("F", "Persona física"),
+        ("J", "Persona jurídica"),
+    )
+
+    # =========================
+    # IDENTIFICACIÓN
+    # =========================
+    tipo_persona = models.CharField(
+        max_length=1,
+        choices=TIPO_PERSONA_CHOICES,
+        default="F"
+    )
+
+    nombre = models.CharField(
+        max_length=255,
+        help_text="Nombre completo o razón social"
+    )
+
+    dni_cif = models.CharField(
+        max_length=20,
+        unique=True
+    )
+
+    # =========================
+    # CONTACTO
+    # =========================
+    email = models.EmailField(
+        blank=True,
+        null=True
+    )
+
+    telefono = models.CharField(
+        max_length=30,
+        blank=True,
+        null=True
+    )
+
+    # =========================
+    # DATOS BANCARIOS
+    # =========================
+    iban = models.CharField(
+        max_length=34,
+        blank=True,
+        null=True,
+        help_text="IBAN del cliente (opcional)"
+    )
+
+    # =========================
+    # CONTROL / NOTAS
+    # =========================
+    observaciones = models.TextField(
+        blank=True,
+        null=True
+    )
+
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.nombre} ({self.dni_cif})"

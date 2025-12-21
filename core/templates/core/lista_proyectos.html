@@ -1,31 +1,69 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Proyectos</title>
-</head>
-<body>
+{% extends "core/base.html" %}
+{% block content %}
 
-    <h1>Proyectos guardados</h1>
+<div class="container mt-5">
 
-    {% if proyectos %}
-        <ul>
-            {% for proyecto in proyectos %}
-                <li>
-                    <strong>{{ proyecto.nombre }}</strong>
-                    {% if proyecto.fecha %}
-                        – {{ proyecto.fecha }}
+    <div class="text-center mb-5">
+        <h1 class="mb-1">Proyectos</h1>
+        <p class="text-muted">
+            Accede a proyectos guardados o inicia un nuevo análisis
+        </p>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- NUEVO PROYECTO -->
+        <div class="col-md-6">
+            <a href="{% url 'simulador' %}" class="text-decoration-none text-dark">
+                <div class="card h-100 shadow-sm border-0 hover-card">
+                    <div class="card-body text-center">
+                        <div class="display-5 mb-3">🧮</div>
+                        <h5 class="mb-2">Nuevo proyecto</h5>
+                        <p class="text-muted mb-4">
+                            Inicia un nuevo análisis de viabilidad desde el simulador.
+                        </p>
+                        <span class="btn btn-dark">
+                            Ir al simulador
+                        </span>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- PROYECTOS GUARDADOS -->
+        <div class="col-md-6">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="mb-3">📁 Proyectos guardados</h5>
+
+                    {% if proyectos %}
+                        <ul class="list-group list-group-flush">
+                            {% for proyecto in proyectos %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>
+                                        <strong>{{ proyecto.nombre }}</strong>
+                                        {% if proyecto.fecha %}
+                                            <span class="text-muted ms-2">({{ proyecto.fecha }})</span>
+                                        {% endif %}
+                                    </span>
+                                    <a href="{% url 'simulador' %}?proyecto={{ proyecto.nombre }}"
+                                       class="btn btn-sm btn-outline-dark">
+                                        Abrir
+                                    </a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted mb-0">
+                            No hay proyectos guardados todavía.
+                        </p>
                     {% endif %}
-                </li>
-            {% endfor %}
-        </ul>
-    {% else %}
-        <p>No hay proyectos guardados.</p>
-    {% endif %}
+                </div>
+            </div>
+        </div>
 
-    <p>
-        <a href="/">← Volver al simulador</a>
-    </p>
+    </div>
 
-</body>
-</html>
+</div>
+
+{% endblock %}

@@ -1,0 +1,60 @@
+
+
+{% extends "core/base.html" %}
+{% block content %}
+
+<div class="container mt-5">
+
+    <div class="text-center mb-5">
+        <h1 class="mb-1">Importar clientes</h1>
+        <p class="text-muted">
+            Importación masiva de clientes desde archivo Excel
+        </p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data"
+          class="card shadow-sm border-0 p-4">
+
+        {% csrf_token %}
+
+        <!-- INFO -->
+        <div class="alert alert-info">
+            <strong>Formato requerido del Excel:</strong>
+            <ul class="mb-0">
+                <li><code>nombre</code> (obligatorio)</li>
+                <li><code>dni_cif</code> (obligatorio)</li>
+                <li><code>tipo_persona</code> (F / J, opcional)</li>
+                <li><code>email</code> (opcional)</li>
+                <li><code>telefono</code> (opcional)</li>
+                <li><code>iban</code> (opcional)</li>
+                <li><code>observaciones</code> (opcional)</li>
+            </ul>
+        </div>
+
+        <!-- ARCHIVO -->
+        <div class="mb-4">
+            <label class="form-label fw-semibold">
+                Archivo Excel
+            </label>
+            <input type="file"
+                   name="archivo"
+                   class="form-control form-control-lg"
+                   accept=".xlsx,.xls"
+                   required>
+        </div>
+
+        <!-- ACCIONES -->
+        <div class="d-flex justify-content-between">
+            <a href="{% url 'clientes' %}" class="btn btn-outline-secondary">
+                Volver
+            </a>
+            <button type="submit" class="btn btn-dark">
+                Importar clientes
+            </button>
+        </div>
+
+    </form>
+
+</div>
+
+{% endblock %}

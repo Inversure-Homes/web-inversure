@@ -1,5 +1,16 @@
-from django.shortcuts import render
-from .models import Proyecto
+from django.shortcuts import render, redirect
+from .models import Proyecto, Cliente
+
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+from django.contrib import messages
+
+
+# Nueva vista home
+def home(request):
+    return render(request, "core/home.html")
 
 
 def parse_euro(value):
@@ -302,3 +313,94 @@ def lista_proyectos(request):
         "core/lista_proyectos.html",
         {"proyectos": proyectos},
     )
+
+
+# Vista clientes
+def clientes(request):
+    clientes = Cliente.objects.all().order_by("nombre")
+    return render(
+        request,
+        "core/clientes.html",
+        {
+            "clientes": clientes,
+        },
+    )
+
+
+# Nueva vista para crear cliente
+def cliente_create(request):
+    if request.method == "POST":
+        data = request.POST
+
+        Cliente.objects.create(
+            tipo_persona=data.get("tipo_persona"),
+            nombre=data.get("nombre"),
+            dni_cif=data.get("dni_cif"),
+            email=data.get("email") or None,
+            telefono=data.get("telefono") or None,
+            iban=data.get("iban") or None,
+            observaciones=data.get("observaciones") or None,
+        )
+
+        return redirect("clientes")
+
+    return render(request, "core/clientes_form.html")
+
+
+# Vista para importar clientes desde Excel
+def clientes_import(request):
+    if pd is None:
+        messages.error(request, "El módulo pandas no está disponible. No se puede importar el Excel.")
+        return redirect("clientes")
+    """
+    Importa clientes desde un archivo Excel.
+    El Excel debe contener como mínimo las columnas:
+    nombre, dni_cif
+
+    Columnas opcionales:
+    tipo_persona, email, telefono, iban, observaciones
+    """
+
+    if request.method == "POST" and request.FILES.get("archivo"):
+        archivo = request.FILES["archivo"]
+
+        try:
+            df = pd.read_excel(archivo)
+
+            creados = 0
+            omitidos = 0
+
+            for _, row in df.iterrows():
+                dni_cif = str(row.get("dni_cif", "")).strip()
+                nombre = str(row.get("nombre", "")).strip()
+
+                if not dni_cif or not nombre:
+                    omitidos += 1
+                    continue
+
+                if Cliente.objects.filter(dni_cif=dni_cif).exists():
+                    omitidos += 1
+                    continue
+
+                Cliente.objects.create(
+                    tipo_persona=str(row.get("tipo_persona", "F")).upper()[:1],
+                    nombre=nombre,
+                    dni_cif=dni_cif,
+                    email=row.get("email") or None,
+                    telefono=row.get("telefono") or None,
+                    iban=row.get("iban") or None,
+                    observaciones=row.get("observaciones") or None,
+                )
+                creados += 1
+
+            messages.success(
+                request,
+                f"Importación finalizada: {creados} clientes creados, {omitidos} omitidos."
+            )
+
+        except Exception as e:
+            messages.error(request, f"Error al importar el archivo: {e}")
+
+        return redirect("clientes")
+
+    return render(request, "core/clientes_import.html")

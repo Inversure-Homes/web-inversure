@@ -123,3 +123,15 @@
   border-left: 6px solid #dc3545; /* rojo Bootstrap */
   box-shadow: 0 0 0 1px rgba(220,53,69,0.15);
 }
+
+/* ===== PORTADA · CARDS INTERACTIVAS ===== */
+
+.hover-card{
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.hover-card:hover{
+  transform: translateY(-6px);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+}

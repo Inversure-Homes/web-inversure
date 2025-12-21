@@ -1,0 +1,68 @@
+{% extends "core/base.html" %}
+{% block content %}
+
+<div class="container mt-5">
+    <div class="text-center mb-5">
+        <h1 class="mb-1">Inversure</h1>
+        <p class="text-muted">
+            Panel principal · Gestión de operaciones, proyectos y clientes
+        </p>
+    </div>
+
+    <div class="row g-4">
+
+        <div class="col-md-4">
+            <a href="{% url 'simulador' %}" class="text-decoration-none text-dark">
+                <div class="card h-100 shadow-sm border-0 hover-card">
+                    <div class="card-body text-center">
+                        <div class="display-5 mb-3">🧮</div>
+                        <h5 class="mb-2">Simulador</h5>
+                        <p class="text-muted mb-4">
+                            Analiza la viabilidad y rentabilidad de nuevas operaciones inmobiliarias.
+                        </p>
+                        <span class="btn btn-dark">
+                            Ir al simulador
+                        </span>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-4">
+            <a href="{% url 'lista_proyectos' %}" class="text-decoration-none text-dark">
+                <div class="card h-100 shadow-sm border-0 hover-card">
+                    <div class="card-body text-center">
+                        <div class="display-5 mb-3">📁</div>
+                        <h5 class="mb-2">Proyectos</h5>
+                        <p class="text-muted mb-4">
+                            Consulta proyectos guardados, su estado y métricas principales.
+                        </p>
+                        <span class="btn btn-dark">
+                            Ver proyectos
+                        </span>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-4">
+            <a href="{% url 'clientes' %}" class="text-decoration-none text-dark">
+                <div class="card h-100 shadow-sm border-0 hover-card">
+                    <div class="card-body text-center">
+                        <div class="display-5 mb-3">👤</div>
+                        <h5 class="mb-2">Clientes</h5>
+                        <p class="text-muted mb-4">
+                            Gestiona la base de datos de cuenta partícipes y datos personales.
+                        </p>
+                        <span class="btn btn-dark">
+                            Ver clientes
+                        </span>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}
