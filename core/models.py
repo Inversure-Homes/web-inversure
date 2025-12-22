@@ -90,6 +90,12 @@ class Proyecto(models.Model):
     gastos_administracion = models.DecimalField(
         max_digits=12, decimal_places=2, default=0
     )
+    gestion_comercial = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0
+    )
+    gestion_administracion = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0
+    )
     plusvalia = models.DecimalField(
         max_digits=12, decimal_places=2, default=0
     )
@@ -117,6 +123,14 @@ class Proyecto(models.Model):
     )
     media_valoraciones = models.DecimalField(
         max_digits=12, decimal_places=2, default=0
+    )
+    # =========================
+    # DURACIÓN DE LA OPERACIÓN
+    # =========================
+    meses = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Duración estimada de la operación en meses"
     )
     # =========================
     # RESULTADOS / MÉTRICAS

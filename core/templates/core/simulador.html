@@ -161,7 +161,7 @@
                       Notaría
                       <span class="ms-1 text-muted" title="Calculado automáticamente en base a los datos introducidos">ℹ️</span>
                     </label>
-                    <input type="text" name="notaria" class="form-control form-control-lg" data-euro="true" readonly title="Calculado automáticamente en base a los datos introducidos"
+                    <input type="text" name="notaria" class="form-control form-control-lg" data-euro="true"
                            value="{{ proyecto.notaria|default:'' }}">
                 </div>
                 <div class="col-md-4 mb-3">
@@ -169,7 +169,7 @@
                       Registro
                       <span class="ms-1 text-muted" title="Calculado automáticamente en base a los datos introducidos">ℹ️</span>
                     </label>
-                    <input type="text" name="registro" class="form-control form-control-lg" data-euro="true" readonly title="Calculado automáticamente en base a los datos introducidos"
+                    <input type="text" name="registro" class="form-control form-control-lg" data-euro="true"
                            value="{{ proyecto.registro|default:'' }}">
                 </div>
             </div>
@@ -179,7 +179,7 @@
                       ITP
                       <span class="ms-1 text-muted" title="Calculado automáticamente en base a los datos introducidos">ℹ️</span>
                     </label>
-                    <input type="text" name="itp" class="form-control form-control-lg" data-euro="true" readonly title="Calculado automáticamente en base a los datos introducidos"
+                    <input type="text" name="itp" class="form-control form-control-lg" data-euro="true"
                            value="{{ proyecto.itp|default:'' }}">
                 </div>
                 <div class="col-md-6 mb-3">
@@ -204,19 +204,23 @@
             <div class="row">
                 <div class="col-md-3 mb-3">
                     <label class="form-label">Reforma</label>
-                    <input type="text" name="reforma" class="form-control form-control-lg" data-euro="true">
+                    <input type="text" name="reforma" class="form-control form-control-lg" data-euro="true"
+                           value="{{ proyecto.reforma|default:'' }}">
                 </div>
                 <div class="col-md-3 mb-3">
                     <label class="form-label">Limpieza inicial</label>
-                    <input type="text" name="limpieza_inicial" class="form-control form-control-lg" data-euro="true">
+                    <input type="text" name="limpieza_inicial" class="form-control form-control-lg" data-euro="true"
+                           value="{{ proyecto.limpieza_inicial|default:'' }}">
                 </div>
                 <div class="col-md-3 mb-3">
                     <label class="form-label">Mobiliario</label>
-                    <input type="text" name="mobiliario" class="form-control form-control-lg" data-euro="true">
+                    <input type="text" name="mobiliario" class="form-control form-control-lg" data-euro="true"
+                           value="{{ proyecto.mobiliario|default:'' }}">
                 </div>
                 <div class="col-md-3 mb-3">
                     <label class="form-label">Otros puesta en marcha</label>
-                    <input type="text" name="otros_puesta_marcha" class="form-control form-control-lg" data-euro="true">
+                    <input type="text" name="otros_puesta_marcha" class="form-control form-control-lg" data-euro="true"
+                           value="{{ proyecto.otros_puesta_marcha|default:'' }}">
                 </div>
             </div>
         </div>
@@ -235,30 +239,36 @@
             <div class="row">
                 <div class="col-md-4 mb-3">
                     <label class="form-label">Comunidad</label>
-                    <input type="text" name="comunidad" class="form-control" data-euro="true">
+                    <input type="text" name="comunidad" class="form-control" data-euro="true"
+                           value="{{ proyecto.comunidad|default:'' }}">
                 </div>
                 <div class="col-md-4 mb-3">
                     <label class="form-label">IBI</label>
-                    <input type="text" name="ibi" class="form-control" data-euro="true">
+                    <input type="text" name="ibi" class="form-control" data-euro="true"
+                           value="{{ proyecto.ibi|default:'' }}">
                 </div>
                 <div class="col-md-4 mb-3">
                     <label class="form-label">Seguros</label>
-                    <input type="text" name="seguros" class="form-control" data-euro="true">
+                    <input type="text" name="seguros" class="form-control" data-euro="true"
+                           value="{{ proyecto.seguros|default:'' }}">
                 </div>
             </div>
 
             <div class="row">
                 <div class="col-md-4 mb-3">
                     <label class="form-label">Suministros</label>
-                    <input type="text" name="suministros" class="form-control" data-euro="true">
+                    <input type="text" name="suministros" class="form-control" data-euro="true"
+                           value="{{ proyecto.suministros|default:'' }}">
                 </div>
                 <div class="col-md-4 mb-3">
                     <label class="form-label">Limpieza periódica</label>
-                    <input type="text" name="limpieza_periodica" class="form-control" data-euro="true">
+                    <input type="text" name="limpieza_periodica" class="form-control" data-euro="true"
+                           value="{{ proyecto.limpieza_periodica|default:'' }}">
                 </div>
                 <div class="col-md-4 mb-3">
                     <label class="form-label">Ocupas</label>
-                    <input type="text" name="ocupas" class="form-control" data-euro="true">
+                    <input type="text" name="ocupas" class="form-control" data-euro="true"
+                           value="{{ proyecto.ocupas|default:'' }}">
                 </div>
             </div>
         </div>
@@ -277,19 +287,23 @@
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label class="form-label">Plusvalía</label>
-                    <input type="text" name="plusvalia" class="form-control" data-euro="true">
+                    <input type="text" name="plusvalia" class="form-control" data-euro="true"
+                           value="{{ proyecto.plusvalia|default:'' }}">
                 </div>
                 <div class="col-md-6 mb-3">
                     <label class="form-label">Inmobiliaria</label>
-                    <input type="text" name="inmobiliaria" class="form-control" data-euro="true">
+                    <input type="text" name="inmobiliaria" class="form-control" data-euro="true"
+                           value="{{ proyecto.inmobiliaria|default:'' }}">
                 </div>
                 <div class="col-md-6 mb-3">
                     <label class="form-label">Gestión comercial</label>
-                    <input type="text" name="gestion_comercial" class="form-control" data-euro="true">
+                    <input type="text" name="gestion_comercial" class="form-control" data-euro="true"
+                           value="{{ proyecto.gestion_comercial|default:'' }}">
                 </div>
                 <div class="col-md-6 mb-3">
                     <label class="form-label">Gestión administración</label>
-                    <input type="text" name="gestion_administracion" class="form-control" data-euro="true">
+                    <input type="text" name="gestion_administracion" class="form-control" data-euro="true"
+                           value="{{ proyecto.gestion_administracion|default:'' }}">
                 </div>
             </div>
         </div>
@@ -458,6 +472,11 @@ function parseEuro(value) {
 
 // --- FASE 1: Estado para detectar edición manual de precio de venta ---
 let precioVentaManual = false;
+let notariaManual = false;
+let registroManual = false;
+let itpManual = false;
+let gestionComercialManual = false;
+let gestionAdministracionManual = false;
 
 function recalcMediaValoraciones() {
     const fields = [
@@ -507,9 +526,16 @@ function recalcPrecioCompraInmueble() {
     const registroInput = document.querySelector('[name="registro"]');
     const itpInput = document.querySelector('[name="itp"]');
 
-    if (notariaInput) notariaInput.value = formatEuro(notariaCalc);
-    if (registroInput) registroInput.value = formatEuro(registroCalc);
-    if (itpInput) itpInput.value = formatEuro(itpCalc);
+    if (notariaInput && !notariaManual) {
+        notariaInput.value = formatEuro(notariaCalc);
+    }
+
+    if (registroInput && !registroManual) {
+        registroInput.value = formatEuro(registroCalc);
+    }
+    if (itpInput && !itpManual) {
+        itpInput.value = formatEuro(itpCalc);
+    }
 
     const gastos = [
         // Gastos de adquisición
@@ -556,13 +582,6 @@ function recalcPrecioCompraInmueble() {
 document.querySelectorAll('input[data-euro="true"]').forEach(input => {
     input.addEventListener("blur", () => {
 
-        // Skip formatting for valuation inputs to avoid clearing while typing
-        if (input.hasAttribute("data-valuation")) {
-            recalcPrecioCompraInmueble();
-            recalcMediaValoraciones();
-            return;
-        }
-
         const raw = input.value;
         const val = parseEuro(raw);
 
@@ -572,8 +591,16 @@ document.querySelectorAll('input[data-euro="true"]').forEach(input => {
             input.value = raw;
         }
 
-        recalcPrecioCompraInmueble();
+        // 🔒 Recalcular MEDIA siempre
         recalcMediaValoraciones();
+
+        // 🔒 Recalcular PRECIO COMPRA SOLO si no afecta a campos manuales
+        if (
+            (!notariaManual && !registroManual) ||
+            (input.name !== "notaria" && input.name !== "registro")
+        ) {
+            recalcPrecioCompraInmueble();
+        }
     });
 });
 // Recalculate totals when editing “Precio de escritura”
@@ -589,6 +616,41 @@ const precioVentaInput = document.querySelector('[name="precio_venta_estimado"]'
 if (precioVentaInput) {
     precioVentaInput.addEventListener("input", () => {
         precioVentaManual = true;
+    });
+}
+
+const notariaInputManual = document.querySelector('[name="notaria"]');
+if (notariaInputManual) {
+    notariaInputManual.addEventListener("input", () => {
+        notariaManual = true;
+    });
+}
+
+const registroInputManual = document.querySelector('[name="registro"]');
+if (registroInputManual) {
+    registroInputManual.addEventListener("input", () => {
+        registroManual = true;
+    });
+}
+
+const itpInputManual = document.querySelector('[name="itp"]');
+if (itpInputManual) {
+    itpInputManual.addEventListener("input", () => {
+        itpManual = true;
+    });
+}
+
+const gestionComercialInputManual = document.querySelector('[name="gestion_comercial"]');
+if (gestionComercialInputManual) {
+    gestionComercialInputManual.addEventListener("input", () => {
+        gestionComercialManual = true;
+    });
+}
+
+const gestionAdministracionInputManual = document.querySelector('[name="gestion_administracion"]');
+if (gestionAdministracionInputManual) {
+    gestionAdministracionInputManual.addEventListener("input", () => {
+        gestionAdministracionManual = true;
     });
 }
 function verCatastro() {
@@ -626,13 +688,50 @@ if (refInput && btnCatastro) {
 
 <script>
 document.querySelector("form").addEventListener("submit", () => {
-    document.querySelectorAll('input[data-valuation="true"]').forEach(input => {
+
+    // 1️⃣ Forzar formateo de TODOS los campos en euros
+    document.querySelectorAll('input[data-euro="true"]').forEach(input => {
         const val = parseEuro(input.value);
-        if (val > 0) input.value = formatEuro(val);
+        if (val > 0) {
+            input.value = formatEuro(val);
+        }
     });
+
+    // 2️⃣ Recalcular SOLO si no hay edición manual
+    recalcMediaValoraciones();
+
+    if (
+        !notariaManual &&
+        !registroManual &&
+        !itpManual &&
+        !gestionComercialManual &&
+        !gestionAdministracionManual
+    ) {
+        recalcPrecioCompraInmueble();
+    }
 });
 </script>
 
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+    // 🔒 Formatear TODOS los campos monetarios al cargar la página
+    document.querySelectorAll('input[data-euro="true"]').forEach(input => {
+        const raw = input.value;
+        const val = parseEuro(raw);
+        if (val > 0) {
+            input.value = formatEuro(val);
+        }
+    });
+
+    // 🔁 Recalcular media de valoraciones al cargar (proyectos guardados)
+    if (typeof recalcMediaValoraciones === "function") {
+        recalcMediaValoraciones();
+    }
+
+    // (Eliminado: recalcPrecioCompraInmueble al cargar)
+});
+</script>
 {% endblock %}
 
     <!-- ===============================

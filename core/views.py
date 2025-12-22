@@ -14,15 +14,19 @@ def home(request):
 
 
 def parse_euro(value):
-    if not value:
+    if value in (None, ""):
         return 0.0
-    return float(
-        value.replace(".", "")
-             .replace(",", ".")
-             .replace("€", "")
-             .replace("\xa0", "")
-             .strip()
-    )
+    try:
+        return float(
+            str(value)
+            .replace(".", "")
+            .replace(",", ".")
+            .replace("€", "")
+            .replace("\xa0", "")
+            .strip()
+        )
+    except Exception:
+        return 0.0
 
 
 def simulador(request):
@@ -130,7 +134,7 @@ def simulador(request):
         """
 
         # === DATOS BASE ===
-        # Leer precio_escritura y precio_venta desde los campos del formulario
+        # SIEMPRE leer todos los datos relevantes directamente del formulario (POST)
         precio_escritura = parse_euro(data.get("precio_propiedad"))
         precio_venta = parse_euro(data.get("precio_venta_estimado"))
 
@@ -153,51 +157,49 @@ def simulador(request):
         media_valoraciones = sum(valores) / len(valores) if valores else 0
 
         # === GASTOS AUTOMÁTICOS DE ADQUISICIÓN (solo sobre precio_escritura) ===
-        notaria = max(precio_escritura * 0.002, 500)
-        registro = max(precio_escritura * 0.002, 500)
-        itp = precio_escritura * 0.02
+        notaria = max(float(precio_escritura) * 0.002, 500)
+        registro = max(float(precio_escritura) * 0.002, 500)
+        itp = float(precio_escritura) * 0.02
 
         # === GASTOS MANUALES ===
         otros_gastos_compra = parse_euro(data.get("otros_gastos_compra"))
 
-        # Inversión inicial
+        # Inversión inicial y gastos recurrentes
         reforma = parse_euro(data.get("reforma"))
         limpieza_inicial = parse_euro(data.get("limpieza_inicial"))
         mobiliario = parse_euro(data.get("mobiliario"))
         otros_puesta_marcha = parse_euro(data.get("otros_puesta_marcha"))
-        inversion_inicial = reforma + limpieza_inicial + mobiliario + otros_puesta_marcha
 
-        # Gastos recurrentes
         comunidad = parse_euro(data.get("comunidad"))
         ibi = parse_euro(data.get("ibi"))
         seguros = parse_euro(data.get("seguros"))
         suministros = parse_euro(data.get("suministros"))
         limpieza_periodica = parse_euro(data.get("limpieza_periodica"))
         ocupas = parse_euro(data.get("ocupas"))
+
+        inversion_inicial = (
+            float(reforma or 0)
+            + float(limpieza_inicial or 0)
+            + float(mobiliario or 0)
+            + float(otros_puesta_marcha or 0)
+        )
+
         gastos_recurrentes = (
-            comunidad
-            + ibi
-            + seguros
-            + suministros
-            + limpieza_periodica
-            + ocupas
+            float(comunidad or 0)
+            + float(ibi or 0)
+            + float(seguros or 0)
+            + float(suministros or 0)
+            + float(limpieza_periodica or 0)
+            + float(ocupas or 0)
         )
 
         # === VALOR DE ADQUISICIÓN ===
-        valor_adquisicion = (
-            precio_escritura
-            + notaria
-            + registro
-            + itp
-            + otros_gastos_compra
-            + inversion_inicial
-            + gastos_recurrentes
-        )
+        valor_adquisicion = float(precio_escritura or 0) + float(notaria or 0) + float(registro or 0) + float(itp or 0) + float(otros_gastos_compra or 0) + float(inversion_inicial or 0) + float(gastos_recurrentes or 0)
 
         # === GASTOS DE VENTA ===
         plusvalia = parse_euro(data.get("plusvalia"))
         inmobiliaria = parse_euro(data.get("inmobiliaria"))
-        gastos_venta = plusvalia + inmobiliaria
+        gastos_venta = float(plusvalia or 0) + float(inmobiliaria or 0)
 
         # === BENEFICIO BASE ===
         beneficio_base = (precio_venta - gastos_venta) - valor_adquisicion
@@ -253,52 +255,43 @@ def simulador(request):
         # === GUARDAR / ACTUALIZAR PROYECTO (CLAVE = NOMBRE) ===
         if nombre_proyecto:
             estado_post = data.get("estado", "ESTUDIO")
+            meses_val = int(data.get("meses")) if data.get("meses") else None
             if proyecto:
-                # Actualizar proyecto existente
+                # === ACTUALIZAR PROYECTO EXISTENTE (SIN PÉRDIDA DE DATOS) ===
+                # Asignar todos los campos manuales directamente desde el formulario
+                proyecto.meses = meses_val
+                proyecto.otros_gastos_compra = otros_gastos_compra
+                proyecto.reforma = reforma
+                proyecto.limpieza_inicial = limpieza_inicial
+                proyecto.mobiliario = mobiliario
+                proyecto.otros_puesta_marcha = otros_puesta_marcha
+                proyecto.comunidad = comunidad
+                proyecto.ibi = ibi
+                proyecto.seguros = seguros
+                proyecto.suministros = suministros
+                proyecto.limpieza_periodica = limpieza_periodica
+                proyecto.ocupas = ocupas
+                proyecto.plusvalia = plusvalia
+                proyecto.inmobiliaria = inmobiliaria
+                proyecto.val_idealista = val_idealista
+                proyecto.val_fotocasa = val_fotocasa
+                proyecto.val_registradores = val_registradores
+                proyecto.val_casafari = val_casafari
+                proyecto.val_tasacion = val_tasacion
+
                 proyecto.precio_propiedad = precio_escritura
                 proyecto.precio_compra_inmueble = valor_adquisicion
                 proyecto.precio_venta_estimado = precio_venta
                 proyecto.notaria = notaria
                 proyecto.registro = registro
                 proyecto.itp = itp
-                proyecto.beneficio_neto = beneficio_neto
-                proyecto.roi = roi
 
-                # Valoraciones
-                proyecto.val_idealista = val_idealista if "val_idealista" in data else proyecto.val_idealista
-                proyecto.val_fotocasa = val_fotocasa if "val_fotocasa" in data else proyecto.val_fotocasa
-                proyecto.val_registradores = val_registradores if "val_registradores" in data else proyecto.val_registradores
-                proyecto.val_casafari = val_casafari if "val_casafari" in data else proyecto.val_casafari
-                proyecto.val_tasacion = val_tasacion if "val_tasacion" in data else proyecto.val_tasacion
-
-                # Gastos manuales y persistencia completa del estudio
-                proyecto.otros_gastos_compra = otros_gastos_compra if "otros_gastos_compra" in data else proyecto.otros_gastos_compra
-
-                # Inversión inicial
-                proyecto.reforma = reforma if "reforma" in data else proyecto.reforma
-                proyecto.limpieza_inicial = limpieza_inicial if "limpieza_inicial" in data else proyecto.limpieza_inicial
-                proyecto.mobiliario = mobiliario if "mobiliario" in data else proyecto.mobiliario
-                proyecto.otros_puesta_marcha = otros_puesta_marcha if "otros_puesta_marcha" in data else proyecto.otros_puesta_marcha
-
-                # Gastos recurrentes
-                proyecto.comunidad = comunidad if "comunidad" in data else proyecto.comunidad
-                proyecto.ibi = ibi if "ibi" in data else proyecto.ibi
-                proyecto.seguros = seguros if "seguros" in data else proyecto.seguros
-                proyecto.suministros = suministros if "suministros" in data else proyecto.suministros
-                proyecto.limpieza_periodica = limpieza_periodica if "limpieza_periodica" in data else proyecto.limpieza_periodica
-                proyecto.ocupas = ocupas if "ocupas" in data else proyecto.ocupas
-
-                # Gastos de venta
-                proyecto.plusvalia = plusvalia if "plusvalia" in data else proyecto.plusvalia
-                proyecto.inmobiliaria = inmobiliaria if "inmobiliaria" in data else proyecto.inmobiliaria
-
-                # Estado proyecto
-                proyecto.estado = estado_post
-
-                if media_valoraciones > 0:
-                    proyecto.media_valoraciones = media_valoraciones
+                proyecto.media_valoraciones = media_valoraciones
                 proyecto.gestion_comercial = gestion_comercial
                 proyecto.gestion_administracion = gestion_administracion
+                proyecto.beneficio_neto = beneficio_neto
+                proyecto.roi = roi
+                proyecto.estado = estado_post
 
                 proyecto.save()
             else:
@@ -335,10 +328,10 @@ def simulador(request):
                     media_valoraciones=media_valoraciones,
                     gestion_comercial=gestion_comercial,
                     gestion_administracion=gestion_administracion,
+                    meses=meses_val,
                 )
 
-    if proyecto:
-        proyecto.refresh_from_db()
+    # No refrescar desde BD tras POST
 
     return render(
         request,
