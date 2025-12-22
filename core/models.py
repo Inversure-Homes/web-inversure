@@ -98,6 +98,27 @@ class Proyecto(models.Model):
     )
 
     # =========================
+    # VALORACIONES
+    # =========================
+    val_idealista = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0
+    )
+    val_fotocasa = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0
+    )
+    val_registradores = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0
+    )
+    val_casafari = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0
+    )
+    val_tasacion = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0
+    )
+    media_valoraciones = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0
+    )
+    # =========================
     # RESULTADOS / MÉTRICAS
     # =========================
     beneficio_bruto = models.DecimalField(
@@ -110,6 +131,21 @@ class Proyecto(models.Model):
         max_digits=6, decimal_places=2, default=0
     )
 
+    # =========================
+    # ESTADO DEL PROYECTO
+    # =========================
+    ESTADO_CHOICES = (
+        ("estudio", "En estudio"),
+        ("viable", "Viable"),
+        ("descartado", "Descartado"),
+        ("operacion", "En operación"),
+    )
+
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default="estudio"
+    )
     # =========================
     # CONTROL
     # =========================
