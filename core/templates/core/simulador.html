@@ -37,16 +37,23 @@
                         Estado del proyecto
                     </label>
                     <select name="estado" class="form-select form-select-lg">
-                        <option value="ESTUDIO"
-                            {% if proyecto.estado == "ESTUDIO" or not proyecto.estado %}selected{% endif %}>
+                        <option value="estudio"
+                            {% if proyecto.estado == "estudio" or not proyecto.estado %}selected{% endif %}>
                             En estudio
                         </option>
-                        <option value="APROBADO"
-                            {% if proyecto.estado == "APROBADO" %}selected{% endif %}>
-                            Aprobado
+
+                        <option value="operacion"
+                            {% if proyecto.estado == "operacion" %}selected{% endif %}>
+                            En operación
                         </option>
-                        <option value="DESCARTADO"
-                            {% if proyecto.estado == "DESCARTADO" %}selected{% endif %}>
+
+                        <option value="cerrado_positivo"
+                            {% if proyecto.estado == "cerrado_positivo" %}selected{% endif %}>
+                            Cerrado positivamente
+                        </option>
+
+                        <option value="descartado"
+                            {% if proyecto.estado == "descartado" %}selected{% endif %}>
                             Descartado
                         </option>
                     </select>
@@ -345,8 +352,18 @@
     <!-- ===============================
          ACCIONES
     ================================ -->
-    <div class="d-flex justify-content-end mb-4">
-        <button type="submit" class="btn btn-dark">Calcular</button>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        {% if proyecto and proyecto.nombre %}
+            <a href="{% url 'borrar_proyecto' proyecto.nombre %}"
+               class="btn btn-outline-danger btn-sm"
+               onclick="return confirm('¿Seguro que quieres borrar este proyecto? Esta acción no se puede deshacer.');">
+                🗑 Borrar proyecto
+            </a>
+        {% endif %}
+
+        <button type="submit" class="btn btn-dark">
+            Calcular
+        </button>
     </div>
 
     <!-- ===============================

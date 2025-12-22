@@ -44,6 +44,29 @@ def simulador(request):
         if nombre_proyecto:
             proyecto = Proyecto.objects.filter(nombre=nombre_proyecto).first()
 
+            # BLOQUEO POR ESTADO: si el proyecto está cerrado positivamente, no se permite recalcular ni sobrescribir
+            if proyecto and proyecto.estado == "cerrado_positivo":
+                resultado = {
+                    "valor_adquisicion": round(proyecto.precio_compra_inmueble or 0, 2),
+                    "precio_venta": round(proyecto.precio_venta_estimado or 0, 2),
+                    "beneficio_neto": round(proyecto.beneficio_neto or 0, 2),
+                    "roi": round(proyecto.roi or 0, 2),
+                    "viable": (proyecto.roi or 0) >= 15,
+                    "margen_neto": 0,
+                    "colchon_seguridad": 0,
+                    "ratio_euro": 0,
+                    "precio_minimo_venta": 0,
+                }
+                return render(
+                    request,
+                    "core/simulador.html",
+                    {
+                        "proyectos": proyectos,
+                        "resultado": resultado,
+                        "proyecto": proyecto,
+                    },
+                )
+
         """
         ============================================================
         MOTOR DE CÁLCULO – SIMULADOR INVERSURE (CIERRE DEFINITIVO)
@@ -242,37 +265,38 @@ def simulador(request):
                 proyecto.roi = roi
 
                 # Valoraciones
-                proyecto.val_idealista = val_idealista
-                proyecto.val_fotocasa = val_fotocasa
-                proyecto.val_registradores = val_registradores
-                proyecto.val_casafari = val_casafari
-                proyecto.val_tasacion = val_tasacion
+                proyecto.val_idealista = val_idealista if "val_idealista" in data else proyecto.val_idealista
+                proyecto.val_fotocasa = val_fotocasa if "val_fotocasa" in data else proyecto.val_fotocasa
+                proyecto.val_registradores = val_registradores if "val_registradores" in data else proyecto.val_registradores
+                proyecto.val_casafari = val_casafari if "val_casafari" in data else proyecto.val_casafari
+                proyecto.val_tasacion = val_tasacion if "val_tasacion" in data else proyecto.val_tasacion
 
                 # Gastos manuales y persistencia completa del estudio
-                proyecto.otros_gastos_compra = otros_gastos_compra
+                proyecto.otros_gastos_compra = otros_gastos_compra if "otros_gastos_compra" in data else proyecto.otros_gastos_compra
 
                 # Inversión inicial
-                proyecto.reforma = reforma
-                proyecto.limpieza_inicial = limpieza_inicial
-                proyecto.mobiliario = mobiliario
-                proyecto.otros_puesta_marcha = otros_puesta_marcha
+                proyecto.reforma = reforma if "reforma" in data else proyecto.reforma
+                proyecto.limpieza_inicial = limpieza_inicial if "limpieza_inicial" in data else proyecto.limpieza_inicial
+                proyecto.mobiliario = mobiliario if "mobiliario" in data else proyecto.mobiliario
+                proyecto.otros_puesta_marcha = otros_puesta_marcha if "otros_puesta_marcha" in data else proyecto.otros_puesta_marcha
 
                 # Gastos recurrentes
-                proyecto.comunidad = comunidad
-                proyecto.ibi = ibi
-                proyecto.seguros = seguros
-                proyecto.suministros = suministros
-                proyecto.limpieza_periodica = limpieza_periodica
-                proyecto.ocupas = ocupas
+                proyecto.comunidad = comunidad if "comunidad" in data else proyecto.comunidad
+                proyecto.ibi = ibi if "ibi" in data else proyecto.ibi
+                proyecto.seguros = seguros if "seguros" in data else proyecto.seguros
+                proyecto.suministros = suministros if "suministros" in data else proyecto.suministros
+                proyecto.limpieza_periodica = limpieza_periodica if "limpieza_periodica" in data else proyecto.limpieza_periodica
+                proyecto.ocupas = ocupas if "ocupas" in data else proyecto.ocupas
 
                 # Gastos de venta
-                proyecto.plusvalia = plusvalia
-                proyecto.inmobiliaria = inmobiliaria
+                proyecto.plusvalia = plusvalia if "plusvalia" in data else proyecto.plusvalia
+                proyecto.inmobiliaria = inmobiliaria if "inmobiliaria" in data else proyecto.inmobiliaria
 
                 # Estado proyecto
                 proyecto.estado = estado_post
 
-                proyecto.media_valoraciones = media_valoraciones
+                if media_valoraciones > 0:
+                    proyecto.media_valoraciones = media_valoraciones
                 proyecto.gestion_comercial = gestion_comercial
                 proyecto.gestion_administracion = gestion_administracion
 
@@ -325,6 +349,14 @@ def simulador(request):
             "proyecto": proyecto,
         }
     )
+
+
+# === BORRAR PROYECTO DEFINITIVAMENTE ===
+def borrar_proyecto(request, nombre):
+    proyecto = Proyecto.objects.filter(nombre=nombre).first()
+    if proyecto:
+        proyecto.delete()
+    return redirect("simulador")
 
 
 def lista_proyectos(request):
