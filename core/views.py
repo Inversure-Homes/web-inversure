@@ -118,6 +118,17 @@ def simulador(request):
         val_casafari = parse_euro(data.get("val_casafari"))
         val_tasacion = parse_euro(data.get("val_tasacion"))
 
+        valores = [
+            v for v in [
+                val_idealista,
+                val_fotocasa,
+                val_registradores,
+                val_casafari,
+                val_tasacion,
+            ] if v > 0
+        ]
+        media_valoraciones = sum(valores) / len(valores) if valores else 0
+
         # === GASTOS AUTOMÁTICOS DE ADQUISICIÓN (solo sobre precio_escritura) ===
         notaria = max(precio_escritura * 0.002, 500)
         registro = max(precio_escritura * 0.002, 500)
@@ -169,8 +180,8 @@ def simulador(request):
         beneficio_base = (precio_venta - gastos_venta) - valor_adquisicion
 
         # === GESTIÓN COMERCIAL Y ADMINISTRACIÓN ===
-        gestion_comercial = beneficio_base * 0.05
-        gestion_administracion = beneficio_base * 0.05
+        gestion_comercial = beneficio_base * 0.05 if beneficio_base > 0 else 0
+        gestion_administracion = beneficio_base * 0.05 if beneficio_base > 0 else 0
 
         # === BENEFICIO NETO ===
         beneficio_neto = beneficio_base - gestion_comercial - gestion_administracion
@@ -261,6 +272,10 @@ def simulador(request):
                 # Estado proyecto
                 proyecto.estado = estado_post
 
+                proyecto.media_valoraciones = media_valoraciones
+                proyecto.gestion_comercial = gestion_comercial
+                proyecto.gestion_administracion = gestion_administracion
+
                 proyecto.save()
             else:
                 # Crear nuevo proyecto
@@ -293,7 +308,13 @@ def simulador(request):
                     plusvalia=plusvalia,
                     inmobiliaria=inmobiliaria,
                     estado=estado_post,
+                    media_valoraciones=media_valoraciones,
+                    gestion_comercial=gestion_comercial,
+                    gestion_administracion=gestion_administracion,
                 )
+
+    if proyecto:
+        proyecto.refresh_from_db()
 
     return render(
         request,
