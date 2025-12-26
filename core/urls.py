@@ -1,9 +1,11 @@
 from django.urls import path
 from . import views
+
 app_name = "core"
+
 urlpatterns = [
     path("", views.home, name="home"),
-  path("simulador/<int:proyecto_id>/", views.simulador, name="simulador"),
+    path("simulador/<int:proyecto_id>/", views.simulador, name="simulador"),
     path("simulador-basico/", views.simulador_basico, name="simulador_basico"),
     path(
         "simulaciones/guardar/",
@@ -35,4 +37,4 @@ urlpatterns = [
         views.cambiar_estado_proyecto,
         name="cambiar_estado_proyecto",
     ),
-   
+]
