@@ -1,12 +1,23 @@
 {% extends "core/base.html" %}
 {% load static %}
 
-{% block title %}Simulador básico{% endblock %}
+{% block title %}Análisis previo de operación{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="inversure-app">
+<section class="inversure-section">
+    <div class="container">
 
-    <h1 class="mb-4">Simulador básico</h1>
+    <section class="inversure-section-header mb-5 text-center">
+        <div class="inversure-section-icon mb-2">
+            <i class="bi bi-graph-up"></i>
+        </div>
+        <h1 class="inversure-section-title">Análisis previo de operación</h1>
+        <div class="inversure-divider mx-auto"></div>
+        <p class="inversure-section-subtitle mx-auto">
+            Evaluación rápida para decidir si una operación merece un estudio completo.
+        </p>
+    </section>
 
     <form method="post">
         {% csrf_token %}
@@ -18,10 +29,10 @@
                 <div class="card shadow-sm">
                     <div class="card-body">
 
-                        <h5 class="card-title mb-3">Datos del inmueble</h5>
+                        <h5 class="card-title mb-3">Datos básicos del inmueble</h5>
 
                         <div class="mb-3">
-                            <label class="form-label">Dirección *</label>
+                            <label class="form-label">Dirección del inmueble *</label>
                             <input type="text" name="direccion" class="form-control"
                                    value="{{ direccion|default:'' }}" required>
                         </div>
@@ -44,14 +55,14 @@
                         <h5 class="card-title mb-3">Datos económicos</h5>
 
                         <div class="mb-3">
-                            <label class="form-label">Precio de compra (€)</label>
+                            <label class="form-label">Precio de adquisición (€)</label>
                             <input type="text" name="precio_compra" class="form-control euro-input"
                                    placeholder="145.000,00"
                                    value="{{ precio_compra|default:'' }}" required>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Precio de venta (€)</label>
+                            <label class="form-label">Valor estimado de venta (€)</label>
                             <input type="text" name="precio_venta" class="form-control euro-input"
                                    placeholder="185.000,00"
                                    value="{{ precio_venta|default:'' }}" required>
@@ -63,10 +74,12 @@
 
         </div>
 
-        <div class="mt-4 text-end">
-            <button type="submit" class="btn btn-inversure px-4">
-                Analizar viabilidad
-            </button>
+        <div class="inv-actions mt-4">
+            <div class="inv-actions-inner justify-content-end">
+                <button type="submit" class="btn btn-primary px-4">
+                    Analizar viabilidad
+                </button>
+            </div>
         </div>
 
     </form>
@@ -80,7 +93,7 @@
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
 
-                    <h5 class="card-title mb-3">Resultado del análisis</h5>
+                    <h5 class="card-title mb-3">Resultado del análisis previo</h5>
 
                     <ul class="list-group list-group-flush">
                         <li class="list-group-item">
@@ -98,9 +111,9 @@
                         <li class="list-group-item">
                             <strong>Viabilidad:</strong>
                             {% if resultado.viable %}
-                                <span class="badge bg-success">Viable</span>
+                                <span class="badge bg-success">Análisis favorable</span>
                             {% else %}
-                                <span class="badge bg-danger">No viable</span>
+                                <span class="badge bg-danger">Análisis desfavorable</span>
                             {% endif %}
                         </li>
                     </ul>
@@ -124,7 +137,7 @@
                         <input type="hidden" name="beneficio" value="{{ resultado.beneficio }}">
                         <input type="hidden" name="roi" value="{{ resultado.roi }}">
                         <button type="submit" class="btn btn-outline-primary w-100 mb-2">
-                            Guardar simulación
+                            Guardar análisis
                         </button>
                     </form>
 
@@ -132,14 +145,19 @@
                     <form method="post" action="{% url 'core:convertir_simulacion_a_proyecto' simulacion.id %}">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-success w-100 mb-2">
-                            Convertir a proyecto
+                            Convertir en estudio
                         </button>
                     </form>
                     {% endif %}
 
                     <a href="{% url 'core:simulador_basico' %}" class="btn btn-outline-danger w-100">
-                        Borrar
+                        Borrar análisis
                     </a>
+
+                    <div class="alert alert-info small mt-3 mb-0">
+                    Este análisis previo no implica compromiso ni inversión.
+                    Sirve únicamente para decidir si la operación merece un estudio completo.
+                    </div>
 
                 </div>
             </div>
@@ -148,43 +166,76 @@
     </div>
     {% endif %}
 
+    </div>
+</section>
 </div>
+{% endblock %}
+
+{% block extra_js %}
 <script>
 (function () {
-
-  function parseEuro(value) {
-    if (!value) return "";
-    return value
-      .replace(/\./g, "")
-      .replace(",", ".")
-      .replace(/[^\d.]/g, "");
+  function toNumberEU(v) {
+    if (!v) return null;
+    const n = v.replace(/\./g, '').replace(',', '.').replace(/[^0-9.]/g, '');
+    const num = Number(n);
+    return isNaN(num) ? null : num;
   }
 
-  function formatEuro(value) {
-    const num = Number(value);
-    if (isNaN(num)) return "";
-    return num.toLocaleString("es-ES", {
+  function formatEU(num) {
+    return num.toLocaleString('es-ES', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     });
   }
 
-  document.querySelectorAll(".euro-input").forEach(function (input) {
-
-    // Al escribir → NO tocamos nada (para no borrar cifras)
-    input.addEventListener("input", function () {
-      this.dataset.raw = parseEuro(this.value);
-    });
-
-    // Al salir del campo → formateamos bonito
-    input.addEventListener("blur", function () {
-      if (this.dataset.raw) {
-        this.value = formatEuro(this.dataset.raw);
+  function forceFormatAll() {
+    document.querySelectorAll('.euro-input').forEach(input => {
+      const num = toNumberEU(input.value);
+      if (num !== null) {
+        input.value = formatEU(num);
       }
     });
+  }
 
+  // 1) Al cargar la página (GET y POST)
+  window.addEventListener('load', forceFormatAll);
+
+  // 1b) También al volver atrás (bfcache) o cuando el navegador restaura inputs
+  window.addEventListener('pageshow', function () {
+    setTimeout(forceFormatAll, 0);
   });
 
+  // 2) Mientras se escribe
+  document.addEventListener('input', function (e) {
+    if (e.target.classList.contains('euro-input')) {
+      const num = toNumberEU(e.target.value);
+      if (num !== null) {
+        e.target.dataset.raw = num;
+      }
+    }
+  });
+
+  // 3) Al salir del campo
+  document.addEventListener('blur', function (e) {
+    if (e.target.classList.contains('euro-input')) {
+      const num = toNumberEU(e.target.value);
+      if (num !== null) {
+        e.target.value = formatEU(num);
+      }
+    }
+  }, true);
+  // 4) Antes de enviar el formulario → forzar formato euro
+  const form = document.querySelector('form');
+  if (form) {
+    form.addEventListener('submit', function () {
+      document.querySelectorAll('.euro-input').forEach(input => {
+        const num = toNumberEU(input.value);
+        if (num !== null) {
+          input.value = formatEU(num);
+        }
+      });
+    });
+  }
 })();
 </script>
 {% endblock %}

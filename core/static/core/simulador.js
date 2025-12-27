@@ -24,10 +24,19 @@ function formatEuro(value) {
 }
 
 function activarFormatoEuroGlobal() {
-    document.querySelectorAll('[data-euro]').forEach(input => {
+    document.querySelectorAll('[data-euro], .euro-input').forEach(input => {
         input.addEventListener("blur", () => {
             input.value = formatEuro(parseEuro(input.value));
         });
+    });
+}
+
+function aplicarFormatoEuroInicial() {
+    document.querySelectorAll('[data-euro], .euro-input').forEach(input => {
+        const valor = parseEuro(input.value);
+        if (valor) {
+            input.value = formatEuro(valor);
+        }
     });
 }
 
@@ -151,8 +160,9 @@ document.addEventListener("DOMContentLoaded", () => {
     recalcMediaValoraciones();
     recalcPrecioCompraInmueble();
     activarMapaAutomatico();
+    aplicarFormatoEuroInicial();
 
-    document.querySelectorAll('[data-euro]').forEach(el => {
+    document.querySelectorAll('[data-euro], .euro-input').forEach(el => {
         el.addEventListener("input", () => el.dataset.manual = "1");
     });
 
@@ -193,7 +203,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const form = document.querySelector("form");
     if (form) {
         form.addEventListener("submit", () => {
-            document.querySelectorAll('[data-euro]').forEach(input => {
+            document.querySelectorAll('[data-euro], .euro-input').forEach(input => {
                 input.value = parseEuro(input.value);
             });
         });

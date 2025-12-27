@@ -1,165 +1,536 @@
-/* ===== RESET FORMULARIOS (Bootstrap-safe) ===== */
-
-.form-control,
-.form-select{
-  height: auto;
-  padding: 0.5rem 0.75rem;
-  font-size: 1rem;
-  line-height: 1.5;
+/* ====== RESET BÁSICO ====== */
+* {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-.form-control-lg,
-.form-select-lg{
-  height: calc(1.5em + 1rem + 2px);
-  padding: 0.5rem 1rem;
-  font-size: 1.1rem;
-  line-height: 1.5;
-}
-
-/* Tamaño logo Inversure */
-.brand img{
-  height: 40px;
-  width: auto;
-  display: block;
-}
-
-
-/* ===== HEADER LAYOUT ===== */
-.topbar-inner{
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-}
-
-.brand{
-  justify-self: center;
-}
-
-.topbar-right{
-  justify-self: end;
-}
-/* ===== FORMULARIO · AJUSTE FINO (Opción C) ===== */
-
-/* Cards: un poco más de aire y orden */
-.card{
-  border-radius: 12px;
-}
-
-.card-body{
-  padding: 1.25rem 1.25rem;
-}
-
-/* Ritmo vertical consistente entre filas */
-.card-body .row{
-  row-gap: 0.75rem;
-}
-
-/* Labels más discretos */
-.form-label{
-  font-size: 0.9rem;
-  color: #6b7280; /* gris suave */
-  margin-bottom: 0.25rem;
-}
-
-/* Inputs normales un poco más compactos */
-.form-control:not(.form-control-lg),
-.form-select:not(.form-select-lg){
-  padding: 0.45rem 0.7rem;
-  font-size: 0.95rem;
-}
-
-/* Inputs clave (LG) destacan sin exagerar */
-.form-control-lg,
-.form-select-lg{
-  font-size: 1.05rem;
-}
-
-/* Badges de sección más elegantes */
-.card h5 .badge{
-  font-weight: 500;
-  opacity: 0.9;
-}
-
-/* ===== CABECERAS DE TARJETAS ===== */
-.card h5{
-  background: #122135; /* Azul Inversure */
+body {
+  font-family: 'IBM Plex Sans', 'Inter', 'Segoe UI', sans-serif;
+  background-color: #122135;
   color: #ffffff;
-  padding: 0.75rem 1rem;
-  border-radius: 10px;
-  margin: -1.25rem -1.25rem 1rem -1.25rem;
+}
+
+/* ====== TOPBAR / HUD ====== */
+.topbar {
+  background: #122135;
+  padding: 16px 32px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+/* ====== HERO / CABECERA PRINCIPAL ====== */
+.hero {
+  text-align: center;
+  padding: 64px 16px 48px;
+  background: linear-gradient(180deg, #122135 0%, #0e1a2b 100%);
+}
+
+.hero-title {
+  font-size: 36px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.hero-underline {
+  width: 80px;
+  height: 3px;
+  background-color: var(--inversure-gold);
+  margin: 12px auto 20px;
+  border-radius: 2px;
+}
+
+.hero-subtitle {
+  font-size: 15px;
+  font-weight: 400;
+  color: rgba(255,255,255,0.7);
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+/* Evitar que ningún estilo externo blanquee el HUD */
+.topbar,
+.topbar * {
+  color: #ffffff;
+}
+
+.topbar-inner {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: space-between;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
-.card h5 .badge{
-  background: rgba(255,255,255,0.15);
+/* ====== LOGO INVERSURE (BLANCO, PROTAGONISTA) ====== */
+.brand img,
+.navbar-brand img {
+  height: 96px;
+  width: auto;
+  display: block;
+  filter: brightness(1.1);
+}
+
+/* ====== NAV ====== */
+.navbar {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.navbar a {
   color: #ffffff;
+  text-decoration: none;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  font-size: 14px;
+  text-transform: uppercase;
+  opacity: 1;
 }
 
-/* ===== CONTENEDOR EXTERIOR FORMULARIO ===== */
-.container.mt-4{
-  background: #f8fafc;
-  padding: 2rem 2rem 1rem;
-  border-radius: 16px;
-}
-/* ===============================
-   RESULTADO · TARJETA INVERSOR
-   Indicadores visuales de viabilidad
-=============================== */
-
-.resultado-inversor{
-  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+.navbar a:hover {
+  opacity: 1;
+  text-decoration: none;
 }
 
-/* Operación viable */
-.resultado-viable{
-  border-left: 6px solid #198754; /* verde Bootstrap */
-  box-shadow: 0 0 0 1px rgba(25,135,84,0.15);
+/* ====== CONTENIDO ====== */
+
+:root {
+  --inversure-blue: #122135;
+  --inversure-gold: #d7b04c;
+  --inversure-blue-soft: #1c2f4a;
+}
+.main-container {
+  padding: 64px 32px;
+  background-color: #eef2f6;
+  color: #1f2937;
+  min-height: calc(100vh - 96px);
 }
 
-/* Operación ajustada */
-.resultado-ajustada{
-  border-left: 6px solid #ffc107; /* ámbar Bootstrap */
-  box-shadow: 0 0 0 1px rgba(255,193,7,0.18);
+/* HOME – título principal dentro del contenido (no header) */
+.main-container .hero-title {
+  color: var(--inversure-blue);
 }
 
-/* Operación no viable */
-.resultado-no-viable{
-  border-left: 6px solid #dc3545; /* rojo Bootstrap */
-  box-shadow: 0 0 0 1px rgba(220,53,69,0.15);
+.main-container .hero-subtitle {
+  color: #475569;
 }
 
-/* ===== PORTADA · CARDS INTERACTIVAS ===== */
+/* Separación visual header (oscuro) / contenido (blanco) */
+.main-container::before {
+  content: "";
+  display: block;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    rgba(18,33,53,0),
+    rgba(18,33,53,0.25),
+    rgba(18,33,53,0)
+  );
+  margin-bottom: 48px;
+}
 
-.hover-card{
-  cursor: pointer;
+/* Sutil realce del logo sobre fondo oscuro */
+.brand img {
+  filter: brightness(1.1) drop-shadow(0 2px 6px rgba(0,0,0,0.4));
+}
+
+/* ======================================================
+   ICONOS PROFESIONALES (cards home)
+   ====================================================== */
+
+/* Contenedor icono */
+.card-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #122135, #1c2f4a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px auto;
+  box-shadow: 0 10px 24px rgba(18, 33, 53, 0.45);
+}
+
+/* Icono SVG o font */
+.card-icon i,
+.card-icon svg {
+  font-size: 40px;
+  width: 40px;
+  height: 40px;
+  color: var(--inversure-blue);
+  fill: var(--inversure-blue);
+}
+
+/* ======================================================
+   CARDS PREMIUM INVERSURE
+   ====================================================== */
+
+.card {
+  border-radius: 20px;
+  border: none;
+  background-color: #ffffff;
+  color: var(--inversure-blue);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  padding: 28px 24px 24px;
+  box-shadow: 0 18px 48px rgba(18,33,53,0.14);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
-.hover-card:hover{
+.card:hover {
   transform: translateY(-6px);
-  box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+  box-shadow: 0 26px 56px rgba(18,33,53,0.20);
 }
 
-/* ===============================
-   BOTÓN CORPORATIVO · INVERSURE
-   (override Bootstrap 5 real)
-   =============================== */
-
-.btn.btn-inversure{
-  --bs-btn-color: #d7b04c;
-  --bs-btn-bg: #122135;
-  --bs-btn-border-color: #d7b04c;
-
-  --bs-btn-hover-color: #d7b04c;
-  --bs-btn-hover-bg: #0e1a2a;
-  --bs-btn-hover-border-color: #d7b04c;
-
-  --bs-btn-active-color: #d7b04c;
-  --bs-btn-active-bg: #0b1422;
-  --bs-btn-active-border-color: #d7b04c;
-
-  font-weight: 500;
+.card .card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  justify-content: flex-start;
 }
+
+.card-title {
+  font-weight: 600;
+  color: var(--inversure-blue);
+}
+
+.card-text {
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Hover premium */
+.hover-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 26px 56px rgba(18,33,53,0.20);
+  border-color: var(--inversure-gold);
+}
+
+/* ======================================================
+   BOTÓN CARD (CTA)
+   ====================================================== */
+
+.card .btn {
+  margin-top: 12px;
+  font-weight: 600;
+}
+
+.card .btn-primary {
+  background-color: var(--inversure-gold);
+  border-color: var(--inversure-gold);
+  color: var(--inversure-blue);
+}
+
+/* ======================================================
+   BOTONES CORPORATIVOS INVERSURE
+   ====================================================== */
+
+.btn-primary {
+  background-color: var(--inversure-gold);
+  border-color: var(--inversure-gold);
+  color: var(--inversure-blue);
+  font-weight: 600;
+  letter-spacing: 0.4px;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: #c9a63f;
+  border-color: #c9a63f;
+  color: var(--inversure-blue);
+}
+
+.btn-footer {
+  background-color: #ffffff;
+  color: var(--inversure-gold);
+  border: 2px solid var(--inversure-gold);
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.btn-footer:hover,
+.btn-footer:focus {
+  background-color: var(--inversure-gold);
+  color: var(--inversure-blue);
+  border-color: var(--inversure-gold);
+}
+
+.form-footer {
+  background-color: #ffffff;
+  padding: 24px;
+  margin-top: 32px;
+  border-top: 1px solid rgba(0,0,0,0.08);
+}
+
+/* ====== BOTONES SOBRE FONDO OSCURO ====== */
+.dark-bg-actions .btn,
+.form-footer .btn {
+  background-color: #ffffff;
+  color: var(--inversure-gold);
+  border: 2px solid var(--inversure-gold);
+  font-weight: 600;
+}
+
+.dark-bg-actions .btn:hover,
+.form-footer .btn:hover {
+  background-color: var(--inversure-gold);
+  color: var(--inversure-blue);
+  border-color: var(--inversure-gold);
+}
+
+/* ======================================================
+   BOTÓN PRINCIPAL INVERSURE (UNIFICADO)
+   ====================================================== */
+
+.btn-inversure {
+  background-color: var(--inversure-gold);
+  color: var(--inversure-blue);
+  border: 2px solid var(--inversure-gold);
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  padding: 10px 22px;
+  border-radius: 10px;
+  transition: all 0.25s ease;
+}
+
+.btn-inversure:hover,
+.btn-inversure:focus {
+  background-color: #c9a63f;
+  border-color: #c9a63f;
+  color: var(--inversure-blue);
+}
+
+/* Botón sobre fondo oscuro (simulador / análisis previo) */
+.dark-bg-actions .btn-inversure,
+.simulador-footer .btn-inversure {
+  background-color: #ffffff;
+  color: var(--inversure-gold);
+  border-color: var(--inversure-gold);
+}
+
+.dark-bg-actions .btn-inversure:hover,
+.simulador-footer .btn-inversure:hover {
+  background-color: var(--inversure-gold);
+  color: var(--inversure-blue);
+}
+
+/* Evitar botones invisibles */
+button,
+.btn {
+  opacity: 1 !important;
+}
+
+/* ====== PASO 4: CONSISTENCIA FINAL BOTONES Y FORM FOOTERS ====== */
+
+/* Footer de formularios siempre legible (fondo claro) */
+.form-footer,
+.simulador-footer {
+  background-color: #ffffff;
+  padding: 24px;
+  margin-top: 32px;
+  border-top: 1px solid rgba(18,33,53,0.12);
+}
+
+/* Botones en footers: dorado sobre blanco */
+.form-footer .btn,
+.simulador-footer .btn {
+  background-color: var(--inversure-gold);
+  color: var(--inversure-blue);
+  border: 2px solid var(--inversure-gold);
+}
+
+/* Hover coherente */
+.form-footer .btn:hover,
+.simulador-footer .btn:hover {
+  background-color: #c9a63f;
+  border-color: #c9a63f;
+  color: var(--inversure-blue);
+}
+
+/* Estados focus/active accesibles */
+.btn:focus,
+.btn:active {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(215,176,76,0.35);
+}
+
+/* === FIX DEFINITIVO ALINEACIÓN BOTONES HUD === */
+.home-cards {
+  display: flex;
+  gap: 32px;
+  align-items: stretch;
+}
+
+.home-cards .card {
+  min-height: 420px;
+}
+
+/* ======================================================
+   ANIMACIÓN SUAVE SOLO PARA HOME
+   ====================================================== */
+
+.home-cards .card {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: homeCardFadeIn 0.35s ease forwards;
+}
+
+.home-cards .card:nth-child(1) { animation-delay: 0.05s; }
+.home-cards .card:nth-child(2) { animation-delay: 0.12s; }
+.home-cards .card:nth-child(3) { animation-delay: 0.19s; }
+.home-cards .card:nth-child(4) { animation-delay: 0.26s; }
+
+@keyframes homeCardFadeIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ====== DETALLE PREMIUM HOME ====== */
+.hero-title::after {
+  content: "";
+  display: block;
+  width: 64px;
+  height: 3px;
+  margin: 14px auto 0;
+  background-color: var(--inversure-gold);
+  border-radius: 2px;
+  opacity: 0.85;
+}
+
+/* ======================================================
+   KIT VISUAL INVERSURE (SISTEMA GLOBAL)
+   Este bloque define la identidad corporativa reutilizable
+   para TODAS las vistas (home, análisis, estudio, proyecto)
+   ====================================================== */
+
+/* ---- Layout base de la aplicación ---- */
+.inversure-app {
+  background: linear-gradient(180deg, #eef2f6 0%, #e6ebf2 100%);
+  min-height: calc(100vh - 120px);
+  padding: 48px 32px 64px;
+}
+
+/* ---- Contenedor estándar de sección ---- */
+.inversure-section {
+  max-width: 1280px;
+  margin: 0 auto 48px;
+}
+
+/* ---- Cabecera de sección ---- */
+.inversure-section-header {
+  margin-bottom: 32px;
+  text-align: center;
+}
+
+.inversure-section-title {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--inversure-blue);
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.inversure-section-subtitle {
+  font-size: 15px;
+  color: var(--inversure-blue);
+  max-width: 720px;
+  margin: 0 auto;
+  text-align: center;
+  line-height: 1.6;
+  opacity: 0.9;
+}
+
+/* ---- Línea dorada corporativa ---- */
+.inversure-divider {
+  width: 72px;
+  height: 3px;
+  background-color: var(--inversure-gold);
+  border-radius: 2px;
+  margin: 14px auto 0;
+  opacity: 0.9;
+}
+
+/* ---- Card estándar reutilizable ---- */
+.inversure-card {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 28px;
+  box-shadow: 0 16px 40px rgba(18,33,53,0.12);
+  color: var(--inversure-blue);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.inversure-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 26px 56px rgba(18,33,53,0.20);
+}
+
+.inversure-card--static {
+  transform: none !important;
+}
+
+.inversure-card--static:hover {
+  transform: none;
+  box-shadow: 0 16px 40px rgba(18,33,53,0.12);
+}
+
+/* ---- Card premium (acciones clave) ---- */
+.inversure-card--premium {
+  border-top: 4px solid var(--inversure-gold);
+}
+
+/* ---- Footer de acciones (formularios / simuladores) ---- */
+.inversure-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: flex-end;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(18,33,53,0.12);
+}
+
+/* ---- Botón principal del sistema ---- */
+.btn-inversure-primary {
+  background-color: var(--inversure-gold);
+  color: var(--inversure-blue);
+  border: 2px solid var(--inversure-gold);
+  font-weight: 600;
+  padding: 10px 22px;
+  border-radius: 10px;
+  transition: all 0.25s ease;
+}
+
+.btn-inversure-primary:hover {
+  background-color: #c9a63f;
+  border-color: #c9a63f;
+  color: var(--inversure-blue);
+}
+
+/* ---- Botón secundario ---- */
+.btn-inversure-secondary {
+  background-color: #ffffff;
+  color: var(--inversure-gold);
+  border: 2px solid var(--inversure-gold);
+  font-weight: 600;
+  padding: 10px 22px;
+  border-radius: 10px;
+  transition: all 0.25s ease;
+}
+
+.btn-inversure-secondary:hover {
+  background-color: var(--inversure-gold);
+  color: var(--inversure-blue);
+}
+
+/* ---- Utilidades ---- */
+.text-inversure-blue { color: var(--inversure-blue); }
+.text-inversure-gold { color: var(--inversure-gold); }
+.bg-inversure-blue { background-color: var(--inversure-blue); color: #fff; }
+.bg-inversure-soft { background-color: var(--inversure-blue-soft); color: #fff; }

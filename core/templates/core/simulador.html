@@ -2,11 +2,15 @@
 {% load static %}
 {% block content %}
 
-<div class="container mt-4" data-fase="{{ fase }}">
-    <h1 class="mb-1">Simulador de operaciones</h1>
-    <p class="text-muted mb-4">
-        Introduce los datos para calcular rentabilidad y métricas clave.
-    </p>
+<div class="inversure-app" data-fase="{{ fase }}">
+  <section class="inversure-section">
+    <div class="inversure-section-header text-center mb-5">
+      <h1 class="inversure-section-title">Estudio de inversión</h1>
+      <div class="inversure-divider mx-auto"></div>
+      <p class="inversure-section-subtitle">
+        Análisis completo de la operación con métricas avanzadas y decisión de inversión
+      </p>
+    </div>
 
 
 <form method="post" {% if not editable %}class="form-readonly"{% endif %}>
@@ -19,7 +23,7 @@
     ================================ -->
     <div class="card mb-4 shadow-sm border-0" data-fase="estudio">
         <div class="card-body">
-            <h5 class="mb-3 d-flex align-items-center gap-2">
+            <h5 class="mb-3 d-flex align-items-center gap-2 inversure-form-header">
                 <span>📍</span>
                 <span>Datos del inmueble</span>
             </h5>
@@ -163,7 +167,7 @@
     ================================ -->
     <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
         <div class="card-body">
-            <h5 class="mb-3">
+            <h5 class="mb-3 inversure-form-header">
                 <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">1</span>
                 Datos principales
             </h5>
@@ -211,7 +215,7 @@
     ================================ -->
     <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
         <div class="card-body">
-            <h5 class="mb-3">
+            <h5 class="mb-3 inversure-form-header">
                 <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">2</span>
                 Gastos de adquisición
             </h5>
@@ -257,7 +261,7 @@
     ================================ -->
     <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
         <div class="card-body">
-            <h5 class="mb-3">
+            <h5 class="mb-3 inversure-form-header">
                 <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">4</span>
                 Inversión inicial
             </h5>
@@ -293,7 +297,7 @@
     ================================ -->
     <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
         <div class="card-body">
-            <h5 class="mb-3">
+            <h5 class="mb-3 inversure-form-header">
                 <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">4A</span>
                 Obra (detalle por partidas)
             </h5>
@@ -367,7 +371,7 @@
     ================================ -->
     <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
         <div class="card-body">
-            <h5 class="mb-3">
+            <h5 class="mb-3 inversure-form-header">
                 <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">4B</span>
                 Seguridad y control
             </h5>
@@ -392,7 +396,7 @@
     ================================ -->
     <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
         <div class="card-body">
-            <h5 class="mb-3">
+            <h5 class="mb-3 inversure-form-header">
                 <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">5</span>
                 Gastos recurrentes
             </h5>
@@ -440,7 +444,7 @@
     ================================ -->
     <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
         <div class="card-body">
-            <h5 class="mb-3">
+            <h5 class="mb-3 inversure-form-header">
                 <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">6</span>
                 Gastos de venta
             </h5>
@@ -475,7 +479,7 @@
     ================================ -->
     <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
         <div class="card-body">
-            <h5 class="mb-3">
+            <h5 class="mb-3 inversure-form-header">
                 <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">7</span>
                 Valoraciones
             </h5>
@@ -533,26 +537,35 @@
     </div>
     {% endif %}
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div class="d-flex gap-2">
-            <!-- Calcular -->
-            <button type="submit"
-                    name="accion"
-                    value="calcular"
-                    class="btn btn-dark"
-                    {% if not editable %}disabled{% endif %}>
-                Calcular
-            </button>
+    <div class="card mb-4 shadow-sm border-0">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div class="d-flex gap-2">
+                <button type="submit"
+                        name="accion"
+                        value="calcular"
+                        class="btn btn-outline-secondary"
+                        {% if not editable %}disabled{% endif %}>
+                    Calcular
+                </button>
 
-            <!-- Guardar proyecto -->
-            <button type="submit"
-                    name="accion"
-                    value="guardar"
-                    class="btn btn-primary"
-                    {% if not editable %}disabled{% endif %}>
-                💾 Guardar proyecto
-            </button>
+                <button type="submit"
+                        name="accion"
+                        value="guardar"
+                        class="btn btn-outline-primary"
+                        {% if not editable %}disabled{% endif %}>
+                    💾 Guardar estudio
+                </button>
+            </div>
         </div>
+    </div>
+
+    <div class="d-flex justify-content-center my-5">
+        <button type="submit"
+                name="accion"
+                value="analizar"
+                class="btn btn-primary btn-lg px-5 shadow">
+            Analizar viabilidad
+        </button>
     </div>
 
     <!-- ===============================
@@ -738,6 +751,7 @@
 </div>
 {% endif %}
 </form>
+  </section>
 </div>
 
 <script src="{% static 'core/simulador.js' %}"></script>

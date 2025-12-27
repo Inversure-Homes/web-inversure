@@ -640,7 +640,6 @@ def simulador_basico(request):
     precio_venta_raw = ""
     resultado = None
 
-    simulacion = None
     if request.method == "POST":
         direccion = request.POST.get("direccion", "")
         ref_catastral = request.POST.get("ref_catastral", "")
@@ -673,18 +672,6 @@ def simulador_basico(request):
             "viable": beneficio >= 30000 or roi >= 15,
         }
 
-        # Crear simulación en BD con nombre/dirección y todos los campos clave
-        simulacion = Simulacion.objects.create(
-            nombre=direccion if direccion else None,
-            direccion=direccion,
-            ref_catastral=ref_catastral,
-            precio_compra=precio_compra,
-            precio_venta_estimado=precio_venta,
-            beneficio=beneficio,
-            roi=roi,
-            viable=resultado["viable"],
-        )
-
         return render(
             request,
             "core/simulador_basico.html",
@@ -694,7 +681,7 @@ def simulador_basico(request):
                 "precio_compra": precio_compra_raw,
                 "precio_venta": precio_venta_raw,
                 "resultado": resultado,
-                "simulacion": simulacion,
+                # NO se pasa simulacion aquí
             },
         )
 

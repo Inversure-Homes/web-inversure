@@ -1,11 +1,12 @@
 {% extends "core/base.html" %}
 {% block content %}
 
-<div class="container mt-5">
+<div class="main-container">
+    <div class="container mt-5">
     <div class="text-center mb-5">
-        <h1 class="mb-1">Inversure</h1>
+        <h2 class="hero-title fw-semibold mb-2 text-inversure-azul">Plataforma interna</h2>
         <p class="text-muted">
-            Panel principal · Gestión de operaciones, proyectos y clientes
+            Análisis, estudios, proyectos y gestión de inversión inmobiliaria
         </p>
     </div>
 
@@ -14,14 +15,18 @@
         <div class="col-md-4">
             <a href="{% url 'core:simulador_basico' %}" class="text-decoration-none text-dark">
                 <div class="card h-100 shadow-sm border-0 hover-card">
-                    <div class="card-body text-center">
-                        <div class="display-5 mb-3">🧮</div>
-                        <h5 class="mb-2">Simulador</h5>
+                    <div class="card-body text-center d-flex flex-column">
+                        <div class="card-icon-wrapper mb-3">
+                            <div class="card-icon-circle">
+                                <i class="bi bi-calculator fs-1"></i>
+                            </div>
+                        </div>
+                        <h5 class="mb-2">Nuevo análisis</h5>
                         <p class="text-muted mb-4">
-                            Analiza la viabilidad y rentabilidad de nuevas operaciones inmobiliarias.
+                            Evaluación rápida de una oportunidad inmobiliaria.
                         </p>
-                        <span class="btn btn-dark">
-                            Ir al simulador
+                        <span class="btn btn-inversure mt-auto">
+                            Iniciar análisis
                         </span>
                     </div>
                 </div>
@@ -31,13 +36,38 @@
         <div class="col-md-4">
             <a href="{% url 'core:lista_proyectos' %}" class="text-decoration-none text-dark">
                 <div class="card h-100 shadow-sm border-0 hover-card">
-                    <div class="card-body text-center">
-                        <div class="display-5 mb-3">📁</div>
+                    <div class="card-body text-center d-flex flex-column">
+                        <div class="card-icon-wrapper mb-3">
+                            <div class="card-icon-circle">
+                                <i class="bi bi-graph-up-arrow fs-1"></i>
+                            </div>
+                        </div>
+                        <h5 class="mb-2">Estudios</h5>
+                        <p class="text-muted mb-4">
+                            Análisis avanzado de viabilidad y rentabilidad.
+                        </p>
+                        <span class="btn btn-inversure mt-auto">
+                            Abrir estudios
+                        </span>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-4">
+            <a href="{% url 'core:lista_proyectos' %}" class="text-decoration-none text-dark">
+                <div class="card h-100 shadow-sm border-0 hover-card">
+                    <div class="card-body text-center d-flex flex-column">
+                        <div class="card-icon-wrapper mb-3">
+                            <div class="card-icon-circle">
+                                <i class="bi bi-folder2-open fs-1"></i>
+                            </div>
+                        </div>
                         <h5 class="mb-2">Proyectos</h5>
                         <p class="text-muted mb-4">
-                            Consulta proyectos guardados, su estado y métricas principales.
+                            Operaciones inmobiliarias en ejecución.
                         </p>
-                        <span class="btn btn-dark">
+                        <span class="btn btn-inversure mt-auto">
                             Ver proyectos
                         </span>
                     </div>
@@ -48,13 +78,17 @@
         <div class="col-md-4">
             <a href="{% url 'core:clientes' %}" class="text-decoration-none text-dark">
                 <div class="card h-100 shadow-sm border-0 hover-card">
-                    <div class="card-body text-center">
-                        <div class="display-5 mb-3">👤</div>
+                    <div class="card-body text-center d-flex flex-column">
+                        <div class="card-icon-wrapper mb-3">
+                            <div class="card-icon-circle">
+                                <i class="bi bi-people fs-1"></i>
+                            </div>
+                        </div>
                         <h5 class="mb-2">Clientes</h5>
                         <p class="text-muted mb-4">
-                            Gestiona la base de datos de cuenta partícipes y datos personales.
+                            Contactos, propietarios y compradores.
                         </p>
-                        <span class="btn btn-dark">
+                        <span class="btn btn-inversure mt-auto">
                             Ver clientes
                         </span>
                     </div>
@@ -62,9 +96,50 @@
             </a>
         </div>
 
+        <div class="col-md-4">
+            <a href="#" class="text-decoration-none text-dark">
+                <div class="card h-100 shadow-sm border-0 hover-card">
+                    <div class="card-body text-center d-flex flex-column">
+                        <div class="card-icon-wrapper mb-3">
+                            <div class="card-icon-circle">
+                                <i class="bi bi-cash-coin fs-1"></i>
+                            </div>
+                        </div>
+                        <h5 class="mb-2">Inversores</h5>
+                        <p class="text-muted mb-4">
+                            Gestión de capital y participaciones.
+                        </p>
+                        <span class="btn btn-inversure mt-auto">
+                            Ver inversores
+                        </span>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-4">
+            <a href="#" class="text-decoration-none text-dark">
+                <div class="card h-100 shadow-sm border-0 hover-card">
+                    <div class="card-body text-center d-flex flex-column">
+                        <div class="card-icon-wrapper mb-3">
+                            <div class="card-icon-circle">
+                                <i class="bi bi-speedometer2 fs-1"></i>
+                            </div>
+                        </div>
+                        <h5 class="mb-2">Dashboard</h5>
+                        <p class="text-muted mb-4">
+                            Visión global del negocio.
+                        </p>
+                        <span class="btn btn-inversure mt-auto">
+                            Abrir dashboard
+                        </span>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+    </div>
     </div>
 </div>
 
 {% endblock %}
-
-home.html corregido
