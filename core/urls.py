@@ -22,6 +22,17 @@ urlpatterns = [
         views.convertir_simulacion_a_proyecto,
         name="convertir_simulacion_a_proyecto",
     ),
+    path("estudios/", views.lista_estudios, name="lista_estudio"),
+    path(
+        "estudios/<int:proyecto_id>/pdf/",
+        views.generar_pdf_estudio,
+        name="generar_pdf_estudio",
+    ),
+    path(
+        "estudios/<int:proyecto_id>/aprobar/",
+        views.aprobar_proyecto,
+        name="aprobar_proyecto",
+    ),
     path("proyectos/", views.lista_proyectos, name="lista_proyectos"),
     path(
         "proyectos/<int:proyecto_id>/inversores/",

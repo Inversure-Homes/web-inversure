@@ -215,6 +215,27 @@ class Proyecto(models.Model):
         choices=ESTADO_CHOICES,
         default="estudio"
     )
+
+    # =========================
+    # CONTROL DE APROBACIÓN (PDF OFICIAL)
+    # =========================
+    aprobado = models.BooleanField(
+        default=False,
+        help_text="Indica si el proyecto ha sido aprobado por el comité"
+    )
+
+    pdf_aprobado = models.FileField(
+        upload_to="proyectos_aprobados/",
+        null=True,
+        blank=True,
+        help_text="PDF oficial aprobado del proyecto"
+    )
+
+    fecha_aprobacion = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Fecha y hora de aprobación del proyecto"
+    )
     # =========================
     # ORIGEN DE LA SIMULACIÓN
     # =========================

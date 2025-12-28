@@ -14,7 +14,7 @@
         <h1 class="inversure-section-title">Proyectos</h1>
         <div class="inversure-divider mx-auto"></div>
         <p class="inversure-section-subtitle mx-auto">
-          Operaciones en curso y simulaciones pendientes de conversión
+          Operaciones activas en fase de ejecución y seguimiento
         </p>
       </section>
 
@@ -22,7 +22,7 @@
       <div class="card shadow-sm mb-5">
         <div class="card-body">
 
-          <h4 class="mb-4">📁 Proyectos guardados</h4>
+          <h4 class="mb-4">📁 Proyectos activos</h4>
 
           {% if proyectos %}
             {% for proyecto in proyectos %}
@@ -35,59 +35,13 @@
                 </div>
 
                 <a href="{% url 'core:simulador' proyecto.id %}"
-                   class="btn btn-primary">
-                  Abrir proyecto
+                   class="btn btn-outline-primary">
+                  Gestionar proyecto
                 </a>
               </div>
             {% endfor %}
           {% else %}
             <p class="text-muted mb-0">No hay proyectos guardados.</p>
-          {% endif %}
-
-        </div>
-      </div>
-
-      <!-- SIMULACIONES PENDIENTES -->
-      <div class="card shadow-sm">
-        <div class="card-body">
-
-          <h4 class="mb-4">🧪 Simulaciones pendientes</h4>
-
-          {% if simulaciones_pendientes %}
-            {% for sim in simulaciones_pendientes %}
-              <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
-
-                <div>
-                  <strong>{{ sim.direccion|default:"Simulación sin dirección" }}</strong><br>
-                  <small class="text-muted">
-                    Compra: {{ sim.precio_compra|floatformat:2 }} € ·
-                    Venta: {{ sim.precio_venta_estimado|floatformat:2 }} € ·
-                    ROI: {{ sim.roi|floatformat:2 }} %
-                  </small>
-                </div>
-
-                <div class="d-flex gap-2">
-                  <form method="post"
-                        action="{% url 'core:convertir_simulacion_a_proyecto' sim.id %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-success">
-                      Convertir
-                    </button>
-                  </form>
-
-                  <form method="post"
-                        action="{% url 'core:borrar_simulacion' sim.id %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-outline-danger">
-                      Borrar
-                    </button>
-                  </form>
-                </div>
-
-              </div>
-            {% endfor %}
-          {% else %}
-            <p class="text-muted mb-0">No hay simulaciones pendientes.</p>
           {% endif %}
 
         </div>

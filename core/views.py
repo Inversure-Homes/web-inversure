@@ -1,5 +1,6 @@
 
 from django.shortcuts import render, redirect
+from django.views.decorators.csrf import csrf_exempt
 from decimal import Decimal
 from .models import Proyecto, Cliente, Participacion, Simulacion
 
@@ -118,6 +119,7 @@ def consultar_catastro_por_rc(ref_catastral):
 
 from django.shortcuts import get_object_or_404
 
+@csrf_exempt
 def simulador(request, proyecto_id=None):
     """
     Vista saneada del simulador:
@@ -279,9 +281,9 @@ def simulador(request, proyecto_id=None):
                 return redirect("core:lista_proyectos")
 
         # =========================
-        # CALCULAR (SIN GUARDAR)
+        # CALCULAR / ANALIZAR VIABILIDAD (SIN GUARDAR)
         # =========================
-        if accion == "calcular" and proyecto:
+        if accion in ("calcular", "analizar") and proyecto:
             precio_escritura = parse_euro(request.POST.get("precio_propiedad"))
             valores = [
                 parse_euro(request.POST.get("val_idealista")),
@@ -303,12 +305,59 @@ def simulador(request, proyecto_id=None):
             beneficio = precio_venta - valor_adquisicion
             roi = (beneficio / valor_adquisicion * Decimal("100")) if valor_adquisicion else Decimal("0")
 
+            # NUEVAS MÉTRICAS CLAVE
+            ratio_euro = (beneficio / valor_adquisicion) if valor_adquisicion else Decimal("0")
+            margen_neto = (beneficio / precio_venta * Decimal("100")) if precio_venta else Decimal("0")
+
+            # Precio mínimo de venta exigido por Inversure
+            precio_min_15 = valor_adquisicion * Decimal("1.15")
+            precio_min_30000 = valor_adquisicion + Decimal("30000")
+            precio_minimo_venta = max(precio_min_15, precio_min_30000)
+
+            # Colchón de seguridad (%)
+            colchon_seguridad = (
+                (precio_venta - precio_minimo_venta) / precio_venta * Decimal("100")
+            ) if precio_venta else Decimal("0")
+
+            # =========================
+            # LÓGICA ANALISTA INVERSURE
+            # =========================
+
+            # Umbral dominante
+            if precio_min_15 >= precio_min_30000:
+                umbral_dominante = "Rentabilidad mínima 15 %"
+            else:
+                umbral_dominante = "Beneficio mínimo 30.000 €"
+
+            # Diferencia vs mínimo exigido
+            diferencia_vs_minimo = precio_venta - precio_minimo_venta
+
+            # Dictamen automático
+            if diferencia_vs_minimo >= 0:
+                dictamen = "La operación cumple los criterios mínimos de Inversure."
+            else:
+                dictamen = (
+                    "La operación NO cumple los criterios mínimos de Inversure. "
+                    "El precio estimado de venta debería incrementarse para alcanzar el umbral exigido."
+                )
+
             resultado = {
-                "valor_adquisicion": round(valor_adquisicion, 2),
-                "precio_venta": round(precio_venta, 2),
-                "beneficio_neto": round(beneficio, 2),
+                "valor_adquisicion": float(round(valor_adquisicion, 2)),
+                "precio_venta": float(round(precio_venta, 2)),
+                "beneficio_neto": float(round(beneficio, 2)),
                 "roi": round(roi, 2),
-                "viable": roi >= 15,
+
+                # 🔹 MÉTRICAS QUE FALTABAN
+                "ratio_euro": round(ratio_euro, 2),
+                "margen_neto": round(margen_neto, 2),
+                "colchon_seguridad": round(colchon_seguridad, 2),
+                "precio_minimo_venta": float(round(precio_minimo_venta, 2)),
+
+                "umbral_dominante": umbral_dominante,
+                "diferencia_vs_minimo": float(round(diferencia_vs_minimo, 2)),
+                "dictamen": dictamen,
+
+                "viable": beneficio >= Decimal("30000") or roi >= Decimal("15"),
             }
 
     if proyecto and proyecto.estado and proyecto.estado.lower() in ["cerrado", "cerrado_positivo"]:
@@ -403,6 +452,25 @@ def participacion_create(request, proyecto_id):
             "proyecto": proyecto,
             "clientes": clientes,
             "participaciones": participaciones,
+        },
+    )
+
+
+# =========================
+# LISTA DE ESTUDIOS (estado = "estudio")
+# =========================
+def lista_estudios(request):
+    """
+    Muestra únicamente los proyectos en fase de ESTUDIO.
+    No incluye proyectos operativos ni simulaciones.
+    """
+    estudios = Proyecto.objects.filter(estado__iexact="estudio").order_by("-id")
+
+    return render(
+        request,
+        "core/lista_estudio.html",
+        {
+            "estudios": estudios,
         },
     )
 def lista_proyectos(request):
@@ -732,3 +800,388 @@ def catastro_obtener(request):
         "lon": datos.get("lon"),
         "ref": ref,
     })
+
+from django.template.loader import render_to_string
+from django.http import HttpResponse
+from weasyprint import HTML
+from datetime import date
+from django.conf import settings
+import os
+import base64
+from pathlib import Path
+import io
+
+# --- matplotlib: inicialización única y correcta ---
+
+# ============================
+# PALETA CORPORATIVA INVERSURE
+# ============================
+COLOR_AZUL = "#122135"      # Inversure
+COLOR_DORADO = "#d7b04c"    # Objetivos / énfasis
+COLOR_VERDE = "#2e7d32"     # Beneficio neto
+COLOR_GRIS = "#9e9e9e"      # Referencias / neutro
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from decimal import Decimal
+
+def fmt_eur(valor):
+    if valor is None:
+        return "—"
+    return f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") + "€"
+
+def fmt_pct(valor):
+    if valor is None:
+        return "—"
+    return f"{valor:.2f}".replace(".", ",") + "%"
+
+def generar_pdf_estudio(request, proyecto_id):
+    """
+    Genera el PDF del informe de rentabilidad
+    usando los datos del Estudio de inversión (xhtml2pdf).
+    """
+    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+
+    precio_escritura = proyecto.precio_propiedad or Decimal("0")
+
+    valores = [
+        proyecto.val_idealista,
+        proyecto.val_fotocasa,
+        proyecto.val_registradores,
+        proyecto.val_casafari,
+        proyecto.val_tasacion,
+    ]
+    valores = [v for v in valores if v and v > 0]
+    media_valoraciones = sum(valores) / len(valores) if valores else Decimal("0")
+
+    notaria = max(precio_escritura * Decimal("0.002"), Decimal("500"))
+    registro = max(precio_escritura * Decimal("0.002"), Decimal("500"))
+    itp = precio_escritura * Decimal("0.02")
+
+    gastos_adquisicion = notaria + registro + itp
+    inversion_total = precio_escritura + gastos_adquisicion
+
+    precio_venta = media_valoraciones
+    beneficio = precio_venta - inversion_total
+    roi = (beneficio / inversion_total * Decimal("100")) if inversion_total else Decimal("0")
+
+    resultado = {
+        "inversion_total": round(inversion_total, 2),
+        "beneficio": round(beneficio, 2),
+        "roi": round(roi, 2),
+        "viable": beneficio >= 30000 or roi >= 15,
+    }
+
+    # =========================
+    # MÉTRICAS PASO 1 (BASE)
+    # =========================
+    comision_pct = Decimal("0.30")  # valor por defecto; configurable 0.30 / 0.35 / 0.40
+    comision_eur = beneficio * comision_pct if beneficio else Decimal("0")
+    beneficio_neto = beneficio - comision_eur
+    roi_neto = (beneficio_neto / inversion_total * Decimal("100")) if inversion_total else Decimal("0")
+
+    break_even = inversion_total
+    margen_seguridad = ((precio_venta - inversion_total) / precio_venta * Decimal("100")) if precio_venta else Decimal("0")
+
+    # Sensibilidades
+    pt_menos_5 = precio_venta * Decimal("0.95")
+    pt_menos_10 = precio_venta * Decimal("0.90")
+
+    beneficio_menos_5 = pt_menos_5 - inversion_total
+    beneficio_menos_10 = pt_menos_10 - inversion_total
+
+    roi_menos_5 = (beneficio_menos_5 / inversion_total * Decimal("100")) if inversion_total else Decimal("0")
+    roi_menos_10 = (beneficio_menos_10 / inversion_total * Decimal("100")) if inversion_total else Decimal("0")
+
+    metricas = {
+        "precio_adquisicion": precio_escritura,
+        "precio_transmision": precio_venta,
+        "inversion_total": inversion_total,
+        "beneficio_bruto": beneficio,
+        "roi_bruto": roi,
+        "comision_pct": comision_pct * Decimal("100"),
+        "comision_eur": comision_eur,
+        "beneficio_neto": beneficio_neto,
+        "roi_neto": roi_neto,
+        "break_even": break_even,
+        "margen_seguridad": margen_seguridad,
+        "sensibilidad": {
+            "-5%": {"precio": pt_menos_5, "beneficio": beneficio_menos_5, "roi": roi_menos_5},
+            "-10%": {"precio": pt_menos_10, "beneficio": beneficio_menos_10, "roi": roi_menos_10},
+        },
+    }
+
+    # =================================================
+    # MÉTRICAS FORMATEADAS PARA EL RESUMEN EJECUTIVO
+    # =================================================
+    metricas_fmt = {
+        "inversion_total": fmt_eur(metricas["inversion_total"]),
+        "precio_transmision": fmt_eur(metricas["precio_transmision"]),
+        "beneficio_bruto": fmt_eur(metricas["beneficio_bruto"]),
+        "beneficio_neto": fmt_eur(metricas["beneficio_neto"]),
+        "precio_objetivo_15": fmt_eur(metricas.get("precio_objetivo_15")),
+        "roi_bruto": fmt_pct(metricas["roi_bruto"]),
+        "roi_neto": fmt_pct(metricas["roi_neto"]),
+    }
+
+    # =================================================
+    # GRÁFICO 1: DESGLOSE DEL BENEFICIO (BRUTO / COMISIÓN / NETO) (PROTAGONISTA)
+    # =================================================
+    fig1, ax1 = plt.subplots(figsize=(7, 4))
+
+    valores_beneficio = [
+        metricas["beneficio_bruto"],
+        metricas["comision_eur"],
+        metricas["beneficio_neto"],
+    ]
+
+    etiquetas_beneficio = [
+        "Beneficio bruto",
+        "Comisión Inversure",
+        "Beneficio neto inversor",
+    ]
+
+    colores = [COLOR_AZUL, COLOR_DORADO, COLOR_GRIS]
+
+    barras1 = ax1.bar(
+        etiquetas_beneficio,
+        valores_beneficio,
+        color=colores,
+        width=0.55
+    )
+
+    ax1.set_title("Resultado económico de la operación", fontsize=13, fontweight="bold")
+    ax1.set_ylabel("Euros (€)")
+    ax1.tick_params(axis="x", labelsize=10)
+    ax1.tick_params(axis="y", labelsize=9)
+
+    ax1.spines["top"].set_visible(False)
+    ax1.spines["right"].set_visible(False)
+
+    for barra in barras1:
+        altura = barra.get_height()
+        ax1.text(
+            barra.get_x() + barra.get_width() / 2,
+            altura * 1.02,
+            fmt_eur(Decimal(str(altura))),
+            ha="center",
+            va="bottom",
+            fontsize=10,
+            fontweight="bold"
+        )
+
+    buffer1 = io.BytesIO()
+    plt.tight_layout()
+    plt.savefig(buffer1, format="png", dpi=160)
+    plt.close(fig1)
+
+    grafico_beneficio_base64 = base64.b64encode(buffer1.getvalue()).decode("utf-8")
+
+    # =================================================
+    # GRÁFICO 2: ADQUISICIÓN VS TRANSMISIÓN (secundario pero claro)
+    # =================================================
+    fig2, ax2 = plt.subplots(figsize=(6, 3.5))
+
+    valores_precios = [
+        metricas["inversion_total"],
+        metricas["precio_transmision"],
+    ]
+
+    etiquetas_precios = [
+        "Inversión total",
+        "Precio de venta",
+    ]
+
+    barras2 = ax2.bar(
+        etiquetas_precios,
+        valores_precios,
+        color=[COLOR_AZUL, COLOR_DORADO],
+        width=0.5
+    )
+
+    ax2.set_title("Comparativa adquisición / venta", fontsize=12, fontweight="bold")
+    ax2.set_ylabel("Euros (€)")
+    ax2.spines["top"].set_visible(False)
+    ax2.spines["right"].set_visible(False)
+
+    for barra in barras2:
+        altura = barra.get_height()
+        ax2.text(
+            barra.get_x() + barra.get_width() / 2,
+            altura * 1.01,
+            fmt_eur(Decimal(str(altura))),
+            ha="center",
+            va="bottom",
+            fontsize=9
+        )
+
+    buffer2 = io.BytesIO()
+    plt.tight_layout()
+    plt.savefig(buffer2, format="png", dpi=150)
+    plt.close(fig2)
+
+    grafico_precios_base64 = base64.b64encode(buffer2.getvalue()).decode("utf-8")
+
+    # ============================
+    # OBJETIVOS DE RENTABILIDAD (INVERSOR)
+    # ============================
+
+    # Objetivo 1: 15 % de rentabilidad sobre la inversión total
+    precio_objetivo_15 = inversion_total * Decimal("1.15")
+
+    # Objetivo 2: beneficio absoluto mínimo de 30.000 €
+    precio_objetivo_30000 = inversion_total + Decimal("30000")
+
+    # ¿Resultado neto negativo tras comisión?
+    resultado_negativo = beneficio_neto <= 0
+
+    # Precio mínimo de venta necesario para alcanzar el objetivo esperado
+    if resultado_negativo:
+        precio_equilibrio_beneficio = max(precio_objetivo_15, precio_objetivo_30000)
+    else:
+        precio_equilibrio_beneficio = None
+
+    # Añadir métricas al diccionario principal
+    metricas["precio_objetivo_15"] = precio_objetivo_15
+    metricas["precio_objetivo_30000"] = precio_objetivo_30000
+    metricas["resultado_negativo"] = resultado_negativo
+    metricas["precio_equilibrio_beneficio"] = precio_equilibrio_beneficio
+
+    # =================================================
+    # GRÁFICO 3: SENSIBILIDAD DEL PRECIO DE VENTA (DECISIÓN)
+    # =================================================
+    fig3, ax3 = plt.subplots(figsize=(7, 3.8))
+
+    precios_sens = [
+        metricas["precio_adquisicion"],
+        metricas["precio_objetivo_15"],
+        metricas["precio_objetivo_30000"],
+        metricas["precio_transmision"],
+    ]
+
+    labels_sens = [
+        "Compra",
+        "Objetivo 15 %",
+        "Objetivo +30.000 €",
+        "Venta estimada",
+    ]
+
+    ax3.plot(
+        labels_sens,
+        precios_sens,
+        marker="o",
+        linewidth=2.5,
+        color=COLOR_AZUL
+    )
+
+    for x, y in zip(labels_sens, precios_sens):
+        ax3.text(
+            x,
+            float(y) * 1.01,
+            fmt_eur(y),
+            ha="center",
+            fontsize=9,
+            fontweight="bold"
+        )
+
+    ax3.set_title("Sensibilidad del precio de venta", fontsize=13, fontweight="bold")
+    ax3.set_ylabel("Precio (€)")
+    ax3.grid(True, linestyle="--", alpha=0.3)
+
+    buffer3 = io.BytesIO()
+    plt.tight_layout()
+    plt.savefig(buffer3, format="png", dpi=160)
+    plt.close(fig3)
+
+    grafico_sensibilidad_base64 = base64.b64encode(buffer3.getvalue()).decode("utf-8")
+
+    # ============================
+    # LOGO CORPORATIVO (WeasyPrint)
+    # ============================
+    logo_path = (
+        Path(settings.BASE_DIR)
+        / "core"
+        / "static"
+        / "core"
+        / "logo_inversure.jpg"
+    )
+    logo_url = logo_path.resolve().as_uri()
+
+    mapa_base64 = None
+    if proyecto.lat and proyecto.lon:
+        mapa_url = (
+            "https://staticmap.openstreetmap.de/staticmap.php"
+            f"?center={proyecto.lat},{proyecto.lon}"
+            "&zoom=16"
+            "&size=600x300"
+            f"&markers={proyecto.lat},{proyecto.lon},red-pushpin"
+        )
+        try:
+            resp = requests.get(mapa_url, timeout=10)
+            if resp.status_code == 200:
+                mapa_base64 = base64.b64encode(resp.content).decode("utf-8")
+        except Exception:
+            mapa_base64 = None
+
+    html = render_to_string(
+        "core/pdf_estudio_rentabilidad.html",
+        {
+            "proyecto": proyecto,
+            "resultado": resultado,
+            "fecha": date.today().strftime("%d/%m/%Y"),
+            "logo_url": logo_url,
+            "mapa_base64": mapa_base64,
+            "metricas": metricas,
+            "metricas_fmt": metricas_fmt,
+            "grafico_beneficio_base64": grafico_beneficio_base64,
+            "grafico_precios_base64": grafico_precios_base64,
+            "grafico_sensibilidad_base64": grafico_sensibilidad_base64,
+        }
+    )
+
+    pdf = HTML(
+        string=html,
+        base_url=settings.BASE_DIR
+    ).write_pdf()
+
+    response = HttpResponse(pdf, content_type="application/pdf")
+    response["Content-Disposition"] = (
+        f'inline; filename="Informe_Estudio_{proyecto.id}.pdf"'
+    )
+
+    return response
+
+
+# ============================
+# APROBAR PROYECTO (NUEVA VISTA)
+# ============================
+from django.utils import timezone
+from django.views.decorators.http import require_POST
+from django.conf import settings
+import os
+
+@require_POST
+def aprobar_proyecto(request, proyecto_id):
+    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+
+    if proyecto.aprobado:
+        return redirect("core:lista_estudios")
+
+    # Generar PDF usando la función existente
+    response = generar_pdf_estudio(request, proyecto_id)
+
+    nombre_pdf = f"proyecto_{proyecto.id}_{timezone.now().strftime('%Y%m%d_%H%M')}.pdf"
+    ruta_relativa = os.path.join("proyectos_aprobados", nombre_pdf)
+    ruta_absoluta = os.path.join(settings.MEDIA_ROOT, ruta_relativa)
+
+    os.makedirs(os.path.dirname(ruta_absoluta), exist_ok=True)
+
+    with open(ruta_absoluta, "wb") as f:
+        f.write(response.content)
+
+    proyecto.pdf_aprobado = ruta_relativa
+    proyecto.aprobado = True
+    proyecto.fecha_aprobacion = timezone.now()
+    proyecto.save(update_fields=["pdf_aprobado", "aprobado", "fecha_aprobacion"])
+
+    return redirect("core:lista_estudios")

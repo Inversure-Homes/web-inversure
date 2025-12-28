@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html>
+{% load static %}
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 11px;
+            color: #122135;
+            margin: 40px;
+        }
+
+        h1 {
+            font-size: 22px;
+            margin-bottom: 4px;
+            color: #122135;
+            text-align: center;
+        }
+
+        .subtitulo {
+            font-size: 11px;
+            color: #555;
+            text-align: center;
+        }
+
+        h2 {
+            font-size: 15px;
+            margin-top: 28px;
+            margin-bottom: 10px;
+            padding-bottom: 4px;
+            border-bottom: 2px solid #d7b04c;
+            color: #122135;
+            text-align: center;
+        }
+
+        h3 {
+            font-size: 13px;
+            margin-top: 18px;
+            margin-bottom: 6px;
+            color: #122135;
+            text-align: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+        }
+
+        th {
+            background-color: #122135;
+            color: #ffffff;
+            font-weight: bold;
+            padding: 6px;
+            text-align: center;
+            font-size: 11px;
+            vertical-align: middle;
+        }
+
+        td {
+            padding: 6px;
+            font-size: 11px;
+            border-bottom: 1px solid #e0e0e0;
+            vertical-align: middle;
+            text-align: center;
+        }
+
+        .header {
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            display: block;
+            margin: 0 auto;
+            width: 140px;
+        }
+
+        .titulo {
+            text-align: right;
+        }
+
+        .kpi {
+            width: 33%;
+            text-align: center;
+            border: 1px solid #e0e0e0;
+            padding: 14px;
+        }
+
+        .kpi-valor {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .kpi-valor-beneficio {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2e7d32;
+            margin-bottom: 4px;
+        }
+
+        .kpi-label {
+            font-size: 10px;
+            color: #555;
+        }
+
+        .mapa {
+            margin-top: 12px;
+            text-align: center;
+        }
+
+        .mapa img {
+            max-width: 100%;
+            border: 1px solid #ccc;
+        }
+
+        .decision {
+            margin-top: 20px;
+            padding: 14px;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .decision.viable {
+            border: 1px solid #2e7d32;
+            background-color: #eef6ee;
+            color: #2e7d32;
+        }
+
+        .decision.no-viable {
+            border: 1px solid #b71c1c;
+            background-color: #fdecea;
+            color: #b71c1c;
+        }
+
+        .footer {
+            margin-top: 35px;
+            font-size: 9px;
+            color: #666;
+            text-align: center;
+        }
+
+        .kpi-destacado {
+            font-size: 18px;
+            font-weight: 700;
+            color: #122135;
+            text-align: center;
+            margin: 6px 0 2px 0;
+            white-space: nowrap;
+        }
+
+        .kpi-destacado-verde {
+            font-size: 20px;
+            font-weight: 800;
+            color: #2e7d32;
+            text-align: center;
+            margin: 6px 0 2px 0;
+            white-space: nowrap;
+        }
+
+        .kpi-subtexto {
+            font-size: 10px;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .header td {
+            text-align: left;
+        }
+
+    .page-break {
+        page-break-before: always;
+    }
+
+    .section-spacing {
+        margin-top: 36px;
+    }
+
+        .exec-summary {
+            border: 3px solid #d7b04c;
+            padding: 22px;
+            margin-top: 18px;
+            margin-bottom: 24px;
+
+            /* Evitar cortes de página en PDFs */
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .exec-grid {
+            width: 100%;
+            table-layout: fixed;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .exec-grid td {
+            width: 25%;
+            box-sizing: border-box;
+            text-align: center;
+            padding: 16px 8px;
+            border: 1px solid #e0e0e0;
+            vertical-align: middle;
+            overflow: hidden;
+        }
+
+        .exec-value {
+            font-size: 21px;
+            font-weight: 700;
+            color: #122135;
+            white-space: nowrap;
+            line-height: 1.05;
+            display: block;
+        }
+
+        .exec-value-green {
+            font-size: 23px;
+            font-weight: 800;
+            color: #2e7d32;
+            white-space: nowrap;
+            line-height: 1.05;
+            display: block;
+        }
+
+        .exec-label {
+            font-size: 11px;
+            color: #555;
+            margin-top: 6px;
+            letter-spacing: 0.3px;
+            display: block;
+        }
+
+        .exec-decision {
+            margin-top: 14px;
+            padding: 10px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+    .exec-header {
+        background-color: #122135;
+        color: #ffffff;
+        font-size: 18px;
+        font-weight: 700;
+        text-align: center;
+        padding: 14px 0;
+        margin-bottom: 18px;
+        letter-spacing: 0.6px;
+    }
+
+    .section-card {
+        border: 2px solid #d7b04c;
+        padding: 18px 20px;
+        margin-top: 28px;
+        margin-bottom: 34px;
+    }
+
+    .section-header {
+        background-color: #122135;
+        color: #ffffff;
+        font-size: 14px;
+        font-weight: 700;
+        text-align: center;
+        padding: 10px 0;
+        margin-bottom: 16px;
+        letter-spacing: 0.6px;
+    }
+
+    .section-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .section-table th {
+        background-color: #f5f6f7;
+        color: #122135;
+        font-weight: 600;
+        padding: 8px;
+        font-size: 11px;
+        width: 30%;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .section-table td {
+        padding: 8px;
+        font-size: 11px;
+        border-bottom: 1px solid #e0e0e0;
+        vertical-align: middle;
+    }
+
+    .section-table td strong {
+        font-size: 13px;
+        font-weight: 700;
+        color: #122135;
+    }
+
+    </style>
+</head>
+<body>
+
+<!-- =========================
+     CABECERA / PORTADA
+========================= -->
+<div style="text-align:center; margin-bottom:30px;">
+    <img src="{{ logo_url }}"
+         alt="Inversure"
+         style="
+            width: 230px;
+            max-width: 230px;
+            height: auto;
+            display: inline-block;
+            margin-bottom: 6px;
+         ">
+</div>
+<table class="header">
+    <tr>
+        <td class="titulo">
+            <h1>Informe de rentabilidad</h1>
+            <div class="subtitulo">
+                Estudio de inversión · {{ fecha }}
+            </div>
+        </td>
+    </tr>
+</table>
+
+
+<!-- =========================
+     EXECUTIVE SUMMARY
+========================= -->
+<div class="exec-summary">
+    <div class="exec-header">RESUMEN EJECUTIVO</div>
+
+    <table class="exec-grid">
+        <tr>
+            <td>
+                <div class="exec-value">
+                    {{ metricas_fmt.inversion_total }}
+                </div>
+                <div class="exec-label">Inversión total</div>
+            </td>
+            <td>
+                <div class="exec-value">
+                    {{ metricas_fmt.precio_transmision }}
+                </div>
+                <div class="exec-label">Precio de venta</div>
+            </td>
+            <td>
+                <div class="exec-value-green">
+                    {{ metricas_fmt.beneficio_neto }}
+                </div>
+                <div class="exec-label">Beneficio neto</div>
+            </td>
+            <td>
+                <div class="exec-value">
+                    {{ metricas_fmt.roi_neto }}
+                </div>
+                <div class="exec-label">ROI neto</div>
+            </td>
+        </tr>
+    </table>
+
+    {% if grafico_beneficio_base64 or grafico_precios_base64 %}
+    <div style="margin-top:18px; text-align:center;">
+
+        {% if grafico_beneficio_base64 %}
+        <div style="margin-bottom:14px;">
+            <img src="data:image/png;base64,{{ grafico_beneficio_base64 }}"
+                 style="width:360px; height:auto; display:inline-block;">
+        </div>
+        {% endif %}
+
+        {% if grafico_precios_base64 %}
+        <div>
+            <img src="data:image/png;base64,{{ grafico_precios_base64 }}"
+                 style="width:360px; height:auto; display:inline-block;">
+        </div>
+        {% endif %}
+
+    </div>
+    {% endif %}
+
+    {% if resultado.viable %}
+    <div class="exec-decision" style="border:1px solid #2e7d32; background:#eef6ee; color:#2e7d32;">
+        ✔ OPERACIÓN VIABLE SEGÚN CRITERIOS INVERSURE
+    </div>
+    {% else %}
+    <div class="exec-decision" style="border:1px solid #b71c1c; background:#fdecea; color:#b71c1c;">
+        ✖ OPERACIÓN NO VIABLE SEGÚN CRITERIOS INVERSURE
+    </div>
+    {% endif %}
+</div>
+
+<div class="page-break"></div>
+
+<!-- =========================
+     DATOS DEL INMUEBLE
+========================= -->
+<div class="section-card">
+    <div class="section-header">DATOS DEL INMUEBLE</div>
+
+    <table class="section-table">
+        <tr>
+            <th>Proyecto</th>
+            <td>{{ proyecto.nombre }}</td>
+        </tr>
+        <tr>
+            <th>Dirección</th>
+            <td>{{ proyecto.direccion }}</td>
+        </tr>
+        <tr>
+            <th>Referencia catastral</th>
+            <td>{{ proyecto.ref_catastral|default:"—" }}</td>
+        </tr>
+    </table>
+
+    {% if mapa_base64 %}
+    <div style="margin-top:14px; text-align:center;">
+        <img src="data:image/png;base64,{{ mapa_base64 }}"
+             style="max-width:100%; border:1px solid #ccc;">
+    </div>
+    {% endif %}
+</div>
+
+<!-- =========================
+     DATOS ECONÓMICOS
+========================= -->
+<div class="section-card">
+    <div class="section-header">DATOS ECONÓMICOS</div>
+
+    <table class="section-table">
+        <tr>
+            <th>Precio de adquisición</th>
+            <td>{{ metricas.precio_adquisicion|floatformat:2 }} €</td>
+        </tr>
+        <tr>
+            <th>Precio de transmisión estimado</th>
+            <td>{{ metricas.precio_transmision|floatformat:2 }} €</td>
+        </tr>
+        <tr>
+            <th>Beneficio bruto estimado</th>
+            <td>
+                <div class="kpi-destacado">
+                    {{ metricas_fmt.beneficio_bruto }}
+                </div>
+                <div class="kpi-subtexto">Resultado antes de comisión Inversure</div>
+            </td>
+        </tr>
+        <tr>
+            <th>Rentabilidad bruta (ROI)</th>
+            <td>
+                <div class="kpi-destacado">
+                    {{ metricas_fmt.roi_bruto }}
+                </div>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<!-- =========================
+     RESULTADOS PREVISTOS
+========================= -->
+<div class="section-card">
+    <div class="section-header">RESULTADOS PREVISTOS</div>
+
+    <table class="section-table">
+        <tr>
+            <th>Comisión Inversure</th>
+            <td>{{ metricas.comision_pct|floatformat:0 }} %</td>
+        </tr>
+        <tr>
+            <th>Comisión Inversure (€)</th>
+            <td>{{ metricas.comision_eur|floatformat:2 }} €</td>
+        </tr>
+        <tr>
+            <th><strong>Beneficio neto estimado</strong></th>
+            <td>
+                <div class="kpi-destacado-verde">
+                    {{ metricas_fmt.beneficio_neto }}
+                </div>
+                <div class="kpi-subtexto">Resultado final estimado para el inversor</div>
+            </td>
+        </tr>
+        <tr>
+            <th><strong>Rentabilidad neta estimada (ROI)</strong></th>
+            <td>
+                <div class="kpi-destacado">
+                    {{ metricas_fmt.roi_neto }}
+                </div>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<div class="page-break"></div>
+<!-- =========================
+     ANÁLISIS DE RIESGO
+========================= -->
+<div class="section-card">
+    <div class="section-header">ANÁLISIS DE RIESGO</div>
+
+    <table class="section-table">
+        <tr>
+            <th>Precio de equilibrio (break-even)</th>
+            <td>{{ metricas.break_even|floatformat:2 }} €</td>
+        </tr>
+        <tr>
+            <th>Margen de seguridad</th>
+            <td>{{ metricas.margen_seguridad|floatformat:2 }} %</td>
+        </tr>
+    </table>
+    {% if grafico_sensibilidad_base64 %}
+    <div style="margin-top:16px; text-align:center;">
+        <img src="data:image/png;base64,{{ grafico_sensibilidad_base64 }}"
+             style="width:360px; height:auto; display:inline-block;">
+    </div>
+    {% endif %}
+</div>
+
+<div class="section-card">
+    <div class="section-header">PRECIO OBJETIVO DE VENTA</div>
+
+    <table class="section-table">
+        <tr>
+            <th>Precio mínimo para obtener un 15 % de rentabilidad</th>
+            <td>
+                <div class="kpi-destacado-verde">
+                    {{ metricas_fmt.precio_objetivo_15 }}
+                </div>
+                <div class="kpi-subtexto">Precio mínimo recomendado de venta</div>
+            </td>
+        </tr>
+        <tr>
+            <th>Precio mínimo para obtener un beneficio de 30.000 €</th>
+            <td>{{ metricas.precio_objetivo_30000|floatformat:2 }} €</td>
+        </tr>
+        {% if metricas.resultado_negativo %}
+        <tr>
+            <th>Precio mínimo de venta necesario (escenario correctivo)</th>
+            <td>{{ metricas.precio_equilibrio_beneficio|floatformat:2 }} €</td>
+        </tr>
+        {% endif %}
+    </table>
+</div>
+
+<!-- =========================
+     DECISIÓN INVERSURE
+========================= -->
+<div class="section-card">
+    <div class="section-header">DECISIÓN DEL COMITÉ DE INVERSIÓN</div>
+
+    {% if resultado.viable %}
+    <div class="decision viable">
+        ✔ OPERACIÓN VIABLE<br>
+        El comité de inversión de Inversure considera que la operación presenta
+        una rentabilidad neta adecuada y un perfil de riesgo coherente con los
+        criterios del grupo.
+    </div>
+    {% else %}
+    <div class="decision no-viable">
+        ✖ OPERACIÓN NO VIABLE<br>
+        La operación no alcanza los criterios mínimos de rentabilidad exigidos por Inversure.
+    </div>
+    {% endif %}
+</div>
+
+<!-- =========================
+     PIE
+========================= -->
+    <div class="footer">
+        Documento generado automáticamente por Inversure · Uso interno<br>
+        Este informe se basa en estimaciones y no constituye una recomendación definitiva de inversión.
+    </div>
+
+</body></html>
