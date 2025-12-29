@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <!-- TÍTULO -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Gastos del proyecto</h2>
+        <a href="{% url 'core:lista_proyectos' %}" class="btn btn-outline-secondary">
+            ← Volver a proyectos
+        </a>
+    </div>
+
+    <!-- INFO PROYECTO -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">{{ proyecto.nombre }}</h5>
+            <p class="mb-1"><strong>Estado:</strong> {{ proyecto.get_estado_display }}</p>
+            <p class="mb-0">
+                <strong>Fecha creación:</strong> {{ proyecto.fecha_creacion|date:"d/m/Y" }}
+            </p>
+        </div>
+    </div>
+
+    <!-- BOTÓN NUEVO GASTO -->
+    <div class="mb-3">
+        <a href="#" class="btn btn-primary">
+            + Añadir gasto
+        </a>
+    </div>
+
+    <!-- TABLA DE GASTOS -->
+    <div class="card">
+        <div class="card-body p-0">
+
+            {% if gastos %}
+                <table class="table table-striped mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Concepto</th>
+                            <th>Tipo</th>
+                            <th class="text-end">Importe</th>
+                            <th>Fecha</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for gasto in gastos %}
+                        <tr>
+                            <td>{{ gasto.concepto }}</td>
+                            <td>{{ gasto.get_tipo_display }}</td>
+                            <td class="text-end">
+                                {{ gasto.importe|floatformat:2|intcomma }} €
+                            </td>
+                            <td>{{ gasto.fecha|date:"d/m/Y" }}</td>
+                            <td class="text-end">
+                                <a href="#" class="btn btn-sm btn-outline-secondary">
+                                    Facturas
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="p-4 text-muted text-center">
+                    No hay gastos registrados en este proyecto.
+                </div>
+            {% endif %}
+
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

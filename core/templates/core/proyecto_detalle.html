@@ -1,0 +1,52 @@
+{% extends "core/base.html" %}
+{% block content %}
+
+<section class="project-header" role="banner" aria-label="Project overview">
+  <header>
+    <h1>{{ proyecto.nombre }}</h1>
+    <h2 class="subtitle">{{ proyecto.direccion }}</h2>
+    <span class="badge badge-estado" aria-label="Estado del proyecto">{{ proyecto.estado }}</span>
+  </header>
+</section>
+
+<section class="project-summary" aria-label="Resumen financiero del proyecto">
+  <div class="summary-grid" role="list">
+    <article class="card" role="listitem" aria-labelledby="inversion-title">
+      <h3 id="inversion-title">Inversión prevista</h3>
+      <p><strong>{{ inversion }} €</strong></p>
+    </article>
+    <article class="card" role="listitem" aria-labelledby="gastos-title">
+      <h3 id="gastos-title">Gastos</h3>
+      <p><strong>{{ total_gastos }} €</strong></p>
+    </article>
+    <article class="card" role="listitem" aria-labelledby="capital-title">
+      <h3 id="capital-title">Capital comprometido</h3>
+      <p><strong>{{ capital }} €</strong></p>
+    </article>
+    <article class="card" role="listitem" aria-labelledby="resultado-title">
+      <h3 id="resultado-title">Resultado estimado</h3>
+      <p><strong>{{ resultado }} €</strong></p>
+    </article>
+  </div>
+</section>
+
+<section class="project-actions" aria-label="Acciones principales del proyecto">
+  <nav>
+    <a href="{% url 'core:proyecto_gastos' proyecto.id %}" class="btn" role="button">Gastos</a>
+    <a href="{% url 'core:participacion_create' proyecto.id %}" class="btn" role="button">Inversores</a>
+    <a href="{% url 'core:generar_pdf_estudio' proyecto.id %}" class="btn secondary" role="button">Estudio</a>
+  </nav>
+</section>
+
+<section class="project-info" aria-label="Información adicional del proyecto">
+  <dl>
+    <dt>ID del Proyecto</dt>
+    <dd>{{ proyecto.id }}</dd>
+    <dt>Fecha de creación</dt>
+    <dd>{{ proyecto.fecha_creacion|default:"-" }}</dd>
+    <dt>Última actualización</dt>
+    <dd>{{ proyecto.fecha_actualizacion|default:"-" }}</dd>
+  </dl>
+</section>
+
+{% endblock %}
