@@ -724,52 +724,61 @@ def guardar_simulacion(request):
     return redirect("core:lista_proyectos")
 
 
+
+from django.views.decorators.http import require_POST
+from django.shortcuts import redirect, get_object_or_404
+from decimal import Decimal
+
 @require_POST
 def convertir_simulacion_a_proyecto(request, simulacion_id):
     """
-    Convierte una simulación básica en un proyecto real.
-    Mapeo correcto de campos:
-    - Inmueble (simulación.nombre / direccion) -> Proyecto.direccion
-    - Compra (simulación.precio_compra) -> Proyecto.precio_propiedad (precio escritura)
-    - Venta (simulación.precio_venta_estimado) -> Proyecto.val_tasacion
+    Convierte una simulación básica en un proyecto REAL.
     """
-    simulacion = Simulacion.objects.filter(
+
+    simulacion = get_object_or_404(
+        Simulacion,
         id=simulacion_id,
         convertida=False
-    ).first()
+    )
 
-    if not simulacion:
-        # No existe o ya convertida: volvemos a proyectos
-        return redirect("core:lista_proyectos")
-
-    # 1) Determinar dirección del inmueble
+    # 1️⃣ Determinar datos base
     direccion = (
         simulacion.direccion
         or simulacion.nombre
         or f"Inmueble simulación #{simulacion.id}"
     )
 
-    # 2) Crear proyecto con los campos correctamente mapeados (bloque exacto con Decimal)
+    precio_compra = simulacion.precio_compra or Decimal("0")
+    precio_venta = simulacion.precio_venta_estimado or Decimal("0")
+
+    # 2️⃣ Crear el proyecto REAL
     proyecto = Proyecto.objects.create(
         nombre=f"Proyecto - {direccion}",
         direccion=direccion,
-        # Precio de escritura
-        precio_propiedad=simulacion.precio_compra,
-        # Valor de adquisición (Decimal seguro)
-        precio_compra_inmueble=simulacion.precio_compra * Decimal("1.10"),
-        # Tasación / valor venta
-        val_tasacion=simulacion.precio_venta_estimado,
-        roi=simulacion.roi,
+        ref_catastral=simulacion.ref_catastral,
+
+        # Compra
+        precio_propiedad=precio_compra,
+
+        # Valoración / venta
+        val_tasacion=precio_venta,
+
+        # Métricas
         beneficio_neto=simulacion.beneficio,
+        roi=simulacion.roi,
+
+        # Estado inicial
         estado="estudio",
+
+        # Trazabilidad
         simulacion_origen=simulacion,
     )
 
-    # 3) Marcar simulación como convertida (deja de aparecer en pendientes)
+    # 3️⃣ Marcar simulación como convertida
     simulacion.convertida = True
     simulacion.save(update_fields=["convertida"])
 
-    # 4) Redirigir al formulario de proyecto (simulador completo)
+    # 4️⃣ Redirigir al simulador COMPLETO del proyecto
     return redirect("core:simulador", proyecto_id=proyecto.id)
 
 
