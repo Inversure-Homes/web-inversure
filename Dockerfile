@@ -48,4 +48,4 @@ RUN python manage.py collectstatic --noinput
 # START
 # =========================
 EXPOSE 10000
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:10000"]
+CMD ["python", "-m", "gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:10000"]
