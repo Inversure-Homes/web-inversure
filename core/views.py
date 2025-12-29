@@ -803,7 +803,10 @@ def catastro_obtener(request):
 
 from django.template.loader import render_to_string
 from django.http import HttpResponse
-from weasyprint import HTML
+try:
+    from weasyprint import HTML
+except Exception:
+    HTML = None
 from datetime import date
 from django.conf import settings
 import os
@@ -840,6 +843,11 @@ def generar_pdf_estudio(request, proyecto_id):
     Genera el PDF del informe de rentabilidad
     usando los datos del Estudio de inversión (xhtml2pdf).
     """
+    if HTML is None:
+        return HttpResponse(
+            "La generación de PDF no está disponible en este entorno.",
+            status=503
+        )
     proyecto = get_object_or_404(Proyecto, id=proyecto_id)
 
     precio_escritura = proyecto.precio_propiedad or Decimal("0")
