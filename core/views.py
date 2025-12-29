@@ -803,18 +803,12 @@ def catastro_obtener(request):
 
 from django.template.loader import render_to_string
 from django.http import HttpResponse
-try:
-    from weasyprint import HTML
-except Exception:
-    HTML = None
 from datetime import date
 from django.conf import settings
 import os
 import base64
 from pathlib import Path
 import io
-
-# --- matplotlib: inicialización única y correcta ---
 
 # ============================
 # PALETA CORPORATIVA INVERSURE
@@ -823,9 +817,6 @@ COLOR_AZUL = "#122135"      # Inversure
 COLOR_DORADO = "#d7b04c"    # Objetivos / énfasis
 COLOR_VERDE = "#2e7d32"     # Beneficio neto
 COLOR_GRIS = "#9e9e9e"      # Referencias / neutro
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 from decimal import Decimal
 
 def fmt_eur(valor):
@@ -843,11 +834,16 @@ def generar_pdf_estudio(request, proyecto_id):
     Genera el PDF del informe de rentabilidad
     usando los datos del Estudio de inversión (xhtml2pdf).
     """
-    if HTML is None:
+    try:
+        from weasyprint import HTML
+    except Exception as e:
         return HttpResponse(
-            "La generación de PDF no está disponible en este entorno.",
+            f"WeasyPrint no disponible en este entorno: {e}",
             status=503
         )
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
     proyecto = get_object_or_404(Proyecto, id=proyecto_id)
 
     precio_escritura = proyecto.precio_propiedad or Decimal("0")
