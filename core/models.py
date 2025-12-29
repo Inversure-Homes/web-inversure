@@ -277,6 +277,110 @@ class Proyecto(models.Model):
 
 
 # =========================
+# MODELO GASTO DE PROYECTO
+# =========================
+class GastoProyecto(models.Model):
+
+    CATEGORIAS = [
+        ("adquisicion", "Adquisición"),
+        ("reforma", "Reforma"),
+        ("seguridad", "Seguridad"),
+        ("operativos", "Gastos operativos"),
+        ("financieros", "Financieros"),
+        ("legales", "Legales"),
+        ("venta", "Venta"),
+        ("otros", "Otros"),
+    ]
+
+    ESTADOS = [
+        ("pendiente", "Pendiente"),
+        ("pagado", "Pagado"),
+        ("provisionado", "Provisionado"),
+        ("anulado", "Anulado"),
+    ]
+
+    proyecto = models.ForeignKey(
+        Proyecto,
+        on_delete=models.PROTECT,
+        related_name="gastos"
+    )
+
+    fecha = models.DateField()
+
+    categoria = models.CharField(
+        max_length=20,
+        choices=CATEGORIAS
+    )
+
+    concepto = models.CharField(
+        max_length=255
+    )
+
+    proveedor = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True
+    )
+
+    importe = models.DecimalField(
+        max_digits=12,
+        decimal_places=2
+    )
+
+    imputable_inversores = models.BooleanField(
+        default=True,
+        help_text="Indica si el gasto se imputa a los inversores"
+    )
+
+    estado = models.CharField(
+        max_length=15,
+        choices=ESTADOS,
+        default="pendiente"
+    )
+
+    observaciones = models.TextField(
+        blank=True,
+        null=True
+    )
+
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["fecha", "id"]
+
+    def __str__(self):
+        return f"{self.proyecto} · {self.concepto} · {self.importe} €"
+
+
+# =========================
+# MODELO FACTURA DE GASTO
+# =========================
+class FacturaGasto(models.Model):
+
+    gasto = models.OneToOneField(
+        GastoProyecto,
+        on_delete=models.CASCADE,
+        related_name="factura"
+    )
+
+    archivo = models.FileField(
+        upload_to="facturas_proyectos/%Y/%m/"
+    )
+
+    nombre_original = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True
+    )
+
+    fecha_subida = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Factura · {self.gasto.concepto}"
+
+
+# =========================
 # MODELO CLIENTE
 # =========================
 class Cliente(models.Model):
