@@ -530,6 +530,48 @@ def lista_proyectos(request):
     )
 
 
+# === Proyecto Detalle View ===
+from django.db.models import Sum
+
+def proyecto_detalle(request, proyecto_id):
+    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+
+    # KPIs operativos (solo lectura)
+    inversion_total = proyecto.precio_propiedad or 0
+    beneficio = proyecto.beneficio_neto or 0
+    roi = proyecto.roi or 0
+
+    participaciones = Participacion.objects.filter(proyecto=proyecto)
+    total_invertido = participaciones.aggregate(
+        total=Sum("importe_invertido")
+    )["total"] or 0
+
+    num_inversores = participaciones.count()
+
+    gastos = GastoProyecto.objects.filter(proyecto=proyecto)
+    total_gastos = gastos.aggregate(
+        total=Sum("importe")
+    )["total"] or 0
+
+    contexto = {
+        "proyecto": proyecto,
+        "kpis": {
+            "inversion_total": inversion_total,
+            "beneficio": beneficio,
+            "roi": roi,
+            "total_invertido": total_invertido,
+            "num_inversores": num_inversores,
+            "total_gastos": total_gastos,
+        },
+    }
+
+    return render(
+        request,
+        "core/proyecto_detalle.html",
+        contexto
+    )
+
+
 # Vista clientes
 def clientes(request):
     clientes = Cliente.objects.all().order_by("nombre")
