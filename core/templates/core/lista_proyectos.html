@@ -65,12 +65,16 @@
 
                   <!-- ACCIONES -->
                   <div class="mt-auto d-flex justify-content-end gap-2">
-                    <a href="{% url 'core:proyecto_detalle' proyecto.id %}" class="btn btn-primary btn-sm">
-                      Detalle
-                    </a>
-                    <a href="{% url 'core:proyecto_gastos' proyecto.id %}" class="btn btn-outline-secondary btn-sm">
-                      Gastos
-                    </a>
+                    {% if proyecto.id|add:0 > 0 %}
+                      <a href="{% url 'core:proyecto_detalle' proyecto.id %}" class="btn btn-primary btn-sm">
+                        Detalle
+                      </a>
+                      <a href="{% url 'core:proyecto_gastos' proyecto.id %}" class="btn btn-outline-secondary btn-sm">
+                        Gastos
+                      </a>
+                    {% else %}
+                      <span class="badge bg-secondary">Proyecto sin detalle</span>
+                    {% endif %}
                   </div>
 
                 </div>
