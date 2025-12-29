@@ -35,6 +35,11 @@ urlpatterns = [
     ),
     path("proyectos/", views.lista_proyectos, name="lista_proyectos"),
     path(
+        "proyectos/<int:proyecto_id>/",
+        views.proyecto_detalle,
+        name="proyecto_detalle",
+    ),
+    path(
         "proyectos/<int:proyecto_id>/gastos/",
         views.proyecto_gastos,
         name="proyecto_gastos",
