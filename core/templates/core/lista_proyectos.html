@@ -19,33 +19,33 @@
       </section>
 
       <!-- PROYECTOS GUARDADOS -->
-      <div class="card shadow-sm mb-5">
-        <div class="card-body">
-
-          <h4 class="mb-4">📁 Proyectos activos</h4>
-
-          {% if proyectos %}
-            {% for proyecto in proyectos %}
-              <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
-                <div>
-                  <strong>{{ proyecto.nombre }}</strong><br>
-                  <small class="text-muted">
-                    Estado: {{ proyecto.estado|default:"estudio" }}
-                  </small>
+      {% if proyectos %}
+        <div class="row">
+          {% for proyecto in proyectos %}
+            <div class="col-md-4 mb-4">
+              <div class="card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+                  <h5 class="card-title">{{ proyecto.nombre }}</h5>
+                  <span class="badge bg-primary mb-3">{{ proyecto.estado|default:"Activo" }}</span>
+                  <div class="mb-3 text-muted">
+                    <div><small>Inversión total: --</small></div>
+                    <div><small>Precio objetivo: --</small></div>
+                    <div><small>ROI previsto: --</small></div>
+                  </div>
+                  <div class="mt-auto d-flex justify-content-end gap-2">
+                    <a href="{% url 'core:proyecto_detalle' proyecto.id %}" class="btn btn-outline-primary btn-sm">Detalle</a>
+                    <a href="{% url 'core:proyecto_gastos' proyecto.id %}" class="btn btn-outline-secondary btn-sm">Gastos</a>
+                  </div>
                 </div>
-
-                <a href="{% url 'core:simulador' proyecto.id %}"
-                   class="btn btn-outline-primary">
-                  Gestionar proyecto
-                </a>
               </div>
-            {% endfor %}
-          {% else %}
-            <p class="text-muted mb-0">No hay proyectos guardados.</p>
-          {% endif %}
-
+            </div>
+          {% endfor %}
         </div>
-      </div>
+      {% else %}
+        <div class="text-center text-muted py-5">
+          No hay proyectos creados todavía
+        </div>
+      {% endif %}
 
     </div>
   </section>
