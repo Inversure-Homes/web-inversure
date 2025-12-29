@@ -485,12 +485,36 @@ def lista_estudios(request):
 def lista_proyectos(request):
     estado = request.GET.get("estado")
 
-    # Proyectos (filtrados por estado si se indica)
-    proyectos = Proyecto.objects.all().order_by("-id")
+    proyectos_qs = Proyecto.objects.all().order_by("-id")
     if estado:
-        proyectos = proyectos.filter(estado__iexact=estado)
+        proyectos_qs = proyectos_qs.filter(estado__iexact=estado)
 
-    # Simulaciones que NO están convertidas en proyecto
+    proyectos_resumen = []
+
+    for p in proyectos_qs:
+        # Inversión total aproximada
+        inversion = (p.precio_propiedad or 0)
+        # Beneficio estimado
+        beneficio = (p.beneficio_neto or 0)
+        # ROI estimado
+        roi = (p.roi or 0)
+
+        # Flags de control
+        flags = {
+            "aprobado": bool(getattr(p, "aprobado", False)),
+            "tiene_pdf": bool(getattr(p, "pdf_aprobado", None)),
+            "estado": p.estado,
+            "rentable": beneficio >= 30000 or roi >= 15,
+        }
+
+        proyectos_resumen.append({
+            "proyecto": p,
+            "inversion": inversion,
+            "beneficio": beneficio,
+            "roi": roi,
+            "flags": flags,
+        })
+
     simulaciones_pendientes = Simulacion.objects.filter(
         convertida=False
     ).order_by("-id")
@@ -499,7 +523,7 @@ def lista_proyectos(request):
         request,
         "core/lista_proyectos.html",
         {
-            "proyectos": proyectos,
+            "proyectos": proyectos_resumen,
             "simulaciones_pendientes": simulaciones_pendientes,
             "estado_actual": estado,
         },
