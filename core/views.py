@@ -822,41 +822,46 @@ from decimal import Decimal
 
 
 @require_POST
-def convertir_simulacion_a_proyecto(request, simulacion_id):
+def convertir_simulacion_a_proyecto(request, simulacion_id=None):
     """
-    Convierte una simulación básica en un ESTUDIO (Proyecto en fase estudio),
-    copiando los datos clave del análisis previo.
+    Convierte una simulación en un proyecto de estudio.
+    Si simulacion_id está presente, marca la simulación como convertida y usa sus datos.
+    Si no, usa los datos del POST.
     """
-    simulacion = get_object_or_404(
-        Simulacion,
-        id=simulacion_id,
-        convertida=False
-    )
-
-    # Datos base desde la simulación
-    direccion = simulacion.direccion or simulacion.nombre or f"Simulación #{simulacion.id}"
-    ref_catastral = simulacion.ref_catastral
-    precio_adquisicion = simulacion.precio_compra or Decimal("0")
-
-    # Crear proyecto en fase ESTUDIO
-    proyecto = Proyecto.objects.create(
+    if simulacion_id:
+        simulacion = get_object_or_404(Simulacion, id=simulacion_id, convertida=False)
+        direccion = simulacion.direccion
+        ref_catastral = simulacion.ref_catastral
+        precio = simulacion.precio_compra or Decimal("0")
+        beneficio = simulacion.beneficio or Decimal("0")
+        roi = simulacion.roi or Decimal("0")
+        simulacion.convertida = True
+        simulacion.save(update_fields=["convertida"])
+    else:
+        direccion = request.POST.get("direccion")
+        ref_catastral = request.POST.get("ref_catastral")
+        precio = parse_euro(request.POST.get("precio_compra"))
+        beneficio = parse_euro(request.POST.get("beneficio"))
+        roi = parse_euro(request.POST.get("roi"))
+    # Formato correcto de decimales para beneficio y roi
+    try:
+        beneficio = Decimal(str(beneficio).replace(",", "."))
+    except Exception:
+        beneficio = Decimal("0")
+    try:
+        roi = Decimal(str(roi).replace(",", "."))
+    except Exception:
+        roi = Decimal("0")
+    Proyecto.objects.create(
         nombre=f"Estudio - {direccion}",
         direccion=direccion,
         ref_catastral=ref_catastral,
-        precio_propiedad=precio_adquisicion,
-        val_tasacion=simulacion.precio_venta_estimado,
-        beneficio_neto=simulacion.beneficio,
-        roi=simulacion.roi,
+        precio_propiedad=precio,
+        beneficio_neto=beneficio,
+        roi=roi,
         estado="estudio",
-        simulacion_origen=simulacion,
     )
-
-    # Marcar simulación como convertida
-    simulacion.convertida = True
-    simulacion.save(update_fields=["convertida"])
-
-    # Redirigir al listado de estudios
-    return redirect("core:lista_estudio")
+    return redirect("core:lista_estudios")
 
 
 
@@ -876,7 +881,6 @@ def simulador_basico(request):
         precio_compra_raw = request.POST.get("precio_compra", "")
         precio_venta_raw = request.POST.get("precio_venta", "")
 
-        # Use global parse_euro (returns Decimal)
         precio_compra = parse_euro(precio_compra_raw)
         precio_venta = parse_euro(precio_venta_raw)
 
@@ -884,24 +888,11 @@ def simulador_basico(request):
         roi = (beneficio / precio_compra * Decimal("100")) if precio_compra > 0 else Decimal("0")
 
         resultado = {
-            "inversion_total": float(round(precio_compra, 2)),
-            "beneficio": float(round(beneficio, 2)),
-            "roi": float(round(roi, 2)),
+            "inversion_total": float(precio_compra),
+            "beneficio": float(beneficio),
+            "roi": float(roi),
             "viable": beneficio >= Decimal("30000") or roi >= Decimal("15"),
         }
-
-        return render(
-            request,
-            "core/simulador_basico.html",
-            {
-                "direccion": direccion,
-                "ref_catastral": ref_catastral,
-                "precio_compra": precio_compra_raw,
-                "precio_venta": precio_venta_raw,
-                "resultado": resultado,
-                # NO se pasa simulacion aquí
-            },
-        )
 
     return render(
         request,
