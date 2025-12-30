@@ -24,6 +24,16 @@ urlpatterns = [
     ),
     path("estudios/", views.lista_estudios, name="lista_estudio"),
     path(
+        "estudios/<int:proyecto_id>/",
+        views.estudio_detalle,
+        name="estudio_detalle",
+    ),
+    path(
+        "catastro/obtener/",
+        views.catastro_obtener,
+        name="catastro_obtener",
+    ),
+    path(
         "estudios/<int:proyecto_id>/pdf/",
         views.generar_pdf_estudio,
         name="generar_pdf_estudio",
