@@ -1432,7 +1432,7 @@ def estudio_detalle(request, proyecto_id):
 
     return render(
         request,
-        "core/estudio_detalle.html",
+        "core/simulador.html",
         {
             "estudio": estudio,
         },
