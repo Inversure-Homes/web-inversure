@@ -820,57 +820,43 @@ from django.views.decorators.http import require_POST
 from django.shortcuts import redirect, get_object_or_404
 from decimal import Decimal
 
+
 @require_POST
 def convertir_simulacion_a_proyecto(request, simulacion_id):
     """
-    Convierte una simulación básica en un proyecto REAL.
+    Convierte una simulación básica en un ESTUDIO (Proyecto en fase estudio),
+    copiando los datos clave del análisis previo.
     """
-
     simulacion = get_object_or_404(
         Simulacion,
         id=simulacion_id,
         convertida=False
     )
 
-    # 1️⃣ Determinar datos base
-    direccion = (
-        simulacion.direccion
-        or simulacion.nombre
-        or f"Inmueble simulación #{simulacion.id}"
-    )
+    # Datos base desde la simulación
+    direccion = simulacion.direccion or simulacion.nombre or f"Simulación #{simulacion.id}"
+    ref_catastral = simulacion.ref_catastral
+    precio_adquisicion = simulacion.precio_compra or Decimal("0")
 
-    precio_compra = simulacion.precio_compra or Decimal("0")
-    precio_venta = simulacion.precio_venta_estimado or Decimal("0")
-
-    # 2️⃣ Crear el proyecto REAL
+    # Crear proyecto en fase ESTUDIO
     proyecto = Proyecto.objects.create(
-        nombre=f"Proyecto - {direccion}",
+        nombre=f"Estudio - {direccion}",
         direccion=direccion,
-        ref_catastral=simulacion.ref_catastral,
-
-        # Compra
-        precio_propiedad=precio_compra,
-
-        # Valoración / venta
-        val_tasacion=precio_venta,
-
-        # Métricas
+        ref_catastral=ref_catastral,
+        precio_propiedad=precio_adquisicion,
+        val_tasacion=simulacion.precio_venta_estimado,
         beneficio_neto=simulacion.beneficio,
         roi=simulacion.roi,
-
-        # Estado inicial
         estado="estudio",
-
-        # Trazabilidad
         simulacion_origen=simulacion,
     )
 
-    # 3️⃣ Marcar simulación como convertida
+    # Marcar simulación como convertida
     simulacion.convertida = True
     simulacion.save(update_fields=["convertida"])
 
-    # 4️⃣ Redirigir al simulador COMPLETO del proyecto
-    return redirect("core:simulador", proyecto_id=proyecto.id)
+    # Redirigir al listado de estudios
+    return redirect("core:lista_estudio")
 
 
 
@@ -890,30 +876,18 @@ def simulador_basico(request):
         precio_compra_raw = request.POST.get("precio_compra", "")
         precio_venta_raw = request.POST.get("precio_venta", "")
 
-        def parse_euro(valor):
-            try:
-                return float(
-                    str(valor)
-                    .replace(".", "")
-                    .replace(",", ".")
-                    .replace("€", "")
-                    .strip()
-                )
-            except Exception:
-                return 0.0
-
+        # Use global parse_euro (returns Decimal)
         precio_compra = parse_euro(precio_compra_raw)
         precio_venta = parse_euro(precio_venta_raw)
 
         beneficio = precio_venta - precio_compra
-        roi = (beneficio / precio_compra * 100) if precio_compra > 0 else 0
+        roi = (beneficio / precio_compra * Decimal("100")) if precio_compra > 0 else Decimal("0")
 
         resultado = {
-            "inversion_total": round(precio_compra, 2),
-            "beneficio": round(beneficio, 2),
-            "roi": round(roi, 2),
-            # REGLA EXACTA QUE PEDISTE
-            "viable": beneficio >= 30000 or roi >= 15,
+            "inversion_total": float(round(precio_compra, 2)),
+            "beneficio": float(round(beneficio, 2)),
+            "roi": float(round(roi, 2)),
+            "viable": beneficio >= Decimal("30000") or roi >= Decimal("15"),
         }
 
         return render(
