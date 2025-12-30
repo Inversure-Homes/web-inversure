@@ -18,7 +18,7 @@ urlpatterns = [
         name="borrar_analisis_previo",
     ),
     path(
-        "simulaciones/<int:simulacion_id>/convertir/",
+        "simulaciones/convertir/",
         views.convertir_simulacion_a_proyecto,
         name="convertir_simulacion_a_proyecto",
     ),
