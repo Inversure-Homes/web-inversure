@@ -1422,11 +1422,18 @@ def proyecto_gastos(request, proyecto_id):
 from django.shortcuts import get_object_or_404
 
 def estudio_detalle(request, proyecto_id):
-    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+    estudio = Proyecto.objects.filter(
+        id=proyecto_id,
+        estado__iexact="estudio"
+    ).first()
+
+    if not estudio:
+        return redirect("core:lista_estudio")
+
     return render(
         request,
         "core/estudio_detalle.html",
         {
-            "estudio": proyecto,
+            "estudio": estudio,
         },
     )
