@@ -1414,3 +1414,14 @@ def proyecto_gastos(request, proyecto_id):
             "total_gastos": total_gastos,
         },
     )
+from django.shortcuts import get_object_or_404
+
+def estudio_detalle(request, proyecto_id):
+    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+    return render(
+        request,
+        "core/estudio_detalle.html",
+        {
+            "estudio": proyecto,
+        },
+    )
