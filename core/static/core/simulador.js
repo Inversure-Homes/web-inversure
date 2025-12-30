@@ -151,6 +151,25 @@ function activarMapaAutomatico() {
 }
 
 /* ===============================
+   CATASTRO
+=============================== */
+
+function abrirCatastro() {
+    const refInput =
+        document.querySelector('[name="ref_catastral"]') ||
+        document.getElementById("ref_catastral");
+
+    if (!refInput || !refInput.value.trim()) {
+        alert("Introduce una referencia catastral válida.");
+        return;
+    }
+
+    const ref = refInput.value.trim();
+    const url = `/catastro/obtener/?ref=${encodeURIComponent(ref)}`;
+    window.open(url, "_blank");
+}
+
+/* ===============================
    INIT
 =============================== */
 
