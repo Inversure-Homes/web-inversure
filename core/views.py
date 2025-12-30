@@ -861,7 +861,7 @@ def convertir_simulacion_a_proyecto(request, simulacion_id=None):
         roi=roi,
         estado="estudio",
     )
-    return redirect("core:lista_estudios")
+    return redirect("core:lista_estudio")
 
 
 
