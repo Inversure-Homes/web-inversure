@@ -483,48 +483,24 @@ def lista_estudios(request):
         },
     )
 def lista_proyectos(request):
+    """
+    Lista de proyectos REAL.
+    Aquí se pasan objetos Proyecto directamente al template,
+    no diccionarios intermedios.
+    """
     estado = request.GET.get("estado")
 
     proyectos_qs = Proyecto.objects.all().order_by("-id")
-    if estado:
+
+    # Filtrado opcional por estado
+    if estado and estado != "todos":
         proyectos_qs = proyectos_qs.filter(estado__iexact=estado)
-
-    proyectos_resumen = []
-
-    for p in proyectos_qs:
-        # Inversión total aproximada
-        inversion = (p.precio_propiedad or 0)
-        # Beneficio estimado
-        beneficio = (p.beneficio_neto or 0)
-        # ROI estimado
-        roi = (p.roi or 0)
-
-        # Flags de control
-        flags = {
-            "aprobado": bool(getattr(p, "aprobado", False)),
-            "tiene_pdf": bool(getattr(p, "pdf_aprobado", None)),
-            "estado": p.estado,
-            "rentable": beneficio >= 30000 or roi >= 15,
-        }
-
-        proyectos_resumen.append({
-            "proyecto": p,
-            "inversion": inversion,
-            "beneficio": beneficio,
-            "roi": roi,
-            "flags": flags,
-        })
-
-    simulaciones_pendientes = Simulacion.objects.filter(
-        convertida=False
-    ).order_by("-id")
 
     return render(
         request,
         "core/lista_proyectos.html",
         {
-            "proyectos": proyectos_resumen,
-            "simulaciones_pendientes": simulaciones_pendientes,
+            "proyectos": proyectos_qs,
             "estado_actual": estado,
         },
     )

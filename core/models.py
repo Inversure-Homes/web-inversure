@@ -201,6 +201,22 @@ class Proyecto(models.Model):
     )
 
     # =========================
+    # INVERSIÓN / CAPTACIÓN
+    # =========================
+    capital_objetivo = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Capital total que se desea captar para el proyecto"
+    )
+
+    inversion_completa = models.BooleanField(
+        default=False,
+        help_text="Indica si la inversión del proyecto está completamente cubierta"
+    )
+
+    # =========================
     # ESTADO DEL PROYECTO
     # =========================
     ESTADO_CHOICES = (

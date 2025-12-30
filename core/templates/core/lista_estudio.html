@@ -10,73 +10,80 @@
         <h1 class="inversure-section-title">Estudios</h1>
         <div class="inversure-divider mx-auto"></div>
         <p class="inversure-section-subtitle mx-auto">
-          Estudios de viabilidad en fase de análisis avanzado
+          Estudios de viabilidad en fase de análisis
         </p>
       </section>
 
-      <div class="card shadow-sm mb-5">
-        <div class="card-body">
-          {% if estudios %}
-            {% for estudio in estudios %}
-              <div class="d-flex justify-content-between align-items-center py-4 border-bottom estudio-row">
-                <div>
-                  <h6 class="mb-1 fw-semibold inversure-title">
-                    {{ estudio.nombre|default:"Estudio sin nombre" }}
-                  </h6>
-                  <div class="small text-muted mb-1">
-                    {{ estudio.direccion|default:"Sin dirección definida" }}
-                  </div>
-                  <span class="badge rounded-pill bg-light text-primary border">
-                    En estudio
-                  </span>
-                </div>
-                <div class="ms-3 d-flex gap-2">
-                  <a href="{% url 'core:simulador' estudio.id %}" class="btn btn-inversure-outline px-4">
-                    Abrir estudio
-                  </a>
+      {% if estudios %}
+      <div class="row g-4">
+        {% for estudio in estudios %}
+        <div class="col-xl-3 col-lg-4 col-md-6">
+          <div class="card h-100 shadow-sm inversure-card">
+            <div class="card-header inversure-card-header text-white" style="background-color:#122135;">
+              <div class="fw-semibold">
+                {{ estudio.nombre|default:"Estudio sin nombre" }}
+              </div>
+              <div class="small opacity-75">
+                {{ estudio.direccion|default:"Sin dirección" }}
+              </div>
+            </div>
 
-                  <form method="post" action="{% url 'core:borrar_analisis_previo' %}"
-                        onsubmit="return confirm('¿Seguro que quieres borrar este estudio?');">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-outline-danger px-4">
-                      Borrar
-                    </button>
-                  </form>
+            <div class="card-body d-flex flex-column">
+              <span class="badge bg-light text-primary border mb-3 align-self-start">
+                En estudio
+              </span>
+
+              <div class="row text-center mb-4 inversure-kpis">
+                <div class="col-4">
+                  <div class="fw-semibold small text-muted">Inversión</div>
+                  <div class="fw-bold">-- €</div>
+                </div>
+                <div class="col-4">
+                  <div class="fw-semibold small text-muted">Beneficio</div>
+                  <div class="fw-bold">-- €</div>
+                </div>
+                <div class="col-4">
+                  <div class="fw-semibold small text-muted">ROI</div>
+                  <div class="fw-bold">-- %</div>
                 </div>
               </div>
-            {% endfor %}
-          {% else %}
-            <div class="text-center text-muted py-4">
-              No hay estudios en curso.
+
+              <div class="mt-auto d-flex justify-content-center gap-2">
+                <a href="{% url 'core:simulador' estudio.id %}" class="btn btn-primary btn-sm">
+                  Abrir
+                </a>
+
+                <form method="post" action="{% url 'core:borrar_analisis_previo' %}"
+                      onsubmit="return confirm('¿Seguro que quieres borrar este estudio?');">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-outline-danger btn-sm">
+                    Borrar
+                  </button>
+                </form>
+              </div>
             </div>
-          {% endif %}
+
+          </div>
         </div>
+        {% endfor %}
       </div>
+      {% else %}
+        <div class="text-center text-muted py-5">
+          No hay estudios en curso.
+        </div>
+      {% endif %}
 
     </div>
   </section>
 </div>
 <style>
-  .estudio-row {
-    transition: all 0.2s ease;
-  }
-  .estudio-row:hover {
-    background-color: #f8f9fa;
-  }
-  .inversure-title {
-    color: #14263f;
+  .inversure-kpis .fw-semibold {
+    font-size: 0.85rem;
+    white-space: nowrap;
   }
 
-  .btn-inversure-outline {
-    color: #14263f;
-    border: 1px solid #14263f;
-    background-color: transparent;
-    font-weight: 500;
-  }
-
-  .btn-inversure-outline:hover {
-    background-color: #14263f;
-    color: #ffffff;
+  .inversure-kpis .fw-bold {
+    font-size: 0.95rem;
   }
 </style>
 {% endblock %}
