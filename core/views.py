@@ -60,7 +60,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.csrf import csrf_protect
 from decimal import Decimal
 from .models import Proyecto, Cliente, Participacion, Simulacion
-from .models import DocumentoProyecto
+
 from .models import GastoProyecto
 from .models import IngresoProyecto
 
