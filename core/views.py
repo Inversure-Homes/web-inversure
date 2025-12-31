@@ -846,7 +846,7 @@ def proyecto_gastos(request, proyecto_id):
 
         # GUARDAR DATOS DE ADQUISICIÓN (C1.2)
         if tipo_form == "adquisicion":
-            proyecto.precio_compra_inmueble = request.POST.get("precio_compra_inmueble") or None
+            proyecto.precio_compra_inmueble = parse_euro(request.POST.get("precio_compra_inmueble"))
             proyecto.fecha_compra = request.POST.get("fecha_compra") or None
             proyecto.tipo_adquisicion = request.POST.get("tipo_adquisicion") or None
             proyecto.impuesto_tipo = request.POST.get("impuesto_tipo") or None
@@ -885,6 +885,13 @@ def proyecto_gastos(request, proyecto_id):
 
         # 🔒 SEGURIDAD: nunca dejar un POST sin respuesta
         return redirect("core:proyecto_gastos", proyecto_id=proyecto.id)
+
+    # DEFENSIVE REDIRECT to avoid blank pages if POST not handled
+    # (should never hit, but just in case)
+    return redirect("core:proyecto_gastos", proyecto_id=proyecto.id)
+
+    # =========================
+    # LECTURA DE GASTOS
 
     # =========================
     # LECTURA DE GASTOS
