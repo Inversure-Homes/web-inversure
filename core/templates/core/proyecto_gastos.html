@@ -18,7 +18,7 @@
       <div class="card shadow-sm">
         <div class="card-body">
           <div class="small text-muted">Gastos totales</div>
-          <div class="fs-5 fw-semibold">— €</div>
+          <div class="fs-5 fw-semibold">{{ total_gastos|floatformat:2|intcomma }} €</div>
         </div>
       </div>
     </div>
@@ -27,7 +27,7 @@
       <div class="card shadow-sm">
         <div class="card-body">
           <div class="small text-muted">Gastos ordinarios</div>
-          <div class="fs-5 fw-semibold">— €</div>
+          <div class="fs-5 fw-semibold">{{ total_gastos_ordinarios|floatformat:2|intcomma }} €</div>
         </div>
       </div>
     </div>
@@ -36,7 +36,7 @@
       <div class="card shadow-sm">
         <div class="card-body">
           <div class="small text-muted">Gastos extraordinarios</div>
-          <div class="fs-5 fw-semibold">— €</div>
+          <div class="fs-5 fw-semibold">{{ total_gastos_extraordinarios|floatformat:2|intcomma }} €</div>
         </div>
       </div>
     </div>
@@ -45,7 +45,7 @@
       <div class="card shadow-sm border-start border-4 border-warning">
         <div class="card-body">
           <div class="small text-muted">Impacto en beneficio</div>
-          <div class="fs-5 fw-semibold">— €</div>
+          <div class="fs-5 fw-semibold">{{ impacto_beneficio|floatformat:2|intcomma }} €</div>
         </div>
       </div>
     </div>
@@ -62,20 +62,20 @@
       </p>
 
       <div class="row g-2">
-        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Notaría</span><span class="badge bg-secondary">pendiente</span></div></div>
-        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Impuestos</span><span class="badge bg-secondary">pendiente</span></div></div>
-        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Registro</span><span class="badge bg-secondary">pendiente</span></div></div>
-        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Gestoría</span><span class="badge bg-secondary">pendiente</span></div></div>
-        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>IBI</span><span class="badge bg-secondary">pendiente</span></div></div>
-        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Alarma</span><span class="badge bg-secondary">pendiente</span></div></div>
-        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Limpieza / Vaciado</span><span class="badge bg-secondary">pendiente</span></div></div>
-        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Cerrajero</span><span class="badge bg-secondary">pendiente</span></div></div>
-        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Agua</span><span class="badge bg-secondary">pendiente</span></div></div>
-        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Luz</span><span class="badge bg-secondary">pendiente</span></div></div>
-        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Comunidad</span><span class="badge bg-secondary">pendiente</span></div></div>
-        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Comercialización</span><span class="badge bg-secondary">pendiente</span></div></div>
-        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Administración</span><span class="badge bg-secondary">pendiente</span></div></div>
-        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Comisión Inversure</span><span class="badge bg-secondary">pendiente</span></div></div>
+        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Notaría</span><span>{{ gastos_base.notaria|floatformat:2|intcomma }} €</span></div></div>
+        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Impuestos</span><span>{{ gastos_base.impuestos|floatformat:2|intcomma }} €</span></div></div>
+        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Registro</span><span>{{ gastos_base.registro|floatformat:2|intcomma }} €</span></div></div>
+        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Gestoría</span><span>{{ gastos_base.gestoria|floatformat:2|intcomma }} €</span></div></div>
+        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>IBI</span><span>{{ gastos_base.ibi|floatformat:2|intcomma }} €</span></div></div>
+        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Alarma</span><span>{{ gastos_base.alarma|floatformat:2|intcomma }} €</span></div></div>
+        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Limpieza / Vaciado</span><span>{{ gastos_base.limpieza_vaciado|floatformat:2|intcomma }} €</span></div></div>
+        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Cerrajero</span><span>{{ gastos_base.cerrajero|floatformat:2|intcomma }} €</span></div></div>
+        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Agua</span><span>{{ gastos_base.agua|floatformat:2|intcomma }} €</span></div></div>
+        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Luz</span><span>{{ gastos_base.luz|floatformat:2|intcomma }} €</span></div></div>
+        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Comunidad</span><span>{{ gastos_base.comunidad|floatformat:2|intcomma }} €</span></div></div>
+        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Comercialización</span><span>{{ gastos_base.comercializacion|floatformat:2|intcomma }} €</span></div></div>
+        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Administración</span><span>{{ gastos_base.administracion|floatformat:2|intcomma }} €</span></div></div>
+        <div class="col-md-4"><div class="d-flex justify-content-between p-2 border rounded"><span>Comisión Inversure</span><span>{{ gastos_base.comision_inversure|floatformat:2|intcomma }} €</span></div></div>
       </div>
     </div>
   </div>
