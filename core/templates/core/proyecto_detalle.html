@@ -74,90 +74,53 @@
       </div>
     </div>
 
-    <!-- INDICADOR DE ESTADO / ALERTA -->
-    {% comment %} INDICADOR DE ESTADO / ALERTA {% endcomment %}
-    {% if capital_captado == 0 %}
-      <div class="px-4 py-2 bg-warning bg-opacity-25 text-warning-emphasis small">
-        ⚠️ Proyecto sin inversores todavía
-      </div>
-    {% elif porcentaje_captado < 50 %}
-      <div class="px-4 py-2 bg-info bg-opacity-25 text-info-emphasis small">
-        ℹ️ Captación en curso ({{ porcentaje_captado|floatformat:0 }} %)
-      </div>
-    {% else %}
-      <div class="px-4 py-2 bg-success bg-opacity-25 text-success-emphasis small">
-        🟢 Captación avanzada ({{ porcentaje_captado|floatformat:0 }} %)
-      </div>
-    {% endif %}
+    <!-- BLOQUE 2 · ESTADO DE LA OPERACIÓN -->
+    <div class="bg-white border-top border-bottom px-4 py-4">
 
-    <div class="row text-center py-3">
-      <div class="col-md-3">
-        <div class="border rounded-3 py-3 bg-light">
-          <div class="small text-muted">Capital objetivo</div>
-          <div class="fs-5 fw-bold text-dark">
-            {{ proyecto.capital_objetivo|default:0|floatformat:0|intcomma }} €
-          </div>
+      <div class="mb-3">
+        <h6 class="mb-1">Estado de la operación</h6>
+        <div class="small text-muted">
+          Situación actual del proyecto dentro del ciclo de inversión
         </div>
       </div>
 
-      <div class="col-md-3">
-        <div class="border rounded-3 py-3 bg-light">
-          <div class="small text-muted">Capital captado</div>
-          <div class="fs-5 fw-bold text-dark">
-            {{ capital_captado|floatformat:0|intcomma }} €
-          </div>
+      {% if proyecto.estado in "estudio reservado comprado" %}
+        {% with fase="Captación" progreso=33 color="warning" %}
+      {% elif proyecto.estado in "en_venta comercializacion publicado negociacion" %}
+        {% with fase="Comercialización" progreso=66 color="primary" %}
+      {% else %}
+        {% with fase="Cierre" progreso=100 color="success" %}
+      {% endif %}
+
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="fw-semibold">
+          Fase actual:
+          <span class="badge bg-{{ color }}">{{ fase }}</span>
+        </div>
+        <div class="small text-muted">
+          {{ progreso }} % del proceso
         </div>
       </div>
 
-      <div class="col-md-3">
-        <div class="border rounded-3 py-3 bg-light">
-          <div class="small text-muted">Rentabilidad estimada</div>
-          <div class="fs-5 fw-bold text-dark">
-            {{ proyecto.rentabilidad_estimada|default:0|floatformat:2 }} %
-          </div>
+      <div class="progress rounded-pill mb-2" style="height:8px;">
+        <div class="progress-bar bg-{{ color }}"
+             role="progressbar"
+             style="width: {{ progreso }}%;">
         </div>
       </div>
 
-      <div class="col-md-3">
-        <div class="border rounded-3 py-3 bg-light">
-          <div class="small text-muted">Fase</div>
-          <div class="fs-5 fw-bold text-dark">
-            {% if proyecto.estado in "estudio reservado comprado" %}
-              <span class="badge bg-warning text-dark">Captación</span>
-            {% elif proyecto.estado in "en_venta comercializacion publicado negociacion" %}
-              <span class="badge bg-primary">Comercialización</span>
-            {% else %}
-              <span class="badge bg-success">Cierre</span>
-            {% endif %}
-          </div>
-        </div>
+      <div class="small text-muted">
+        {% if fase == "Captación" %}
+          Proyecto en fase de captación de inversores.
+        {% elif fase == "Comercialización" %}
+          Inmueble en fase de venta o negociación activa.
+        {% else %}
+          Operación en fase final de cierre y liquidación.
+        {% endif %}
       </div>
-    </div>
 
-    <div class="px-4 pb-3">
-      <div class="progress rounded-pill" style="height:8px;">
-        <div class="progress-bar
-          {% if proyecto.estado in "estudio reservado comprado" %}
-            bg-warning
-          {% elif proyecto.estado in "en_venta comercializacion publicado negociacion" %}
-            bg-primary
-          {% else %}
-            bg-success
-          {% endif %}
-        "
-        role="progressbar"
-        style="
-          width:
-          {% if proyecto.estado in "estudio reservado comprado" %}
-            33%
-          {% elif proyecto.estado in "en_venta comercializacion publicado negociacion" %}
-            66%
-          {% else %}
-            100%
-          {% endif %}
-        ">
-        </div>
-      </div>
+      {% endwith %}
+
     </div>
 
     <div class="border rounded-3 p-3 bg-white">
