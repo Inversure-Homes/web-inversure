@@ -3,32 +3,45 @@
 {% block content %}
 
 <div class="container py-5">
-  <div class="card p-4 shadow-sm">
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <div>
-        <h2 class="mb-1">Proyecto</h2>
-        <p class="text-muted mb-0">
-          Vista general y estado del proyecto de inversión
-        </p>
+  <div class="card mb-4 shadow-sm rounded-3 overflow-hidden">
+    <div class="px-4 py-3" style="background-color:#122135;">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <h3 class="mb-0 text-white">Proyecto</h3>
+          <small class="text-light">
+            Vista general y estado del proyecto de inversión
+          </small>
+        </div>
+
+        <div class="d-flex gap-2">
+          <a href="{% url 'core:proyecto_memoria' proyecto.id %}"
+             class="btn btn-outline-light btn-sm">
+            📄 Memoria económica
+          </a>
+
+          <a href="{% url 'core:lista_proyectos' %}"
+             class="btn btn-outline-light btn-sm">
+            ← Volver
+          </a>
+        </div>
       </div>
-
-      <a href="{% url 'core:lista_proyectos' %}"
-         class="btn btn-outline-secondary btn-sm">
-        ← Volver a proyectos
-      </a>
     </div>
+  </div>
 
-    <!-- BLOQUE ESTADO -->
-    <div class="card mb-4 p-3 shadow-sm rounded-3">
+  <!-- BLOQUE ESTADO -->
+  <div class="card mb-4 shadow-sm rounded-3">
+    <div class="p-3">
       <h5>Estado del proyecto</h5>
       <p class="mb-0">
         Estado actual: <strong>{{ proyecto.estado }}</strong>
       </p>
     </div>
+  </div>
 
-    <!-- BLOQUE CAPTACIÓN -->
-    <div class="card mb-4 p-3 shadow-sm rounded-3">
+  <!-- BLOQUE CAPTACIÓN -->
+  <div class="card mb-4 shadow-sm rounded-3">
+    <div class="p-3">
       <h5>Estado de la inversión</h5>
 
       <div class="mb-2">
@@ -59,31 +72,44 @@
         </li>
       </ul>
     </div>
+  </div>
 
-    <!-- BLOQUE ECONÓMICO -->
-    <div class="card mb-4 p-3 shadow-sm rounded-3">
+  <!-- BLOQUE ECONÓMICO -->
+  <div class="card mb-4 shadow-sm rounded-3">
+    <div class="p-3">
       <h5>Resumen económico del proyecto</h5>
-      <ul class="mb-0">
-        <li>Precio de compra:
-          <span class="fw-semibold">{{ proyecto.precio_compra_estimado|default:0|floatformat:0|intcomma }} €</span>
-        </li>
-        <li>Costes totales estimados:
-          <span class="fw-semibold">{{ proyecto.costes_totales|default:0|floatformat:0|intcomma }} €</span>
-        </li>
-        <li>Precio de venta objetivo:
-          <span class="fw-semibold">{{ proyecto.precio_venta_estimado|default:0|floatformat:0|intcomma }} €</span>
-        </li>
-        <li><strong>Beneficio estimado:</strong>
-          <span class="fw-semibold">{{ proyecto.beneficio_estimado|default:0|floatformat:0|intcomma }} €</span>
-        </li>
-        <li><strong>Rentabilidad estimada:</strong>
-          <span class="fw-semibold">{{ proyecto.rentabilidad_estimada|default:0|floatformat:2 }} %</span>
-        </li>
-      </ul>
+      <div class="row text-center">
+        <div class="col-md-3 mb-3">
+          <div class="small text-muted">Compra</div>
+          <div class="fw-bold">
+            {{ proyecto.precio_compra_estimado|default:0|floatformat:0|intcomma }} €
+          </div>
+        </div>
+        <div class="col-md-3 mb-3">
+          <div class="small text-muted">Costes</div>
+          <div class="fw-bold">
+            {{ proyecto.costes_totales|default:0|floatformat:0|intcomma }} €
+          </div>
+        </div>
+        <div class="col-md-3 mb-3">
+          <div class="small text-muted">Venta</div>
+          <div class="fw-bold">
+            {{ proyecto.precio_venta_estimado|default:0|floatformat:0|intcomma }} €
+          </div>
+        </div>
+        <div class="col-md-3 mb-3">
+          <div class="small text-muted">Rentabilidad</div>
+          <div class="fw-bold">
+            {{ proyecto.rentabilidad_estimada|default:0|floatformat:2 }} %
+          </div>
+        </div>
+      </div>
     </div>
+  </div>
 
-    <!-- BLOQUE INMUEBLE -->
-    <div class="card mb-4 p-3 shadow-sm rounded-3">
+  <!-- BLOQUE INMUEBLE -->
+  <div class="card mb-4 shadow-sm rounded-3">
+    <div class="p-3">
       <h5>Datos del inmueble</h5>
       <ul class="mb-0">
         <li>Dirección: {{ proyecto.direccion|default:"--" }}</li>
@@ -91,16 +117,18 @@
         <li>Municipio: {{ proyecto.municipio|default:"--" }}</li>
       </ul>
     </div>
+  </div>
 
-    <!-- BLOQUE PARTÍCIPES -->
-    <div class="card mt-4 p-3 shadow-sm rounded-3">
+  <!-- BLOQUE PARTÍCIPES -->
+  <div class="card mb-4 shadow-sm rounded-3">
+    <div class="p-3">
       <h5>Partícipes / Inversores</h5>
       <p class="text-muted mb-0">
         Aún no hay inversores asociados a este proyecto.
       </p>
     </div>
-
   </div>
+
 </div>
 
 {% endblock %}
