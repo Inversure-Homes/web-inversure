@@ -4,30 +4,76 @@
 
 <div class="container py-5">
 
-  <div class="card mb-4 rounded-3 overflow-hidden">
-    <div class="px-4 py-3" style="background:#122135;">
-      <div class="d-flex justify-content-between align-items-center">
+  <div class="card mb-4 rounded-3 overflow-hidden shadow-sm">
+
+    <!-- CABECERA PROYECTO -->
+    <div class="px-4 py-4" style="background:#122135;">
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+
         <div>
-          <div class="fw-semibold text-white">
-            Proyecto · {{ proyecto.direccion|default:"Inversión inmobiliaria" }}
+          <div class="text-uppercase small text-light opacity-75">
+            Proyecto de inversión inmobiliaria
           </div>
+          <h4 class="mb-1 text-white fw-semibold">
+            {{ proyecto.direccion|default:"Inversión sin dirección definida" }}
+          </h4>
           <div class="small text-light opacity-75">
-            Estado general de la operación
+            Ref. catastral:
+            <span class="fw-semibold">
+              {{ proyecto.referencia_catastral|default:"--" }}
+            </span>
           </div>
         </div>
 
         <div class="d-flex gap-2">
           <a href="{% url 'core:memoria_economica' proyecto.id %}"
              class="btn btn-sm btn-outline-light">
-            📄 Memoria
+            📄 Memoria económica
           </a>
           <a href="{% url 'core:lista_proyectos' %}"
              class="btn btn-sm btn-outline-light">
             ← Volver
           </a>
         </div>
+
       </div>
     </div>
+
+    <!-- DATOS CLAVE DEL INMUEBLE -->
+    <div class="bg-white border-bottom">
+      <div class="row text-center g-0">
+
+        <div class="col-md-3 border-end py-3">
+          <div class="small text-muted">Municipio</div>
+          <div class="fw-semibold">
+            {{ proyecto.municipio|default:"--" }}
+          </div>
+        </div>
+
+        <div class="col-md-3 border-end py-3">
+          <div class="small text-muted">Valor ref. Catastro</div>
+          <div class="fw-semibold">
+            {{ proyecto.valor_referencia_catastral|default:0|intcomma }} €
+          </div>
+        </div>
+
+        <div class="col-md-3 border-end py-3">
+          <div class="small text-muted">Capital objetivo</div>
+          <div class="fw-semibold">
+            {{ proyecto.capital_objetivo|default:0|intcomma }} €
+          </div>
+        </div>
+
+        <div class="col-md-3 py-3">
+          <div class="small text-muted">Estado actual</div>
+          <div class="fw-semibold">
+            {{ proyecto.estado|default:"--"|capfirst }}
+          </div>
+        </div>
+
+      </div>
+    </div>
+
     <!-- INDICADOR DE ESTADO / ALERTA -->
     {% comment %} INDICADOR DE ESTADO / ALERTA {% endcomment %}
     {% if capital_captado == 0 %}
