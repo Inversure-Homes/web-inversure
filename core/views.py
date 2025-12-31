@@ -798,23 +798,30 @@ def proyecto_gastos(request, proyecto_id):
         proyecto=proyecto
     )
 
-    # =========================
-    # GASTOS BASE / ESTRUCTURALES (SIEMPRE EXISTEN)
-    # =========================
+    from django.db.models import Sum
+
+    def gasto_base(nombre):
+        return (
+            GastoProyecto.objects.filter(
+                proyecto=proyecto,
+                concepto__iexact=nombre
+            ).aggregate(total=Sum("importe"))["total"]
+            or Decimal("0")
+        )
+
     gastos_base = {
         "precio_escritura": proyecto.precio_compra_inmueble or Decimal("0"),
         "notaria": proyecto.notaria or Decimal("0"),
         "itp": proyecto.itp or Decimal("0"),
         "registro": proyecto.registro or Decimal("0"),
-        "gestoria": proyecto.otros_gastos_compra or Decimal("0"),
         "ibi": proyecto.ibi or Decimal("0"),
 
-        # Servicios fijos
-        "alarma": Decimal("0"),
-        "limpieza_vaciado": proyecto.limpieza_inicial or Decimal("0"),
-        "cerrajero": Decimal("0"),
+        # Servicios base (siempre como gastos, nunca como campos del proyecto)
+        "alarma": gasto_base("alarma"),
+        "cerrajero": gasto_base("cerrajero"),
+        "limpieza_vaciado": gasto_base("limpieza / vaciado"),
 
-        # Comisiones (desde DatosEconomicosProyecto)
+        # Comisiones configurables
         "comision_inversure_pct": datos_economicos.comision_inversure_pct,
         "administracion_pct": datos_economicos.administracion_pct,
         "comercializacion_pct": datos_economicos.comercializacion_pct,
