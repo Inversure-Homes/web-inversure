@@ -696,6 +696,60 @@ def proyecto_gastos(request, proyecto_id):
     gastos = GastoProyecto.objects.filter(proyecto=proyecto).order_by("-fecha")
     total_gastos = gastos.aggregate(total=Sum("importe"))["total"] or 0
 
+    # =========================
+    # C2.1 – CONSOLIDACIÓN ECONÓMICA AUTOMÁTICA
+    # =========================
+
+    # 1. Gastos clasificados por tipo
+    def suma_gastos(tipo):
+        return (
+            gastos.filter(tipo=tipo)
+            .aggregate(total=Sum("importe"))["total"]
+            or Decimal("0")
+        )
+
+    gastos_adquisicion = suma_gastos("adquisicion")
+    gastos_reforma = suma_gastos("reforma")
+    gastos_operativos = suma_gastos("operativos")
+    gastos_financieros = suma_gastos("financieros")
+    gastos_legales = suma_gastos("legales")
+    gastos_venta = suma_gastos("venta")
+    gastos_otros = suma_gastos("otros")
+
+    # 2. Inversión total del proyecto
+    precio_compra = proyecto.precio_compra_inmueble or Decimal("0")
+
+    inversion_total = (
+        precio_compra
+        + gastos_adquisicion
+        + gastos_reforma
+        + gastos_operativos
+        + gastos_financieros
+        + gastos_legales
+        + gastos_otros
+    )
+
+    # 3. Precio de venta real (si existe)
+    precio_venta_real = proyecto.precio_venta_real or Decimal("0")
+
+    # 4. Beneficio bruto
+    beneficio_bruto = precio_venta_real - inversion_total if precio_venta_real else Decimal("0")
+
+    # 5. Beneficio neto (sin comisiones externas por ahora)
+    beneficio_neto = beneficio_bruto
+
+    # 6. ROI real
+    roi_real = (
+        (beneficio_neto / inversion_total * Decimal("100"))
+        if inversion_total > 0 else Decimal("0")
+    )
+
+    # 7. Persistir resultados SOLO si hay venta registrada
+    if precio_venta_real > 0:
+        proyecto.beneficio_neto = beneficio_neto
+        proyecto.roi = roi_real
+        proyecto.save(update_fields=["beneficio_neto", "roi"])
+
     contexto = {
         "proyecto": proyecto,
         "gastos": gastos,
