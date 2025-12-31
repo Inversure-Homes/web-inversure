@@ -1,4 +1,5 @@
 {% extends "core/base.html" %}
+{% load humanize %}
 {% block content %}
 
 <div class="container py-3">
@@ -48,9 +49,15 @@
     </div>
 
     <ul class="mb-0">
-      <li>Capital objetivo: {{ proyecto.capital_objetivo|default:"--" }} €</li>
-      <li>Capital captado: 0 €</li>
-      <li>Capital pendiente: {{ proyecto.capital_objetivo|default:"--" }} €</li>
+      <li>Capital objetivo:
+        <span class="fw-semibold">{{ proyecto.capital_objetivo|default:0|floatformat:0|intcomma }} €</span>
+      </li>
+      <li>Capital captado:
+        0 €
+      </li>
+      <li>Capital pendiente:
+        <span class="fw-semibold">{{ proyecto.capital_objetivo|default:0|floatformat:0|intcomma }} €</span>
+      </li>
     </ul>
   </div>
 
@@ -58,11 +65,21 @@
   <div class="card mb-4 p-3">
     <h5>Resumen económico del proyecto</h5>
     <ul class="mb-0">
-      <li>Precio de compra: {{ proyecto.precio_compra_estimado|default:"--" }} €</li>
-      <li>Costes totales estimados: {{ proyecto.costes_totales|default:"--" }} €</li>
-      <li>Precio de venta objetivo: {{ proyecto.precio_venta_estimado|default:"--" }} €</li>
-      <li><strong>Beneficio estimado:</strong> {{ proyecto.beneficio_estimado|default:"--" }} €</li>
-      <li><strong>Rentabilidad estimada:</strong> {{ proyecto.rentabilidad_estimada|default:"--" }} %</li>
+      <li>Precio de compra:
+        <span class="fw-semibold">{{ proyecto.precio_compra_estimado|default:0|floatformat:0|intcomma }} €</span>
+      </li>
+      <li>Costes totales estimados:
+        <span class="fw-semibold">{{ proyecto.costes_totales|default:0|floatformat:0|intcomma }} €</span>
+      </li>
+      <li>Precio de venta objetivo:
+        <span class="fw-semibold">{{ proyecto.precio_venta_estimado|default:0|floatformat:0|intcomma }} €</span>
+      </li>
+      <li><strong>Beneficio estimado:</strong>
+        <span class="fw-semibold">{{ proyecto.beneficio_estimado|default:0|floatformat:0|intcomma }} €</span>
+      </li>
+      <li><strong>Rentabilidad estimada:</strong>
+        <span class="fw-semibold">{{ proyecto.rentabilidad_estimada|default:0|floatformat:2 }} %</span>
+      </li>
     </ul>
   </div>
 
