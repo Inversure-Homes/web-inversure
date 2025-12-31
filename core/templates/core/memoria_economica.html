@@ -1,0 +1,136 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container my-4">
+
+  <!-- CABECERA -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h2 class="mb-1">Memoria económica del proyecto</h2>
+      <p class="text-muted mb-0">
+        {{ proyecto.nombre }} · {{ proyecto.direccion }}
+      </p>
+      <small class="text-muted">
+        Fecha del informe: {{ fecha_informe|date:"d/m/Y" }}
+      </small>
+    </div>
+  </div>
+
+  <!-- KPIs PRINCIPALES -->
+  <div class="row mb-4">
+    <div class="col-md-4">
+      <div class="card h-100 border-0 shadow-sm">
+        <div class="card-body">
+          <h6 class="text-muted">Inversión total</h6>
+          <h4 class="mb-0">{{ inversion_total|floatformat:2 }} €</h4>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card h-100 border-0 shadow-sm">
+        <div class="card-body">
+          <h6 class="text-muted">Beneficio neto</h6>
+          <h4 class="mb-0 {% if beneficio >= 0 %}text-success{% else %}text-danger{% endif %}">
+            {{ beneficio|floatformat:2 }} €
+          </h4>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card h-100 border-0 shadow-sm">
+        <div class="card-body">
+          <h6 class="text-muted">ROI</h6>
+          <h4 class="mb-0">{{ roi|floatformat:2 }} %</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INGRESOS -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h5 class="mb-3">Ingresos del proyecto</h5>
+
+      <table class="table table-sm">
+        <thead class="table-light">
+          <tr>
+            <th>Fecha</th>
+            <th>Concepto</th>
+            <th class="text-end">Importe</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ingreso in ingresos %}
+          <tr>
+            <td>{{ ingreso.fecha|date:"d/m/Y" }}</td>
+            <td>{{ ingreso.concepto }}</td>
+            <td class="text-end">{{ ingreso.importe|floatformat:2 }} €</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="3" class="text-muted text-center">
+              No hay ingresos registrados
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr class="fw-bold">
+            <td colspan="2">Total ingresos</td>
+            <td class="text-end">{{ total_ingresos|floatformat:2 }} €</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- GASTOS -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h5 class="mb-3">Gastos del proyecto</h5>
+
+      <table class="table table-sm">
+        <thead class="table-light">
+          <tr>
+            <th>Fecha</th>
+            <th>Concepto</th>
+            <th>Tipo</th>
+            <th class="text-end">Importe</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for gasto in gastos %}
+          <tr>
+            <td>{{ gasto.fecha|date:"d/m/Y" }}</td>
+            <td>{{ gasto.concepto }}</td>
+            <td>{{ gasto.tipo|capfirst }}</td>
+            <td class="text-end">{{ gasto.importe|floatformat:2 }} €</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4" class="text-muted text-center">
+              No hay gastos registrados
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr class="fw-bold">
+            <td colspan="3">Total gastos</td>
+            <td class="text-end">{{ total_gastos|floatformat:2 }} €</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- PIE -->
+  <div class="text-muted small text-center mt-4">
+    Documento generado automáticamente por Inversure · Uso interno
+  </div>
+
+</div>
+{% endblock %}
