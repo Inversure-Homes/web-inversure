@@ -622,6 +622,35 @@ def proyecto_detalle(request, proyecto_id):
 def proyecto_gastos(request, proyecto_id):
     proyecto = get_object_or_404(Proyecto, id=proyecto_id)
 
+    # =========================
+    # GUARDAR DATOS DE ADQUISICIÓN (C1.2)
+    # =========================
+    if request.method == "POST":
+        proyecto.precio_compra_inmueble = request.POST.get("precio_compra_inmueble") or None
+        proyecto.fecha_compra = request.POST.get("fecha_compra") or None
+        proyecto.tipo_adquisicion = request.POST.get("tipo_adquisicion") or None
+        proyecto.impuesto_tipo = request.POST.get("impuesto_tipo") or None
+
+        # Campos numéricos (Decimal seguro)
+        def parse_decimal(val):
+            try:
+                return Decimal(str(val).replace(",", "."))
+            except Exception:
+                return None
+
+        proyecto.impuesto_porcentaje = parse_decimal(request.POST.get("impuesto_porcentaje"))
+        proyecto.itp = parse_decimal(request.POST.get("itp"))
+        proyecto.notaria = parse_decimal(request.POST.get("notaria"))
+        proyecto.registro = parse_decimal(request.POST.get("registro"))
+        proyecto.gestoria = parse_decimal(request.POST.get("gestoria"))
+
+        proyecto.save()
+
+        return redirect("core:proyecto_gastos", proyecto_id=proyecto.id)
+
+    # =========================
+    # LECTURA DE GASTOS
+    # =========================
     gastos = GastoProyecto.objects.filter(proyecto=proyecto).order_by("-fecha")
     total_gastos = gastos.aggregate(total=Sum("importe"))["total"] or 0
 
