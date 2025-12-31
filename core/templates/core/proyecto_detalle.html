@@ -223,10 +223,16 @@
             Escrituras, contratos, notas simples y otros documentos
           </div>
         </div>
-        <a href="{% url 'core:proyecto_documentos' proyecto.id %}"
-           class="btn btn-sm btn-outline-primary">
-          Añadir documento
-        </a>
+        {% url 'core:proyecto_documentos' proyecto.id as documentos_url %}
+        {% if documentos_url %}
+          <a href="{{ documentos_url }}" class="btn btn-sm btn-outline-primary">
+            Añadir documento
+          </a>
+        {% else %}
+          <button class="btn btn-sm btn-outline-secondary" disabled>
+            Documentación no disponible
+          </button>
+        {% endif %}
       </div>
     </div>
 
