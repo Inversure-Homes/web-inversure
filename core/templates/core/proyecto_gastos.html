@@ -46,6 +46,9 @@
         <div class="fw-semibold">
           {{ proyecto.get_estado_display }}
         </div>
+        <div class="alert alert-light mt-3 mb-0 small">
+          El estado del proyecto se gestiona desde este apartado y condiciona la operativa económica.
+        </div>
       </div>
     </div>
 
@@ -60,9 +63,60 @@
     <div class="card mb-4 shadow-sm rounded-3">
       <div class="card-body">
         <h5 class="card-title">Datos de adquisición</h5>
-        <p class="text-muted mb-0">
-          Información base de compra del inmueble. Estos datos constituyen el coste estructural del proyecto.
-        </p>
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">Precio de compra</label>
+            <div class="form-control-plaintext text-muted">—</div>
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">Fecha de compra</label>
+            <div class="form-control-plaintext text-muted">—</div>
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">Tipo de adquisición</label>
+            <div class="form-control-plaintext text-muted">—</div>
+          </div>
+        </div>
+
+        <hr>
+
+        <div class="row">
+          <div class="col-md-3 mb-3">
+            <label class="form-label">Impuesto</label>
+            <div class="form-control-plaintext text-muted">—</div>
+          </div>
+
+          <div class="col-md-3 mb-3">
+            <label class="form-label">% Impuesto</label>
+            <div class="form-control-plaintext text-muted">—</div>
+          </div>
+
+          <div class="col-md-3 mb-3">
+            <label class="form-label">Importe impuesto</label>
+            <div class="form-control-plaintext text-muted">—</div>
+          </div>
+        </div>
+
+        <hr>
+
+        <div class="row">
+          <div class="col-md-3 mb-3">
+            <label class="form-label">Notaría</label>
+            <div class="form-control-plaintext text-muted">—</div>
+          </div>
+
+          <div class="col-md-3 mb-3">
+            <label class="form-label">Registro</label>
+            <div class="form-control-plaintext text-muted">—</div>
+          </div>
+
+          <div class="col-md-3 mb-3">
+            <label class="form-label">Gestoría</label>
+            <div class="form-control-plaintext text-muted">—</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -73,6 +127,9 @@
         <p class="text-muted mb-0">
           Gastos derivados de la gestión, adecuación o explotación del inmueble.
         </p>
+        <div class="alert alert-light mt-3 mb-0 small">
+          Estos costes son variables y solo deben incluirse si el proyecto lo requiere.
+        </div>
       </div>
     </div>
 
@@ -83,6 +140,22 @@
         <p class="text-muted mb-0">
           Entradas económicas vinculadas al proyecto: señales, alquileres o venta.
         </p>
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">Tipo de ingreso</label>
+            <div class="form-control-plaintext text-muted">—</div>
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">Fecha</label>
+            <div class="form-control-plaintext text-muted">—</div>
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">Importe</label>
+            <div class="form-control-plaintext text-muted">—</div>
+          </div>
+        </div>
       </div>
     </div>
 
