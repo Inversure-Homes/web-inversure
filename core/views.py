@@ -1,3 +1,51 @@
+# =========================
+# LÓGICA ECONÓMICA CENTRAL DEL PROYECTO (G3.2)
+# =========================
+def calcular_resultado_economico_proyecto(proyecto):
+    """
+    Cálculo económico central del proyecto (G3.2)
+    Regla:
+    - Todo se calcula sobre BENEFICIO BRUTO
+    - Solo se aplican comisiones si el beneficio bruto es positivo
+    """
+
+    beneficio_bruto = proyecto.beneficio_bruto or Decimal("0")
+
+    # Porcentajes fijos
+    pct_comercializacion = Decimal("0.05")
+    pct_administracion = Decimal("0.05")
+
+    # Porcentaje gestión Inversure (30–40 %)
+    pct_gestion = proyecto.pct_gestion_inversure or Decimal("0.30")
+
+    if beneficio_bruto <= 0:
+        return {
+            "beneficio_bruto": beneficio_bruto,
+            "gasto_comercializacion": Decimal("0"),
+            "gasto_administracion": Decimal("0"),
+            "gasto_gestion": Decimal("0"),
+            "beneficio_neto": beneficio_bruto,
+        }
+
+    gasto_comercializacion = beneficio_bruto * pct_comercializacion
+    gasto_administracion = beneficio_bruto * pct_administracion
+    gasto_gestion = beneficio_bruto * pct_gestion
+
+    beneficio_neto = (
+        beneficio_bruto
+        - gasto_comercializacion
+        - gasto_administracion
+        - gasto_gestion
+    )
+
+    return {
+        "beneficio_bruto": beneficio_bruto,
+        "gasto_comercializacion": gasto_comercializacion,
+        "gasto_administracion": gasto_administracion,
+        "gasto_gestion": gasto_gestion,
+        "beneficio_neto": beneficio_neto,
+    }
+
 def f(x):
     """Cast to float, handling Decimal and None."""
     if x is None:
@@ -817,16 +865,10 @@ def proyecto_gastos(request, proyecto_id):
     # C2.3.3 – RESULTADO REAL USANDO INGRESOS NORMALIZADOS
     # =========================
 
-    # Ingresos imputables a inversores
-    ingresos_imputables = ingresos.filter(imputable_inversores=True)
-    total_ingresos_imputables = ingresos_imputables.aggregate(
-        total=Sum("importe")
-    )["total"] or Decimal("0")
+    resultado = calcular_resultado_economico_proyecto(proyecto)
 
-    # Beneficio real devengado
-    beneficio_neto = total_ingresos_imputables - inversion_total
+    beneficio_neto = resultado["beneficio_neto"]
 
-    # ROI real
     roi_real = (
         (beneficio_neto / inversion_total * Decimal("100"))
         if inversion_total > 0 else Decimal("0")
