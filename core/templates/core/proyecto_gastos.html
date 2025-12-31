@@ -181,15 +181,137 @@
       </div>
     </div>
 
-    <!-- COSTES DE OPERACIÓN / MEJORA -->
+    <!-- COSTES DE OPERACIÓN / MEJORA (Bloque C operativo) -->
     <div class="card mb-4 shadow-sm rounded-3">
       <div class="card-body">
         <h5 class="card-title">Costes de operación y mejora</h5>
-        <p class="text-muted mb-0">
+        <p class="text-muted mb-2">
           Gastos derivados de la gestión, adecuación o explotación del inmueble.
         </p>
-        <div class="alert alert-light mt-3 mb-0 small">
-          Estos costes son variables y solo deben incluirse si el proyecto lo requiere.
+
+        <form method="post" class="mt-3">
+          {% csrf_token %}
+          <input type="hidden" name="tipo_movimiento" value="gasto">
+
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Concepto</label>
+              <input type="text" name="concepto_gasto" class="form-control" placeholder="Reforma, IBI, comunidad…">
+            </div>
+
+            <div class="col-md-3 mb-3">
+              <label class="form-label">Fecha</label>
+              <input type="date" name="fecha_gasto" class="form-control">
+            </div>
+
+            <div class="col-md-3 mb-3">
+              <label class="form-label">Importe</label>
+              <input type="number" step="0.01" name="importe_gasto" class="form-control">
+            </div>
+
+            <div class="col-md-2 mb-3 d-flex align-items-end">
+              <button type="submit" class="btn btn-outline-primary btn-sm w-100">
+                Añadir gasto
+              </button>
+            </div>
+          </div>
+
+          <div class="alert alert-light small mb-0">
+            Estos gastos forman parte del cálculo del beneficio bruto del proyecto.
+          </div>
+        </form>
+      </div>
+    </div>
+    <!-- BLOQUE E — Comisiones y gestión Inversure -->
+    <div class="card mb-4 shadow-sm rounded-3">
+      <div class="card-body">
+        <h5 class="card-title">Comisiones y gestión Inversure</h5>
+        <p class="text-muted mb-2">
+          Parámetros que afectan directamente al beneficio neto del proyecto.
+        </p>
+
+        <form method="post" class="mt-3">
+          {% csrf_token %}
+
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">% Gestión Inversure</label>
+              <input type="number"
+                     step="0.01"
+                     name="porcentaje_gestion"
+                     class="form-control"
+                     value="{{ datos_economicos.porcentaje_gestion|default_if_none:'30.00' }}">
+              <div class="form-text">
+                Entre 30 % y 40 % del beneficio bruto.
+              </div>
+            </div>
+
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Comercialización</label>
+              <input type="text" class="form-control" value="5 % del beneficio bruto" disabled>
+            </div>
+
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Administración</label>
+              <input type="text" class="form-control" value="5 % del beneficio bruto" disabled>
+            </div>
+          </div>
+
+          <div class="text-end">
+            <button type="submit" class="btn btn-primary btn-sm">
+              Guardar comisiones
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- BLOQUE F — Resultado económico (solo lectura) -->
+    <div class="card mb-4 shadow-sm rounded-3 border-primary">
+      <div class="card-body">
+        <h5 class="card-title">Resultado económico del proyecto</h5>
+
+        <div class="row mt-3">
+          <div class="col-md-4 mb-3">
+            <strong>Inversión total</strong><br>
+            {{ inversion_total|floatformat:2|intcomma }} €
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <strong>Ingresos totales</strong><br>
+            {{ ingresos|floatformat:2|intcomma }} €
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <strong>Beneficio bruto</strong><br>
+            {{ beneficio_bruto|floatformat:2|intcomma }} €
+          </div>
+        </div>
+
+        <hr>
+
+        <div class="row">
+          <div class="col-md-3 mb-2">
+            Comercialización (5 %)<br>
+            <strong>- {{ gasto_comercializacion|floatformat:2|intcomma }} €</strong>
+          </div>
+
+          <div class="col-md-3 mb-2">
+            Administración (5 %)<br>
+            <strong>- {{ gasto_administracion|floatformat:2|intcomma }} €</strong>
+          </div>
+
+          <div class="col-md-3 mb-2">
+            Gestión Inversure ({{ porcentaje_gestion }} %)<br>
+            <strong>- {{ gasto_gestion|floatformat:2|intcomma }} €</strong>
+          </div>
+
+          <div class="col-md-3 mb-2">
+            Beneficio neto<br>
+            <strong class="text-success">
+              {{ beneficio_neto|floatformat:2|intcomma }} €
+            </strong>
+          </div>
         </div>
       </div>
     </div>
