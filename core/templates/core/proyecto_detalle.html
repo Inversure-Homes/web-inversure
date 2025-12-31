@@ -66,9 +66,15 @@
     <div class="col-md-3">
       <div class="card shadow-sm text-center h-100">
         <div class="card-body">
-          <div class="small text-muted">Estado</div>
+          <div class="small text-muted">Fase</div>
           <div class="fw-bold">
-            {{ proyecto.estado }}
+            {% if proyecto.estado in "estudio reservado comprado" %}
+              <span class="badge bg-warning text-dark">Captación</span>
+            {% elif proyecto.estado in "en_venta comercializacion publicado negociacion" %}
+              <span class="badge bg-primary">Comercialización</span>
+            {% else %}
+              <span class="badge bg-success">Cierre</span>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -86,6 +92,40 @@
           <div class="small text-muted mt-2">
             Clic para ver detalle económico
           </div>
+
+          <!-- BARRA DE FASE DEL PROYECTO -->
+          <div class="mt-4">
+            <div class="d-flex justify-content-between mb-2 small text-muted">
+              <span>Captación</span>
+              <span>Comercialización</span>
+              <span>Cierre</span>
+            </div>
+
+            <div class="progress" style="height: 14px;">
+              <div class="progress-bar
+                {% if proyecto.estado in "estudio reservado comprado" %}
+                  bg-warning
+                {% elif proyecto.estado in "en_venta comercializacion publicado negociacion" %}
+                  bg-primary
+                {% else %}
+                  bg-success
+                {% endif %}
+              "
+              role="progressbar"
+              style="
+                width:
+                {% if proyecto.estado in "estudio reservado comprado" %}
+                  33%
+                {% elif proyecto.estado in "en_venta comercializacion publicado negociacion" %}
+                  66%
+                {% else %}
+                  100%
+                {% endif %}
+              ">
+              </div>
+            </div>
+          </div>
+
         </div>
 
         <div class="col-md-7">
