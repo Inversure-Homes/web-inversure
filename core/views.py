@@ -745,23 +745,27 @@ def proyecto_gastos(request, proyecto_id):
         + gastos_otros
     )
 
-    # 3. Precio de venta real (si existe)
-    precio_venta_real = proyecto.precio_venta_real or Decimal("0")
+    # =========================
+    # C2.3.3 – RESULTADO REAL USANDO INGRESOS NORMALIZADOS
+    # =========================
 
-    # 4. Beneficio bruto
-    beneficio_bruto = precio_venta_real - inversion_total if precio_venta_real else Decimal("0")
+    # Ingresos imputables a inversores
+    ingresos_imputables = ingresos.filter(imputable_inversores=True)
+    total_ingresos_imputables = ingresos_imputables.aggregate(
+        total=Sum("importe")
+    )["total"] or Decimal("0")
 
-    # 5. Beneficio neto (sin comisiones externas por ahora)
-    beneficio_neto = beneficio_bruto
+    # Beneficio real devengado
+    beneficio_neto = total_ingresos_imputables - inversion_total
 
-    # 6. ROI real
+    # ROI real
     roi_real = (
         (beneficio_neto / inversion_total * Decimal("100"))
         if inversion_total > 0 else Decimal("0")
     )
 
-    # 7. Persistir resultados SOLO si hay venta registrada
-    if precio_venta_real > 0:
+    # Persistir siempre que haya ingresos
+    if ingresos.exists():
         proyecto.beneficio_neto = beneficio_neto
         proyecto.roi = roi_real
         proyecto.save(update_fields=["beneficio_neto", "roi"])
