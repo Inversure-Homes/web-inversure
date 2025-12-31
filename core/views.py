@@ -810,7 +810,7 @@ def proyecto_gastos(request, proyecto_id):
         "ibi": proyecto.ibi or Decimal("0"),
 
         # Servicios fijos
-        "alarma": proyecto.alarma or Decimal("0"),
+        "alarma": proyecto.seguridad_alarma or Decimal("0"),
         "limpieza_vaciado": proyecto.limpieza_inicial or Decimal("0"),
         "cerrajero": proyecto.seguridad_cerrajero or Decimal("0"),
 
