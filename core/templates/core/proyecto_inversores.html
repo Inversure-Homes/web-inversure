@@ -1,0 +1,94 @@
+
+
+{% extends "core/base.html" %}
+{% load humanize %}
+
+{% block title %}Inversores del proyecto{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+
+  <!-- CABECERA -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="mb-1">Inversores del proyecto</h3>
+      <div class="text-muted small">
+        Resumen de participaciones y capital aportado
+      </div>
+    </div>
+    <a href="{% url 'core:proyecto_detalle' proyecto.id %}"
+       class="btn btn-sm btn-outline-secondary">
+      ← Volver al proyecto
+    </a>
+  </div>
+
+  <!-- KPIs -->
+  <div class="row mb-4">
+    <div class="col-md-4">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="text-muted small">Total inversores</div>
+          <div class="h4 mb-0">{{ total_inversores }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="text-muted small">Capital invertido</div>
+          <div class="h4 mb-0">
+            {{ total_invertido|floatformat:2|intcomma }} €
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="text-muted small">Proyecto</div>
+          <div class="h6 mb-0">{{ proyecto.nombre }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLA INVERSORES -->
+  <div class="card shadow-sm">
+    <div class="card-body p-0">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Inversor</th>
+            <th class="text-end">Importe</th>
+            <th class="text-end">%</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in participaciones %}
+          <tr>
+            <td>
+              {{ p.cliente.nombre }}
+            </td>
+            <td class="text-end">
+              {{ p.importe|floatformat:2|intcomma }} €
+            </td>
+            <td class="text-end">
+              {{ p.porcentaje|floatformat:2 }} %
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="3" class="text-center text-muted py-4">
+              No hay inversores registrados en este proyecto
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
