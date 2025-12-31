@@ -71,25 +71,33 @@
                   </div>
 
                   <!-- PROGRESO DE CAPTACIÓN -->
-                  <div class="mb-3">
-                    <div class="small text-muted mb-1">
-                      Inversión pendiente por cubrir
-                    </div>
+                  {% with captado=item.capital_captado|default:0 objetivo=item.capital_objetivo|default:0 %}
+                    {% if objetivo > 0 %}
+                      {% widthratio captado objetivo 100 as porcentaje %}
+                    {% else %}
+                      {% widthratio 0 1 100 as porcentaje %}
+                    {% endif %}
 
-                    <div class="progress" style="height: 8px;">
-                      <div class="progress-bar bg-warning"
-                           role="progressbar"
-                           style="width: 100%;"
-                           aria-valuenow="100"
-                           aria-valuemin="0"
-                           aria-valuemax="100">
+                    <div class="mb-3">
+                      <div class="small text-muted mb-1">
+                        Inversión pendiente por cubrir
+                      </div>
+
+                      <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-warning"
+                             role="progressbar"
+                             style="width: {{ 100|add:"-"|add:porcentaje }}%;"
+                             aria-valuenow="{{ porcentaje }}"
+                             aria-valuemin="0"
+                             aria-valuemax="100">
+                        </div>
+                      </div>
+
+                      <div class="small text-muted mt-1 text-end">
+                        {{ 100|add:"-"|add:porcentaje }} % pendiente
                       </div>
                     </div>
-
-                    <div class="small text-muted mt-1 text-end">
-                      100 % pendiente
-                    </div>
-                  </div>
+                  {% endwith %}
 
                   <!-- ACCIONES -->
                   <div class="mt-auto d-flex justify-content-end gap-2">
