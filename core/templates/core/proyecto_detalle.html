@@ -1,89 +1,23 @@
-{% extends "core/base.html" %}
-{% load humanize %}
-{% block content %}
+<div class="container-fluid px-4 py-3">
 
-<div class="container py-5">
-
-  <div class="card mb-4 rounded-3 overflow-hidden shadow-sm">
-
-    <!-- CABECERA PROYECTO -->
-    <div class="px-4 py-4" style="background:#122135;">
-      <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
-
-        <div>
-          <div class="text-uppercase small text-light opacity-75">
-            Proyecto de inversión inmobiliaria
-          </div>
-          <h4 class="mb-1 text-white fw-semibold">
-            {{ proyecto.direccion|default:"Inversión sin dirección definida" }}
-          </h4>
-          <div class="small text-light opacity-75">
-            Ref. catastral:
-            <span class="fw-semibold">
-              {{ proyecto.referencia_catastral|default:"--" }}
-            </span>
-          </div>
+  <div class="card shadow-sm mb-4 border-0 bg-primary text-white">
+    <div class="card-body d-flex justify-content-between align-items-center">
+      <div>
+        <h4 class="mb-1">{{ proyecto.titulo|default:"Proyecto inmobiliario" }}</h4>
+        <div class="opacity-75 small">
+          Ref. catastral: {{ proyecto.referencia_catastral|default:"—" }}
         </div>
-
-        <div class="d-flex gap-2">
-          <a href="{% url 'core:memoria_economica' proyecto.id %}"
-             class="btn btn-sm btn-outline-light">
-            📄 Memoria económica
-          </a>
-          <a href="{% url 'core:lista_proyectos' %}"
-             class="btn btn-sm btn-outline-light">
-            ← Volver
-          </a>
-        </div>
-
+      </div>
+      <div class="text-end">
+        <span class="badge bg-light text-primary fw-semibold">
+          {{ proyecto.get_estado_display }}
+        </span>
       </div>
     </div>
+  </div>
 
-    <!-- DATOS CLAVE DEL INMUEBLE -->
-    <div class="bg-white border-bottom">
-      <div class="row text-center g-0">
-
-        <div class="col-md-3 border-end py-3">
-          <div class="small text-muted">Municipio</div>
-          <div class="fw-semibold">
-            {{ proyecto.municipio|default:"--" }}
-          </div>
-        </div>
-
-        <div class="col-md-3 border-end py-3">
-          <div class="small text-muted">Valor ref. Catastro</div>
-          <div class="fw-semibold">
-            {{ proyecto.valor_referencia_catastral|default:0|intcomma }} €
-          </div>
-        </div>
-
-        <div class="col-md-3 border-end py-3">
-          <div class="small text-muted">Capital objetivo</div>
-          <div class="fw-semibold">
-            {{ proyecto.capital_objetivo|default:0|intcomma }} €
-          </div>
-        </div>
-
-        <div class="col-md-3 py-3">
-          <div class="small text-muted">Estado actual</div>
-          <div class="fw-semibold">
-            {{ proyecto.estado|default:"--"|capfirst }}
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- BLOQUE 2 · ESTADO DE LA OPERACIÓN -->
-    <div class="bg-white border-top border-bottom px-4 py-4">
-
-      <div class="mb-3">
-        <h6 class="mb-1">Estado de la operación</h6>
-        <div class="small text-muted">
-          Situación actual del proyecto dentro del ciclo de inversión
-        </div>
-      </div>
-
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
       {% if proyecto.estado in "estudio reservado comprado" %}
         {% with fase="Captación" progreso=33 color="warning" %}
       {% elif proyecto.estado in "en_venta comercializacion publicado negociacion" %}
@@ -120,233 +54,64 @@
       </div>
 
       {% endwith %}
-
     </div>
+  </div>
 
-    <!-- BLOQUE 3 · CAPITAL E INVERSORES -->
-    <div class="bg-white border-top border-bottom px-4 py-4">
-
-      <div class="mb-3 d-flex justify-content-between align-items-center">
-        <div>
-          <h6 class="mb-1">Situación de la inversión</h6>
-          <div class="small text-muted">
-            Estado de la captación de capital del proyecto
-          </div>
-        </div>
-        <a href="{% url 'core:proyecto_gastos' proyecto.id %}"
-           class="btn btn-sm btn-outline-primary">
-          Ver datos económicos
-        </a>
-      </div>
-
-      <div class="row align-items-center">
-
-        <!-- KPIs -->
-        <div class="col-md-7">
-          <ul class="mb-3">
-            <li>
-              <span class="small text-muted">Capital objetivo:</span>
-              <span class="fw-semibold">
-                {{ proyecto.capital_objetivo|default:0|floatformat:0|intcomma }} €
-              </span>
-            </li>
-            <li>
-              <span class="small text-muted">Capital captado:</span>
-              <span class="fw-semibold text-success">
-                {{ capital_captado|default:0|floatformat:0|intcomma }} €
-              </span>
-            </li>
-            <li>
-              <span class="small text-muted">Capital pendiente:</span>
-              <span class="fw-semibold text-warning">
-                {{ capital_pendiente|default:0|floatformat:0|intcomma }} €
-              </span>
-            </li>
-          </ul>
-
-          <div class="progress rounded-pill" style="height:8px;">
-            <div class="progress-bar bg-success"
-                 role="progressbar"
-                 style="width: {{ porcentaje_captado|default:0 }}%;">
-            </div>
-          </div>
-
-          <div class="small text-muted mt-1">
-            {{ porcentaje_captado|default:0 }} % del capital cubierto
-          </div>
-        </div>
-
-        <!-- GRÁFICO -->
-        <div class="col-md-5 text-center">
-          <canvas id="capitalChart" style="max-width:220px; margin:auto; cursor:pointer;"></canvas>
-          <div class="small text-muted mt-2">
-            Distribución del capital
-          </div>
-        </div>
-
-      </div>
-
-    </div>
-
-    <div class="border-top pt-3 mt-3">
-      <!-- BLOQUE ECONÓMICO -->
-      <div class="row text-center py-3">
-        <div class="col-md-3">
-          <div class="small text-muted">Compra</div>
-          <div class="fw-semibold">
-            {{ proyecto.precio_compra_estimado|default:0|floatformat:0|intcomma }} €
-          </div>
-        </div>
-        <div class="col-md-3">
-          <div class="small text-muted">Costes</div>
-          <div class="fw-semibold">
-            {{ proyecto.costes_totales|default:0|floatformat:0|intcomma }} €
-          </div>
-        </div>
-        <div class="col-md-3">
-          <div class="small text-muted">Venta</div>
-          <div class="fw-semibold">
-            {{ proyecto.precio_venta_estimado|default:0|floatformat:0|intcomma }} €
-          </div>
-        </div>
-        <div class="col-md-3">
-          <div class="small text-muted">Rentabilidad</div>
-          <div class="fw-semibold">
-            {{ proyecto.rentabilidad_estimada|default:0|floatformat:2 }} %
-          </div>
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card text-center shadow-sm">
+        <div class="card-body">
+          <div class="small text-muted">Capital objetivo</div>
+          <div class="fs-5 fw-semibold">{{ capital_objetivo|default:"—" }} €</div>
         </div>
       </div>
     </div>
-
-    <!-- BLOQUE 4.1 · RESUMEN DE INVERSORES -->
-    <div class="bg-white border-top px-4 py-4">
-
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <div>
-          <h6 class="mb-1">Inversores del proyecto</h6>
-          <div class="small text-muted">
-            Resumen de participación en la inversión
-          </div>
+    <div class="col-md-3">
+      <div class="card text-center shadow-sm">
+        <div class="card-body">
+          <div class="small text-muted">Capital comprometido</div>
+          <div class="fs-5 fw-semibold">{{ capital_comprometido|default:"—" }} €</div>
         </div>
-
-        <a href="{% url 'core:proyecto_inversores' proyecto.id %}"
-           class="btn btn-sm btn-outline-primary">
-          Ver inversores
-        </a>
-      </div>
-
-      <div class="row text-center mt-3">
-
-        <div class="col-md-4">
-          <div class="small text-muted">Número de inversores</div>
-          <div class="fw-semibold">
-            {{ num_inversores|default:0 }}
-          </div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="small text-muted">Capital aportado</div>
-          <div class="fw-semibold text-success">
-            {{ capital_captado|default:0|floatformat:0|intcomma }} €
-          </div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="small text-muted">Porcentaje cubierto</div>
-          <div class="fw-semibold">
-            {{ porcentaje_captado|default:0 }} %
-          </div>
-        </div>
-
-      </div>
-
-    </div>
-
-    <!-- BLOQUE INMUEBLE -->
-    <div class="p-3 mb-4">
-      <h6>Datos del inmueble</h6>
-      <ul class="mb-0">
-        <li><span class="small text-muted">Dirección:</span> <span class="fw-semibold">{{ proyecto.direccion|default:"--" }}</span></li>
-        <li><span class="small text-muted">Referencia catastral:</span> <span class="fw-semibold">{{ proyecto.referencia_catastral|default:"--" }}</span></li>
-        <li>
-          <span class="small text-muted">Valor de referencia (Catastro):</span>
-          <span class="fw-semibold">
-            {{ proyecto.valor_referencia_catastral|default:"--"|intcomma }} €
-          </span>
-        </li>
-        <li><span class="small text-muted">Municipio:</span> <span class="fw-semibold">{{ proyecto.municipio|default:"--" }}</span></li>
-      </ul>
-    </div>
-
-    <!-- MAPA DE UBICACIÓN -->
-    <div class="px-3 pb-4">
-      <div class="border rounded-3 overflow-hidden">
-        <iframe
-          src="https://www.openstreetmap.org/export/embed.html?search={{ proyecto.direccion|urlencode }}"
-          style="width:100%; height:240px; border:0;"
-          loading="lazy">
-        </iframe>
-      </div>
-      <div class="small text-muted mt-1">
-        Ubicación aproximada del inmueble
       </div>
     </div>
-
-    <!-- BLOQUE DOCUMENTACIÓN -->
-    <div class="border-top pt-3 px-3 pb-4">
-      <div class="d-flex justify-content-between align-items-center">
-        <div>
-          <h6 class="mb-1">Documentación del proyecto</h6>
-          <div class="small text-muted">
-            Escrituras, contratos, notas simples y otros documentos
-          </div>
+    <div class="col-md-3">
+      <div class="card text-center shadow-sm">
+        <div class="card-body">
+          <div class="small text-muted">% cubierto</div>
+          <div class="fs-5 fw-semibold">{{ porcentaje_cubierto|default:"—" }} %</div>
         </div>
-        {% url 'core:proyecto_documentos' proyecto.id as documentos_url %}
-        {% if documentos_url %}
-          <a href="{{ documentos_url }}" class="btn btn-sm btn-outline-primary">
-            Añadir documento
-          </a>
-        {% else %}
-          <button class="btn btn-sm btn-outline-secondary" disabled>
-            Documentación no disponible
-          </button>
-        {% endif %}
       </div>
     </div>
+    <div class="col-md-3">
+      <div class="card text-center shadow-sm">
+        <div class="card-body">
+          <div class="small text-muted">Beneficio estimado</div>
+          <div class="fs-5 fw-semibold">{{ beneficio_estimado|default:"—" }} €</div>
+        </div>
+      </div>
+    </div>
+  </div>
 
+  <div class="card shadow-sm mb-4">
+    <div class="card-body d-flex justify-content-between align-items-center">
+      <div>
+        <h6 class="mb-1">Inversores</h6>
+        <div class="small text-muted">
+          {{ total_inversores|default:"—" }} inversores · {{ capital_aportado|default:"—" }} €
+        </div>
+      </div>
+      <a href="{% url 'core:proyecto_inversores' proyecto.id %}"
+         class="btn btn-outline-primary btn-sm">
+        Ver detalle
+      </a>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      {% comment %} Documentación existente {% endcomment %}
+      {{ block.super }}
+    </div>
   </div>
 
 </div>
-
-<script>
-  const capitalObjetivo = {{ proyecto.capital_objetivo|default:0 }};
-  const capitalCaptado = {{ capital_captado|default:0 }};
-  const capitalPendiente = capitalObjetivo - capitalCaptado;
-
-  const ctx = document.getElementById('capitalChart');
-
-  const capitalChart = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: ['Capital captado', 'Capital pendiente'],
-      datasets: [{
-        data: [capitalCaptado, capitalPendiente],
-        backgroundColor: ['#1f9d55', '#d7b04c'],
-        borderWidth: 0
-      }]
-    },
-    options: {
-      cutout: '70%',
-      plugins: {
-        legend: {
-          position: 'bottom'
-        }
-      },
-      onClick: function () {
-        window.location.href = "{% url 'core:proyecto_gastos' proyecto.id %}";
-      }
-    }
-  });
-</script>
-
-{% endblock %}
