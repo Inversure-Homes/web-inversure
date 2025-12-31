@@ -821,29 +821,29 @@ def proyecto_gastos(request, proyecto_id):
     }
 
     # =========================
-    # A1 – IMPORTACIÓN INICIAL DESDE ESTUDIO (una sola vez)
+    # A1 – IMPORTACIÓN INICIAL DESDE ESTUDIO (campos homónimos)
     # =========================
     estudio = getattr(proyecto, "estudio", None)
 
     if estudio:
         cambios = False
 
-        CAMPOS_COPIABLES = [
-            "precio_compra_inmueble",
-            "itp",
-            "notaria",
-            "registro",
-            "gestoria",
-            "otros_gastos_compra",
-            "reforma",
-        ]
+        # Copiar automáticamente todos los campos con el mismo nombre
+        for field in proyecto._meta.fields:
+            nombre_campo = field.name
 
-        for campo in CAMPOS_COPIABLES:
-            valor_proyecto = getattr(proyecto, campo, None)
-            if valor_proyecto in (None, Decimal("0")):
-                valor_estudio = getattr(estudio, campo, None)
-                if valor_estudio not in (None, Decimal("0")):
-                    setattr(proyecto, campo, valor_estudio)
+            # Saltar campos no económicos o de sistema
+            if nombre_campo in ("id", "estado", "creado", "modificado"):
+                continue
+
+            # Solo copiar si el Estudio tiene ese atributo
+            if hasattr(estudio, nombre_campo):
+                valor_proyecto = getattr(proyecto, nombre_campo, None)
+                valor_estudio = getattr(estudio, nombre_campo, None)
+
+                # Copia solo si el proyecto está vacío
+                if valor_proyecto in (None, Decimal("0")) and valor_estudio not in (None, Decimal("0")):
+                    setattr(proyecto, nombre_campo, valor_estudio)
                     cambios = True
 
         if cambios:
@@ -910,6 +910,9 @@ def proyecto_gastos(request, proyecto_id):
             )
 
             return redirect("core:proyecto_gastos", proyecto_id=proyecto.id)
+
+        # 🔒 SEGURIDAD: nunca dejar un POST sin respuesta
+        return redirect("core:proyecto_gastos", proyecto_id=proyecto.id)
 
     # =========================
     # LECTURA DE GASTOS
