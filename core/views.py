@@ -794,6 +794,35 @@ def proyecto_documentos(request, proyecto_id):
 def proyecto_gastos(request, proyecto_id):
     proyecto = get_object_or_404(Proyecto, id=proyecto_id)
 
+    # =========================
+    # A1 – IMPORTACIÓN INICIAL DESDE ESTUDIO (una sola vez)
+    # =========================
+    estudio = getattr(proyecto, "estudio", None)
+
+    if estudio:
+        cambios = False
+
+        CAMPOS_COPIABLES = [
+            "precio_compra_inmueble",
+            "itp",
+            "notaria",
+            "registro",
+            "gestoria",
+            "otros_gastos_compra",
+            "reforma",
+        ]
+
+        for campo in CAMPOS_COPIABLES:
+            valor_proyecto = getattr(proyecto, campo, None)
+            if valor_proyecto in (None, Decimal("0")):
+                valor_estudio = getattr(estudio, campo, None)
+                if valor_estudio not in (None, Decimal("0")):
+                    setattr(proyecto, campo, valor_estudio)
+                    cambios = True
+
+        if cambios:
+            proyecto.save()
+
     if request.method == "POST":
         # Detectar tipo de formulario enviado
         tipo_form = request.POST.get("form_tipo")
