@@ -806,7 +806,7 @@ def proyecto_gastos(request, proyecto_id):
         "notaria": proyecto.notaria or Decimal("0"),
         "itp": proyecto.itp or Decimal("0"),
         "registro": proyecto.registro or Decimal("0"),
-        "gestoria": proyecto.gestoria or Decimal("0"),
+        "gestoria": proyecto.otros_gastos_compra or Decimal("0"),
         "ibi": proyecto.ibi or Decimal("0"),
 
         # Servicios fijos
@@ -963,7 +963,7 @@ def proyecto_gastos(request, proyecto_id):
         + (proyecto.notaria or Decimal("0"))
         + (proyecto.itp or Decimal("0"))
         + (proyecto.registro or Decimal("0"))
-        + (proyecto.gestoria or Decimal("0"))
+        + (proyecto.otros_gastos_compra or Decimal("0"))
         + (proyecto.ibi or Decimal("0"))
         + (proyecto.alarma or Decimal("0"))
         + (proyecto.limpieza_inicial or Decimal("0"))
