@@ -1582,3 +1582,63 @@ def estudio_detalle(request, proyecto_id):
             "estudio": estudio,
         },
     )
+# ============================
+# MEMORIA ECONÓMICA DEL PROYECTO (C3)
+# ============================
+from datetime import date
+from django.db.models import Sum
+
+def memoria_economica(request, proyecto_id):
+    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+
+    # -------------------------
+    # DATOS CONSOLIDADOS
+    # -------------------------
+
+    # Gastos reales
+    gastos = GastoProyecto.objects.filter(proyecto=proyecto).order_by("fecha")
+    total_gastos = gastos.aggregate(
+        total=Sum("importe")
+    )["total"] or Decimal("0")
+
+    # Ingresos reales
+    ingresos = IngresoProyecto.objects.filter(proyecto=proyecto).order_by("fecha")
+    total_ingresos = ingresos.aggregate(
+        total=Sum("importe")
+    )["total"] or Decimal("0")
+
+    ingresos_imputables = ingresos.filter(imputable_inversores=True)
+    total_ingresos_imputables = ingresos_imputables.aggregate(
+        total=Sum("importe")
+    )["total"] or Decimal("0")
+
+    # KPIs finales (YA calculados)
+    inversion_total = (
+        (proyecto.precio_compra_inmueble or Decimal("0"))
+        + (proyecto.itp or Decimal("0"))
+        + (proyecto.notaria or Decimal("0"))
+        + (proyecto.registro or Decimal("0"))
+        + total_gastos
+    )
+
+    beneficio = proyecto.beneficio_neto or Decimal("0")
+    roi = proyecto.roi or Decimal("0")
+
+    contexto = {
+        "proyecto": proyecto,
+        "fecha_informe": date.today(),
+        "gastos": gastos,
+        "ingresos": ingresos,
+        "total_gastos": total_gastos,
+        "total_ingresos": total_ingresos,
+        "total_ingresos_imputables": total_ingresos_imputables,
+        "inversion_total": inversion_total,
+        "beneficio": beneficio,
+        "roi": roi,
+    }
+
+    return render(
+        request,
+        "core/memoria_economica.html",
+        contexto
+    )
