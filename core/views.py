@@ -13,6 +13,7 @@ from django.views.decorators.csrf import csrf_protect
 from decimal import Decimal
 from .models import Proyecto, Cliente, Participacion, Simulacion
 from .models import GastoProyecto
+from .models import IngresoProyecto
 
 try:
     import pandas as pd
@@ -674,10 +675,11 @@ def proyecto_gastos(request, proyecto_id):
             proyecto.save()
             return redirect("core:proyecto_gastos", proyecto_id=proyecto.id)
 
-        # GUARDAR INGRESOS DEL PROYECTO (C1.4.2)
+        # GUARDAR INGRESOS DEL PROYECTO (C2.3.2 – normalizado)
         if tipo_form == "ingresos":
             tipo_ingreso = request.POST.get("tipo_ingreso")
             fecha_ingreso = request.POST.get("fecha_ingreso")
+            concepto = request.POST.get("concepto") or tipo_ingreso
             importe_ingreso_raw = request.POST.get("importe_ingreso")
 
             try:
@@ -685,15 +687,15 @@ def proyecto_gastos(request, proyecto_id):
             except Exception:
                 importe_ingreso = Decimal("0")
 
-            # Caso especial: precio de venta
-            if tipo_ingreso == "venta":
-                proyecto.precio_venta_real = importe_ingreso
+            IngresoProyecto.objects.create(
+                proyecto=proyecto,
+                fecha=fecha_ingreso,
+                tipo=tipo_ingreso,
+                concepto=concepto,
+                importe=importe_ingreso,
+                imputable_inversores=True,
+            )
 
-            # Caso señal / arras
-            if tipo_ingreso == "senal":
-                proyecto.senal_recibida = importe_ingreso
-
-            proyecto.save()
             return redirect("core:proyecto_gastos", proyecto_id=proyecto.id)
 
     # =========================
@@ -701,6 +703,14 @@ def proyecto_gastos(request, proyecto_id):
     # =========================
     gastos = GastoProyecto.objects.filter(proyecto=proyecto).order_by("-fecha")
     total_gastos = gastos.aggregate(total=Sum("importe"))["total"] or 0
+
+    # =========================
+    # LECTURA DE INGRESOS (C2.3)
+    # =========================
+    ingresos = IngresoProyecto.objects.filter(proyecto=proyecto)
+    total_ingresos = ingresos.aggregate(
+        total=Sum("importe")
+    )["total"] or Decimal("0")
 
     # =========================
     # C2.1 – CONSOLIDACIÓN ECONÓMICA AUTOMÁTICA
