@@ -820,34 +820,6 @@ def proyecto_gastos(request, proyecto_id):
         "comercializacion_pct": datos_economicos.comercializacion_pct,
     }
 
-    # =========================
-    # A1 – IMPORTACIÓN INICIAL DESDE ESTUDIO (campos homónimos)
-    # =========================
-    estudio = getattr(proyecto, "estudio", None)
-
-    if estudio:
-        cambios = False
-
-        # Copiar automáticamente todos los campos con el mismo nombre
-        for field in proyecto._meta.fields:
-            nombre_campo = field.name
-
-            # Saltar campos no económicos o de sistema
-            if nombre_campo in ("id", "estado", "creado", "modificado"):
-                continue
-
-            # Solo copiar si el Estudio tiene ese atributo
-            if hasattr(estudio, nombre_campo):
-                valor_proyecto = getattr(proyecto, nombre_campo, None)
-                valor_estudio = getattr(estudio, nombre_campo, None)
-
-                # Copia solo si el proyecto está vacío
-                if valor_proyecto in (None, Decimal("0")) and valor_estudio not in (None, Decimal("0")):
-                    setattr(proyecto, nombre_campo, valor_estudio)
-                    cambios = True
-
-        if cambios:
-            proyecto.save()
 
     if request.method == "POST":
         # Detectar tipo de formulario enviado
