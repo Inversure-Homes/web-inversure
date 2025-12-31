@@ -6,15 +6,26 @@
 <div class="container mt-4">
 
     <!-- TÍTULO -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Gastos del proyecto</h2>
-        <a href="{% url 'core:lista_proyectos' %}" class="btn btn-outline-secondary">
+    <div class="card mb-4 shadow-sm rounded-3 overflow-hidden">
+      <div class="px-4 py-3" style="background-color:#122135;">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <h3 class="mb-0 text-white">Datos económicos</h3>
+            <small class="text-light">
+              Edición y control de los datos económicos del proyecto
+            </small>
+          </div>
+
+          <a href="{% url 'core:lista_proyectos' %}"
+             class="btn btn-outline-light btn-sm">
             ← Volver a proyectos
-        </a>
+          </a>
+        </div>
+      </div>
     </div>
 
     <!-- INFO PROYECTO -->
-    <div class="card mb-4">
+    <div class="card mb-4 shadow-sm rounded-3">
         <div class="card-body">
             <h5 class="card-title">{{ proyecto.nombre }}</h5>
             <p class="mb-1"><strong>Estado:</strong> {{ proyecto.get_estado_display }}</p>
@@ -24,15 +35,59 @@
         </div>
     </div>
 
+    <!-- ESTADO DE LA OPERACIÓN -->
+    <div class="card mb-4 shadow-sm rounded-3">
+      <div class="card-body">
+        <h5 class="card-title">Estado de la operación</h5>
+        <p class="text-muted mb-2">
+          Este estado define la situación real del proyecto y condiciona su operativa económica.
+        </p>
+
+        <div class="fw-semibold">
+          {{ proyecto.get_estado_display }}
+        </div>
+      </div>
+    </div>
+
     <!-- BOTÓN NUEVO GASTO -->
     <div class="mb-3">
-        <a href="#" class="btn btn-primary">
+        <a href="#" class="btn btn-outline-primary btn-sm">
             + Añadir gasto
         </a>
     </div>
 
+    <!-- DATOS DE ADQUISICIÓN -->
+    <div class="card mb-4 shadow-sm rounded-3">
+      <div class="card-body">
+        <h5 class="card-title">Datos de adquisición</h5>
+        <p class="text-muted mb-0">
+          Información base de compra del inmueble. Estos datos constituyen el coste estructural del proyecto.
+        </p>
+      </div>
+    </div>
+
+    <!-- COSTES DE OPERACIÓN / MEJORA -->
+    <div class="card mb-4 shadow-sm rounded-3">
+      <div class="card-body">
+        <h5 class="card-title">Costes de operación y mejora</h5>
+        <p class="text-muted mb-0">
+          Gastos derivados de la gestión, adecuación o explotación del inmueble.
+        </p>
+      </div>
+    </div>
+
+    <!-- INGRESOS DEL PROYECTO -->
+    <div class="card mb-4 shadow-sm rounded-3">
+      <div class="card-body">
+        <h5 class="card-title">Ingresos del proyecto</h5>
+        <p class="text-muted mb-0">
+          Entradas económicas vinculadas al proyecto: señales, alquileres o venta.
+        </p>
+      </div>
+    </div>
+
     <!-- TABLA DE GASTOS -->
-    <div class="card">
+    <div class="card shadow-sm rounded-3">
         <div class="card-body p-0">
 
             {% if gastos %}
