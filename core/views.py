@@ -793,6 +793,32 @@ def proyecto_documentos(request, proyecto_id):
 
 def proyecto_gastos(request, proyecto_id):
     proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+    from .models import DatosEconomicosProyecto
+    datos_economicos, _ = DatosEconomicosProyecto.objects.get_or_create(
+        proyecto=proyecto
+    )
+
+    # =========================
+    # GASTOS BASE / ESTRUCTURALES (SIEMPRE EXISTEN)
+    # =========================
+    gastos_base = {
+        "precio_escritura": proyecto.precio_compra_inmueble or Decimal("0"),
+        "notaria": proyecto.notaria or Decimal("0"),
+        "itp": proyecto.itp or Decimal("0"),
+        "registro": proyecto.registro or Decimal("0"),
+        "gestoria": proyecto.gestoria or Decimal("0"),
+        "ibi": proyecto.ibi or Decimal("0"),
+
+        # Servicios fijos
+        "alarma": proyecto.alarma or Decimal("0"),
+        "limpieza_vaciado": proyecto.limpieza_inicial or Decimal("0"),
+        "cerrajero": proyecto.seguridad_cerrajero or Decimal("0"),
+
+        # Comisiones (desde DatosEconomicosProyecto)
+        "comision_inversure_pct": datos_economicos.comision_inversure_pct,
+        "administracion_pct": datos_economicos.administracion_pct,
+        "comercializacion_pct": datos_economicos.comercializacion_pct,
+    }
 
     # =========================
     # A1 – IMPORTACIÓN INICIAL DESDE ESTUDIO (una sola vez)
@@ -888,29 +914,9 @@ def proyecto_gastos(request, proyecto_id):
     # =========================
     # LECTURA DE GASTOS
     # =========================
-    gastos = GastoProyecto.objects.filter(proyecto=proyecto).order_by("-fecha")
+    gastos = GastoProyecto.objects.filter(proyecto=proyecto)
+    gastos_extraordinarios = gastos.order_by("-fecha")
     total_gastos = gastos.aggregate(total=Sum("importe"))["total"] or 0
-
-    # =========================
-    # GASTOS ORDINARIOS Y EXTRAORDINARIOS (NUEVA DISPOSICIÓN)
-    # =========================
-
-    GASTOS_ORDINARIOS = [
-        "notaria",
-        "impuestos",
-        "registro",
-        "gestoria",
-        "ibi",
-        "comision_inversure",
-        "comercializacion",
-        "administracion",
-        "alarma",
-        "cerradura",
-        "desalojo",
-    ]
-
-    gastos_ordinarios = gastos.filter(concepto__in=GASTOS_ORDINARIOS)
-    gastos_extraordinarios = gastos.exclude(concepto__in=GASTOS_ORDINARIOS)
 
     # =========================
     # LECTURA DE INGRESOS (C2.3)
@@ -976,8 +982,9 @@ def proyecto_gastos(request, proyecto_id):
         "proyecto": proyecto,
         "gastos": gastos,
         "total_gastos": total_gastos,
-        "gastos_ordinarios": gastos_ordinarios,
+        "gastos_base": gastos_base,
         "gastos_extraordinarios": gastos_extraordinarios,
+        "datos_economicos": datos_economicos,
     }
 
     return render(
