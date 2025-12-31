@@ -981,6 +981,34 @@ def proyecto_gastos(request, proyecto_id):
         proyecto.roi = roi_real
         proyecto.save(update_fields=["beneficio_neto", "roi"])
 
+    # =========================
+    # GASTOS ORDINARIOS (FIJOS)
+    # =========================
+    gastos_ordinarios = (
+        (proyecto.precio_compra_inmueble or Decimal("0"))
+        + (proyecto.notaria or Decimal("0"))
+        + (proyecto.itp or Decimal("0"))
+        + (proyecto.registro or Decimal("0"))
+        + (proyecto.gestoria or Decimal("0"))
+        + (proyecto.ibi or Decimal("0"))
+        + (proyecto.alarma or Decimal("0"))
+        + (proyecto.limpieza_inicial or Decimal("0"))
+        + (proyecto.seguridad_cerrajero or Decimal("0"))
+    )
+
+    # =========================
+    # GASTOS EXTRAORDINARIOS
+    # =========================
+    total_gastos_extraordinarios = (
+        gastos.aggregate(total=Sum("importe"))["total"]
+        or Decimal("0")
+    )
+
+    # =========================
+    # TOTAL GASTOS PROYECTO
+    # =========================
+    total_gastos_proyecto = gastos_ordinarios + total_gastos_extraordinarios
+
     contexto = {
         "proyecto": proyecto,
         "gastos": gastos,
@@ -988,6 +1016,9 @@ def proyecto_gastos(request, proyecto_id):
         "gastos_base": gastos_base,
         "gastos_extraordinarios": gastos_extraordinarios,
         "datos_economicos": datos_economicos,
+        "gastos_ordinarios": gastos_ordinarios,
+        "gastos_extraordinarios_total": total_gastos_extraordinarios,
+        "total_gastos": total_gastos_proyecto,
     }
 
     return render(
