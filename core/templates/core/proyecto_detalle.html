@@ -28,6 +28,21 @@
         </div>
       </div>
     </div>
+    <!-- INDICADOR DE ESTADO / ALERTA -->
+    {% comment %} INDICADOR DE ESTADO / ALERTA {% endcomment %}
+    {% if capital_captado == 0 %}
+      <div class="px-4 py-2 bg-warning bg-opacity-25 text-warning-emphasis small">
+        ⚠️ Proyecto sin inversores todavía
+      </div>
+    {% elif porcentaje_captado < 50 %}
+      <div class="px-4 py-2 bg-info bg-opacity-25 text-info-emphasis small">
+        ℹ️ Captación en curso ({{ porcentaje_captado|floatformat:0 }} %)
+      </div>
+    {% else %}
+      <div class="px-4 py-2 bg-success bg-opacity-25 text-success-emphasis small">
+        🟢 Captación avanzada ({{ porcentaje_captado|floatformat:0 }} %)
+      </div>
+    {% endif %}
 
     <div class="row text-center py-3">
       <div class="col-md-3">
@@ -161,6 +176,14 @@
       </div>
     </div>
 
+    <!-- BLOQUE RESUMEN INVERSORES -->
+    <div class="p-3 mb-4">
+      <h6 class="mb-1">Inversores del proyecto</h6>
+      <p class="text-muted mb-0">
+        Aún no hay inversores asociados a este proyecto.
+      </p>
+    </div>
+
     <!-- BLOQUE INMUEBLE -->
     <div class="p-3 mb-4">
       <h6>Datos del inmueble</h6>
@@ -169,14 +192,6 @@
         <li><span class="small text-muted">Referencia catastral:</span> <span class="fw-semibold">{{ proyecto.referencia_catastral|default:"--" }}</span></li>
         <li><span class="small text-muted">Municipio:</span> <span class="fw-semibold">{{ proyecto.municipio|default:"--" }}</span></li>
       </ul>
-    </div>
-
-    <!-- BLOQUE PARTÍCIPES -->
-    <div class="p-3 mb-4">
-      <h6>Partícipes / Inversores</h6>
-      <p class="text-muted mb-0">
-        Aún no hay inversores asociados a este proyecto.
-      </p>
     </div>
 
   </div>
