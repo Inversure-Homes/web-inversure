@@ -893,9 +893,8 @@ def proyecto_gastos(request, proyecto_id):
         # 🔒 SEGURIDAD: nunca dejar un POST sin respuesta
         return redirect("core:proyecto_gastos", proyecto_id=proyecto.id)
 
-    # DEFENSIVE REDIRECT to avoid blank pages if POST not handled
-    # (should never hit, but just in case)
-    return redirect("core:proyecto_gastos", proyecto_id=proyecto.id)
+    # =========================
+    # LECTURA DE GASTOS
 
     # =========================
     # LECTURA DE GASTOS
