@@ -5,23 +5,24 @@
 <div class="container py-5">
 
   <div class="card mb-4 rounded-3 overflow-hidden">
-    <div class="px-4 py-3 text-white" style="background-color:#122135;">
+    <div class="px-4 py-3" style="background:#122135;">
       <div class="d-flex justify-content-between align-items-center">
         <div>
-          <h5 class="mb-0">Proyecto</h5>
-          <div class="text-muted small">
-            {{ proyecto.direccion|default:"Proyecto de inversión inmobiliaria" }}
+          <div class="fw-semibold text-white">
+            Proyecto · {{ proyecto.direccion|default:"Inversión inmobiliaria" }}
+          </div>
+          <div class="small text-light opacity-75">
+            Estado general de la operación
           </div>
         </div>
 
         <div class="d-flex gap-2">
           <a href="{% url 'core:memoria_economica' proyecto.id %}"
-             class="btn btn-outline-light btn-sm">
-            📄 Memoria económica
+             class="btn btn-sm btn-outline-light">
+            📄 Memoria
           </a>
-
           <a href="{% url 'core:lista_proyectos' %}"
-             class="btn btn-outline-light btn-sm">
+             class="btn btn-sm btn-outline-light">
             ← Volver
           </a>
         </div>
@@ -30,36 +31,36 @@
 
     <div class="row text-center py-3">
       <div class="col-md-3">
-        <div>
+        <div class="border rounded-3 py-3 bg-light">
           <div class="small text-muted">Capital objetivo</div>
-          <div class="fw-semibold">
+          <div class="fs-5 fw-bold text-dark">
             {{ proyecto.capital_objetivo|default:0|floatformat:0|intcomma }} €
           </div>
         </div>
       </div>
 
       <div class="col-md-3">
-        <div>
+        <div class="border rounded-3 py-3 bg-light">
           <div class="small text-muted">Capital captado</div>
-          <div class="fw-semibold">
+          <div class="fs-5 fw-bold text-dark">
             {{ capital_captado|floatformat:0|intcomma }} €
           </div>
         </div>
       </div>
 
       <div class="col-md-3">
-        <div>
+        <div class="border rounded-3 py-3 bg-light">
           <div class="small text-muted">Rentabilidad estimada</div>
-          <div class="fw-semibold">
+          <div class="fs-5 fw-bold text-dark">
             {{ proyecto.rentabilidad_estimada|default:0|floatformat:2 }} %
           </div>
         </div>
       </div>
 
       <div class="col-md-3">
-        <div>
+        <div class="border rounded-3 py-3 bg-light">
           <div class="small text-muted">Fase</div>
-          <div class="fw-semibold">
+          <div class="fs-5 fw-bold text-dark">
             {% if proyecto.estado in "estudio reservado comprado" %}
               <span class="badge bg-warning text-dark">Captación</span>
             {% elif proyecto.estado in "en_venta comercializacion publicado negociacion" %}
@@ -72,46 +73,48 @@
       </div>
     </div>
 
-    <div class="progress" style="height: 14px;">
-      <div class="progress-bar
-        {% if proyecto.estado in "estudio reservado comprado" %}
-          bg-warning
-        {% elif proyecto.estado in "en_venta comercializacion publicado negociacion" %}
-          bg-primary
-        {% else %}
-          bg-success
-        {% endif %}
-      "
-      role="progressbar"
-      style="
-        width:
-        {% if proyecto.estado in "estudio reservado comprado" %}
-          33%
-        {% elif proyecto.estado in "en_venta comercializacion publicado negociacion" %}
-          66%
-        {% else %}
-          100%
-        {% endif %}
-      ">
+    <div class="px-4 pb-3">
+      <div class="progress rounded-pill" style="height:8px;">
+        <div class="progress-bar
+          {% if proyecto.estado in "estudio reservado comprado" %}
+            bg-warning
+          {% elif proyecto.estado in "en_venta comercializacion publicado negociacion" %}
+            bg-primary
+          {% else %}
+            bg-success
+          {% endif %}
+        "
+        role="progressbar"
+        style="
+          width:
+          {% if proyecto.estado in "estudio reservado comprado" %}
+            33%
+          {% elif proyecto.estado in "en_venta comercializacion publicado negociacion" %}
+            66%
+          {% else %}
+            100%
+          {% endif %}
+        ">
+        </div>
       </div>
     </div>
 
-    <!-- BLOQUE ESTADO DE LA INVERSIÓN (GRÁFICO) -->
-    <div class="p-3">
+    <div class="border rounded-3 p-3 bg-white">
+      <!-- BLOQUE ESTADO DE LA INVERSIÓN (GRÁFICO) -->
       <div class="row align-items-center">
         <div class="col-md-7">
           <ul class="mb-0 text-start">
-            <li>Capital objetivo:
+            <li><span class="small text-muted">Capital objetivo:</span>
               <span class="fw-semibold">
                 {{ proyecto.capital_objetivo|default:0|floatformat:0|intcomma }} €
               </span>
             </li>
-            <li>Capital captado:
+            <li><span class="small text-muted">Capital captado:</span>
               <span class="fw-semibold">
                 {{ capital_captado|floatformat:0|intcomma }} €
               </span>
             </li>
-            <li>Capital pendiente:
+            <li><span class="small text-muted">Capital pendiente:</span>
               <span class="fw-semibold">
                 {{ proyecto.capital_objetivo|default:0|floatformat:0|intcomma }} €
               </span>
@@ -128,30 +131,32 @@
       </div>
     </div>
 
-    <!-- BLOQUE ECONÓMICO -->
-    <div class="row text-center py-3">
-      <div class="col-md-3">
-        <div class="small text-muted">Compra</div>
-        <div class="fw-semibold">
-          {{ proyecto.precio_compra_estimado|default:0|floatformat:0|intcomma }} €
+    <div class="border-top pt-3 mt-3">
+      <!-- BLOQUE ECONÓMICO -->
+      <div class="row text-center py-3">
+        <div class="col-md-3">
+          <div class="small text-muted">Compra</div>
+          <div class="fw-semibold">
+            {{ proyecto.precio_compra_estimado|default:0|floatformat:0|intcomma }} €
+          </div>
         </div>
-      </div>
-      <div class="col-md-3">
-        <div class="small text-muted">Costes</div>
-        <div class="fw-semibold">
-          {{ proyecto.costes_totales|default:0|floatformat:0|intcomma }} €
+        <div class="col-md-3">
+          <div class="small text-muted">Costes</div>
+          <div class="fw-semibold">
+            {{ proyecto.costes_totales|default:0|floatformat:0|intcomma }} €
+          </div>
         </div>
-      </div>
-      <div class="col-md-3">
-        <div class="small text-muted">Venta</div>
-        <div class="fw-semibold">
-          {{ proyecto.precio_venta_estimado|default:0|floatformat:0|intcomma }} €
+        <div class="col-md-3">
+          <div class="small text-muted">Venta</div>
+          <div class="fw-semibold">
+            {{ proyecto.precio_venta_estimado|default:0|floatformat:0|intcomma }} €
+          </div>
         </div>
-      </div>
-      <div class="col-md-3">
-        <div class="small text-muted">Rentabilidad</div>
-        <div class="fw-semibold">
-          {{ proyecto.rentabilidad_estimada|default:0|floatformat:2 }} %
+        <div class="col-md-3">
+          <div class="small text-muted">Rentabilidad</div>
+          <div class="fw-semibold">
+            {{ proyecto.rentabilidad_estimada|default:0|floatformat:2 }} %
+          </div>
         </div>
       </div>
     </div>
@@ -160,9 +165,9 @@
     <div class="p-3 mb-4">
       <h6>Datos del inmueble</h6>
       <ul class="mb-0">
-        <li>Dirección: {{ proyecto.direccion|default:"--" }}</li>
-        <li>Referencia catastral: {{ proyecto.referencia_catastral|default:"--" }}</li>
-        <li>Municipio: {{ proyecto.municipio|default:"--" }}</li>
+        <li><span class="small text-muted">Dirección:</span> <span class="fw-semibold">{{ proyecto.direccion|default:"--" }}</span></li>
+        <li><span class="small text-muted">Referencia catastral:</span> <span class="fw-semibold">{{ proyecto.referencia_catastral|default:"--" }}</span></li>
+        <li><span class="small text-muted">Municipio:</span> <span class="fw-semibold">{{ proyecto.municipio|default:"--" }}</span></li>
       </ul>
     </div>
 
