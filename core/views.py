@@ -626,6 +626,9 @@ def borrar_proyecto(request, proyecto_id):
 
 
 # === Proyecto Detalle View ===
+# =========================
+# BLOQUE 4.2 – INVERSORES DEL PROYECTO
+# =========================
 from django.db.models import Sum
 
 def proyecto_detalle(request, proyecto_id):
@@ -666,8 +669,23 @@ def proyecto_detalle(request, proyecto_id):
         + total_gastos
     )
 
-    beneficio = proyecto.beneficio_neto or Decimal("0")
-    roi = proyecto.roi or Decimal("0")
+    # =========================
+    # RESULTADO ECONÓMICO REAL (LECTURA)
+    # =========================
+    ingresos = IngresoProyecto.objects.filter(proyecto=proyecto)
+    total_ingresos = ingresos.aggregate(
+        total=Sum("importe")
+    )["total"] or Decimal("0")
+
+    resultado = calcular_resultado_economico_proyecto(proyecto)
+
+    beneficio_bruto = resultado.get("beneficio_bruto", Decimal("0"))
+    beneficio_neto = resultado.get("beneficio_neto", Decimal("0"))
+
+    roi_real = (
+        (beneficio_neto / inversion_total * Decimal("100"))
+        if inversion_total > 0 else Decimal("0")
+    )
 
     contexto = {
         "proyecto": proyecto,
@@ -676,17 +694,48 @@ def proyecto_detalle(request, proyecto_id):
         "porcentaje_captado": porcentaje_captado,
         "kpis": {
             "inversion_total": inversion_total,
-            "beneficio": beneficio,
-            "roi": roi,
+            "beneficio_bruto": beneficio_bruto,
+            "beneficio_neto": beneficio_neto,
+            "roi": roi_real,
+            "total_ingresos": total_ingresos,
+            "total_gastos": total_gastos,
             "total_invertido": total_invertido,
             "num_inversores": num_inversores,
-            "total_gastos": total_gastos,
         },
     }
 
     return render(
         request,
         "core/proyecto_detalle.html",
+        contexto
+    )
+
+# =========================
+# BLOQUE 4.2 – INVERSORES DEL PROYECTO
+# =========================
+from django.db.models import Sum
+
+def proyecto_inversores(request, proyecto_id):
+    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+
+    participaciones = Participacion.objects.filter(
+        proyecto=proyecto
+    ).select_related("cliente")
+
+    total_invertido = participaciones.aggregate(
+        total=Sum("importe_invertido")
+    )["total"] or Decimal("0")
+
+    contexto = {
+        "proyecto": proyecto,
+        "participaciones": participaciones,
+        "total_invertido": total_invertido,
+        "num_inversores": participaciones.count(),
+    }
+
+    return render(
+        request,
+        "core/proyecto_inversores.html",
         contexto
     )
 
