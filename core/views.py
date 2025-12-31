@@ -975,11 +975,6 @@ def proyecto_gastos(request, proyecto_id):
         if inversion_total > 0 else Decimal("0")
     )
 
-    # Persistir siempre que haya ingresos
-    if ingresos.exists():
-        proyecto.beneficio_neto = beneficio_neto
-        proyecto.roi = roi_real
-        proyecto.save(update_fields=["beneficio_neto", "roi"])
 
     # =========================
     # GASTOS ORDINARIOS (FIJOS)
@@ -1012,7 +1007,6 @@ def proyecto_gastos(request, proyecto_id):
     contexto = {
         "proyecto": proyecto,
         "gastos": gastos,
-        "total_gastos": total_gastos,
         "gastos_base": gastos_base,
         "gastos_extraordinarios": gastos_extraordinarios,
         "datos_economicos": datos_economicos,
