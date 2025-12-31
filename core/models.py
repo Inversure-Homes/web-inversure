@@ -439,6 +439,62 @@ class FacturaGasto(models.Model):
 
 
 # =========================
+# MODELO INGRESO DE PROYECTO (C2.3)
+# =========================
+class IngresoProyecto(models.Model):
+
+    TIPOS_INGRESO = [
+        ("senal", "Señal / Arras"),
+        ("venta", "Venta"),
+        ("anticipo", "Anticipo"),
+        ("devolucion", "Devolución"),
+        ("otro", "Otro ingreso"),
+    ]
+
+    proyecto = models.ForeignKey(
+        Proyecto,
+        on_delete=models.CASCADE,
+        related_name="ingresos"
+    )
+
+    fecha = models.DateField()
+
+    tipo = models.CharField(
+        max_length=20,
+        choices=TIPOS_INGRESO
+    )
+
+    concepto = models.CharField(
+        max_length=255
+    )
+
+    importe = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Importe del ingreso (positivo o negativo)"
+    )
+
+    imputable_inversores = models.BooleanField(
+        default=True,
+        help_text="Indica si el ingreso computa para inversores"
+    )
+
+    observaciones = models.TextField(
+        blank=True,
+        null=True
+    )
+
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["fecha", "id"]
+
+    def __str__(self):
+        return f"{self.proyecto} · {self.tipo} · {self.importe} €"
+
+
+# =========================
 # MODELO CLIENTE
 # =========================
 class Cliente(models.Model):
