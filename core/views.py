@@ -18,7 +18,7 @@ def calcular_resultado_economico_proyecto(proyecto):
     - Todo se calcula sobre BENEFICIO BRUTO
     - Solo se aplican comisiones si el beneficio bruto es positivo
     """
-    beneficio_bruto = proyecto.beneficio_bruto or Decimal("0")
+    beneficio_bruto = safe_attr(proyecto, "beneficio_bruto")
 
     # Porcentajes fijos
     pct_comercializacion = Decimal("0.05")
