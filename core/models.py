@@ -66,8 +66,15 @@ class Proyecto(models.Model):
     )
 
     # =========================
-    # GASTOS DE ADQUISICIÓN
     # =========================
+    # GASTOS DE PROYECTO (DEPRECATED)
+    # -------------------------
+    # Los siguientes campos (itp, notaria, registro, etc.) están DEPRECATED.
+    # NO deben usarse como fuente de verdad económica.
+    # El único origen válido de los gastos es GastoProyecto.
+    # Se mantienen temporalmente por compatibilidad y para no romper vistas ni cálculos existentes.
+    # =========================
+    # DEPRECATED: No usar para cálculos ni lógica económica.
     itp = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True, default=None
     )
@@ -95,8 +102,7 @@ class Proyecto(models.Model):
     )
 
     # =========================
-    # INVERSIÓN INICIAL
-    # =========================
+    # DEPRECATED: No usar para cálculos ni lógica económica.
     reforma = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True, default=None
     )
@@ -111,8 +117,7 @@ class Proyecto(models.Model):
     )
 
     # =========================
-    # OBRA (DETALLE POR PARTIDAS)
-    # =========================
+    # DEPRECATED: No usar para cálculos ni lógica económica.
     obra_demoliciones = models.DecimalField(
         max_digits=12, decimal_places=2, default=0, null=True, blank=True
     )
@@ -145,8 +150,7 @@ class Proyecto(models.Model):
     )
 
     # =========================
-    # SEGURIDAD
-    # =========================
+    # DEPRECATED: No usar para cálculos ni lógica económica.
     cerrajero = models.DecimalField(
         max_digits=12, decimal_places=2, default=0, null=True, blank=True
     )
@@ -155,8 +159,7 @@ class Proyecto(models.Model):
     )
 
     # =========================
-    # GASTOS RECURRENTES
-    # =========================
+    # DEPRECATED: No usar para cálculos ni lógica económica.
     comunidad = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True, default=None
     )
@@ -177,8 +180,7 @@ class Proyecto(models.Model):
     )
 
     # =========================
-    # GASTOS DE VENTA
-    # =========================
+    # DEPRECATED: No usar para cálculos ni lógica económica.
     gestion_comercial = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True, default=None
     )
@@ -380,6 +382,8 @@ class DocumentoProyecto(models.Model):
 # =========================
 # MODELO GASTO DE PROYECTO
 # =========================
+# GastoProyecto es la única fuente de verdad económica del proyecto.
+# Todo gasto comienza como ESTIMADO y pasa a CONFIRMADO cuando existe justificante real.
 class GastoProyecto(models.Model):
 
     CATEGORIAS = [
@@ -394,10 +398,8 @@ class GastoProyecto(models.Model):
     ]
 
     ESTADOS = [
-        ("pendiente", "Pendiente"),
-        ("pagado", "Pagado"),
-        ("provisionado", "Provisionado"),
-        ("anulado", "Anulado"),
+        ("estimado", "Estimado"),
+        ("confirmado", "Confirmado"),
     ]
 
     proyecto = models.ForeignKey(
@@ -436,18 +438,7 @@ class GastoProyecto(models.Model):
     estado = models.CharField(
         max_length=15,
         choices=ESTADOS,
-        default="pendiente"
-    )
-
-    confirmado = models.BooleanField(
-        default=False,
-        help_text="Indica si el gasto es real y confirmado (no estimado)"
-    )
-
-    fecha_confirmacion = models.DateField(
-        null=True,
-        blank=True,
-        help_text="Fecha en la que el gasto se considera confirmado"
+        default="estimado"
     )
 
     observaciones = models.TextField(
@@ -460,11 +451,11 @@ class GastoProyecto(models.Model):
 
     @property
     def es_estimado(self):
-        return not self.confirmado
+        return self.estado == "estimado"
 
     @property
     def es_real(self):
-        return self.confirmado
+        return self.estado == "confirmado"
 
     class Meta:
         ordering = ["fecha", "id"]
