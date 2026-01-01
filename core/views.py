@@ -812,40 +812,26 @@ def proyecto_gastos(request, proyecto_id):
     datos_economicos, _ = DatosEconomicosProyecto.objects.get_or_create(
         proyecto=proyecto
     )
-
     from django.db.models import Sum
+    from decimal import Decimal
 
     # =========================
-    # CABECERA ECONÓMICA ÚNICA (TRAZABLE)
+    # CABECERA ECONÓMICA ÚNICA (TRAZABLE) - REFACTORIZADA
     # =========================
     precio_adquisicion = safe_attr(proyecto, "precio_compra_inmueble")
-
-    gastos_estimados = (
-        safe_attr(proyecto, "notaria")
-        + safe_attr(proyecto, "registro")
-        + safe_attr(proyecto, "itp")
-        + safe_attr(proyecto, "otros_gastos_compra")
-        + safe_attr(proyecto, "ibi")
-        + safe_attr(proyecto, "limpieza_inicial")
-    )
-
-    gastos_reales = (
-        GastoProyecto.objects
-        .filter(proyecto=proyecto)
-        .aggregate(total=Sum("importe"))["total"]
-        or Decimal("0")
-    )
-
-    total_gastos = gastos_estimados + gastos_reales
     valor_transmision = safe_attr(proyecto, "venta_estimada")
 
-    cabecera_economica = {
-        "precio_adquisicion": precio_adquisicion,
-        "gastos_estimados": gastos_estimados,
-        "gastos_reales": gastos_reales,
-        "total_gastos": total_gastos,
-        "valor_transmision": valor_transmision,
-    }
+    # Nueva fuente de verdad para gastos: solo GastoProyecto, diferenciando por estado
+    gastos_qs = GastoProyecto.objects.filter(proyecto=proyecto)
+    gastos_estimados = gastos_qs.filter(estado="estimado").aggregate(
+        total=Sum("importe")
+    )["total"] or Decimal("0")
+    gastos_reales = gastos_qs.filter(estado="real").aggregate(
+        total=Sum("importe")
+    )["total"] or Decimal("0")
+    total_gastos = gastos_estimados + gastos_reales
+
+    valor_adquisicion_total = precio_adquisicion + total_gastos
 
     # =========================
     # POST: CAMBIOS DE ESTADO / ADQUISICIÓN / INGRESOS
@@ -885,7 +871,6 @@ def proyecto_gastos(request, proyecto_id):
     # LECTURA DE GASTOS (ÚNICA FUENTE)
     # =========================
     gastos = GastoProyecto.objects.filter(proyecto=proyecto).order_by("-fecha")
-
     gastos_list = []
     for gasto in gastos:
         gastos_list.append({
@@ -903,14 +888,27 @@ def proyecto_gastos(request, proyecto_id):
     # =========================
     # RESULTADO ECONÓMICO REAL
     # =========================
-    inversion_total = precio_adquisicion + total_gastos
-    beneficio_bruto_real = total_ingresos - inversion_total
+    # Recalcular siempre los importes de cabecera a partir de estos valores:
+    # valor_adquisicion_total = precio_compra_inmueble + total_gastos
+    # beneficio_bruto = total_ingresos - valor_adquisicion_total
+    inversion_total = valor_adquisicion_total
+    beneficio_bruto = total_ingresos - valor_adquisicion_total
 
-    proyecto.beneficio_bruto = beneficio_bruto_real
+    proyecto.beneficio_bruto = beneficio_bruto
     resultado = calcular_resultado_economico_proyecto(proyecto)
 
     beneficio_neto = resultado.get("beneficio_neto", Decimal("0"))
     roi_real = (beneficio_neto / inversion_total * Decimal("100")) if inversion_total > 0 else Decimal("0")
+
+    # Nueva definición de cabecera_economica
+    cabecera_economica = {
+        "precio_adquisicion": precio_adquisicion,
+        "gastos_estimados": gastos_estimados,
+        "gastos_reales": gastos_reales,
+        "total_gastos": total_gastos,
+        "valor_adquisicion_total": valor_adquisicion_total,
+        "valor_transmision": valor_transmision,
+    }
 
     contexto = {
         "proyecto": proyecto,
