@@ -67,6 +67,7 @@ def f(x):
 from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.csrf import ensure_csrf_cookie
 from decimal import Decimal
 from .models import Proyecto, Cliente, Participacion, Simulacion
 
@@ -842,6 +843,7 @@ def proyecto_gastos_autoguardado(request, proyecto_id):
 
 # === Proyecto Gastos View ===
 
+@ensure_csrf_cookie
 def proyecto_gastos(request, proyecto_id):
     proyecto = get_object_or_404(Proyecto, id=proyecto_id)
     from .models import DatosEconomicosProyecto
