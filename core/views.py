@@ -828,6 +828,43 @@ def proyecto_gastos(request, proyecto_id):
     # Fuente única de verdad para gastos: GastoProyecto
     gastos_qs = GastoProyecto.objects.filter(proyecto=proyecto)
 
+    # === MATERIALIZACIÓN AUTOMÁTICA DE GASTOS DE OBRA (ESTIMADOS) ===
+    OBRA_CAMPOS = [
+        ("Demoliciones", "obra_demoliciones"),
+        ("Albañilería", "obra_albanileria"),
+        ("Fontanería", "obra_fontaneria"),
+        ("Electricidad", "obra_electricidad"),
+        ("Carpintería interior", "obra_carpinteria_interior"),
+        ("Carpintería exterior", "obra_carpinteria_exterior"),
+        ("Cocina", "obra_cocina"),
+        ("Baños", "obra_banos"),
+        ("Pintura", "obra_pintura"),
+        ("Otros obra", "obra_otros"),
+    ]
+    for nombre_legible, campo in OBRA_CAMPOS:
+        valor = getattr(proyecto, campo, None)
+        if valor and valor > 0:
+            existe = GastoProyecto.objects.filter(
+                proyecto=proyecto,
+                concepto=nombre_legible,
+                categoria="obra"
+            ).exists()
+            if not existe:
+                try:
+                    GastoProyecto.objects.create(
+                        proyecto=proyecto,
+                        concepto=nombre_legible,
+                        categoria="obra",
+                        importe=valor,
+                        estado="estimado",
+                        imputable_inversores=True,
+                    )
+                except Exception:
+                    pass
+    # Re-obtener queryset actualizado tras posible inserción
+    gastos_qs = GastoProyecto.objects.filter(proyecto=proyecto)
+
+    # Ahora los sumatorios SOLO filtran por estado, no por categoría
     gastos_estimados = gastos_qs.filter(
         estado="estimado"
     ).aggregate(total=Sum("importe"))["total"] or Decimal("0")
@@ -884,6 +921,17 @@ def proyecto_gastos(request, proyecto_id):
             )
             return redirect("core:proyecto_gastos", proyecto_id=proyecto.id)
 
+        # === CAMBIO DE ESTADO ESTIMADO/REAL PARA GASTOS DE OBRA ===
+        if tipo_form == "gasto_estado":
+            gasto_id = request.POST.get("gasto_id")
+            estado = request.POST.get("estado")
+            if gasto_id and estado in ("estimado", "real"):
+                gasto = GastoProyecto.objects.filter(id=gasto_id, proyecto=proyecto).first()
+                if gasto:
+                    gasto.estado = estado
+                    gasto.save(update_fields=["estado"])
+            # Renderizar la vista de nuevo (sin redirect)
+
     # =========================
     # LECTURA DE GASTOS (ÚNICA FUENTE)
     # =========================
@@ -894,6 +942,7 @@ def proyecto_gastos(request, proyecto_id):
             "gasto": gasto,
             "importe": gasto.importe or Decimal("0"),
             "tiene_justificante": bool(getattr(gasto, "factura", None)),
+            "es_obra": gasto.categoria == "obra",
         })
 
     # =========================
