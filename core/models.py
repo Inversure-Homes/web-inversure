@@ -403,7 +403,7 @@ class GastoProyecto(models.Model):
     proyecto = models.ForeignKey(
         Proyecto,
         on_delete=models.PROTECT,
-        related_name="gastos"
+        related_name="gastos_proyecto"
     )
 
     fecha = models.DateField()
@@ -439,6 +439,17 @@ class GastoProyecto(models.Model):
         default="pendiente"
     )
 
+    confirmado = models.BooleanField(
+        default=False,
+        help_text="Indica si el gasto es real y confirmado (no estimado)"
+    )
+
+    fecha_confirmacion = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Fecha en la que el gasto se considera confirmado"
+    )
+
     observaciones = models.TextField(
         blank=True,
         null=True
@@ -446,6 +457,14 @@ class GastoProyecto(models.Model):
 
     creado = models.DateTimeField(auto_now_add=True)
     actualizado = models.DateTimeField(auto_now=True)
+
+    @property
+    def es_estimado(self):
+        return not self.confirmado
+
+    @property
+    def es_real(self):
+        return self.confirmado
 
     class Meta:
         ordering = ["fecha", "id"]
