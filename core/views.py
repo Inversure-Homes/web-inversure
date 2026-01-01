@@ -911,16 +911,49 @@ def proyecto_gastos(request, proyecto_id):
 
     # =========================
     # LECTURA DE GASTOS
-
-    # =========================
-    # LECTURA DE GASTOS
-
-    # =========================
-    # LECTURA DE GASTOS
-    # =========================
     gastos = GastoProyecto.objects.filter(proyecto=proyecto)
     gastos_extraordinarios = gastos.order_by("-fecha")
     total_gastos = gastos.aggregate(total=Sum("importe"))["total"] or 0
+
+    # === NUEVO BLOQUE: gastos_reales_list y total_gastos_reales ===
+    gastos_reales_list = []
+    total_gastos_reales = Decimal("0")
+    for gasto in gastos:
+        tiene_justificante = bool(getattr(gasto, "factura", None))
+        gastos_reales_list.append({
+            "gasto": gasto,
+            "es_real": True,
+            "es_estimado": False,
+            "tiene_justificante": tiene_justificante,
+        })
+        total_gastos_reales += gasto.importe or Decimal("0")
+
+    # === NUEVO BLOQUE: gastos_estimados_list y total_gastos_estimados ===
+    # Campos heredados del proyecto:
+    campos_estimados = [
+        ("notaria", "Notaría"),
+        ("registro", "Registro"),
+        ("itp", "ITP"),
+        ("otros_gastos_compra", "Otros gastos de compra"),
+        ("ibi", "IBI"),
+        ("limpieza_inicial", "Limpieza inicial"),
+    ]
+    gastos_estimados_list = []
+    total_gastos_estimados = Decimal("0")
+    for campo, concepto_legible in campos_estimados:
+        importe = safe_attr(proyecto, campo)
+        if importe and importe != 0:
+            gastos_estimados_list.append({
+                "concepto": concepto_legible,
+                "importe": importe,
+                "es_real": False,
+                "es_estimado": True,
+                "tiene_justificante": False,
+            })
+            total_gastos_estimados += importe
+
+    # === NUEVO BLOQUE: total_gastos_proyecto ===
+    total_gastos_proyecto = total_gastos_estimados + total_gastos_reales
 
     # =========================
     # LECTURA DE INGRESOS (C2.3)
@@ -1053,6 +1086,12 @@ def proyecto_gastos(request, proyecto_id):
         "gastos_extraordinarios_total": total_gastos_extraordinarios,
         "total_gastos": total_gastos_proyecto,
         "cabecera_economica": cabecera_economica,
+        # NUEVAS variables para el contexto:
+        "gastos_reales_list": gastos_reales_list,
+        "gastos_estimados_list": gastos_estimados_list,
+        "total_gastos_estimados": total_gastos_estimados,
+        "total_gastos_reales": total_gastos_reales,
+        "total_gastos_proyecto": total_gastos_proyecto,
     }
 
     return render(
