@@ -804,6 +804,40 @@ def proyecto_documentos(request, proyecto_id):
     }
     return render(request, "core/proyecto_documentos.html", contexto)
 
+# === Autoguardado AJAX genérico para proyecto_gastos ===
+from django.views.decorators.http import require_POST
+
+@require_POST
+def proyecto_gastos_autoguardado(request, proyecto_id):
+    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+
+    campo = request.POST.get("campo")
+    valor = request.POST.get("valor")
+
+    if not campo:
+        return JsonResponse({"ok": False, "error": "Campo no indicado"}, status=400)
+
+    # Campos numéricos conocidos
+    CAMPOS_NUMERICOS = {
+        "precio_compra_inmueble", "notaria", "registro", "itp",
+        "otros_gastos_compra", "ibi", "limpieza_inicial"
+    }
+
+    # Seguridad: solo permitir atributos existentes
+    if not hasattr(proyecto, campo):
+        return JsonResponse({"ok": False, "error": "Campo no permitido"}, status=400)
+
+    try:
+        if campo in CAMPOS_NUMERICOS:
+            setattr(proyecto, campo, parse_euro(valor))
+        else:
+            setattr(proyecto, campo, valor)
+        proyecto.save(update_fields=[campo])
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+    return JsonResponse({"ok": True})
+
 # === Proyecto Gastos View ===
 
 def proyecto_gastos(request, proyecto_id):
