@@ -1157,7 +1157,8 @@ def convertir_simulacion_a_proyecto(request, simulacion_id=None):
         roi = Decimal(str(roi).replace(",", "."))
     except Exception:
         roi = Decimal("0")
-    Proyecto.objects.create(
+
+    proyecto = Proyecto.objects.create(
         nombre=f"Estudio - {direccion}",
         direccion=direccion,
         ref_catastral=ref_catastral,
@@ -1166,6 +1167,41 @@ def convertir_simulacion_a_proyecto(request, simulacion_id=None):
         roi=roi,
         estado="estudio",
     )
+
+    # =========================
+    # MATERIALIZAR GASTOS DEL SIMULADOR COMO ESTIMADOS
+    # =========================
+    from .models import GastoProyecto
+
+    gastos_simulador = [
+        ("Notaría", getattr(proyecto, "notaria", None)),
+        ("Registro", getattr(proyecto, "registro", None)),
+        ("ITP", getattr(proyecto, "itp", None)),
+        ("Otros gastos compra", getattr(proyecto, "otros_gastos_compra", None)),
+        ("Limpieza inicial", getattr(proyecto, "limpieza_inicial", None)),
+        ("Cerrajero", getattr(proyecto, "seguridad_cerrajero", None)),
+        ("Alarma", getattr(proyecto, "seguridad_alarma", None)),
+        ("IBI", getattr(proyecto, "ibi", None)),
+        ("Comunidad", getattr(proyecto, "comunidad", None)),
+        ("Suministros", getattr(proyecto, "suministros", None)),
+        ("Ocupas", getattr(proyecto, "ocupas", None)),
+        ("Inmobiliaria", getattr(proyecto, "inmobiliaria", None)),
+        ("Plusvalía", getattr(proyecto, "plusvalia", None)),
+    ]
+
+    for concepto, importe in gastos_simulador:
+        try:
+            if importe and importe > 0:
+                GastoProyecto.objects.create(
+                    proyecto=proyecto,
+                    concepto=concepto,
+                    importe=importe,
+                    estado="estimado",
+                    imputable_inversores=True,
+                )
+        except Exception:
+            continue
+
     return redirect("core:lista_estudio")
 
 
