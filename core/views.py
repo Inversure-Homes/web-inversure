@@ -1005,6 +1005,46 @@ def proyecto_gastos(request, proyecto_id):
     # =========================
     total_gastos_proyecto = gastos_ordinarios + total_gastos_extraordinarios
 
+    # =========================
+    # CABECERA ECONÓMICA (PASO 1 – LECTURA, TRAZABLE)
+    # =========================
+
+    # Valor de adquisición (precio escritura)
+    precio_adquisicion = safe_attr(proyecto, "precio_compra_inmueble")
+
+    # Gastos estimados heredados del estudio (campos del proyecto)
+    gastos_estimados = (
+        safe_attr(proyecto, "notaria")
+        + safe_attr(proyecto, "registro")
+        + safe_attr(proyecto, "itp")
+        + safe_attr(proyecto, "otros_gastos_compra")
+        + safe_attr(proyecto, "ibi")
+        + safe_attr(proyecto, "limpieza_inicial")
+    )
+
+    # Gastos reales (apuntes con factura o justificante)
+    gastos_reales = gastos.aggregate(
+        total=Sum("importe")
+    )["total"] or Decimal("0")
+
+    # Total gastos (estimados + reales)
+    total_gastos_cabecera = gastos_estimados + gastos_reales
+
+    # Valor de transmisión (heredado del estudio, editable)
+    valor_transmision = safe_attr(
+        proyecto,
+        "venta_estimada",
+        safe_attr(proyecto, "precio_venta")
+    )
+
+    cabecera_economica = {
+        "precio_adquisicion": precio_adquisicion,
+        "gastos_estimados": gastos_estimados,
+        "gastos_reales": gastos_reales,
+        "total_gastos": total_gastos_cabecera,
+        "valor_transmision": valor_transmision,
+    }
+
     contexto = {
         "proyecto": proyecto,
         "gastos": gastos,
@@ -1014,6 +1054,7 @@ def proyecto_gastos(request, proyecto_id):
         "gastos_ordinarios": gastos_ordinarios,
         "gastos_extraordinarios_total": total_gastos_extraordinarios,
         "total_gastos": total_gastos_proyecto,
+        "cabecera_economica": cabecera_economica,
     }
 
     return render(
