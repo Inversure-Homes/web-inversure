@@ -5,13 +5,18 @@
 <div class="container-fluid">
 
   <!-- CABECERA: Identidad del Proyecto -->
-  <div class="mb-4">
-    <h3 class="fw-semibold mb-1">Proyecto · {{ proyecto.nombre }}</h3>
-    <p class="text-muted mb-0">
-      {% if proyecto.direccion %}
-        {{ proyecto.direccion }}
-      {% endif %}
-    </p>
+  <div class="mb-4 d-flex justify-content-between align-items-start">
+    <div>
+      <h3 class="fw-semibold mb-1">Proyecto · {{ proyecto.nombre }}</h3>
+      <p class="text-muted mb-0">
+        {% if proyecto.direccion %}
+          {{ proyecto.direccion }}
+        {% endif %}
+      </p>
+    </div>
+    <a href="{% url 'core:lista_proyectos' %}" class="btn btn-outline-secondary">
+      ← Volver a proyectos
+    </a>
   </div>
 
   <form>
