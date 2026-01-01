@@ -391,6 +391,10 @@
 
 </div>
 <script>
+(function () {
+  const form = document.querySelector('form');
+  if (!form) return;
+
   function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
@@ -407,86 +411,85 @@
   }
 
   const csrftoken = getCookie('csrftoken');
+  const inputs = form.querySelectorAll('.auto-save');
+  const totalGastosSpan = document.getElementById('card-total-gastos');
+  const valorAdquisicionSpan = document.getElementById('card-valor-adquisicion');
 
-  (function () {
-    const form = document.querySelector('form');
-    if (!form) return;
+  const formatter = new Intl.NumberFormat('es-ES', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 
-    const totalGastosSpan = document.getElementById('card-total-gastos');
-    const valorAdquisicionSpan = document.getElementById('card-valor-adquisicion');
-    const numberInputs = form.querySelectorAll('.auto-save');
+  let debounceTimer = null;
+  let lastPayload = null;
 
-    const formatter = new Intl.NumberFormat('es-ES', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+  function buildPayload() {
+    const data = {};
+    inputs.forEach(input => {
+      if (input.name) data[input.name] = input.value || "0";
+    });
+    return data;
+  }
+
+  function recalculateCards() {
+    let totalGastos = 0;
+    let precioEscritura = 0;
+
+    inputs.forEach(input => {
+      const name = input.name;
+      if (!name || name === 'valor_transmision_estimado') return;
+
+      const val = parseFloat(input.value.replace(',', '.'));
+      if (isNaN(val)) return;
+
+      if (name === 'precio_escritura') {
+        precioEscritura = val;
+      } else {
+        totalGastos += val;
+      }
     });
 
-    let debounceTimer = null;
-    let lastPayload = null;
-
-    function buildPayload() {
-      return Array.from(numberInputs).reduce((acc, input) => {
-        if (input.name) acc[input.name] = input.value;
-        return acc;
-      }, {});
-    }
-
-    function recalculateCards() {
-      let totalGastos = 0;
-      let precioEscritura = 0;
-
-      numberInputs.forEach(input => {
-        const name = input.name;
-        if (!name || name === 'valor_transmision_estimado') return;
-
-        const val = parseFloat(input.value);
-        if (isNaN(val)) return;
-
-        if (name === 'precio_escritura') {
-          precioEscritura = val;
-        } else {
-          totalGastos += val;
-        }
-      });
-
-      const valorAdquisicion = precioEscritura + totalGastos;
+    if (totalGastosSpan) {
       totalGastosSpan.textContent = formatter.format(totalGastos);
-      valorAdquisicionSpan.textContent = formatter.format(valorAdquisicion);
     }
-
-    function autoSave(force = false) {
-      const payload = buildPayload();
-      const payloadString = JSON.stringify(payload);
-
-      if (!force && payloadString === lastPayload) return;
-      lastPayload = payloadString;
-
-      fetch("/proyectos/{{ proyecto.id }}/gastos/autoguardado/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRFToken": csrftoken
-        },
-        body: payloadString
-      }).then(() => {
-        console.log("Autoguardado OK");
-      });
+    if (valorAdquisicionSpan) {
+      valorAdquisicionSpan.textContent = formatter.format(precioEscritura + totalGastos);
     }
+  }
 
-    function scheduleAutoSave() {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        recalculateCards();
-        autoSave();
-      }, 600);
-    }
+  function autoSave() {
+    const payload = buildPayload();
+    const payloadString = JSON.stringify(payload);
 
-    numberInputs.forEach(input => {
-      input.addEventListener('input', scheduleAutoSave);
+    if (payloadString === lastPayload) return;
+    lastPayload = payloadString;
+
+    fetch("/proyectos/{{ proyecto.id }}/gastos/autoguardado/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrftoken
+      },
+      body: payloadString
+    }).catch(err => {
+      console.error("Error autoguardado:", err);
     });
+  }
 
+  function scheduleSave() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      recalculateCards();
+      autoSave();
+    }, 500);
+  }
 
-    recalculateCards();
-  })();
+  inputs.forEach(input => {
+    input.addEventListener('input', scheduleSave);
+    input.addEventListener('change', scheduleSave);
+  });
+
+  recalculateCards();
+})();
 </script>
 {% endblock %}
