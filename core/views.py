@@ -809,40 +809,67 @@ from django.views.decorators.http import require_POST
 
 from django.views.decorators.csrf import csrf_protect
 
-from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+import json
+from decimal import Decimal
 
-@csrf_protect
+@csrf_exempt
 @require_POST
 def proyecto_gastos_autoguardado(request, proyecto_id):
     proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+    from .models import DatosEconomicosProyecto
+    datos, _ = DatosEconomicosProyecto.objects.get_or_create(proyecto=proyecto)
 
-    campo = request.POST.get("campo")
-    valor = request.POST.get("valor")
+    # Accept JSON (fetch) or form POST
+    try:
+        payload = json.loads(request.body.decode("utf-8")) if request.body else request.POST
+    except Exception:
+        payload = request.POST
 
-    if not campo:
-        return JsonResponse({"ok": False, "error": "Campo no indicado"}, status=400)
-
-    # Campos numéricos conocidos
+    # Whitelist of allowed numeric fields (single source of truth)
     CAMPOS_NUMERICOS = {
-        "precio_compra_inmueble", "notaria", "registro", "itp",
-        "otros_gastos_compra", "ibi", "limpieza_inicial"
+        "precio_compra_inmueble",
+        "notaria",
+        "registro",
+        "itp",
+        "otros_gastos_compra",
+        "ibi",
+        "limpieza_inicial",
+        "comunidad",
+        "seguros",
+        "suministros",
+        "plusvalia",
+        "inmobiliaria",
+        # Obras
+        "obra_demoliciones",
+        "obra_albanileria",
+        "obra_fontaneria",
+        "obra_electricidad",
+        "obra_carpinteria_interior",
+        "obra_carpinteria_exterior",
+        "obra_cocina",
+        "obra_banos",
+        "obra_pintura",
+        "obra_otros",
+        # Ingresos / transmisión
+        "venta_estimada",
     }
 
-    # Seguridad: solo permitir atributos existentes
-    if not hasattr(proyecto, campo):
-        return JsonResponse({"ok": False, "error": "Campo no permitido"}, status=400)
+    changed_fields = []
 
-    try:
-        if campo in CAMPOS_NUMERICOS:
-            setattr(proyecto, campo, parse_euro(valor))
-        else:
-            setattr(proyecto, campo, valor)
-        proyecto.save(update_fields=[campo])
-    except Exception as e:
-        return JsonResponse({"ok": False, "error": str(e)}, status=400)
+    for campo in CAMPOS_NUMERICOS:
+        if campo in payload:
+            raw = payload.get(campo)
+            valor = None if raw in (None, "") else parse_euro(raw)
+            if getattr(datos, campo, None) != valor:
+                setattr(datos, campo, valor)
+                changed_fields.append(campo)
 
-    return JsonResponse({"ok": True})
+    if changed_fields:
+        datos.save(update_fields=changed_fields)
+
+    return JsonResponse({"ok": True, "updated": changed_fields})
 
 # === Proyecto Gastos View ===
 
