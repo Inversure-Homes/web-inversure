@@ -81,118 +81,137 @@
 
     <hr>
 
-    <!-- BLOQUE: Gastos estructurales del proyecto -->
-    <!-- Conceptos que siempre forman parte de la operación, divididos en gastos de adquisición y legales, y gastos operativos y de gestión -->
+    <!-- BLOQUE A — Gastos de adquisición -->
     <div class="card shadow-sm mb-4">
       <div class="card-header bg-light fw-semibold">
-        Gastos estructurales del proyecto
+        Gastos de adquisición
       </div>
       <div class="card-body">
-        <p class="text-muted small mb-3">
-          Todos los gastos se introducen inicialmente como estimados. Se marcarán como confirmados cuando exista justificante.
-        </p>
-
-        <h6 class="fw-semibold">Gastos de adquisición y legales</h6>
-        <div class="row g-3 mb-3">
-          <div class="col-md-4">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Precio de escritura</span>
+              <input type="number" step="0.01" class="form-control text-end" name="precio_escritura" value="{{ gastos_base.precio_escritura|default_if_none:'' }}">
+              <span class="badge bg-secondary">ESTIMADO / REAL</span>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>ITP / Impuestos</span>
+              <input type="number" step="0.01" class="form-control text-end" name="impuestos" value="{{ gastos_base.impuestos|default_if_none:'' }}">
+              <span class="badge bg-secondary">ESTIMADO / REAL</span>
+            </div>
+          </div>
+          <div class="col-md-6">
             <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
               <span>Notaría</span>
-              <input type="number" step="0.01" class="form-control form-control-sm text-end" name="notaria" value="{{ gastos_base.notaria|default_if_none:'' }}">
+              <input type="number" step="0.01" class="form-control text-end" name="notaria" value="{{ gastos_base.notaria|default_if_none:'' }}">
               <span class="badge bg-secondary">ESTIMADO / REAL</span>
             </div>
           </div>
-          <div class="col-md-4">
-            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
-              <span>Impuestos</span>
-              <input type="number" step="0.01" class="form-control form-control-sm text-end" name="impuestos" value="{{ gastos_base.impuestos|default_if_none:'' }}">
-              <span class="badge bg-secondary">ESTIMADO / REAL</span>
-            </div>
-          </div>
-          <div class="col-md-4">
+          <div class="col-md-6">
             <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
               <span>Registro</span>
-              <input type="number" step="0.01" class="form-control form-control-sm text-end" name="registro" value="{{ gastos_base.registro|default_if_none:'' }}">
+              <input type="number" step="0.01" class="form-control text-end" name="registro" value="{{ gastos_base.registro|default_if_none:'' }}">
               <span class="badge bg-secondary">ESTIMADO / REAL</span>
             </div>
           </div>
-          <div class="col-md-4">
+          <div class="col-md-6">
             <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
               <span>Gestoría</span>
-              <input type="number" step="0.01" class="form-control form-control-sm text-end" name="gestoria" value="{{ gastos_base.gestoria|default_if_none:'' }}">
-              <span class="badge bg-secondary">ESTIMADO / REAL</span>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
-              <span>IBI</span>
-              <input type="number" step="0.01" class="form-control form-control-sm text-end" name="ibi" value="{{ gastos_base.ibi|default_if_none:'' }}">
+              <input type="number" step="0.01" class="form-control text-end" name="gestoria" value="{{ gastos_base.gestoria|default_if_none:'' }}">
               <span class="badge bg-secondary">ESTIMADO / REAL</span>
             </div>
           </div>
         </div>
+      </div>
+    </div>
 
-        <h6 class="fw-semibold">Gastos operativos y de gestión</h6>
+    <!-- BLOQUE B — Gastos de mantenimiento / holding -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-light fw-semibold">
+        Gastos de mantenimiento / holding
+      </div>
+      <div class="card-body">
         <div class="row g-3">
-          <div class="col-md-4">
+          <div class="col-md-6">
             <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
-              <span>Alarma</span>
-              <input type="number" step="0.01" class="form-control form-control-sm text-end" name="alarma" value="{{ gastos_base.alarma|default_if_none:'' }}">
+              <span>IBI</span>
+              <input type="number" step="0.01" class="form-control text-end" name="ibi" value="{{ gastos_base.ibi|default_if_none:'' }}">
               <span class="badge bg-secondary">ESTIMADO / REAL</span>
             </div>
           </div>
-          <div class="col-md-4">
-            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
-              <span>Limpieza / Vaciado</span>
-              <input type="number" step="0.01" class="form-control form-control-sm text-end" name="limpieza_vaciado" value="{{ gastos_base.limpieza_vaciado|default_if_none:'' }}">
-              <span class="badge bg-secondary">ESTIMADO / REAL</span>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
-              <span>Cerrajero</span>
-              <input type="number" step="0.01" class="form-control form-control-sm text-end" name="cerrajero" value="{{ gastos_base.cerrajero|default_if_none:'' }}">
-              <span class="badge bg-secondary">ESTIMADO / REAL</span>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
-              <span>Agua</span>
-              <input type="number" step="0.01" class="form-control form-control-sm text-end" name="agua" value="{{ gastos_base.agua|default_if_none:'' }}">
-              <span class="badge bg-secondary">ESTIMADO / REAL</span>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
-              <span>Luz</span>
-              <input type="number" step="0.01" class="form-control form-control-sm text-end" name="luz" value="{{ gastos_base.luz|default_if_none:'' }}">
-              <span class="badge bg-secondary">ESTIMADO / REAL</span>
-            </div>
-          </div>
-          <div class="col-md-4">
+          <div class="col-md-6">
             <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
               <span>Comunidad</span>
-              <input type="number" step="0.01" class="form-control form-control-sm text-end" name="comunidad" value="{{ gastos_base.comunidad|default_if_none:'' }}">
+              <input type="number" step="0.01" class="form-control text-end" name="comunidad" value="{{ gastos_base.comunidad|default_if_none:'' }}">
               <span class="badge bg-secondary">ESTIMADO / REAL</span>
             </div>
           </div>
-          <div class="col-md-4">
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Luz</span>
+              <input type="number" step="0.01" class="form-control text-end" name="luz" value="{{ gastos_base.luz|default_if_none:'' }}">
+              <span class="badge bg-secondary">ESTIMADO / REAL</span>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Agua</span>
+              <input type="number" step="0.01" class="form-control text-end" name="agua" value="{{ gastos_base.agua|default_if_none:'' }}">
+              <span class="badge bg-secondary">ESTIMADO / REAL</span>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Alarma</span>
+              <input type="number" step="0.01" class="form-control text-end" name="alarma" value="{{ gastos_base.alarma|default_if_none:'' }}">
+              <span class="badge bg-secondary">ESTIMADO / REAL</span>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Cerrajero</span>
+              <input type="number" step="0.01" class="form-control text-end" name="cerrajero" value="{{ gastos_base.cerrajero|default_if_none:'' }}">
+              <span class="badge bg-secondary">ESTIMADO / REAL</span>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Limpieza / Vaciado</span>
+              <input type="number" step="0.01" class="form-control text-end" name="limpieza_vaciado" value="{{ gastos_base.limpieza_vaciado|default_if_none:'' }}">
+              <span class="badge bg-secondary">ESTIMADO / REAL</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BLOQUE C — Gastos de comercialización y gestión -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-light fw-semibold">
+        Gastos de comercialización y gestión
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6">
             <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
               <span>Comercialización</span>
-              <input type="number" step="0.01" class="form-control form-control-sm text-end" name="comercializacion" value="{{ gastos_base.comercializacion|default_if_none:'' }}">
+              <input type="number" step="0.01" class="form-control text-end" name="comercializacion" value="{{ gastos_base.comercializacion|default_if_none:'' }}">
               <span class="badge bg-secondary">ESTIMADO / REAL</span>
             </div>
           </div>
-          <div class="col-md-4">
+          <div class="col-md-6">
             <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
               <span>Administración</span>
-              <input type="number" step="0.01" class="form-control form-control-sm text-end" name="administracion" value="{{ gastos_base.administracion|default_if_none:'' }}">
+              <input type="number" step="0.01" class="form-control text-end" name="administracion" value="{{ gastos_base.administracion|default_if_none:'' }}">
               <span class="badge bg-secondary">ESTIMADO / REAL</span>
             </div>
           </div>
-          <div class="col-md-4">
+          <div class="col-md-6">
             <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
               <span>Comisión Inversure</span>
-              <input type="number" step="0.01" class="form-control form-control-sm text-end" name="comision_inversure" value="{{ gastos_base.comision_inversure|default_if_none:'' }}">
+              <input type="number" step="0.01" class="form-control text-end" name="comision_inversure" value="{{ gastos_base.comision_inversure|default_if_none:'' }}">
               <span class="badge bg-secondary">ESTIMADO / REAL</span>
             </div>
           </div>
@@ -227,7 +246,7 @@
               <td class="text-end">{{ gasto.importe|floatformat:2|intcomma }} €</td>
               <td>{{ gasto.fecha|date:"d/m/Y" }}</td>
               <td class="text-end">
-                <a href="#" class="btn btn-sm btn-outline-secondary">Justificante</a>
+                <a href="{{ gasto.justificante.url }}" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener noreferrer">Justificante</a>
               </td>
             </tr>
             {% endfor %}
