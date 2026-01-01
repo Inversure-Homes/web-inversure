@@ -188,7 +188,6 @@ def consultar_catastro_por_rc(ref_catastral):
 
 from django.shortcuts import get_object_or_404
 
-@csrf_exempt
 def simulador(request, proyecto_id=None):
     """
     Vista saneada del simulador:
@@ -807,6 +806,9 @@ def proyecto_documentos(request, proyecto_id):
 # === Autoguardado AJAX genérico para proyecto_gastos ===
 from django.views.decorators.http import require_POST
 
+from django.views.decorators.csrf import csrf_protect
+
+@csrf_protect
 @require_POST
 def proyecto_gastos_autoguardado(request, proyecto_id):
     proyecto = get_object_or_404(Proyecto, id=proyecto_id)
