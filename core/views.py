@@ -863,7 +863,10 @@ def proyecto_gastos(request, proyecto_id):
     # =========================
 
     # Precio de escritura (defensivo)
-    precio_adquisicion = safe_attr(proyecto, "precio_compra_inmueble")
+    precio_adquisicion = (
+        safe_attr(proyecto, "precio_compra_inmueble")
+        or safe_attr(proyecto, "precio_propiedad")
+    )
 
     # Valor de transmisión (estimado hasta venta real)
     valor_transmision = safe_attr(proyecto, "venta_estimada")
