@@ -855,7 +855,12 @@ def proyecto_gastos(request, proyecto_id):
             proyecto.ibi = parse_euro(request.POST.get("ibi"))
             proyecto.limpieza_inicial = parse_euro(request.POST.get("limpieza_inicial"))
             proyecto.save()
-            return redirect("core:proyecto_gastos", proyecto_id=proyecto.id)
+            messages.success(request, "Cambios económicos guardados correctamente.")
+            return render(
+                request,
+                "core/proyecto_gastos.html",
+                contexto
+            )
 
         if tipo_form == "ingresos":
             IngresoProyecto.objects.create(
