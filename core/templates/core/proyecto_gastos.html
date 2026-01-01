@@ -117,7 +117,6 @@
           <thead class="table-light">
             <tr>
               <th>Concepto</th>
-              <th>Tipo</th>
               <th class="text-end">Importe</th>
               <th>Fecha</th>
               <th></th>
@@ -127,7 +126,6 @@
             {% for gasto in gastos_extraordinarios %}
             <tr>
               <td>{{ gasto.concepto }}</td>
-              <td>{{ gasto.get_tipo_display }}</td>
               <td class="text-end">{{ gasto.importe|floatformat:2|intcomma }} €</td>
               <td>{{ gasto.fecha|date:"d/m/Y" }}</td>
               <td class="text-end">
