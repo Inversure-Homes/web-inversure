@@ -389,6 +389,23 @@
 
 </div>
 <script>
+  // CSRF cookie helper
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+  const csrftoken = getCookie('csrftoken');
+
   (function() {
     const form = document.querySelector('form');
     if (!form) return;
@@ -423,6 +440,21 @@
 
       totalGastosSpan.textContent = formatter.format(totalGastos);
       valorAdquisicionSpan.textContent = formatter.format(valorAdquisicion);
+
+      // Autoguardado AJAX call
+      fetch("/proyectos/{{ proyecto.id }}/gastos/autoguardado/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": csrftoken
+        },
+        body: JSON.stringify(
+          Array.from(numberInputs).reduce((acc, input) => {
+            if (input.name) acc[input.name] = input.value;
+            return acc;
+          }, {})
+        )
+      });
     }
 
     numberInputs.forEach(input => {
