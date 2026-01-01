@@ -1009,10 +1009,10 @@ def proyecto_gastos(request, proyecto_id):
     # CABECERA ECONÓMICA (PASO 1 – LECTURA, TRAZABLE)
     # =========================
 
-    # Valor de adquisición (precio escritura)
+    # Precio de adquisición (precio escritura real o heredado del estudio)
     precio_adquisicion = safe_attr(proyecto, "precio_compra_inmueble")
 
-    # Gastos estimados heredados del estudio (campos del proyecto)
+    # Gastos estimados heredados del estudio (EDITABLES, NO CONFIRMADOS)
     gastos_estimados = (
         safe_attr(proyecto, "notaria")
         + safe_attr(proyecto, "registro")
@@ -1022,20 +1022,18 @@ def proyecto_gastos(request, proyecto_id):
         + safe_attr(proyecto, "limpieza_inicial")
     )
 
-    # Gastos reales (apuntes con factura o justificante)
-    gastos_reales = gastos.aggregate(
-        total=Sum("importe")
-    )["total"] or Decimal("0")
+    # Gastos reales (apuntes económicos con trazabilidad)
+    gastos_reales = (
+        GastoProyecto.objects.filter(proyecto=proyecto)
+        .aggregate(total=Sum("importe"))["total"]
+        or Decimal("0")
+    )
 
-    # Total gastos (estimados + reales)
+    # Total de gastos del proyecto (estimados + reales)
     total_gastos_cabecera = gastos_estimados + gastos_reales
 
-    # Valor de transmisión (heredado del estudio, editable)
-    valor_transmision = safe_attr(
-        proyecto,
-        "venta_estimada",
-        safe_attr(proyecto, "precio_venta")
-    )
+    # Valor de transmisión (estimado hasta venta real)
+    valor_transmision = safe_attr(proyecto, "venta_estimada")
 
     cabecera_economica = {
         "precio_adquisicion": precio_adquisicion,
