@@ -29,14 +29,19 @@
       </div>
     </div>
 
-    <!-- BLOQUE: Resumen económico -->
-    <!-- Resumen visual de los gastos totales, ordinarios, extraordinarios e impacto en beneficio -->
+    <!-- CABECERA ECONÓMICA DEL PROYECTO -->
     <div class="row g-3 mb-4">
+
       <div class="col-md-3">
-        <div class="card shadow-sm">
+        <div class="card shadow-sm border-start border-4 border-primary">
           <div class="card-body">
-            <div class="small text-muted">Gastos totales</div>
-            <div class="fs-5 fw-semibold">{{ total_gastos|floatformat:2|intcomma }} €</div>
+            <div class="small text-muted">Valor de adquisición total</div>
+            <div class="fs-5 fw-semibold">
+              {{ valor_adquisicion_total|floatformat:2|intcomma }} €
+            </div>
+            <div class="small text-muted">
+              Escritura + gastos
+            </div>
           </div>
         </div>
       </div>
@@ -44,8 +49,10 @@
       <div class="col-md-3">
         <div class="card shadow-sm">
           <div class="card-body">
-            <div class="small text-muted">Gastos ordinarios</div>
-            <div class="fs-5 fw-semibold">{{ total_gastos_ordinarios|floatformat:2|intcomma }} €</div>
+            <div class="small text-muted">Precio de escritura</div>
+            <div class="fs-5 fw-semibold">
+              {{ datos_economicos.precio_escritura|default_if_none:0|floatformat:2|intcomma }} €
+            </div>
           </div>
         </div>
       </div>
@@ -53,20 +60,38 @@
       <div class="col-md-3">
         <div class="card shadow-sm">
           <div class="card-body">
-            <div class="small text-muted">Gastos extraordinarios</div>
-            <div class="fs-5 fw-semibold">{{ total_gastos_extraordinarios|floatformat:2|intcomma }} €</div>
+            <div class="small text-muted">Total gastos acumulados</div>
+            <div class="fs-5 fw-semibold">
+              {{ total_gastos|floatformat:2|intcomma }} €
+            </div>
+            <div class="small text-muted">
+              Ordinarios + extraordinarios
+            </div>
           </div>
         </div>
       </div>
 
       <div class="col-md-3">
-        <div class="card shadow-sm border-start border-4 border-warning">
+        <div class="card shadow-sm border-start border-4 border-success">
           <div class="card-body">
-            <div class="small text-muted">Impacto en beneficio</div>
-            <div class="fs-5 fw-semibold">{{ impacto_beneficio|floatformat:2|intcomma }} €</div>
+            <label class="small text-muted mb-1">Valor de transmisión estimado</label>
+            <div class="input-group">
+              <input
+                type="number"
+                step="0.01"
+                class="form-control fw-semibold"
+                name="valor_transmision_estimado"
+                value="{{ datos_economicos.valor_transmision_estimado|default_if_none:''|floatformat:2 }}"
+              >
+              <span class="input-group-text">€</span>
+            </div>
+            <div class="small text-muted">
+              Estimación editable hasta venta real
+            </div>
           </div>
         </div>
       </div>
+
     </div>
 
     <!-- BLOQUE: Gastos estructurales del proyecto -->
