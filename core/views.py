@@ -870,12 +870,20 @@ def proyecto_gastos(request, proyecto_id):
         ]
 
         for campo in campos_guardables:
-            if campo in payload:
-                setattr(
-                    gastos_base,
-                    campo,
-                    parse_euro(payload.get(campo))
-                )
+            if campo not in payload:
+                continue
+
+            raw = payload.get(campo)
+
+            # Si el campo viene vacío, NO sobrescribir (evita borrar datos existentes)
+            if raw in (None, "", "null"):
+                continue
+
+            setattr(
+                gastos_base,
+                campo,
+                parse_euro(raw)
+            )
 
         campos_estado = [
             "estado_precio_escritura",
