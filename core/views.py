@@ -71,6 +71,7 @@ from decimal import Decimal
 from .models import Proyecto, Cliente, Participacion, Simulacion
 
 from core.models import DatosEconomicosProyecto
+from core.models import GastosProyectoEstimacion
 
 from .models import GastoProyecto
 from .models import IngresoProyecto
@@ -816,7 +817,7 @@ from decimal import Decimal
 @csrf_protect
 def proyecto_gastos(request, proyecto_id):
     proyecto = get_object_or_404(Proyecto, id=proyecto_id)
-    datos_economicos, _ = DatosEconomicosProyecto.objects.get_or_create(
+    gastos_base, _ = GastosProyectoEstimacion.objects.get_or_create(
         proyecto=proyecto
     )
 
@@ -871,12 +872,42 @@ def proyecto_gastos(request, proyecto_id):
         for campo in campos_guardables:
             if campo in payload:
                 setattr(
-                    datos_economicos,
+                    gastos_base,
                     campo,
                     parse_euro(payload.get(campo))
                 )
 
-        datos_economicos.save()
+        campos_estado = [
+            "estado_precio_escritura",
+            "estado_impuestos",
+            "estado_notaria",
+            "estado_registro",
+            "estado_gestoria",
+            "estado_ibi",
+            "estado_comunidad",
+            "estado_luz",
+            "estado_agua",
+            "estado_alarma",
+            "estado_cerrajero",
+            "estado_limpieza_vaciado",
+            "estado_obra_reforma",
+            "estado_obra_materiales",
+            "estado_obra_mano_obra",
+            "estado_obra_tecnico",
+            "estado_obra_licencias",
+            "estado_obra_contingencia",
+            "estado_comercializacion",
+            "estado_administracion",
+            "estado_comision_inversure",
+        ]
+
+        for campo in campos_estado:
+            if campo in payload:
+                val = payload.get(campo)
+                if val in ("estimado", "real"):
+                    setattr(gastos_base, campo, val)
+
+        gastos_base.save()
 
         is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest" or (request.headers.get("accept") or "").lower().find("application/json") >= 0
         if is_ajax:
@@ -943,8 +974,7 @@ def proyecto_gastos(request, proyecto_id):
         "inversion_total": inversion_total,
         "beneficio_neto": beneficio_neto,
         "roi_real": roi_real,
-        "datos_economicos": datos_economicos,
-        "gastos_base": datos_economicos,
+        "gastos_base": gastos_base,
     }
 
     return render(
