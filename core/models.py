@@ -337,6 +337,43 @@ class Proyecto(models.Model):
 
 
 # =========================
+# MODELO PRESUPUESTO DE PROYECTO (ESCENARIO EDITABLE)
+# =========================
+class PresupuestoProyecto(models.Model):
+    proyecto = models.OneToOneField(
+        Proyecto,
+        on_delete=models.CASCADE,
+        related_name="presupuesto"
+    )
+
+    concepto = models.CharField(
+        max_length=255,
+        help_text="Concepto del gasto o ingreso presupuestado"
+    )
+
+    categoria = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True
+    )
+
+    importe_previsto = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Importe estimado del concepto"
+    )
+
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.proyecto} · Presupuesto · {self.concepto}"
+
+
+# =========================
 # MODELO DOCUMENTO DE PROYECTO
 # =========================
 class DocumentoProyecto(models.Model):
@@ -462,6 +499,7 @@ class GastoProyecto(models.Model):
 
     def __str__(self):
         return f"{self.proyecto} · {self.concepto} · {self.importe} €"
+
 
 
 # =========================
@@ -1063,3 +1101,49 @@ class MovimientoEconomicoProyecto(models.Model):
 
     def __str__(self):
         return f"{self.proyecto} · {self.concepto} · {self.importe} €"
+
+# =========================
+# MODELO MOVIMIENTO REAL DE PROYECTO (TRAZABILIDAD)
+# =========================
+class MovimientoProyecto(models.Model):
+
+    TIPO_CHOICES = [
+        ("gasto", "Gasto"),
+        ("ingreso", "Ingreso"),
+    ]
+
+    proyecto = models.ForeignKey(
+        Proyecto,
+        on_delete=models.CASCADE,
+        related_name="movimientos"
+    )
+
+    tipo = models.CharField(
+        max_length=10,
+        choices=TIPO_CHOICES
+    )
+
+    concepto = models.CharField(
+        max_length=255
+    )
+
+    fecha = models.DateField()
+
+    importe = models.DecimalField(
+        max_digits=12,
+        decimal_places=2
+    )
+
+    documento = models.FileField(
+        upload_to="movimientos_proyecto/%Y/%m/",
+        blank=True,
+        null=True
+    )
+
+    creado = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["fecha", "id"]
+
+    def __str__(self):
+        return f"{self.proyecto} · {self.tipo} · {self.importe} €"
