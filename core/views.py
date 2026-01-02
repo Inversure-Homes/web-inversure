@@ -80,6 +80,7 @@ except ImportError:
 from django.contrib import messages
 import requests
 import xml.etree.ElementTree as ET
+import json
 from django.http import JsonResponse
 
 
@@ -814,11 +815,59 @@ from decimal import Decimal
 def proyecto_gastos(request, proyecto_id):
     proyecto = get_object_or_404(Proyecto, id=proyecto_id)
 
-    # Paso 2: Manejo de POST para persistencia directa en Proyecto
+    # Paso 2: Persistencia (soporta POST tradicional y AJAX JSON)
     if request.method == "POST":
-        proyecto.precio_compra_inmueble = parse_euro(request.POST.get("precio_compra_inmueble"))
-        proyecto.venta_estimada = parse_euro(request.POST.get("venta_estimada"))
-        proyecto.save()
+        payload = {}
+
+        # 1) Form-encoded (request.POST)
+        if request.POST:
+            payload = request.POST
+        else:
+            # 2) JSON body (fetch)
+            try:
+                body = request.body.decode("utf-8") if request.body else ""
+                if body:
+                    payload = json.loads(body)
+            except Exception:
+                payload = {}
+
+        # Aceptar nombres alternativos/legacy para evitar desajustes con el template
+        precio_raw = (
+            payload.get("precio_compra_inmueble")
+            or payload.get("precio_compra")
+            or payload.get("precio_propiedad")
+            or payload.get("precio_escritura")
+        )
+        venta_raw = (
+            payload.get("venta_estimada")
+            or payload.get("precio_venta")
+            or payload.get("valor_transmision")
+            or payload.get("venta")
+        )
+
+        changed_fields = []
+
+        # Guardar solo si vienen valores (evita pisar con None por POST vacío)
+        if precio_raw not in (None, ""):
+            proyecto.precio_compra_inmueble = parse_euro(precio_raw)
+            changed_fields.append("precio_compra_inmueble")
+
+        if venta_raw not in (None, ""):
+            proyecto.venta_estimada = parse_euro(venta_raw)
+            changed_fields.append("venta_estimada")
+
+        if changed_fields:
+            proyecto.save(update_fields=changed_fields)
+
+        # Si es una petición AJAX, devolver respuesta JSON clara
+        is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest" or (request.headers.get("accept") or "").lower().find("application/json") >= 0
+        if is_ajax:
+            return JsonResponse({
+                "ok": True,
+                "saved": changed_fields,
+                "precio_compra_inmueble": float(proyecto.precio_compra_inmueble or 0),
+                "venta_estimada": float(proyecto.venta_estimada or 0),
+            })
 
     # Paso 3: Cards y cálculos SOLO desde BD
     # Precio de adquisición: precio_compra_inmueble, fallback a precio_propiedad
