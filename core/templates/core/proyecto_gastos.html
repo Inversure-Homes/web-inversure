@@ -19,7 +19,7 @@
     </a>
   </div>
 
-  <form>
+  <form method="post" action="">
     {% csrf_token %}
     <input type="hidden" name="form_tipo" value="datos_economicos">
 
@@ -469,7 +469,7 @@
     if (payloadString === lastPayload) return;
     lastPayload = payloadString;
 
-    fetch("/proyectos/{{ proyecto.id }}/gastos/autoguardado/", {
+    fetch(window.location.pathname, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
