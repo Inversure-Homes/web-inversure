@@ -1835,3 +1835,77 @@ def memoria_economica(request, proyecto_id):
         "core/memoria_economica.html",
         contexto
     )
+
+# =========================
+# NUEVA VISTA – PRESUPUESTO DEL PROYECTO (VIABILIDAD)
+# =========================
+from django.views.decorators.csrf import csrf_protect
+from django.shortcuts import get_object_or_404
+from decimal import Decimal
+from .models import PresupuestoProyecto
+
+@csrf_protect
+def proyecto_presupuesto(request, proyecto_id):
+    """
+    Vista de presupuesto del proyecto.
+    - Fuente única: PresupuestoProyecto
+    - Editable mientras el proyecto no esté cerrado
+    - NO toca gastos reales ni movimientos
+    """
+
+    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+    presupuesto, _ = PresupuestoProyecto.objects.get_or_create(
+        proyecto=proyecto
+    )
+
+    editable = proyecto.estado not in ["cerrado", "cerrado_positivo"]
+
+    if request.method == "POST" and editable:
+        campos = [
+            "precio_compra_estimado",
+            "gastos_compra_estimados",
+            "reforma_estimada",
+            "otros_gastos_estimados",
+            "venta_estimada",
+        ]
+
+        for campo in campos:
+            if campo in request.POST:
+                raw = request.POST.get(campo)
+                if raw not in (None, ""):
+                    setattr(presupuesto, campo, parse_euro(raw))
+
+        presupuesto.save()
+
+    # =========================
+    # CÁLCULOS DE VIABILIDAD
+    # =========================
+    precio_compra = presupuesto.precio_compra_estimado or Decimal("0")
+    gastos_compra = presupuesto.gastos_compra_estimados or Decimal("0")
+    reforma = presupuesto.reforma_estimada or Decimal("0")
+    otros = presupuesto.otros_gastos_estimados or Decimal("0")
+    venta = presupuesto.venta_estimada or Decimal("0")
+
+    inversion_total = precio_compra + gastos_compra + reforma + otros
+    beneficio_estimado = venta - inversion_total
+    roi_estimado = (
+        (beneficio_estimado / inversion_total * Decimal("100"))
+        if inversion_total > 0 else Decimal("0")
+    )
+
+    contexto = {
+        "proyecto": proyecto,
+        "presupuesto": presupuesto,
+        "editable": editable,
+        "kpis": {
+            "inversion_total": inversion_total,
+            "beneficio_estimado": beneficio_estimado,
+            "roi_estimado": roi_estimado,
+        },
+    }
+
+    return render(
+        request,
+        "core/proyecto_presupuesto.html",
+        contexto
+    )
