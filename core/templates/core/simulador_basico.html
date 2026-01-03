@@ -57,16 +57,28 @@
 
                         <div class="mb-3">
                             <label class="form-label">Precio de adquisición (€)</label>
-                            <input type="text" name="precio_compra" class="form-control euro-input"
-                                   placeholder="145.000,00"
-                                   value="{{ precio_compra|default:'' }}" required>
+                            <div class="input-group">
+                                <input type="text"
+                                       name="precio_compra"
+                                       class="form-control euro-input text-end"
+                                       placeholder="145.000,00"
+                                       value="{{ precio_compra|default:'' }}"
+                                       required>
+                                <span class="input-group-text">€</span>
+                            </div>
                         </div>
 
                         <div class="mb-3">
                             <label class="form-label">Valor estimado de venta (€)</label>
-                            <input type="text" name="precio_venta" class="form-control euro-input"
-                                   placeholder="185.000,00"
-                                   value="{{ precio_venta|default:'' }}" required>
+                            <div class="input-group">
+                                <input type="text"
+                                       name="precio_venta"
+                                       class="form-control euro-input text-end"
+                                       placeholder="185.000,00"
+                                       value="{{ precio_venta|default:'' }}"
+                                       required>
+                                <span class="input-group-text">€</span>
+                            </div>
                         </div>
 
                     </div>
