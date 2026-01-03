@@ -570,9 +570,17 @@ def lista_estudios(request):
         # Beneficio estimado (solo lectura)
         beneficio = precio_venta - precio_compra
 
+        # ROI estimado seguro (si no existe o es nulo)
+        roi_estimado = (
+            (beneficio / precio_compra * Decimal("100"))
+            if precio_compra and precio_compra > 0
+            else Decimal("0")
+        )
+
         # Inyectar atributos SOLO para template
         estudio.precio_compra = precio_compra
         estudio.beneficio = beneficio
+        estudio.roi = roi_estimado
 
     return render(
         request,
