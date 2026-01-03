@@ -553,27 +553,27 @@ def lista_estudios(request):
     estudios = Proyecto.objects.filter(estado__iexact="estudio").order_by("-id")
 
     for estudio in estudios:
-        # Precio de compra: prioridad a precio_propiedad, fallback seguro
+        # Precio de adquisición REAL (incluye gastos si existen)
         precio_compra = (
-            estudio.precio_propiedad
-            if getattr(estudio, "precio_propiedad", None)
-            else Decimal("0")
-        )
+            estudio.precio_compra_inmueble
+            if getattr(estudio, "precio_compra_inmueble", None)
+            else getattr(estudio, "precio_propiedad", Decimal("0"))
+        ) or Decimal("0")
 
-        # Precio de venta estimada
+        # Precio de venta estimado CORRECTO
         precio_venta = (
-            estudio.venta_estimada
-            if getattr(estudio, "venta_estimada", None)
+            estudio.precio_venta_estimado
+            if getattr(estudio, "precio_venta_estimado", None)
             else Decimal("0")
         )
 
-        # Beneficio estimado (solo lectura)
+        # Beneficio estimado correcto
         beneficio = precio_venta - precio_compra
 
-        # ROI estimado seguro (si no existe o es nulo)
+        # ROI estimado correcto
         roi_estimado = (
             (beneficio / precio_compra * Decimal("100"))
-            if precio_compra and precio_compra > 0
+            if precio_compra > 0
             else Decimal("0")
         )
 
