@@ -134,6 +134,43 @@ function recalcResultados() {
     if (roiInput) roiInput.value = isFinite(roi) ? roi.toFixed(2) : "0.00";
 }
 
+function renderAnalisisViabilidad() {
+    const valorAdqInput = getFieldByNames([
+        "valor_adquisicion",
+        "valor_adquisicion_total",
+        "valor_adquisicion_inmueble"
+    ]);
+    const reformaInput = getFieldByNames(["reforma", "coste_reforma"]);
+
+    const valorAdq = parseEuro(valorAdqInput?.value);
+    const reforma = parseEuro(reformaInput?.value);
+    const valorTransmision = recalcMediaValoraciones();
+
+    const costeTotal = valorAdq + reforma;
+    const beneficio = valorTransmision - costeTotal;
+    const margen = valorTransmision > 0 ? (beneficio / valorTransmision) * 100 : 0;
+    const roi = costeTotal > 0 ? (beneficio / costeTotal) * 100 : 0;
+
+    const contenedor = document.getElementById("analisis-viabilidad");
+    if (!contenedor) return;
+
+    contenedor.innerHTML = `
+        <div class="card mt-3">
+            <div class="card-body">
+                <h5 class="card-title">Análisis de viabilidad</h5>
+                <ul class="list-unstyled mb-0">
+                    <li><strong>Valor de adquisición:</strong> ${formatEuro(valorAdq)}</li>
+                    <li><strong>Valor de transmisión:</strong> ${formatEuro(valorTransmision)}</li>
+                    <li><strong>Coste de reforma:</strong> ${formatEuro(reforma)}</li>
+                    <li><strong>Beneficio estimado:</strong> ${formatEuro(beneficio)}</li>
+                    <li><strong>Margen sobre venta:</strong> ${margen.toFixed(2)} %</li>
+                    <li><strong>ROI:</strong> ${roi.toFixed(2)} %</li>
+                </ul>
+            </div>
+        </div>
+    `;
+}
+
 /* ===============================
    INIT
 =============================== */
@@ -221,4 +258,12 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
     });
+
+    const btnAnalizar = document.getElementById("btn-analizar-viabilidad");
+    if (btnAnalizar) {
+        btnAnalizar.addEventListener("click", (e) => {
+            e.preventDefault();
+            renderAnalisisViabilidad();
+        });
+    }
 });
