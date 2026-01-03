@@ -5,8 +5,8 @@ app_name = "core"
 
 urlpatterns = [
     path("", views.home, name="home"),
-    path("simulador/", views.simulador, name="simulador_nuevo"),
-    path("simulador/<int:proyecto_id>/", views.simulador, name="simulador"),
+    path("simulador/", views.simulador, name="simulador"),
+    path("simulador/<int:proyecto_id>/", views.simulador, name="simulador_editar"),
     path(
         "simulaciones/convertir/",
         views.convertir_simulacion_a_proyecto,
