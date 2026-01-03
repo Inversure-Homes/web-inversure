@@ -6,17 +6,6 @@ app_name = "core"
 urlpatterns = [
     path("", views.home, name="home"),
     path("simulador/<int:proyecto_id>/", views.simulador, name="simulador"),
-    path("simulador-basico/", views.simulador_basico, name="simulador_basico"),
-    path(
-        "simulaciones/guardar/",
-        views.guardar_simulacion,
-        name="guardar_simulacion",
-    ),
-    path(
-        "simulaciones/borrar/",
-        views.borrar_analisis_previo,
-        name="borrar_analisis_previo",
-    ),
     path(
         "simulaciones/convertir/",
         views.convertir_simulacion_a_proyecto,
