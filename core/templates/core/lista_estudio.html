@@ -36,15 +36,33 @@
               <div class="row text-center mb-4 inversure-kpis">
                 <div class="col-4">
                   <div class="fw-semibold small text-muted">Inversión</div>
-                  <div class="fw-bold">{{ estudio.precio_compra|floatformat:0|intcomma }} €</div>
+                  <div class="fw-bold">
+                    {% if estudio.precio_compra %}
+                      {{ estudio.precio_compra|floatformat:0|intcomma }} €
+                    {% else %}
+                      —
+                    {% endif %}
+                  </div>
                 </div>
                 <div class="col-4">
                   <div class="fw-semibold small text-muted">Beneficio</div>
-                  <div class="fw-bold">{{ estudio.beneficio|floatformat:0|intcomma }} €</div>
+                  <div class="fw-bold">
+                    {% if estudio.beneficio %}
+                      {{ estudio.beneficio|floatformat:0|intcomma }} €
+                    {% else %}
+                      —
+                    {% endif %}
+                  </div>
                 </div>
                 <div class="col-4">
                   <div class="fw-semibold small text-muted">ROI</div>
-                  <div class="fw-bold">{{ estudio.roi|floatformat:2 }} %</div>
+                  <div class="fw-bold">
+                    {% if estudio.roi %}
+                      {{ estudio.roi|floatformat:2 }} %
+                    {% else %}
+                      —
+                    {% endif %}
+                  </div>
                 </div>
               </div>
 
@@ -53,7 +71,7 @@
                   Abrir
                 </a>
 
-                <form method="post" action="{% url 'core:borrar_proyecto' estudio.id %}"
+                <form method="post" action="{% url 'core:borrar_estudio' estudio.id %}"
                       onsubmit="return confirm('¿Seguro que quieres borrar este estudio?');">
                   {% csrf_token %}
                   <button type="submit" class="btn btn-outline-danger btn-sm">
