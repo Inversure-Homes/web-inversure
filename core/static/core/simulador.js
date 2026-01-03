@@ -147,39 +147,46 @@ function renderAnalisisViabilidad() {
 
     const valorAdq = parseEuro(valorAdqInput?.value);
     const reforma = parseEuro(reformaInput?.value);
-    const valorTransmisionInput = getFieldByNames([
-        "valor_transmision",
-        "precio_venta",
-        "precio_venta_estimado",
-        "venta_estimada",
-        "media_valoraciones"
-    ]);
 
-    const valorTransmision = parseEuro(valorTransmisionInput?.value);
+    const valorTransmision = recalcMediaValoraciones();
 
     const costeTotal = valorAdq + reforma;
     const beneficio = valorTransmision - costeTotal;
     const margen = valorTransmision > 0 ? (beneficio / valorTransmision) * 100 : 0;
     const roi = costeTotal > 0 ? (beneficio / costeTotal) * 100 : 0;
 
-    const contenedor = document.getElementById("analisis-viabilidad");
+    let contenedor = document.getElementById("analisis-viabilidad");
+
     if (!contenedor) return;
 
-    contenedor.innerHTML = `
-        <div class="card mt-3">
-            <div class="card-body">
-                <h5 class="card-title">Análisis de viabilidad</h5>
-                <ul class="list-unstyled mb-0">
-                    <li><strong>Valor de adquisición:</strong> ${formatEuro(valorAdq)}</li>
-                    <li><strong>Valor de transmisión:</strong> ${formatEuro(valorTransmision)}</li>
-                    <li><strong>Coste de reforma:</strong> ${formatEuro(reforma)}</li>
-                    <li><strong>Beneficio estimado:</strong> ${formatEuro(beneficio)}</li>
-                    <li><strong>Margen sobre venta:</strong> ${margen.toFixed(2)} %</li>
-                    <li><strong>ROI:</strong> ${roi.toFixed(2)} %</li>
-                </ul>
+    let card = contenedor.querySelector(".analisis-card");
+
+    if (!card) {
+        contenedor.innerHTML = `
+            <div class="card mt-3 analisis-card">
+                <div class="card-body">
+                    <h5 class="card-title">Análisis de viabilidad</h5>
+                    <ul class="list-unstyled mb-0">
+                        <li><strong>Valor de adquisición:</strong> <span id="av-valor-adq"></span></li>
+                        <li><strong>Valor de transmisión:</strong> <span id="av-valor-trans"></span></li>
+                        <li><strong>Coste de reforma:</strong> <span id="av-reforma"></span></li>
+                        <li><strong>Beneficio estimado:</strong> <span id="av-beneficio"></span></li>
+                        <li><strong>Margen sobre venta:</strong> <span id="av-margen"></span></li>
+                        <li><strong>ROI:</strong> <span id="av-roi"></span></li>
+                    </ul>
+                </div>
             </div>
-        </div>
-    `;
+        `;
+    }
+
+    document.getElementById("av-valor-adq").textContent = formatEuro(valorAdq);
+    document.getElementById("av-valor-trans").textContent = formatEuro(valorTransmision);
+    document.getElementById("av-reforma").textContent = formatEuro(reforma);
+    document.getElementById("av-beneficio").textContent = formatEuro(beneficio);
+    document.getElementById("av-margen").textContent = margen.toFixed(2) + " %";
+    document.getElementById("av-roi").textContent = roi.toFixed(2) + " %";
+
+    contenedor.style.display = "block";
 }
 
 /* ===============================
@@ -275,13 +282,7 @@ document.addEventListener("DOMContentLoaded", () => {
         btnAnalizar.addEventListener("click", (e) => {
             e.preventDefault();
             e.stopPropagation();
-
             renderAnalisisViabilidad();
-
-            const contenedor = document.getElementById("analisis-viabilidad");
-            if (contenedor) {
-                contenedor.style.display = "block";
-            }
         });
     }
 });
