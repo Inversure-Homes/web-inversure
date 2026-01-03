@@ -92,6 +92,21 @@
                            readonly
                            value="{{ proyecto.precio_compra_inmueble|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">
+                        Valor de transmisión
+                        <span class="ms-1 text-muted" title="Derivado automáticamente de la media de valoraciones">ℹ️</span>
+                    </label>
+                    <input
+                        type="text"
+                        id="valor_transmision"
+                        name="valor_transmision"
+                        class="form-control form-control-lg"
+                        data-euro="true"
+                        readonly
+                        value="{{ proyecto.media_valoraciones|default:'' }}"
+                        {% if not editable %}disabled{% endif %}>
+                </div>
             </div>
         </div>
     </div>
@@ -240,23 +255,6 @@
                     <input type="text" name="media_valoraciones" class="form-control form-control-lg" readonly title="Calculado automáticamente en base a los datos introducidos"
                            value="{{ proyecto.media_valoraciones|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
-            </div>
-            <div class="row mt-3">
-              <div class="col-md-12">
-                <label class="form-label fw-semibold">
-                  Valor de transmisión
-                  <span class="ms-1 text-muted" title="Derivado automáticamente de la media de valoraciones">ℹ️</span>
-                </label>
-                <input
-                  type="text"
-                  id="valor_transmision"
-                  name="valor_transmision"
-                  class="form-control form-control-lg"
-                  data-euro="true"
-                  readonly
-                  value="{{ proyecto.media_valoraciones|default:'' }}"
-                  {% if not editable %}disabled{% endif %}>
-              </div>
             </div>
         </div>
     </div>
