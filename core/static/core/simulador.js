@@ -263,7 +263,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (btnAnalizar) {
         btnAnalizar.addEventListener("click", (e) => {
             e.preventDefault();
+            e.stopPropagation();
+
             renderAnalisisViabilidad();
+
+            const contenedor = document.getElementById("analisis-viabilidad");
+            if (contenedor) {
+                contenedor.style.display = "block";
+            }
         });
     }
 });
