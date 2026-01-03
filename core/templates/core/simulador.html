@@ -92,13 +92,6 @@
                            readonly
                            value="{{ proyecto.precio_compra_inmueble|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Valor de transmisión</label>
-                    <input type="text" name="precio_venta_estimado"
-                           class="form-control form-control-lg"
-                           data-euro="true"
-                           value="{{ proyecto.precio_venta_estimado|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
             </div>
         </div>
     </div>
