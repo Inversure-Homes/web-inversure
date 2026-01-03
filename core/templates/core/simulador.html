@@ -38,39 +38,6 @@
                     <input type="text" name="nombre" class="form-control form-control-lg"
                            value="{{ proyecto.nombre|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
-
-                <div class="col-md-6 mb-3">
-                    <label class="form-label text-muted">
-                        Estado del proyecto
-                    </label>
-                    <select name="estado" class="form-select form-select-lg" {% if not editable %}disabled{% endif %}>
-                        <option value="estudio"
-                            {% if proyecto.estado == "estudio" or not proyecto.estado %}selected{% endif %}>
-                            En estudio
-                        </option>
-
-                        <option value="operacion"
-                            {% if proyecto.estado == "operacion" %}selected{% endif %}>
-                            En operación
-                        </option>
-
-                        <option value="cerrado_positivo"
-                            {% if proyecto.estado == "cerrado_positivo" %}selected{% endif %}>
-                            Cerrado positivamente
-                        </option>
-
-                        <option value="descartado"
-                            {% if proyecto.estado == "descartado" %}selected{% endif %}>
-                            Descartado
-                        </option>
-                    </select>
-                </div>
-
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Fecha</label>
-                    <input type="date" name="fecha" class="form-control form-control-lg"
-                           value="{{ proyecto.fecha|date:'Y-m-d'|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
             </div>
 
 
@@ -98,22 +65,7 @@
                                  alt="Catastro"
                                  style="height:18px; width:auto; filter:brightness(0) invert(1);">
                         </button>
-
-                        <button type="button"
-                                id="btnMapa"
-                                class="btn btn-sm px-2 d-flex align-items-center"
-                                style="background-color:#122135; color:white;"
-                                onclick="verMapa()"
-                                title="Ver en mapa">
-                            <span style="font-size:16px; line-height:1;">🗺️</span>
-                        </button>
                     </div>
-                </div>
-
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Valor de referencia catastral</label>
-                    <input type="text" name="valor_referencia" class="form-control" data-euro="true"
-                           value="{{ proyecto.valor_referencia|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
             </div>
             <div class="row">
@@ -128,7 +80,6 @@
                            {% if not editable %}disabled{% endif %}>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label class="form-label">
@@ -141,7 +92,6 @@
                            readonly
                            value="{{ proyecto.precio_compra_inmueble|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
-
                 <div class="col-md-6 mb-3">
                     <label class="form-label">Valor de transmisión</label>
                     <input type="text" name="precio_venta_estimado"
@@ -162,7 +112,6 @@
                 <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">1</span>
                 Datos principales
             </h5>
-
             <div class="row">
                 <div class="col-md-4 mb-3">
                     <label class="form-label">Precio de escritura</label>
@@ -170,32 +119,6 @@
                            class="form-control form-control-lg"
                            data-euro="true"
                            value="{{ proyecto.precio_propiedad|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Venta estimada</label>
-                    <input type="text" name="venta_estimada"
-                           class="form-control form-control-lg"
-                           data-euro="true"
-                           value="{{ proyecto.venta_estimada|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Tiempo estimado de operación (meses)</label>
-                    <input type="text" name="meses"
-                           class="form-control"
-                           data-number="true"
-                           value="{{ proyecto.meses|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">% Financiación</label>
-                    <input type="text" name="financiacion_pct"
-                           class="form-control"
-                           data-number="true"
-                           value="{{ proyecto.financiacion_pct|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
             </div>
         </div>
@@ -256,24 +179,13 @@
                 <span class="badge rounded-pill bg-secondary me-2 px-3 py-2 badge-estudio-3">3</span>
                 Inversión inicial
             </h5>
-
             <div class="row">
-                <div class="col-md-3 mb-3">
+                <div class="col-md-6 mb-3">
                     <label class="form-label">Reforma</label>
                     <input type="text" name="reforma" class="form-control form-control-lg" data-euro="true"
                            value="{{ proyecto.reforma|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
-                <div class="col-md-3 mb-3">
-                    <label class="form-label">Limpieza inicial</label>
-                    <input type="text" name="limpieza_inicial" class="form-control form-control-lg" data-euro="true"
-                           value="{{ proyecto.limpieza_inicial|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <label class="form-label">Mobiliario</label>
-                    <input type="text" name="mobiliario" class="form-control form-control-lg" data-euro="true"
-                           value="{{ proyecto.mobiliario|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-3 mb-3">
+                <div class="col-md-6 mb-3">
                     <label class="form-label">Otros puesta en marcha</label>
                     <input type="text" name="otros_puesta_marcha" class="form-control form-control-lg" data-euro="true"
                            value="{{ proyecto.otros_puesta_marcha|default:'' }}" {% if not editable %}disabled{% endif %}>
@@ -283,187 +195,6 @@
     </div>
 
 
-    <!-- ===============================
-         OBRA (DETALLE POR PARTIDAS)
-    ================================ -->
-    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
-        <div class="card-body">
-            <h5 class="mb-3 inversure-form-header">
-                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">4A</span>
-                Obra (detalle por partidas)
-            </h5>
-
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Demoliciones / desescombro</label>
-                    <input type="text" name="obra_demoliciones" class="form-control" data-euro="true"
-                        value="{{ proyecto.obra_demoliciones|default:'' }}">
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Albañilería</label>
-                    <input type="text" name="obra_albanileria" class="form-control" data-euro="true"
-                        value="{{ proyecto.obra_albanileria|default:'' }}">
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Fontanería</label>
-                    <input type="text" name="obra_fontaneria" class="form-control" data-euro="true"
-                        value="{{ proyecto.obra_fontaneria|default:'' }}">
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Electricidad</label>
-                    <input type="text" name="obra_electricidad" class="form-control" data-euro="true"
-                        value="{{ proyecto.obra_electricidad|default:'' }}">
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Carpintería interior</label>
-                    <input type="text" name="obra_carpinteria_interior" class="form-control" data-euro="true"
-                        value="{{ proyecto.obra_carpinteria_interior|default:'' }}">
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Carpintería exterior</label>
-                    <input type="text" name="obra_carpinteria_exterior" class="form-control" data-euro="true"
-                        value="{{ proyecto.obra_carpinteria_exterior|default:'' }}">
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Cocina</label>
-                    <input type="text" name="obra_cocina" class="form-control" data-euro="true"
-                        value="{{ proyecto.obra_cocina|default:'' }}">
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Baños</label>
-                    <input type="text" name="obra_banos" class="form-control" data-euro="true"
-                        value="{{ proyecto.obra_banos|default:'' }}">
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Pintura</label>
-                    <input type="text" name="obra_pintura" class="form-control" data-euro="true"
-                        value="{{ proyecto.obra_pintura|default:'' }}">
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-12 mb-3">
-                    <label class="form-label">Otros trabajos de obra</label>
-                    <input type="text" name="obra_otros" class="form-control" data-euro="true"
-                        value="{{ proyecto.obra_otros|default:'' }}">
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===============================
-         SEGURIDAD Y CONTROL
-    ================================ -->
-    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
-        <div class="card-body">
-            <h5 class="mb-3 inversure-form-header">
-                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">4B</span>
-                Seguridad y control
-            </h5>
-
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Cerrajero</label>
-                    <input type="text" name="seguridad_cerrajero" class="form-control" data-euro="true"
-                        value="{{ proyecto.cerrajero|default:'' }}">
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Alarma</label>
-                    <input type="text" name="seguridad_alarma" class="form-control" data-euro="true"
-                        value="{{ proyecto.alarma|default:'' }}">
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===============================
-         GASTOS RECURRENTES
-    ================================ -->
-    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
-        <div class="card-body">
-            <h5 class="mb-3 inversure-form-header">
-                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">5</span>
-                Gastos recurrentes
-            </h5>
-
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Comunidad</label>
-                    <input type="text" name="comunidad" class="form-control" data-euro="true"
-                           value="{{ proyecto.comunidad|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">IBI</label>
-                    <input type="text" name="ibi" class="form-control" data-euro="true"
-                           value="{{ proyecto.ibi|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Seguros</label>
-                    <input type="text" name="seguros" class="form-control" data-euro="true"
-                           value="{{ proyecto.seguros|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Suministros</label>
-                    <input type="text" name="suministros" class="form-control" data-euro="true"
-                           value="{{ proyecto.suministros|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Limpieza periódica</label>
-                    <input type="text" name="limpieza_periodica" class="form-control" data-euro="true"
-                           value="{{ proyecto.limpieza_periodica|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Ocupas</label>
-                    <input type="text" name="ocupas" class="form-control" data-euro="true"
-                           value="{{ proyecto.ocupas|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===============================
-         GASTOS DE VENTA
-    ================================ -->
-    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
-        <div class="card-body">
-            <h5 class="mb-3 inversure-form-header">
-                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">6</span>
-                Gastos de venta
-            </h5>
-
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Plusvalía</label>
-                    <input type="text" name="plusvalia" class="form-control" data-euro="true"
-                           value="{{ proyecto.plusvalia|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Inmobiliaria</label>
-                    <input type="text" name="inmobiliaria" class="form-control" data-euro="true"
-                           value="{{ proyecto.inmobiliaria|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Gestión comercial</label>
-                    <input type="text" name="gestion_comercial" class="form-control" data-euro="true"
-                           value="{{ proyecto.gestion_comercial|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Gestión administración</label>
-                    <input type="text" name="gestion_administracion" class="form-control" data-euro="true"
-                           value="{{ proyecto.gestion_administracion|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- ===============================
          VALORACIONES
