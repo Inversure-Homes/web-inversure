@@ -109,22 +109,25 @@ function recalcResultados() {
     ]);
 
     const reformaInput = getFieldByNames(["reforma", "coste_reforma"]);
-    const ventaInput =
-        document.querySelector('[name="precio_venta_estimado"]') ||
-        getFieldByNames([
-            "venta_estimada",
-            "media_valoraciones"
-        ]);
-    const beneficioInput = getFieldByNames(["beneficio"]);
-    const roiInput = getFieldByNames(["roi"]);
+    const ventaInput = getFieldByNames([
+        "valor_transmision",
+        "precio_venta",
+        "precio_venta_estimado",
+        "venta_estimada",
+        "media_valoraciones"
+    ]);
 
-    const valorAdq = parseEuro(valorAdqInput?.value);
-    const reforma = parseEuro(reformaInput?.value);
     const venta = recalcMediaValoraciones();
 
     if (ventaInput) {
         ventaInput.value = formatEuro(venta);
     }
+
+    const beneficioInput = getFieldByNames(["beneficio"]);
+    const roiInput = getFieldByNames(["roi"]);
+
+    const valorAdq = parseEuro(valorAdqInput?.value);
+    const reforma = parseEuro(reformaInput?.value);
 
     const costeTotal = valorAdq + reforma;
     const beneficio = venta - costeTotal;
@@ -144,7 +147,15 @@ function renderAnalisisViabilidad() {
 
     const valorAdq = parseEuro(valorAdqInput?.value);
     const reforma = parseEuro(reformaInput?.value);
-    const valorTransmision = recalcMediaValoraciones();
+    const valorTransmisionInput = getFieldByNames([
+        "valor_transmision",
+        "precio_venta",
+        "precio_venta_estimado",
+        "venta_estimada",
+        "media_valoraciones"
+    ]);
+
+    const valorTransmision = parseEuro(valorTransmisionInput?.value);
 
     const costeTotal = valorAdq + reforma;
     const beneficio = valorTransmision - costeTotal;
