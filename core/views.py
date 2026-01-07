@@ -1,2023 +1,779 @@
-# =========================
-# LÓGICA ECONÓMICA CENTRAL DEL PROYECTO (G3.2)
-# =========================
-from decimal import Decimal
+from __future__ import annotations
 
-# Defensive attribute getter for numerics
-def safe_attr(obj, name, default=Decimal("0")):
+from django.shortcuts import render, get_object_or_404
+from django.http import JsonResponse, HttpResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.urls import reverse
+import json
+
+
+from .models import Estudio, Proyecto
+
+# --- SafeAccessDict helper and _safe_template_obj ---
+class SafeAccessDict(dict):
+    """Dict seguro para plantillas Django: nunca lanza KeyError y permite acceso por atributo."""
+
+    def __getitem__(self, key):
+        return dict.get(self, key, "")
+
+    def __getattr__(self, item):
+        # permite `proyecto.campo` en plantillas
+        return dict.get(self, item, "")
+
+    def get(self, key, default=""):
+        return dict.get(self, key, default)
+
+
+def _safe_template_obj(obj):
+    """Convierte dicts anidados en SafeAccessDict para evitar VariableDoesNotExist en plantillas."""
+    if isinstance(obj, SafeAccessDict):
+        return obj
+    if isinstance(obj, dict):
+        return SafeAccessDict({k: _safe_template_obj(v) for k, v in obj.items()})
+    if isinstance(obj, (list, tuple)):
+        return [_safe_template_obj(v) for v in obj]
+    return obj
+
+
+def _safe_float(v, default: float = 0.0) -> float:
     try:
-        val = getattr(obj, name, default)
-        return default if val is None else val
-    except Exception:
+        if v is None:
+            return default
+        # strings like "1.234,56" or "1,234.56" → normalize
+        if isinstance(v, str):
+            s = v.strip()
+            # remove currency/percent symbols
+            s = s.replace("€", "").replace("%", "").strip()
+            # spanish thousands/decimal
+            if "." in s and "," in s:
+                # assume dot thousands, comma decimal
+                s = s.replace(".", "").replace(",", ".")
+            else:
+                # otherwise, treat comma as decimal
+                s = s.replace(",", ".")
+            v = s
+        return float(v)
+    except (TypeError, ValueError):
         return default
 
-def calcular_resultado_economico_proyecto(proyecto):
-    """
-    Cálculo económico central del proyecto (G3.2)
-    Regla:
-    - Todo se calcula sobre BENEFICIO BRUTO
-    - Solo se aplican comisiones si el beneficio bruto es positivo
-    """
-    beneficio_bruto = safe_attr(proyecto, "beneficio_bruto")
 
-    # Porcentajes fijos
-    pct_comercializacion = Decimal("0.05")
-    pct_administracion = Decimal("0.05")
+def _fmt_es_number(x: float, decimals: int = 2) -> str:
+    # 12,345.67 -> 12.345,67
+    s = f"{x:,.{decimals}f}"
+    s = s.replace(",", "X").replace(".", ",").replace("X", ".")
+    return s
 
-    # Porcentaje gestión Inversure (30–40 %)
-    pct_gestion = safe_attr(proyecto, "pct_gestion_inversure", Decimal("0.30"))
 
-    if beneficio_bruto <= 0:
-        return {
-            "beneficio_bruto": beneficio_bruto,
-            "gasto_comercializacion": Decimal("0"),
-            "gasto_administracion": Decimal("0"),
-            "gasto_gestion": Decimal("0"),
-            "beneficio_neto": beneficio_bruto,
-        }
+def _fmt_eur(x: float) -> str:
+    return f"{_fmt_es_number(x, 2)} €"
 
-    gasto_comercializacion = beneficio_bruto * pct_comercializacion
-    gasto_administracion = beneficio_bruto * pct_administracion
-    gasto_gestion = beneficio_bruto * pct_gestion
 
-    beneficio_neto = (
-        beneficio_bruto
-        - gasto_comercializacion
-        - gasto_administracion
-        - gasto_gestion
+def _fmt_pct(x: float) -> str:
+    return f"{_fmt_es_number(x, 2)} %"
+
+
+def _metricas_desde_estudio(estudio: Estudio) -> dict:
+    d = estudio.datos or {}
+
+    valor_adquisicion = _safe_float(d.get("valor_adquisicion"), 0.0)
+
+    # intentar localizar precio de venta/valor de transmisión
+    precio_transmision = _safe_float(
+        d.get("precio_transmision")
+        or d.get("precio_venta_estimado")
+        or d.get("valor_transmision")
+        or d.get("valor_transmision_estimado"),
+        0.0,
     )
 
-    return {
-        "beneficio_bruto": beneficio_bruto,
-        "gasto_comercializacion": gasto_comercializacion,
-        "gasto_administracion": gasto_administracion,
-        "gasto_gestion": gasto_gestion,
-        "beneficio_neto": beneficio_neto,
+    beneficio = _safe_float(d.get("beneficio"), precio_transmision - valor_adquisicion)
+
+    roi = _safe_float(d.get("roi"), (beneficio / valor_adquisicion * 100.0) if valor_adquisicion else 0.0)
+
+    media_valoraciones = _safe_float(d.get("media_valoraciones"), 0.0)
+
+    metricas = {
+        "valor_adquisicion": valor_adquisicion,
+        "valor_adquisicion_total": valor_adquisicion,
+        # aliases usados por plantillas antiguas
+        "precio_adquisicion": valor_adquisicion,
+        "precio_compra": valor_adquisicion,
+        "precio_transmision": precio_transmision,
+        "valor_transmision": precio_transmision,
+        "beneficio": beneficio,
+        "roi": roi,
+        "media_valoraciones": media_valoraciones,
+        # alias típicos por si la plantilla usa otros nombres
+        "inversion_total": valor_adquisicion,
+        "beneficio_neto": beneficio,
+        "roi_neto": roi,
     }
 
-def f(x):
-    """Cast to float, handling Decimal and None."""
-    if x is None:
-        return 0.0
-    try:
-        return float(x)
-    except Exception:
-        return 0.0
+    metricas_fmt = {
+        "valor_adquisicion": _fmt_eur(valor_adquisicion),
+        "valor_adquisicion_total": _fmt_eur(valor_adquisicion),
+        # aliases
+        "precio_adquisicion": _fmt_eur(valor_adquisicion),
+        "precio_compra": _fmt_eur(valor_adquisicion),
+        "precio_transmision": _fmt_eur(precio_transmision),
+        "valor_transmision": _fmt_eur(precio_transmision),
+        "beneficio": _fmt_eur(beneficio),
+        "roi": _fmt_pct(roi),
+        "media_valoraciones": _fmt_eur(media_valoraciones),
+        # alias
+        "inversion_total": _fmt_eur(valor_adquisicion),
+        "beneficio_neto": _fmt_eur(beneficio),
+        "roi_neto": _fmt_pct(roi),
+    }
 
-from django.shortcuts import render, redirect
-from django.views.decorators.csrf import csrf_protect
-from django.views.decorators.csrf import ensure_csrf_cookie
-from decimal import Decimal
-from .models import Proyecto, Cliente, Participacion, Simulacion
+    # decisión simple (placeholder) para que la plantilla no quede vacía
+    resultado = {
+        "viable": True if (beneficio >= 0 and roi >= 0) else False,
+        "mensaje": "Operación viable" if (beneficio >= 0 and roi >= 0) else "Operación no viable",
+    }
 
-from core.models import DatosEconomicosProyecto
-from core.models import GastosProyectoEstimacion
+    # --- Enriquecimiento automático con métricas de Comité/Inversor guardadas en `datos` ---
+    # El simulador guarda muchos KPIs adicionales (breakeven, colchón, riesgo, etc.) dentro de `estudio.datos`.
+    # Para que el PDF los pueda mostrar sin depender de campos del modelo, los añadimos aquí de forma defensiva.
+    texto = {}
 
-from .models import GastoProyecto
-from .models import IngresoProyecto
+    def _is_percent_key(key: str) -> bool:
+        k = (key or "").lower()
+        return any(t in k for t in ["roi", "%", "pct", "porc", "porcentaje", "tasa"]) and not any(t in k for t in ["euros", "eur", "euro"])
 
-try:
-    import pandas as pd
-except ImportError:
-    pd = None
-from django.contrib import messages
-import requests
-import xml.etree.ElementTree as ET
-import json
-from django.http import JsonResponse
+    def _is_ratio_key(key: str) -> bool:
+        k = (key or "").lower()
+        return "ratio" in k or "multiplic" in k
+
+    def _is_currency_key(key: str) -> bool:
+        k = (key or "").lower()
+        # Heurística: casi todo en el simulador es dinero salvo ratios/%.
+        # Aun así, si el nombre sugiere % o ratio, no lo tratamos como €.
+        if _is_percent_key(k) or _is_ratio_key(k):
+            return False
+        return True
+
+    for k, v in d.items():
+        # Guardar textos (para estado/situación, decisión, comentarios, etc.)
+        if isinstance(v, str):
+            sv = v.strip()
+            if sv and k not in texto:
+                texto[k] = sv
+
+        # Añadir numéricos que no estén ya normalizados
+        if k in metricas:
+            continue
+        fv = _safe_float(v, None)
+        if fv is None:
+            continue
+        metricas[k] = fv
+
+        # Formateo por heurística
+        if _is_percent_key(k):
+            metricas_fmt[k] = _fmt_pct(fv)
+        elif _is_ratio_key(k):
+            metricas_fmt[k] = _fmt_es_number(fv, 2)
+        elif _is_currency_key(k):
+            metricas_fmt[k] = _fmt_eur(fv)
+        else:
+            metricas_fmt[k] = _fmt_es_number(fv, 2)
+
+    # Algunos alias habituales (por si la plantilla usa nombres alternativos)
+    if "margen" in metricas and "margen_seguridad" not in metricas:
+        metricas["margen_seguridad"] = metricas.get("margen")
+        metricas_fmt["margen_seguridad"] = metricas_fmt.get("margen")
+    if "colchon" in metricas and "colchon_seguridad" not in metricas:
+        metricas["colchon_seguridad"] = metricas.get("colchon")
+        metricas_fmt["colchon_seguridad"] = metricas_fmt.get("colchon")
+
+    return {
+        "metricas": metricas,
+        "metricas_fmt": metricas_fmt,
+        "resultado": resultado,
+        "texto": texto,
+    }
 
 
-# Nueva vista home
+# --- Datos de identificación inmueble desde estudio ---
+def _datos_inmueble_desde_estudio(estudio: Estudio) -> dict:
+    """Extrae y normaliza datos de identificación del inmueble desde `estudio` y su JSON `datos`."""
+    d = estudio.datos or {}
+
+    def _s(v) -> str:
+        if v is None:
+            return ""
+        return str(v).strip()
+
+    tipologia = _s(d.get("tipologia") or d.get("tipo_inmueble") or d.get("tipo"))
+    estado = _s(d.get("estado") or d.get("estado_conservacion") or d.get("conservacion"))
+    situacion = _s(d.get("situacion") or d.get("ocupacion") or d.get("situacion_ocupacional"))
+
+    superficie_m2 = _safe_float(
+        d.get("superficie")
+        or d.get("superficie_m2")
+        or d.get("m2")
+        or d.get("metros_cuadrados"),
+        0.0,
+    )
+
+    # Valor de referencia: preferimos el campo del modelo si existe
+    valor_referencia_num = _safe_float(getattr(estudio, "valor_referencia", None), None)
+    if valor_referencia_num is None:
+        valor_referencia_num = _safe_float(d.get("valor_referencia"), 0.0)
+
+    # Formatos
+    superficie_m2_fmt = f"{_fmt_es_number(superficie_m2, 0)} m²" if superficie_m2 else ""
+    valor_referencia_fmt = _fmt_eur(valor_referencia_num) if valor_referencia_num else ""
+
+    # Fecha de creación (para el PDF)
+    creado = getattr(estudio, "creado", None)
+    creado_fmt = creado.strftime("%d/%m/%Y") if creado else ""
+
+    return {
+        "tipologia": tipologia,
+        "estado": estado,
+        "situacion": situacion,
+        "superficie_m2": superficie_m2,
+        "superficie_m2_fmt": superficie_m2_fmt,
+        "valor_referencia": valor_referencia_num,
+        "valor_referencia_fmt": valor_referencia_fmt,
+        "fecha": creado,
+        "fecha_fmt": creado_fmt,
+    }
+
+
 def home(request):
     return render(request, "core/home.html")
 
 
-from decimal import Decimal, InvalidOperation
+def simulador(request):
+    estudio = None
+    estudio_id = request.session.get("estudio_id")
 
-def parse_euro(value):
-    if value in (None, ""):
-        return Decimal("0")
-    try:
-        cleaned = (
-            str(value)
-            .replace("€", "")
-            .replace("\xa0", "")
-            .replace(".", "")
-            .replace(",", ".")
-            .strip()
-        )
-        return Decimal(cleaned)
-    except (InvalidOperation, ValueError):
-        return Decimal("0")
+    if estudio_id:
+        try:
+            estudio_obj = Estudio.objects.get(id=estudio_id)
+        except Estudio.DoesNotExist:
+            estudio_obj = None
+    else:
+        estudio_obj = None
 
-
-def consultar_catastro_por_rc(ref_catastral):
-    """
-    Consulta SOAP REAL al Catastro a partir de una referencia catastral.
-    Devuelve un dict con direccion, lat, lon si existen.
-    Nunca lanza excepción: devuelve None si no hay datos útiles.
-    """
-    if not ref_catastral:
-        return None
-
-    url = "https://ovc.catastro.meh.es/ovcservweb/OVCSWLocalizacionRC/OVCSWLocalizacionRC.asmx"
-
-    headers = {
-        "Content-Type": "text/xml; charset=utf-8",
-        "SOAPAction": "http://www.catastro.meh.es/Consulta_RCCOOR",
-        "User-Agent": "Inversure/1.0",
-    }
-
-    soap_body = f"""<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-  <soap:Body>
-    <Consulta_RCCOOR xmlns="http://www.catastro.meh.es/">
-      <RC>{ref_catastral}</RC>
-    </Consulta_RCCOOR>
-  </soap:Body>
-</soap:Envelope>
-"""
-
-    try:
-        response = requests.post(
-            url,
-            data=soap_body.encode("utf-8"),
-            headers=headers,
-            timeout=15,
-        )
-
-        if response.status_code != 200:
-            print("❌ Catastro HTTP error:", response.status_code)
-            return None
-
-        xml = response.content.decode("utf-8", errors="ignore")
-        print("📦 XML Catastro recibido:\n", xml)
-
-        root = ET.fromstring(xml)
-
-        # Buscar campos SIN depender de namespaces estrictos
-        def find_text(tag):
-            el = root.find(f".//{tag}")
-            return el.text.strip() if el is not None and el.text else None
-
-        direccion = find_text("ldt")
-        municipio = find_text("nmp")
-        provincia = find_text("npp")
-
-        direccion_completa = None
-        if direccion and municipio and provincia:
-            direccion_completa = f"{direccion}, {municipio}, {provincia}"
-        elif direccion:
-            direccion_completa = direccion
-
-        lat = find_text("xcen")
-        lon = find_text("ycen")
-
-        lat_val = float(lat) if lat else None
-        lon_val = float(lon) if lon else None
-
-        if not direccion_completa and lat_val is None and lon_val is None:
-            print("⚠️ Catastro respondió sin datos útiles")
-            return None
-
-        return {
-            "direccion": direccion_completa,
-            "lat": lat_val,
-            "lon": lon_val,
+    # No creamos el Estudio en GET para evitar duplicados/estudios vacíos.
+    # El Estudio se crea/actualiza al pulsar "Guardar".
+    if estudio_obj is None:
+        estudio = {
+            "id": None,
+            "nombre": "",
+            "direccion": "",
+            "ref_catastral": "",
+            "valor_referencia": "",
+            "datos": {},
+        }
+    else:
+        estudio = {
+            "id": estudio_obj.id,
+            "nombre": estudio_obj.nombre,
+            "direccion": estudio_obj.direccion,
+            "ref_catastral": estudio_obj.ref_catastral,
+            "valor_referencia": estudio_obj.valor_referencia,
+            "datos": estudio_obj.datos or {},
         }
 
-    except Exception as e:
-        print("❌ Error procesando SOAP Catastro:", e)
-        return None
-
-from django.shortcuts import get_object_or_404
-
-
-# =========================
-# Vista para crear un nuevo estudio desde cero (simulador definitivo)
-# =========================
-def simulador_nuevo(request):
-    """
-    Entrada para crear un nuevo estudio desde cero.
-    Simulador definitivo (sin simulador básico).
-    """
     return render(
         request,
         "core/simulador.html",
         {
-            "proyecto": None,
-            "resultado": None,
-            "editable": True,
-        },
-    )
-
-def simulador(request, proyecto_id=None):
-    """
-    Vista saneada del simulador:
-    - Nunca borra datos existentes
-    - Calcular ≠ Guardar
-    - No formatea euros
-    - No toca mapa ni JS
-    """
-
-    proyecto = None
-    if proyecto_id:
-        try:
-            proyecto = Proyecto.objects.get(id=proyecto_id)
-        except Proyecto.DoesNotExist:
-            return redirect("core:estudio_detalle", proyecto_id)
-    resultado = None
-    editable = True
-
-    def safe_post(name):
-        """
-        Devuelve:
-        - "__MISSING__" si el campo NO viene en el POST (no tocar en BD)
-        - None si viene vacío (permitir borrar explícito)
-        - valor si viene informado
-        """
-        if name not in request.POST:
-            return "__MISSING__"
-        val = request.POST.get(name)
-        return None if val == "" else val
-
-    if request.method == "POST":
-        accion = request.POST.get("accion")
-
-        # =========================
-        # CREAR PROYECTO AL GUARDAR SI NO EXISTE
-        # =========================
-        if accion == "guardar" and proyecto is None:
-            proyecto = Proyecto.objects.create(
-                estado="estudio"
-            )
-
-        # =========================
-        # GUARDAR DATOS (SIN CALCULAR)
-        # =========================
-        if accion == "guardar" and proyecto:
-            campos = [
-                # Identificación
-                "nombre", "direccion", "ref_catastral",
-
-                # Datos principales
-                "precio_propiedad", "meses",
-
-                # Gastos de adquisición
-                "notaria", "registro", "itp", "otros_gastos_compra",
-
-                # Inversión inicial
-                "limpieza_inicial", "mobiliario", "otros_puesta_marcha",
-
-                # OBRA 4A
-                "obra_demoliciones",
-                "obra_albanileria",
-                "obra_fontaneria",
-                "obra_electricidad",
-                "obra_carpinteria_interior",
-                "obra_carpinteria_exterior",
-                "obra_cocina",
-                "obra_banos",
-                "obra_pintura",
-                "obra_otros",
-
-                # SEGURIDAD 4B
-                "seguridad_cerrajero",
-                "seguridad_alarma",
-
-                # REFORMA (resultado)
-                "reforma",
-
-                # Gastos recurrentes
-                "comunidad", "ibi", "seguros", "suministros",
-                "limpieza_periodica", "ocupas",
-
-                # Gastos de venta
-                "plusvalia", "inmobiliaria",
-
-                # Valoraciones
-                "val_idealista", "val_fotocasa", "val_registradores",
-                "val_casafari", "val_tasacion",
-            ]
-
-            CAMPOS_NUMERICOS = {
-                # Datos principales
-                "precio_propiedad",
-                "meses",
-
-                # Gastos de adquisición
-                "notaria",
-                "registro",
-                "itp",
-                "otros_gastos_compra",
-
-                # Inversión inicial
-                "limpieza_inicial",
-                "mobiliario",
-                "otros_puesta_marcha",
-
-                # OBRA 4A
-                "obra_demoliciones",
-                "obra_albanileria",
-                "obra_fontaneria",
-                "obra_electricidad",
-                "obra_carpinteria_interior",
-                "obra_carpinteria_exterior",
-                "obra_cocina",
-                "obra_banos",
-                "obra_pintura",
-                "obra_otros",
-
-                # SEGURIDAD 4B
-                "seguridad_cerrajero",
-                "seguridad_alarma",
-
-                # REFORMA (resultado)
-                "reforma",
-
-                # Gastos recurrentes
-                "comunidad",
-                "ibi",
-                "seguros",
-                "suministros",
-                "limpieza_periodica",
-                "ocupas",
-
-                # Gastos de venta
-                "plusvalia",
-                "inmobiliaria",
-
-                # Valoraciones
-                "val_idealista",
-                "val_fotocasa",
-                "val_registradores",
-                "val_casafari",
-                "val_tasacion",
-            }
-
-            for campo in campos:
-                valor = safe_post(campo)
-
-                # Campo no enviado → NO tocar
-                if valor == "__MISSING__":
-                    continue
-
-                # Campo enviado vacío → permitir borrar
-                if valor is None:
-                    setattr(proyecto, campo, None)
-                    continue
-
-                # Campo con valor
-                if campo in CAMPOS_NUMERICOS:
-                    setattr(proyecto, campo, parse_euro(valor))
-                else:
-                    setattr(proyecto, campo, valor)
-
-            proyecto.save()
-
-            return redirect("core:lista_estudio")
-
-        # =========================
-        # CONVERTIR SIMULADOR EN PROYECTO (NO CAMBIA ESTADO MANUALMENTE)
-        # =========================
-        if accion == "convertir" and proyecto:
-            return redirect("core:lista_proyectos")
-
-        # =========================
-        # ANALIZAR VIABILIDAD (SIN GUARDAR)
-        # =========================
-        if accion == "analizar" and proyecto:
-            precio_escritura = parse_euro(request.POST.get("precio_propiedad"))
-            valores = [
-                parse_euro(request.POST.get("val_idealista")),
-                parse_euro(request.POST.get("val_fotocasa")),
-                parse_euro(request.POST.get("val_registradores")),
-                parse_euro(request.POST.get("val_casafari")),
-                parse_euro(request.POST.get("val_tasacion")),
-            ]
-            valores = [v for v in valores if v > 0]
-            media_valoraciones = sum(valores) / len(valores) if valores else 0
-
-            notaria = max(precio_escritura * Decimal("0.002"), Decimal("500"))
-            registro = max(precio_escritura * Decimal("0.002"), Decimal("500"))
-            itp = precio_escritura * Decimal("0.02")
-
-            gastos_adquisicion = notaria + registro + itp
-            valor_adquisicion = precio_escritura + gastos_adquisicion
-            precio_venta = media_valoraciones
-            beneficio = precio_venta - valor_adquisicion
-            roi = (beneficio / valor_adquisicion * Decimal("100")) if valor_adquisicion else Decimal("0")
-
-            # NUEVAS MÉTRICAS CLAVE
-            ratio_euro = (beneficio / valor_adquisicion) if valor_adquisicion else Decimal("0")
-            margen_neto = (beneficio / precio_venta * Decimal("100")) if precio_venta else Decimal("0")
-
-            # Precio mínimo de venta exigido por Inversure
-            precio_min_15 = valor_adquisicion * Decimal("1.15")
-            precio_min_30000 = valor_adquisicion + Decimal("30000")
-            precio_minimo_venta = max(precio_min_15, precio_min_30000)
-
-            # Colchón de seguridad (%)
-            colchon_seguridad = (
-                (precio_venta - precio_minimo_venta) / precio_venta * Decimal("100")
-            ) if precio_venta else Decimal("0")
-
-            # =========================
-            # LÓGICA ANALISTA INVERSURE
-            # =========================
-
-            # Umbral dominante
-            if precio_min_15 >= precio_min_30000:
-                umbral_dominante = "Rentabilidad mínima 15 %"
-            else:
-                umbral_dominante = "Beneficio mínimo 30.000 €"
-
-            # Diferencia vs mínimo exigido
-            diferencia_vs_minimo = precio_venta - precio_minimo_venta
-
-            # Dictamen automático
-            if diferencia_vs_minimo >= 0:
-                dictamen = "La operación cumple los criterios mínimos de Inversure."
-            else:
-                dictamen = (
-                    "La operación NO cumple los criterios mínimos de Inversure. "
-                    "El precio estimado de venta debería incrementarse para alcanzar el umbral exigido."
-                )
-
-            resultado = {
-                "valor_adquisicion": float(round(valor_adquisicion, 2)),
-                "precio_venta": float(round(precio_venta, 2)),
-                "beneficio_neto": float(round(beneficio, 2)),
-                "roi": round(roi, 2),
-
-                # 🔹 MÉTRICAS QUE FALTABAN
-                "ratio_euro": round(ratio_euro, 2),
-                "margen_neto": round(margen_neto, 2),
-                "colchon_seguridad": round(colchon_seguridad, 2),
-                "precio_minimo_venta": float(round(precio_minimo_venta, 2)),
-
-                "umbral_dominante": umbral_dominante,
-                "diferencia_vs_minimo": float(round(diferencia_vs_minimo, 2)),
-                "dictamen": dictamen,
-
-                "viable": beneficio >= Decimal("30000") or roi >= Decimal("15"),
-            }
-
-    if proyecto and proyecto.estado and proyecto.estado.lower() in ["cerrado", "cerrado_positivo"]:
-        editable = False
-
-    # =========================
-    # RECÁLCULO SIEMPRE VISIBLE (base del simulador)
-    # =========================
-    if proyecto:
-        precio_escritura = safe_attr(proyecto, "precio_propiedad")
-        valores = [
-            safe_attr(proyecto, "val_idealista"),
-            safe_attr(proyecto, "val_fotocasa"),
-            safe_attr(proyecto, "val_registradores"),
-            safe_attr(proyecto, "val_casafari"),
-            safe_attr(proyecto, "val_tasacion"),
-        ]
-        valores = [v for v in valores if v > 0]
-        media_valoraciones = sum(valores) / len(valores) if valores else Decimal("0")
-
-        notaria_calc = max(precio_escritura * Decimal("0.002"), Decimal("500"))
-        registro_calc = max(precio_escritura * Decimal("0.002"), Decimal("500"))
-        itp_calc = precio_escritura * Decimal("0.02")
-
-        gastos_adquisicion_calc = notaria_calc + registro_calc + itp_calc
-        valor_adquisicion_calc = precio_escritura + gastos_adquisicion_calc
-
-        # Si no hay resultado previo (p. ej., tras Guardar), inyectar uno base
-        if resultado is None:
-            resultado = {
-                "valor_adquisicion": float(round(valor_adquisicion_calc, 2)),
-                "precio_venta": float(round(media_valoraciones, 2)),
-                "beneficio_neto": float(round(media_valoraciones - valor_adquisicion_calc, 2)),
-                "roi": float(round(
-                    ((media_valoraciones - valor_adquisicion_calc) / valor_adquisicion_calc * Decimal("100"))
-                    if valor_adquisicion_calc > 0 else Decimal("0"), 2
-                )),
-            }
-
-    return render(
-        request,
-        "core/simulador.html",
-        {
-            "proyecto": proyecto,
-            "resultado": resultado,
-            "editable": editable,
-        },
+            "estudio": estudio
+        }
     )
 
 
-from django.views.decorators.http import require_POST
-from django.views.decorators.http import require_GET
+def lista_estudio(request):
+    estudios_qs = Estudio.objects.all().order_by("-datos__roi", "-id")
+    estudios = []
 
-@require_POST
-def cambiar_estado_proyecto(request, proyecto_id):
-    estado_nuevo = request.POST.get("estado")
-
-    ESTADOS_VALIDOS = [
-        "estudio",
-        "operacion",
-        "cerrado",
-        "descartado",
-    ]
-
-    proyecto = Proyecto.objects.filter(id=proyecto_id).first()
-    if not proyecto:
-        return redirect("lista_proyectos")
-
-    if estado_nuevo not in ESTADOS_VALIDOS:
-        return redirect("lista_proyectos")
-
-    proyecto.estado = estado_nuevo
-    proyecto.save(update_fields=["estado"])
-
-    return redirect("core:lista_proyectos")
-
-
-
-
- 
-# =========================
-# AÑADIR INVERSOR A PROYECTO
-# =========================
-def participacion_create(request, proyecto_id):
-    proyecto = Proyecto.objects.filter(id=proyecto_id).first()
-    if not proyecto:
-        return redirect("lista_proyectos")
-
-    clientes = Cliente.objects.all().order_by("nombre")
-
-    if request.method == "POST":
-        cliente_id = request.POST.get("cliente")
-        importe = request.POST.get("importe_invertido")
-
-        if cliente_id and importe:
-            try:
-                importe_val = float(
-                    str(importe)
-                    .replace(".", "")
-                    .replace(",", ".")
-                    .replace("€", "")
-                    .strip()
-                )
-            except Exception:
-                importe_val = 0
-
-            porcentaje = 0
-            # Use precio_propiedad as fallback if precio_compra_inmueble is not set or zero
-            precio_base = None
-            if proyecto.precio_compra_inmueble and proyecto.precio_compra_inmueble > 0:
-                precio_base = proyecto.precio_compra_inmueble
-            elif hasattr(proyecto, "precio_propiedad") and proyecto.precio_propiedad and proyecto.precio_propiedad > 0:
-                precio_base = proyecto.precio_propiedad
-            if precio_base and precio_base > 0:
-                porcentaje = (importe_val / precio_base) * 100
-
-            Participacion.objects.create(
-                proyecto=proyecto,
-                cliente_id=cliente_id,
-                importe_invertido=importe_val,
-                porcentaje_participacion=porcentaje,
-            )
-
-        return redirect("participacion_create", proyecto_id=proyecto.id)
-
-    participaciones = Participacion.objects.filter(proyecto=proyecto)
-
-    return render(
-        request,
-        "core/participacion_form.html",
-        {
-            "proyecto": proyecto,
-            "clientes": clientes,
-            "participaciones": participaciones,
-        },
-    )
-
-
-# =========================
-# LISTA DE ESTUDIOS (estado = "estudio")
-# =========================
-def lista_estudios(request):
-    """
-    Muestra únicamente los proyectos en fase de ESTUDIO.
-    Enriquecido SOLO para visualización (no persiste):
-    - precio_compra
-    - beneficio
-    - roi (ya existente)
-    """
-    estudios = Proyecto.objects.filter(estado__iexact="estudio").order_by("-id")
-
-    for estudio in estudios:
-        # Precio de adquisición REAL (incluye gastos si existen)
-        precio_compra = (
-            estudio.precio_compra_inmueble
-            if getattr(estudio, "precio_compra_inmueble", None)
-            else getattr(estudio, "precio_propiedad", Decimal("0"))
-        ) or Decimal("0")
-
-        # Precio de venta estimado CORRECTO
-        precio_venta = (
-            estudio.precio_venta_estimado
-            if getattr(estudio, "precio_venta_estimado", None)
-            else Decimal("0")
-        )
-
-        # Beneficio estimado correcto
-        beneficio = precio_venta - precio_compra
-
-        # ROI estimado correcto
-        roi_estimado = (
-            (beneficio / precio_compra * Decimal("100"))
-            if precio_compra > 0
-            else Decimal("0")
-        )
-
-        # Inyectar atributos SOLO para template
-        estudio.precio_compra = precio_compra
-        estudio.beneficio = beneficio
-        estudio.roi = roi_estimado
+    for e in estudios_qs:
+        d = e.datos or {}
+        estudios.append({
+            "id": e.id,
+            "nombre": e.nombre,
+            "direccion": e.direccion,
+            "ref_catastral": e.ref_catastral,
+            "valor_referencia": e.valor_referencia,
+            "valor_adquisicion": d.get("valor_adquisicion", 0),
+            "beneficio": d.get("beneficio", 0),
+            "roi": d.get("roi", 0),
+           "fecha": e.creado,
+        })
 
     return render(
         request,
         "core/lista_estudio.html",
-        {
-            "estudios": estudios,
-        },
+        {"estudios": estudios},
     )
+
+
 def lista_proyectos(request):
-    """
-    Lista de proyectos REAL.
-    Se pasa al template información ENRIQUECIDA para cada card:
-    - capital objetivo
-    - capital captado
-    - porcentaje completado
-    - ROI dinámico (estimado o real según estado)
-    """
-    estado = request.GET.get("estado")
-
-    proyectos_qs = Proyecto.objects.all().order_by("-id")
-
-    # Filtrado opcional por estado
-    if estado and estado != "todos":
-        proyectos_qs = proyectos_qs.filter(estado__iexact=estado)
-
-    proyectos_enriquecidos = []
-
-    for proyecto in proyectos_qs:
-        # Capital objetivo → precio de adquisición + gastos previstos (actualizado)
-        capital_objetivo = (
-            (proyecto.precio_compra_inmueble or 0)
-            + (proyecto.itp or 0)
-            + (proyecto.notaria or 0)
-            + (proyecto.registro or 0)
-        )
-
-        # Capital captado (participaciones reales)
-        participaciones = Participacion.objects.filter(proyecto=proyecto)
-        capital_captado = participaciones.aggregate(
-            total=Sum("importe_invertido")
-        )["total"] or 0
-
-        porcentaje_completado = (
-            (capital_captado / capital_objetivo * 100)
-            if capital_objetivo > 0 else 0
-        )
-
-        # ROI dinámico
-        if proyecto.estado in ["cerrado", "cerrado_positivo"]:
-            roi_mostrar = proyecto.roi or 0
-            roi_tipo = "real"
-        else:
-            roi_mostrar = proyecto.roi or 0
-            roi_tipo = "estimado"
-
-        proyectos_enriquecidos.append({
-            "proyecto": proyecto,
-            "capital_objetivo": capital_objetivo,
-            "capital_captado": capital_captado,
-            "porcentaje_completado": round(porcentaje_completado, 2),
-            "roi": roi_mostrar,
-            "roi_tipo": roi_tipo,
-        })
-
+    proyectos = Proyecto.objects.all().order_by("-id")
     return render(
         request,
         "core/lista_proyectos.html",
-        {
-            "proyectos": proyectos_enriquecidos,
-            "estado_actual": estado,
-        },
-    )
-
-# =========================
-# BORRAR PROYECTO DE FORMA SEGURA
-# =========================
-from django.views.decorators.http import require_POST
-from django.shortcuts import get_object_or_404, redirect
-
-@require_POST
-def borrar_proyecto(request, proyecto_id):
-    """
-    Borra un proyecto SOLO si está en fase de estudio.
-    No se permite borrar proyectos en operación o cerrados.
-    """
-    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
-
-    # Regla de negocio Inversure
-    if proyecto.estado in ["operacion", "cerrado"]:
-        return redirect("core:lista_proyectos")
-
-    proyecto.delete()
-    return redirect("core:lista_proyectos")
-
-
-# Nueva vista para borrar estudio de forma segura
-@require_POST
-def borrar_estudio(request, proyecto_id):
-    """
-    Borra un estudio (estado=estudio) de forma segura.
-    No afecta a simulaciones ni proyectos en operación.
-    """
-    estudio = get_object_or_404(
-        Proyecto,
-        id=proyecto_id,
-        estado__iexact="estudio"
-    )
-    estudio.delete()
-    return redirect("core:lista_estudio")
-
-
-# === Proyecto Detalle View ===
-# =========================
-# BLOQUE 4.2 – INVERSORES DEL PROYECTO
-# =========================
-from django.db.models import Sum
-
-def proyecto_detalle(request, proyecto_id):
-    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
-
-    # Capital objetivo del proyecto (adquisición + impuestos base)
-    capital_objetivo = (
-        (proyecto.precio_compra_inmueble or Decimal("0"))
-        + (proyecto.itp or Decimal("0"))
-        + (proyecto.notaria or Decimal("0"))
-        + (proyecto.registro or Decimal("0"))
-    )
-
-    # KPIs consolidados (solo lectura, C2.2)
-    participaciones = Participacion.objects.filter(proyecto=proyecto)
-    total_invertido = participaciones.aggregate(
-        total=Sum("importe_invertido")
-    )["total"] or Decimal("0")
-
-    # Porcentaje captado
-    porcentaje_captado = (
-        (total_invertido / capital_objetivo * Decimal("100"))
-        if capital_objetivo > 0 else Decimal("0")
-    )
-
-    num_inversores = participaciones.count()
-
-    gastos = GastoProyecto.objects.filter(proyecto=proyecto)
-    total_gastos = gastos.aggregate(
-        total=Sum("importe")
-    )["total"] or Decimal("0")
-
-    inversion_total = (
-        (proyecto.precio_compra_inmueble or Decimal("0"))
-        + (proyecto.itp or Decimal("0"))
-        + (proyecto.notaria or Decimal("0"))
-        + (proyecto.registro or Decimal("0"))
-        + total_gastos
-    )
-
-    # =========================
-    # RESULTADO ECONÓMICO REAL (LECTURA)
-    # =========================
-    ingresos = IngresoProyecto.objects.filter(proyecto=proyecto)
-    total_ingresos = ingresos.aggregate(
-        total=Sum("importe")
-    )["total"] or Decimal("0")
-
-    resultado = calcular_resultado_economico_proyecto(proyecto)
-
-    beneficio_bruto = resultado.get("beneficio_bruto", Decimal("0"))
-    beneficio_neto = resultado.get("beneficio_neto", Decimal("0"))
-
-    roi_real = (
-        (beneficio_neto / inversion_total * Decimal("100"))
-        if inversion_total > 0 else Decimal("0")
-    )
-
-    contexto = {
-        "proyecto": proyecto,
-        "capital_objetivo": capital_objetivo,
-        "capital_captado": total_invertido,
-        "porcentaje_captado": porcentaje_captado,
-        "kpis": {
-            "inversion_total": inversion_total,
-            "beneficio_bruto": beneficio_bruto,
-            "beneficio_neto": beneficio_neto,
-            "roi": roi_real,
-            "total_ingresos": total_ingresos,
-            "total_gastos": total_gastos,
-            "total_invertido": total_invertido,
-            "num_inversores": num_inversores,
-        },
-    }
-
-    return render(
-        request,
-        "core/proyecto_detalle.html",
-        contexto
-    )
-
-# =========================
-# BLOQUE 4.2 – INVERSORES DEL PROYECTO
-# =========================
-from django.db.models import Sum
-
-def proyecto_inversores(request, proyecto_id):
-    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
-
-    participaciones = Participacion.objects.filter(
-        proyecto=proyecto
-    ).select_related("cliente")
-
-    total_invertido = participaciones.aggregate(
-        total=Sum("importe_invertido")
-    )["total"] or Decimal("0")
-
-    contexto = {
-        "proyecto": proyecto,
-        "participaciones": participaciones,
-        "total_invertido": total_invertido,
-        "num_inversores": participaciones.count(),
-    }
-
-    return render(
-        request,
-        "core/proyecto_inversores.html",
-        contexto
+        {"proyectos": proyectos},
     )
 
 
-# === Proyecto Documentos View ===
-from django.views.decorators.csrf import csrf_protect
-from django.shortcuts import get_object_or_404, redirect
-from django.contrib import messages
-from decimal import Decimal
-import datetime
+@csrf_exempt
+def guardar_estudio(request):
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
-@csrf_protect
-def proyecto_documentos(request, proyecto_id):
-    """
-    Vista para listar y subir documentos asociados a un proyecto.
-    GET: muestra los documentos.
-    POST: procesa subida de archivo.
-    """
-    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
-    documentos = proyecto.documentos.all().order_by('-creado')
-
-    if request.method == "POST":
-        tipo = request.POST.get("tipo")
-        archivo = request.FILES.get("archivo")
-        fecha_documento = request.POST.get("fecha_documento")
-        observaciones = request.POST.get("observaciones")
-
-        # Validación mínima
-        if not archivo:
-            messages.error(request, "Debe seleccionar un archivo para subir.")
-        else:
-            doc = DocumentoProyecto(
-                proyecto=proyecto,
-                tipo=tipo,
-                archivo=archivo,
-                observaciones=observaciones
-            )
-            # Si hay fecha_documento, parsearla
-            if fecha_documento:
-                try:
-                    doc.fecha_documento = fecha_documento
-                except Exception:
-                    pass
-            doc.save()
-            messages.success(request, "Documento subido correctamente.")
-            return redirect("core:proyecto_documentos", proyecto_id=proyecto.id)
-
-    contexto = {
-        "proyecto": proyecto,
-        "documentos": documentos,
-    }
-    return render(request, "core/proyecto_documentos.html", contexto)
-
-
-# === Proyecto Gastos View ===
-
-from django.views.decorators.csrf import csrf_protect
-from django.db.models import Sum
-from decimal import Decimal
-
-@csrf_protect
-def proyecto_gastos(request, proyecto_id):
-    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
-    gastos_base, _ = GastosProyectoEstimacion.objects.get_or_create(
-        proyecto=proyecto
-    )
-
-    # Paso 2: Persistencia (soporta POST tradicional y AJAX JSON)
-    if request.method == "POST":
-        payload = {}
-
-        # 1) Form-encoded (request.POST)
-        if request.POST:
-            payload = request.POST
-        else:
-            # 2) JSON body (fetch)
-            try:
-                body = request.body.decode("utf-8") if request.body else ""
-                if body:
-                    payload = json.loads(body)
-            except Exception:
-                payload = {}
-
-        # ==========================================================
-        # GUARDADO DIRECTO: nombres HTML == nombres del modelo
-        # ==========================================================
-        campos_guardables = [
-            "precio_escritura",
-            "impuestos",
-            "notaria",
-            "registro",
-            "gestoria",
-
-            "ibi",
-            "comunidad",
-            "luz",
-            "agua",
-            "alarma",
-            "cerrajero",
-            "limpieza_vaciado",
-
-            "obra_reforma",
-            "obra_materiales",
-            "obra_mano_obra",
-            "obra_tecnico",
-            "obra_licencias",
-            "obra_contingencia",
-
-            "comercializacion",
-            "administracion",
-            "comision_inversure",
-
-            "valor_transmision_estimado",
-        ]
-
-        for campo in campos_guardables:
-            if campo not in payload:
-                continue
-
-            raw = payload.get(campo)
-
-            # Si el campo viene vacío, NO sobrescribir (evita borrar datos existentes)
-            if raw in (None, "", "null"):
-                continue
-
-            setattr(
-                gastos_base,
-                campo,
-                parse_euro(raw)
-            )
-
-        campos_estado = [
-            "estado_precio_escritura",
-            "estado_impuestos",
-            "estado_notaria",
-            "estado_registro",
-            "estado_gestoria",
-            "estado_ibi",
-            "estado_comunidad",
-            "estado_luz",
-            "estado_agua",
-            "estado_alarma",
-            "estado_cerrajero",
-            "estado_limpieza_vaciado",
-            "estado_obra_reforma",
-            "estado_obra_materiales",
-            "estado_obra_mano_obra",
-            "estado_obra_tecnico",
-            "estado_obra_licencias",
-            "estado_obra_contingencia",
-            "estado_comercializacion",
-            "estado_administracion",
-            "estado_comision_inversure",
-        ]
-
-        for campo in campos_estado:
-            if campo in payload:
-                val = payload.get(campo)
-                if val in ("estimado", "real"):
-                    setattr(gastos_base, campo, val)
-
-        gastos_base.save()
-
-        is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest" or (request.headers.get("accept") or "").lower().find("application/json") >= 0
-        if is_ajax:
-            return JsonResponse({
-                "ok": True,
-                "saved": campos_guardables,
-            })
-
-    # Paso 3: Cards y cálculos SOLO desde BD
-    # Precio de adquisición: precio_compra_inmueble, fallback a precio_propiedad
-    precio_adquisicion = (
-        safe_attr(proyecto, "precio_compra_inmueble")
-        or safe_attr(proyecto, "precio_propiedad")
-    )
-
-    # Valor de transmisión (estimado hasta venta real)
-    valor_transmision = safe_attr(proyecto, "venta_estimada")
-
-    # Gastos: fuente única GastoProyecto
-    gastos_qs = GastoProyecto.objects.filter(proyecto=proyecto)
-    gastos_estimados = gastos_qs.filter(estado="estimado").aggregate(total=Sum("importe"))["total"] or Decimal("0")
-    gastos_reales = gastos_qs.filter(estado="real").aggregate(total=Sum("importe"))["total"] or Decimal("0")
-    total_gastos = gastos_estimados + gastos_reales
-    valor_adquisicion_total = precio_adquisicion + total_gastos
-
-    # LECTURA DE GASTOS (listado)
-    gastos = GastoProyecto.objects.filter(proyecto=proyecto).order_by("-fecha")
-    gastos_list = []
-    for gasto in gastos:
-        gastos_list.append({
-            "gasto": gasto,
-            "importe": gasto.importe or Decimal("0"),
-            "tiene_justificante": bool(getattr(gasto, "factura", None)),
-            "es_obra": gasto.categoria == "obra",
-        })
-
-    # INGRESOS
-    ingresos = IngresoProyecto.objects.filter(proyecto=proyecto)
-    total_ingresos = ingresos.aggregate(total=Sum("importe"))["total"] or Decimal("0")
-
-    # RESULTADO ECONÓMICO REAL
-    inversion_total = valor_adquisicion_total
-    beneficio_bruto = total_ingresos - valor_adquisicion_total
-    proyecto.beneficio_bruto = beneficio_bruto
-    resultado = calcular_resultado_economico_proyecto(proyecto)
-    beneficio_neto = resultado.get("beneficio_neto", Decimal("0"))
-    roi_real = (beneficio_neto / inversion_total * Decimal("100")) if inversion_total > 0 else Decimal("0")
-
-    cabecera_economica = {
-        "precio_adquisicion": precio_adquisicion,
-        "gastos_estimados": gastos_estimados,
-        "gastos_reales": gastos_reales,
-        "total_gastos": total_gastos,
-        "valor_adquisicion_total": valor_adquisicion_total,
-        "valor_transmision": valor_transmision,
-    }
-
-    contexto = {
-        "proyecto": proyecto,
-        "cabecera_economica": cabecera_economica,
-        "gastos": gastos_list,
-        "total_gastos": total_gastos,
-        "total_ingresos": total_ingresos,
-        "inversion_total": inversion_total,
-        "beneficio_neto": beneficio_neto,
-        "roi_real": roi_real,
-        "gastos_base": gastos_base,
-    }
-
-    return render(
-        request,
-        "core/proyecto_gastos.html",
-        contexto
-    )
-
-# === Nueva vista para crear gasto de proyecto ===
-from django.views.decorators.http import require_POST
-from django.shortcuts import get_object_or_404, redirect
-from decimal import Decimal, InvalidOperation
-
-@require_POST
-def proyecto_gasto_nuevo(request, proyecto_id):
-    """
-    Crea un nuevo gasto asociado a un proyecto y redirige siempre a la vista de gastos del proyecto.
-    """
-    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
-    concepto = request.POST.get("concepto")
-    tipo = request.POST.get("tipo")
-    importe_raw = request.POST.get("importe")
-    fecha = request.POST.get("fecha")
-    observaciones = request.POST.get("observaciones")
-    importe = parse_euro(importe_raw)
-    GastoProyecto.objects.create(
-        proyecto=proyecto,
-        concepto=concepto,
-        categoria=tipo,
-        importe=importe,
-        fecha=fecha,
-        observaciones=observaciones,
-    )
-    return redirect("core:proyecto_gastos", proyecto_id=proyecto.id)
-
-
-# Vista clientes
-def clientes(request):
-    clientes = Cliente.objects.all().order_by("nombre")
-    return render(
-        request,
-        "core/clientes.html",
-        {
-            "clientes": clientes,
-        },
-    )
-
-
-
-# Nueva vista para crear cliente
-def cliente_create(request):
-    if request.method == "POST":
-        data = request.POST
-
-        Cliente.objects.create(
-            tipo_persona=data.get("tipo_persona"),
-            nombre=data.get("nombre"),
-            dni_cif=data.get("dni_cif"),
-            email=data.get("email") or None,
-            telefono=data.get("telefono") or None,
-            iban=data.get("iban") or None,
-            observaciones=data.get("observaciones") or None,
-        )
-
-        return redirect("clientes")
-
-    return render(request, "core/clientes_form.html")
-
-
-# Editar cliente existente
-def cliente_edit(request, cliente_id):
-    cliente = Cliente.objects.filter(id=cliente_id).first()
-    if not cliente:
-        return redirect("clientes")
-
-    if request.method == "POST":
-        data = request.POST
-
-        cliente.tipo_persona = data.get("tipo_persona")
-        cliente.nombre = data.get("nombre")
-        cliente.dni_cif = data.get("dni_cif")
-        cliente.email = data.get("email") or None
-        cliente.telefono = data.get("telefono") or None
-        cliente.iban = data.get("iban") or None
-        cliente.direccion_postal = data.get("direccion_postal") or None
-        cliente.cuota_abonada = True if data.get("cuota_abonada") == "on" else False
-        cliente.presente_en_comunidad = True if data.get("presente_en_comunidad") == "on" else False
-        cliente.observaciones = data.get("observaciones") or None
-
-        cliente.save()
-        return redirect("clientes")
-
-    return render(
-        request,
-        "core/clientes_form.html",
-        {
-            "cliente": cliente,
-        },
-    )
-
-
-# Vista para importar clientes desde Excel
-def clientes_import(request):
-    if pd is None:
-        messages.error(request, "El módulo pandas no está disponible. No se puede importar el Excel.")
-        return redirect("clientes")
-    """
-    Importa clientes desde un archivo Excel.
-    El Excel debe contener como mínimo las columnas:
-    nombre, dni_cif
-
-    Columnas opcionales:
-    tipo_persona, email, telefono, iban, observaciones
-    """
-
-    if request.method == "POST" and request.FILES.get("archivo"):
-        archivo = request.FILES["archivo"]
-
-        try:
-            df = pd.read_excel(archivo)
-
-            creados = 0
-            omitidos = 0
-
-            for _, row in df.iterrows():
-                dni_cif = str(row.get("dni_cif", "")).strip()
-                nombre = str(row.get("nombre", "")).strip()
-
-                if not dni_cif or not nombre:
-                    omitidos += 1
-                    continue
-
-                if Cliente.objects.filter(dni_cif=dni_cif).exists():
-                    omitidos += 1
-                    continue
-
-                Cliente.objects.create(
-                    tipo_persona=str(row.get("tipo_persona", "F")).upper()[:1],
-                    nombre=nombre,
-                    dni_cif=dni_cif,
-                    email=row.get("email") or None,
-                    telefono=row.get("telefono") or None,
-                    iban=row.get("iban") or None,
-                    observaciones=row.get("observaciones") or None,
-                )
-                creados += 1
-
-            messages.success(
-                request,
-                f"Importación finalizada: {creados} clientes creados, {omitidos} omitidos."
-            )
-
-        except Exception as e:
-            messages.error(request, f"Error al importar el archivo: {e}")
-
-        return redirect("clientes")
-
-    return render(request, "core/clientes_import.html")
-from django.views.decorators.http import require_POST
-
-
-
-# === CONVERTIR SIMULACIÓN EN PROYECTO (NUEVA VERSIÓN CORRECTA) ===
-from django.views.decorators.http import require_POST
-
-
-
-
-
-from django.views.decorators.http import require_POST
-from django.shortcuts import redirect, get_object_or_404
-from decimal import Decimal
-
-
-@require_POST
-def convertir_simulacion_a_proyecto(request, simulacion_id=None):
-    """
-    Convierte una simulación en un proyecto de estudio.
-    Si simulacion_id está presente, marca la simulación como convertida y usa sus datos.
-    Si no, usa los datos del POST.
-    """
-    if simulacion_id:
-        simulacion = get_object_or_404(Simulacion, id=simulacion_id, convertida=False)
-        direccion = simulacion.direccion
-        ref_catastral = simulacion.ref_catastral
-        precio = simulacion.precio_compra or Decimal("0")
-        beneficio = simulacion.beneficio or Decimal("0")
-        roi = simulacion.roi or Decimal("0")
-        simulacion.convertida = True
-        simulacion.save(update_fields=["convertida"])
-    else:
-        direccion = request.POST.get("direccion")
-        ref_catastral = request.POST.get("ref_catastral")
-        precio = parse_euro(request.POST.get("precio_compra"))
-        beneficio = parse_euro(request.POST.get("beneficio"))
-        roi = parse_euro(request.POST.get("roi"))
-    # Formato correcto de decimales para beneficio y roi
     try:
-        beneficio = Decimal(str(beneficio).replace(",", "."))
-    except Exception:
-        beneficio = Decimal("0")
-    try:
-        roi = Decimal(str(roi).replace(",", "."))
-    except Exception:
-        roi = Decimal("0")
+        data = json.loads(request.body)
 
-    # =========================
-    # CÁLCULO ECONÓMICO ESTUDIO
-    # =========================
-    precio_compra = precio
+        estudio_id = data.get("id")
 
-    if simulacion_id:
-        precio_venta = simulacion.precio_venta_estimado or Decimal("0")
-    else:
-        precio_venta = parse_euro(request.POST.get("precio_venta"))
+        # Aceptar tanto las keys antiguas como las del formulario actual (simulador.html)
+        nombre = (
+            data.get("nombre")
+            or data.get("nombre_proyecto")
+            or data.get("proyecto_nombre")
+            or ""
+        ).strip()
 
-    beneficio_calculado = (
-        precio_venta - precio_compra
-        if precio_compra and precio_venta
-        else Decimal("0")
-    )
+        direccion = (
+            data.get("direccion")
+            or data.get("direccion_completa")
+            or data.get("proyecto_direccion")
+            or ""
+        ).strip()
 
-    roi_calculado = (
-        (beneficio_calculado / precio_compra) * Decimal("100")
-        if precio_compra and precio_compra > 0
-        else Decimal("0")
-    )
+        ref_catastral = (
+            data.get("ref_catastral")
+            or data.get("referencia_catastral")
+            or data.get("ref_catastral_inmueble")
+            or ""
+        ).strip()
 
-    proyecto = Proyecto.objects.create(
-        nombre=f"Estudio - {direccion}",
-        direccion=direccion,
-        ref_catastral=ref_catastral,
-        precio_propiedad=precio_compra,
-        precio_venta_estimado=precio_venta,
-        beneficio_neto=beneficio_calculado,
-        roi=roi_calculado,
-        estado="estudio",
-    )
+        # `datos` siempre debe ser dict
+        datos = data.get("datos", {}) or {}
+        if not isinstance(datos, dict):
+            datos = {}
 
-    # =========================
-    # MATERIALIZAR GASTOS DEL SIMULADOR COMO ESTIMADOS
-    # =========================
-    from .models import GastoProyecto
+        # `valor_referencia` puede venir a nivel raíz o dentro de `datos`
+        valor_referencia_raw = data.get("valor_referencia")
+        if valor_referencia_raw is None:
+            valor_referencia_raw = datos.get("valor_referencia")
 
-    gastos_simulador = [
-        ("Notaría", getattr(proyecto, "notaria", None)),
-        ("Registro", getattr(proyecto, "registro", None)),
-        ("ITP", getattr(proyecto, "itp", None)),
-        ("Otros gastos compra", getattr(proyecto, "otros_gastos_compra", None)),
-        ("Limpieza inicial", getattr(proyecto, "limpieza_inicial", None)),
-        ("Cerrajero", getattr(proyecto, "seguridad_cerrajero", None)),
-        ("Alarma", getattr(proyecto, "seguridad_alarma", None)),
-        ("IBI", getattr(proyecto, "ibi", None)),
-        ("Comunidad", getattr(proyecto, "comunidad", None)),
-        ("Suministros", getattr(proyecto, "suministros", None)),
-        ("Ocupas", getattr(proyecto, "ocupas", None)),
-        ("Inmobiliaria", getattr(proyecto, "inmobiliaria", None)),
-        ("Plusvalía", getattr(proyecto, "plusvalia", None)),
-    ]
+        valor_referencia = None
+        if valor_referencia_raw is not None:
+            if isinstance(valor_referencia_raw, str) and not valor_referencia_raw.strip():
+                valor_referencia = None
+            else:
+                valor_referencia = _safe_float(valor_referencia_raw, 0.0)
 
-    for concepto, importe in gastos_simulador:
-        try:
-            if importe and importe > 0:
-                GastoProyecto.objects.create(
-                    proyecto=proyecto,
-                    concepto=concepto,
-                    importe=importe,
-                    estado="estimado",
-                    imputable_inversores=True,
-                )
-        except Exception:
-            continue
+        # Normalizar KPIs clave para cards (defensivo)
+        valor_adq = _safe_float(datos.get("valor_adquisicion"), 0.0)
+        beneficio = _safe_float(datos.get("beneficio"), 0.0)
+        roi = _safe_float(datos.get("roi"), 0.0)
 
-    return redirect("core:lista_estudio")
+        datos["valor_adquisicion"] = valor_adq
+        datos["beneficio"] = beneficio
+        datos["roi"] = roi
 
+        # Persistir campos clave del simulador (vista técnica / valoraciones / transmisión)
+        # para que el PDF pueda leerlos siempre desde `estudio.datos`.
+        def _copy_if_present(src_key: str, dst_key: str | None = None):
+            k_dst = dst_key or src_key
+            if src_key in data and data.get(src_key) not in (None, ""):
+                datos[k_dst] = data.get(src_key)
 
+        # Campos de identificación (por si llegan arriba además de en `datos`)
+        for k in ["tipologia", "superficie_m2", "estado", "situacion", "valor_referencia"]:
+            _copy_if_present(k)
 
+        # Valores calculados/estimados
+        for k in ["valor_transmision", "precio_transmision", "precio_venta_estimado", "media_valoraciones"]:
+            _copy_if_present(k)
 
-@csrf_protect
-def simulador_basico(request):
-    # Valores por defecto (para que NUNCA se borren)
-    direccion = ""
-    ref_catastral = ""
-    precio_compra_raw = ""
-    precio_venta_raw = ""
-    resultado = None
+        # Valoraciones de mercado individuales
+        for k in [
+            "valoracion_tasacion",
+            "valoracion_idealista",
+            "valoracion_fotocasa",
+            "valoracion_registradores",
+            "valoracion_casafari",
+        ]:
+            _copy_if_present(k)
 
-    if request.method == "POST":
-        direccion = request.POST.get("direccion", "")
-        ref_catastral = request.POST.get("ref_catastral", "")
-        precio_compra_raw = request.POST.get("precio_compra", "")
-        precio_venta_raw = request.POST.get("precio_venta", "")
+        # Normalizaciones numéricas útiles para PDF/ordenación (defensivo)
+        for num_k in [
+            "valor_referencia",
+            "superficie_m2",
+            "media_valoraciones",
+            "valor_transmision",
+            "precio_transmision",
+            "precio_venta_estimado",
+        ]:
+            if num_k in datos:
+                datos[num_k] = _safe_float(datos.get(num_k), 0.0)
 
-        precio_compra = parse_euro(precio_compra_raw)
-        precio_venta = parse_euro(precio_venta_raw)
+        # Evitar crear estudios vacíos
+        if (not estudio_id) and (not nombre) and (not direccion) and (not ref_catastral) and (not datos):
+            return JsonResponse({"ok": False, "error": "Estudio vacío"}, status=400)
 
-        beneficio = precio_venta - precio_compra
-        roi = (beneficio / precio_compra * Decimal("100")) if precio_compra > 0 else Decimal("0")
-
-        resultado = {
-            "inversion_total": float(precio_compra),
-            "beneficio": float(beneficio),
-            "roi": float(roi),
-            "viable": beneficio >= Decimal("30000") or roi >= Decimal("15"),
-        }
-
-    return render(
-        request,
-        "core/simulador_basico.html",
-        {
+        campos = {
+            "nombre": nombre,
             "direccion": direccion,
             "ref_catastral": ref_catastral,
-            "precio_compra": precio_compra_raw,
-            "precio_venta": precio_venta_raw,
-            "resultado": resultado,
-        },
+            "valor_referencia": valor_referencia,
+            "datos": datos,
+        }
+
+        if estudio_id:
+            # Actualiza el estudio actual por ID
+            estudio, _ = Estudio.objects.update_or_create(
+                id=estudio_id,
+                defaults=campos,
+            )
+        else:
+            # De-duplicación: si ya existe un estudio con mismo nombre+dirección+ref_catastral, lo reutilizamos.
+            # (Regla: coincidencia por campos no vacíos; al menos uno debe existir)
+            qs = Estudio.objects.all()
+            if nombre:
+                qs = qs.filter(nombre=nombre)
+            if direccion:
+                qs = qs.filter(direccion=direccion)
+            if ref_catastral:
+                qs = qs.filter(ref_catastral=ref_catastral)
+
+            existente = qs.first() if (nombre or direccion or ref_catastral) else None
+            if existente:
+                for k, v in campos.items():
+                    setattr(existente, k, v)
+                existente.save(update_fields=list(campos.keys()))
+                estudio = existente
+            else:
+                estudio = Estudio.objects.create(**campos)
+
+        # Mantener el estudio actual en sesión
+        request.session["estudio_id"] = estudio.id
+
+        return JsonResponse(
+            {
+                "ok": True,
+                "id": estudio.id,
+            }
+        )
+
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=500)
+
+
+@csrf_exempt
+def convertir_a_proyecto(request):
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        estudio_id = data.get("id")
+
+        estudio = Estudio.objects.get(id=estudio_id)
+
+        proyecto = Proyecto.objects.create(
+            nombre=estudio.nombre,
+            direccion=estudio.direccion,
+            ref_catastral=estudio.ref_catastral,
+            media_valoraciones=estudio.datos.get("media_valoraciones"),
+            precio_venta_estimado=estudio.datos.get("precio_venta_estimado"),
+        )
+
+        estudio.delete()
+
+        if request.session.get("estudio_id") == estudio_id:
+            try:
+                del request.session["estudio_id"]
+            except KeyError:
+                pass
+
+        return JsonResponse({
+            "ok": True,
+            "redirect": reverse("core:lista_proyectos"),
+            "proyecto_id": proyecto.id
+        })
+
+    except Estudio.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Estudio no encontrado"}, status=404)
+
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=500)
+
+
+def pdf_estudio_preview(request, estudio_id):
+    estudio = get_object_or_404(Estudio, id=estudio_id)
+
+    # --- SNAPSHOT DEL ESTUDIO (creado al generar el PDF) ---
+    from core.services.estudio_snapshot import build_estudio_snapshot
+    from core.models import EstudioSnapshot
+
+    snapshot_data = build_estudio_snapshot(estudio)
+
+    snapshot = EstudioSnapshot.objects.create(
+        estudio=estudio,
+        datos=snapshot_data,
     )
 
+    # Métricas calculadas a partir del JSON `datos`
+    ctx = _metricas_desde_estudio(estudio)
+    # Exponemos el JSON completo del simulador para que el PDF pueda leer cualquier campo de Comité/Inversor
+    datos_safe = _safe_template_obj(estudio.datos or {})
 
+    # La plantilla histórica del “pdf” espera un objeto/dict llamado `proyecto`
+    # con campos tipo `inversion_total`, `beneficio_neto`, etc.
+    # Creamos un dict compatible (Django permite acceso con punto sobre dict).
+    metricas = ctx.get("metricas", {}) or {}
+    metricas_fmt = ctx.get("metricas_fmt", {}) or {}
+    inmueble = _datos_inmueble_desde_estudio(estudio)
 
-from django.http import HttpResponse
-from django.views.decorators.http import require_POST
+    proyecto = {
+        "id": estudio.id,
+        "nombre": estudio.nombre,
+        "direccion": estudio.direccion,
+        "ref_catastral": estudio.ref_catastral,
+        "valor_referencia": inmueble.get("valor_referencia"),
+        "valor_referencia_fmt": inmueble.get("valor_referencia_fmt"),
+        "tipologia": inmueble.get("tipologia"),
+        "superficie_m2": inmueble.get("superficie_m2"),
+        "superficie_m2_fmt": inmueble.get("superficie_m2_fmt"),
+        "estado": inmueble.get("estado"),
+        "situacion": inmueble.get("situacion"),
+        "fecha": inmueble.get("fecha"),
+        "fecha_fmt": inmueble.get("fecha_fmt"),
+        "valor_adquisicion": metricas.get("valor_adquisicion", 0.0),
+        "valor_adquisicion_total": metricas.get("valor_adquisicion_total", metricas.get("valor_adquisicion", 0.0)),
+        "precio_adquisicion": metricas.get("precio_adquisicion", metricas.get("valor_adquisicion", 0.0)),
+        "precio_compra": metricas.get("precio_compra", metricas.get("valor_adquisicion", 0.0)),
+        "precio_transmision": metricas.get("precio_transmision", 0.0),
+        "valor_transmision": metricas.get("valor_transmision", metricas.get("precio_transmision", 0.0)),
+        "beneficio": metricas.get("beneficio", 0.0),
+        "roi": metricas.get("roi", 0.0),
+        "media_valoraciones": metricas.get("media_valoraciones", 0.0),
+        # aliases usados en plantillas antiguas
+        "inversion_total": metricas.get("inversion_total", metricas.get("valor_adquisicion", 0.0)),
+        "beneficio_neto": metricas.get("beneficio_neto", metricas.get("beneficio", 0.0)),
+        "roi_neto": metricas.get("roi_neto", metricas.get("roi", 0.0)),
+        "valor_adquisicion_fmt": metricas_fmt.get("valor_adquisicion"),
+        "valor_adquisicion_total_fmt": metricas_fmt.get("valor_adquisicion_total", metricas_fmt.get("valor_adquisicion")),
+        "precio_adquisicion_fmt": metricas_fmt.get("precio_adquisicion", metricas_fmt.get("valor_adquisicion")),
+        "precio_compra_fmt": metricas_fmt.get("precio_compra", metricas_fmt.get("valor_adquisicion")),
+        "precio_transmision_fmt": metricas_fmt.get("precio_transmision"),
+        "valor_transmision_fmt": metricas_fmt.get("valor_transmision", metricas_fmt.get("precio_transmision")),
+        "beneficio_fmt": metricas_fmt.get("beneficio"),
+        "roi_fmt": metricas_fmt.get("roi"),
+        "media_valoraciones_fmt": metricas_fmt.get("media_valoraciones"),
+        "inversion_total_fmt": metricas_fmt.get("inversion_total"),
+        "beneficio_neto_fmt": metricas_fmt.get("beneficio_neto"),
+        "roi_neto_fmt": metricas_fmt.get("roi_neto"),
+    }
+    # Adjuntar datos completos y aplanar claves que no estén en el dict principal
+    proyecto["datos"] = datos_safe
+    for k, v in (estudio.datos or {}).items():
+        if k not in proyecto:
+            proyecto[k] = v
+        # si existe un formateo preparado en metricas_fmt, exponer también `<clave>_fmt`
+        if (f"{k}_fmt" not in proyecto) and (k in (metricas_fmt or {})):
+            proyecto[f"{k}_fmt"] = metricas_fmt.get(k)
+    proyecto = _safe_template_obj(proyecto)
 
+    # Exponer aliases también en el objeto `estudio` (la plantilla usa `estudio.xxx` en algunos sitios)
+    estudio.valor_adquisicion_total = proyecto.get("valor_adquisicion_total")
+    estudio.precio_adquisicion = proyecto.get("precio_adquisicion")
+    estudio.precio_compra = proyecto.get("precio_compra")
+    estudio.valor_transmision = proyecto.get("valor_transmision")
+    estudio.inversion_total = proyecto.get("inversion_total")
+    estudio.beneficio_neto = proyecto.get("beneficio_neto")
+    estudio.roi_neto = proyecto.get("roi_neto")
 
+    # formatos
+    estudio.valor_adquisicion_total_fmt = proyecto.get("valor_adquisicion_total_fmt")
+    estudio.precio_adquisicion_fmt = proyecto.get("precio_adquisicion_fmt")
+    estudio.precio_compra_fmt = proyecto.get("precio_compra_fmt")
+    estudio.valor_transmision_fmt = proyecto.get("valor_transmision_fmt")
+    estudio.inversion_total_fmt = proyecto.get("inversion_total_fmt")
+    estudio.beneficio_neto_fmt = proyecto.get("beneficio_neto_fmt")
+    estudio.roi_neto_fmt = proyecto.get("roi_neto_fmt")
 
-# Nueva función para borrar análisis previo (NO borra nada en BD)
-@require_POST
-def borrar_analisis_previo(request):
-    """
-    Borrado del análisis previo:
-    - No guarda nada
-    - No borra simulaciones existentes
-    - Vuelve al simulador básico limpio
-    """
-    return redirect("core:simulador_basico")
+    # Identificación inmueble (para plantillas que usan `estudio.xxx`)
+    estudio.tipologia = proyecto.get("tipologia")
+    estudio.superficie_m2 = proyecto.get("superficie_m2")
+    estudio.superficie_m2_fmt = proyecto.get("superficie_m2_fmt")
+    estudio.estado = proyecto.get("estado")
+    estudio.situacion = proyecto.get("situacion")
+    estudio.fecha = proyecto.get("fecha")
+    estudio.fecha_fmt = proyecto.get("fecha_fmt")
+    estudio.valor_referencia_fmt = proyecto.get("valor_referencia_fmt")
 
+    # --- Snapshot para el PDF (estructura que espera el HTML) ---
+    raw_snapshot = (estudio.datos or {}).get("snapshot", {}) or {}
+    raw_comite = raw_snapshot.get("comite", {}) if isinstance(raw_snapshot, dict) else {}
 
-@require_GET
-def catastro_obtener(request):
-    ref = request.GET.get("ref")
+    snapshot_ctx = {
+        "datos": {
+            "tecnico": {
+                "nombre_proyecto": estudio.nombre,
+                "direccion": estudio.direccion,
+                "ref_catastral": estudio.ref_catastral,
+                "valor_referencia": raw_snapshot.get("valor_referencia"),
+                "tipologia": raw_snapshot.get("tipologia"),
+                "superficie_m2": raw_snapshot.get("superficie_m2"),
+                "estado": raw_snapshot.get("estado_inmueble"),
+                "situacion": raw_snapshot.get("situacion"),
+            },
+            "economico": {
+                "valor_adquisicion": raw_snapshot.get("valor_adquisicion"),
+                "valor_transmision": raw_snapshot.get("valor_transmision"),
+                "beneficio_estimado": (estudio.datos or {}).get("beneficio"),
+                "roi_estimado": (estudio.datos or {}).get("roi"),
+            },
+            "kpis": {
+                "ratio_euro_beneficio": raw_comite.get("ratio_euro_beneficio"),
+                "colchon_seguridad": raw_comite.get("colchon_seguridad"),
+                "precio_breakeven": raw_comite.get("breakeven"),
+            },
+            "comite": {
+                "recomendacion": raw_comite.get("decision_texto"),
+                "observaciones": raw_comite.get("conclusion"),
+                "nivel_riesgo": raw_comite.get("nivel_riesgo"),
+                "roi": raw_comite.get("roi"),
+            },
+        }
+    }
 
-    if not ref:
-        return JsonResponse({"ok": False, "error": "Referencia catastral vacía"}, status=400)
+    snapshot_ctx = _safe_template_obj(snapshot_ctx)
 
-    datos = consultar_catastro_por_rc(ref)
+    # Exponer snapshot exactamente como lo espera el HTML
+    ctx["snapshot"] = snapshot_ctx
 
-    if not datos or not datos.get("direccion"):
-        return JsonResponse({"ok": False, "error": "No se pudo consultar el Catastro"}, status=404)
+    # Mantener compatibilidad con accesos antiguos
+    proyecto["snapshot"] = snapshot_ctx
+    proyecto["comite"] = snapshot_ctx["datos"]["comite"]
 
-    return JsonResponse({
-        "ok": True,
-        "direccion": datos.get("direccion"),
-        "lat": datos.get("lat"),
-        "lon": datos.get("lon"),
-        "ref": ref,
+    ctx.update({
+        "estudio": estudio,
+        "proyecto": proyecto,
+        "datos": datos_safe,
+        "texto": _safe_template_obj(ctx.get("texto", {})),
     })
 
-from django.template.loader import render_to_string
-from django.http import HttpResponse
-from datetime import date
-from django.conf import settings
-import os
-import base64
-from pathlib import Path
-import io
+    return render(request, "core/pdf_estudio_rentabilidad.html", ctx)
 
-# ============================
-# PALETA CORPORATIVA INVERSURE
-# ============================
-COLOR_AZUL = "#122135"      # Inversure
-COLOR_DORADO = "#d7b04c"    # Objetivos / énfasis
-COLOR_VERDE = "#2e7d32"     # Beneficio neto
-COLOR_GRIS = "#9e9e9e"      # Referencias / neutro
-from decimal import Decimal
+@csrf_exempt
+def pdf_estudio_rentabilidad(request, estudio_id):
+    estudio = get_object_or_404(Estudio, id=estudio_id)
 
-def fmt_eur(valor):
-    if valor is None:
-        return "—"
-    return f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") + "€"
+    # Métricas calculadas a partir del JSON `datos`
+    ctx = _metricas_desde_estudio(estudio)
+    # Exponemos el JSON completo del simulador para que el PDF pueda leer cualquier campo de Comité/Inversor
+    datos_safe = _safe_template_obj(estudio.datos or {})
 
-def fmt_pct(valor):
-    if valor is None:
-        return "—"
-    return f"{valor:.2f}".replace(".", ",") + "%"
+    metricas = ctx.get("metricas", {}) or {}
+    metricas_fmt = ctx.get("metricas_fmt", {}) or {}
+    inmueble = _datos_inmueble_desde_estudio(estudio)
 
-def generar_pdf_estudio(request, proyecto_id):
-    """
-    Genera el PDF del informe de rentabilidad
-    usando los datos del Estudio de inversión (xhtml2pdf).
-    """
+    proyecto = {
+        "id": estudio.id,
+        "nombre": estudio.nombre,
+        "direccion": estudio.direccion,
+        "ref_catastral": estudio.ref_catastral,
+        "valor_referencia": inmueble.get("valor_referencia"),
+        "valor_referencia_fmt": inmueble.get("valor_referencia_fmt"),
+        "tipologia": inmueble.get("tipologia"),
+        "superficie_m2": inmueble.get("superficie_m2"),
+        "superficie_m2_fmt": inmueble.get("superficie_m2_fmt"),
+        "estado": inmueble.get("estado"),
+        "situacion": inmueble.get("situacion"),
+        "fecha": inmueble.get("fecha"),
+        "fecha_fmt": inmueble.get("fecha_fmt"),
+        "valor_adquisicion": metricas.get("valor_adquisicion", 0.0),
+        "valor_adquisicion_total": metricas.get("valor_adquisicion_total", metricas.get("valor_adquisicion", 0.0)),
+        "precio_adquisicion": metricas.get("precio_adquisicion", metricas.get("valor_adquisicion", 0.0)),
+        "precio_compra": metricas.get("precio_compra", metricas.get("valor_adquisicion", 0.0)),
+        "precio_transmision": metricas.get("precio_transmision", 0.0),
+        "valor_transmision": metricas.get("valor_transmision", metricas.get("precio_transmision", 0.0)),
+        "beneficio": metricas.get("beneficio", 0.0),
+        "roi": metricas.get("roi", 0.0),
+        "media_valoraciones": metricas.get("media_valoraciones", 0.0),
+        "inversion_total": metricas.get("inversion_total", metricas.get("valor_adquisicion", 0.0)),
+        "beneficio_neto": metricas.get("beneficio_neto", metricas.get("beneficio", 0.0)),
+        "roi_neto": metricas.get("roi_neto", metricas.get("roi", 0.0)),
+        "valor_adquisicion_fmt": metricas_fmt.get("valor_adquisicion"),
+        "valor_adquisicion_total_fmt": metricas_fmt.get("valor_adquisicion_total", metricas_fmt.get("valor_adquisicion")),
+        "precio_adquisicion_fmt": metricas_fmt.get("precio_adquisicion", metricas_fmt.get("valor_adquisicion")),
+        "precio_compra_fmt": metricas_fmt.get("precio_compra", metricas_fmt.get("valor_adquisicion")),
+        "precio_transmision_fmt": metricas_fmt.get("precio_transmision"),
+        "valor_transmision_fmt": metricas_fmt.get("valor_transmision", metricas_fmt.get("precio_transmision")),
+        "beneficio_fmt": metricas_fmt.get("beneficio"),
+        "roi_fmt": metricas_fmt.get("roi"),
+        "media_valoraciones_fmt": metricas_fmt.get("media_valoraciones"),
+        "inversion_total_fmt": metricas_fmt.get("inversion_total"),
+        "beneficio_neto_fmt": metricas_fmt.get("beneficio_neto"),
+        "roi_neto_fmt": metricas_fmt.get("roi_neto"),
+    }
+    # Adjuntar datos completos y aplanar claves que no estén en el dict principal
+    proyecto["datos"] = datos_safe
+    for k, v in (estudio.datos or {}).items():
+        if k not in proyecto:
+            proyecto[k] = v
+        # si existe un formateo preparado en metricas_fmt, exponer también `<clave>_fmt`
+        if (f"{k}_fmt" not in proyecto) and (k in (metricas_fmt or {})):
+            proyecto[f"{k}_fmt"] = metricas_fmt.get(k)
+    proyecto = _safe_template_obj(proyecto)
+
+    # Exponer aliases también en el objeto `estudio` (la plantilla usa `estudio.xxx` en algunos sitios)
+    estudio.valor_adquisicion_total = proyecto.get("valor_adquisicion_total")
+    estudio.precio_adquisicion = proyecto.get("precio_adquisicion")
+    estudio.precio_compra = proyecto.get("precio_compra")
+    estudio.valor_transmision = proyecto.get("valor_transmision")
+    estudio.inversion_total = proyecto.get("inversion_total")
+    estudio.beneficio_neto = proyecto.get("beneficio_neto")
+    estudio.roi_neto = proyecto.get("roi_neto")
+
+    # formatos
+    estudio.valor_adquisicion_total_fmt = proyecto.get("valor_adquisicion_total_fmt")
+    estudio.precio_adquisicion_fmt = proyecto.get("precio_adquisicion_fmt")
+    estudio.precio_compra_fmt = proyecto.get("precio_compra_fmt")
+    estudio.valor_transmision_fmt = proyecto.get("valor_transmision_fmt")
+    estudio.inversion_total_fmt = proyecto.get("inversion_total_fmt")
+    estudio.beneficio_neto_fmt = proyecto.get("beneficio_neto_fmt")
+    estudio.roi_neto_fmt = proyecto.get("roi_neto_fmt")
+
+    # Identificación inmueble (para plantillas que usan `estudio.xxx`)
+    estudio.tipologia = proyecto.get("tipologia")
+    estudio.superficie_m2 = proyecto.get("superficie_m2")
+    estudio.superficie_m2_fmt = proyecto.get("superficie_m2_fmt")
+    estudio.estado = proyecto.get("estado")
+    estudio.situacion = proyecto.get("situacion")
+    estudio.fecha = proyecto.get("fecha")
+    estudio.fecha_fmt = proyecto.get("fecha_fmt")
+    estudio.valor_referencia_fmt = proyecto.get("valor_referencia_fmt")
+
+    ctx.update({
+        "estudio": estudio,
+        "proyecto": proyecto,
+        "datos": datos_safe,
+        "texto": _safe_template_obj(ctx.get("texto", {})),
+    })
+
+    return render(request, "core/pdf_estudio_rentabilidad.html", ctx)
+
+def borrar_estudio(request, estudio_id):
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
     try:
-        from weasyprint import HTML
+        estudio = Estudio.objects.get(id=estudio_id)
+        estudio.delete()
+        return JsonResponse({"ok": True})
+    except Estudio.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Estudio no encontrado"}, status=404)
     except Exception as e:
-        return HttpResponse(
-            f"WeasyPrint no disponible en este entorno: {e}",
-            status=503
-        )
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    import hashlib
-    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
-
-    precio_escritura = proyecto.precio_propiedad or Decimal("0")
-
-    valores = [
-        proyecto.val_idealista,
-        proyecto.val_fotocasa,
-        proyecto.val_registradores,
-        proyecto.val_casafari,
-        proyecto.val_tasacion,
-    ]
-    valores = [v for v in valores if v and v > 0]
-    media_valoraciones = sum(valores) / len(valores) if valores else Decimal("0")
-
-    notaria = max(precio_escritura * Decimal("0.002"), Decimal("500"))
-    registro = max(precio_escritura * Decimal("0.002"), Decimal("500"))
-    itp = precio_escritura * Decimal("0.02")
-
-    gastos_adquisicion = notaria + registro + itp
-    inversion_total = precio_escritura + gastos_adquisicion
-
-    precio_venta = media_valoraciones
-    beneficio = precio_venta - inversion_total
-    roi = (beneficio / inversion_total * Decimal("100")) if inversion_total else Decimal("0")
-
-    resultado = {
-        "inversion_total": round(inversion_total, 2),
-        "beneficio": round(beneficio, 2),
-        "roi": round(roi, 2),
-        "viable": beneficio >= 30000 or roi >= 15,
-    }
-
-    # =========================
-    # MÉTRICAS PASO 1 (BASE)
-    # =========================
-    comision_pct = Decimal("0.30")  # valor por defecto; configurable 0.30 / 0.35 / 0.40
-    comision_eur = beneficio * comision_pct if beneficio else Decimal("0")
-    beneficio_neto = beneficio - comision_eur
-    roi_neto = (beneficio_neto / inversion_total * Decimal("100")) if inversion_total else Decimal("0")
-
-    break_even = inversion_total
-    margen_seguridad = ((precio_venta - inversion_total) / precio_venta * Decimal("100")) if precio_venta else Decimal("0")
-
-    # Sensibilidades
-    pt_menos_5 = precio_venta * Decimal("0.95")
-    pt_menos_10 = precio_venta * Decimal("0.90")
-
-    beneficio_menos_5 = pt_menos_5 - inversion_total
-    beneficio_menos_10 = pt_menos_10 - inversion_total
-
-    roi_menos_5 = (beneficio_menos_5 / inversion_total * Decimal("100")) if inversion_total else Decimal("0")
-    roi_menos_10 = (beneficio_menos_10 / inversion_total * Decimal("100")) if inversion_total else Decimal("0")
-
-    # =========================
-    # FINGERPRINT Y CACHE DE GRÁFICOS
-    # =========================
-    fingerprint_data = f"{precio_escritura}|{precio_venta}|{beneficio}|{roi}|{comision_pct}"
-    hash_estudio = hashlib.md5(fingerprint_data.encode()).hexdigest()
-
-    cache_dir = Path(settings.BASE_DIR) / "tmp" / "pdf_cache"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-
-    grafico1_path = cache_dir / f"estudio_{proyecto.id}_{hash_estudio}_g1.png"
-    grafico2_path = cache_dir / f"estudio_{proyecto.id}_{hash_estudio}_g2.png"
-    grafico3_path = cache_dir / f"estudio_{proyecto.id}_{hash_estudio}_g3.png"
-
-    metricas = {
-        "precio_adquisicion": precio_escritura,
-        "precio_transmision": precio_venta,
-        "inversion_total": inversion_total,
-        "beneficio_bruto": beneficio,
-        "roi_bruto": roi,
-        "comision_pct": comision_pct * Decimal("100"),
-        "comision_eur": comision_eur,
-        "beneficio_neto": beneficio_neto,
-        "roi_neto": roi_neto,
-        "break_even": break_even,
-        "margen_seguridad": margen_seguridad,
-        "sensibilidad": {
-            "-5%": {"precio": pt_menos_5, "beneficio": beneficio_menos_5, "roi": roi_menos_5},
-            "-10%": {"precio": pt_menos_10, "beneficio": beneficio_menos_10, "roi": roi_menos_10},
-        },
-    }
-
-    # =================================================
-    # MÉTRICAS FORMATEADAS PARA EL RESUMEN EJECUTIVO
-    # =================================================
-    metricas_fmt = {
-        "inversion_total": fmt_eur(metricas["inversion_total"]),
-        "precio_transmision": fmt_eur(metricas["precio_transmision"]),
-        "beneficio_bruto": fmt_eur(metricas["beneficio_bruto"]),
-        "beneficio_neto": fmt_eur(metricas["beneficio_neto"]),
-        "precio_objetivo_15": fmt_eur(metricas.get("precio_objetivo_15")),
-        "roi_bruto": fmt_pct(metricas["roi_bruto"]),
-        "roi_neto": fmt_pct(metricas["roi_neto"]),
-    }
-
-    # =================================================
-    # GRÁFICO 1: DESGLOSE DEL BENEFICIO (BRUTO / COMISIÓN / NETO) (PROTAGONISTA)
-    # =================================================
-    if grafico1_path.exists():
-        grafico_beneficio_base64 = base64.b64encode(grafico1_path.read_bytes()).decode("utf-8")
-    else:
-        fig1, ax1 = plt.subplots(figsize=(7, 4))
-
-        valores_beneficio = [
-            float(metricas["beneficio_bruto"]),
-            float(metricas["comision_eur"]),
-            float(metricas["beneficio_neto"]),
-        ]
-
-        etiquetas_beneficio = [
-            "Beneficio bruto",
-            "Comisión Inversure",
-            "Beneficio neto inversor",
-        ]
-
-        colores = [COLOR_AZUL, COLOR_DORADO, COLOR_GRIS]
-
-        barras1 = ax1.bar(
-            etiquetas_beneficio,
-            valores_beneficio,
-            color=colores,
-            width=0.55
-        )
-
-        ax1.set_title("Resultado económico de la operación", fontsize=13, fontweight="bold")
-        ax1.set_ylabel("Euros (€)")
-        ax1.tick_params(axis="x", labelsize=10)
-        ax1.tick_params(axis="y", labelsize=9)
-
-        ax1.spines["top"].set_visible(False)
-        ax1.spines["right"].set_visible(False)
-
-        for barra in barras1:
-            altura = barra.get_height()
-            ax1.text(
-                barra.get_x() + barra.get_width() / 2,
-                altura * 1.02,
-                fmt_eur(Decimal(str(float(altura)))),
-                ha="center",
-                va="bottom",
-                fontsize=10,
-                fontweight="bold"
-            )
-
-        try:
-            plt.tight_layout()
-        except Exception:
-            pass
-        plt.savefig(grafico1_path, format="png", dpi=160)
-        plt.close(fig1)
-        grafico_beneficio_base64 = base64.b64encode(grafico1_path.read_bytes()).decode("utf-8")
-
-    # =================================================
-    # GRÁFICO 2: ADQUISICIÓN VS TRANSMISIÓN (secundario pero claro)
-    # =================================================
-    if grafico2_path.exists():
-        grafico_precios_base64 = base64.b64encode(grafico2_path.read_bytes()).decode("utf-8")
-    else:
-        fig2, ax2 = plt.subplots(figsize=(6, 3.5))
-
-        valores_precios = [
-            float(metricas["inversion_total"]),
-            float(metricas["precio_transmision"]),
-        ]
-
-        etiquetas_precios = [
-            "Inversión total",
-            "Precio de venta",
-        ]
-
-        barras2 = ax2.bar(
-            etiquetas_precios,
-            valores_precios,
-            color=[COLOR_AZUL, COLOR_DORADO],
-            width=0.5
-        )
-
-        ax2.set_title("Comparativa adquisición / venta", fontsize=12, fontweight="bold")
-        ax2.set_ylabel("Euros (€)")
-        ax2.spines["top"].set_visible(False)
-        ax2.spines["right"].set_visible(False)
-
-        for barra in barras2:
-            altura = barra.get_height()
-            ax2.text(
-                barra.get_x() + barra.get_width() / 2,
-                altura * 1.01,
-                fmt_eur(Decimal(str(float(altura)))),
-                ha="center",
-                va="bottom",
-                fontsize=9
-            )
-
-        try:
-            plt.tight_layout()
-        except Exception:
-            pass
-        plt.savefig(grafico2_path, format="png", dpi=150)
-        plt.close(fig2)
-        grafico_precios_base64 = base64.b64encode(grafico2_path.read_bytes()).decode("utf-8")
-
-    # ============================
-    # OBJETIVOS DE RENTABILIDAD (INVERSOR)
-    # ============================
-
-    # Objetivo 1: 15 % de rentabilidad sobre la inversión total
-    precio_objetivo_15 = inversion_total * Decimal("1.15")
-
-    # Objetivo 2: beneficio absoluto mínimo de 30.000 €
-    precio_objetivo_30000 = inversion_total + Decimal("30000")
-
-    # ¿Resultado neto negativo tras comisión?
-    resultado_negativo = beneficio_neto <= 0
-
-    # Precio mínimo de venta necesario para alcanzar el objetivo esperado
-    if resultado_negativo:
-        precio_equilibrio_beneficio = max(precio_objetivo_15, precio_objetivo_30000)
-    else:
-        precio_equilibrio_beneficio = None
-
-    # Añadir métricas al diccionario principal
-    metricas["precio_objetivo_15"] = precio_objetivo_15
-    metricas["precio_objetivo_30000"] = precio_objetivo_30000
-    metricas["resultado_negativo"] = resultado_negativo
-    metricas["precio_equilibrio_beneficio"] = precio_equilibrio_beneficio
-
-    # =================================================
-    # GRÁFICO 3: SENSIBILIDAD DEL PRECIO DE VENTA (DECISIÓN)
-    # =================================================
-    if grafico3_path.exists():
-        grafico_sensibilidad_base64 = base64.b64encode(grafico3_path.read_bytes()).decode("utf-8")
-    else:
-        fig3, ax3 = plt.subplots(figsize=(7, 3.8))
-
-        precios_sens = [
-            float(metricas["precio_adquisicion"]),
-            float(metricas["precio_objetivo_15"]),
-            float(metricas["precio_objetivo_30000"]),
-            float(metricas["precio_transmision"]),
-        ]
-
-        labels_sens = [
-            "Compra",
-            "Objetivo 15 %",
-            "Objetivo +30.000 €",
-            "Venta estimada",
-        ]
-
-        x_pos = list(range(len(labels_sens)))
-
-        ax3.plot(
-            x_pos,
-            precios_sens,
-            marker="o",
-            linewidth=2.5,
-            color=COLOR_AZUL
-        )
-        ax3.set_xticks(x_pos)
-        ax3.set_xticklabels(labels_sens)
-
-        for i, y in enumerate(precios_sens):
-            ax3.text(
-                i,
-                y * 1.01,
-                fmt_eur(Decimal(str(float(y)))),
-                ha="center",
-                fontsize=9,
-                fontweight="bold"
-            )
-
-        ax3.set_title("Sensibilidad del precio de venta", fontsize=13, fontweight="bold")
-        ax3.set_ylabel("Precio (€)")
-        ax3.grid(True, linestyle="--", alpha=0.3)
-
-        try:
-            plt.tight_layout()
-        except Exception:
-            pass
-        plt.savefig(grafico3_path, format="png", dpi=160)
-        plt.close(fig3)
-        grafico_sensibilidad_base64 = base64.b64encode(grafico3_path.read_bytes()).decode("utf-8")
-
-    # ============================
-    # LOGO CORPORATIVO (WeasyPrint)
-    # ============================
-    logo_path = (
-        Path(settings.BASE_DIR)
-        / "core"
-        / "static"
-        / "core"
-        / "logo_inversure.jpg"
-    )
-    logo_url = logo_path.resolve().as_uri()
-
-    mapa_base64 = None
-    if proyecto.lat and proyecto.lon:
-        mapa_url = (
-            "https://staticmap.openstreetmap.de/staticmap.php"
-            f"?center={proyecto.lat},{proyecto.lon}"
-            "&zoom=16"
-            "&size=600x300"
-            f"&markers={proyecto.lat},{proyecto.lon},red-pushpin"
-        )
-        try:
-            resp = requests.get(mapa_url, timeout=10)
-            if resp.status_code == 200:
-                mapa_base64 = base64.b64encode(resp.content).decode("utf-8")
-        except Exception:
-            mapa_base64 = None
-
-    html = render_to_string(
-        "core/pdf_estudio_rentabilidad.html",
-        {
-            "proyecto": proyecto,
-            "resultado": resultado,
-            "fecha": date.today().strftime("%d/%m/%Y"),
-            "logo_url": logo_url,
-            "mapa_base64": mapa_base64,
-            "metricas": metricas,
-            "metricas_fmt": metricas_fmt,
-            "grafico_beneficio_base64": grafico_beneficio_base64,
-            "grafico_precios_base64": grafico_precios_base64,
-            "grafico_sensibilidad_base64": grafico_sensibilidad_base64,
-        }
-    )
-
-    pdf = HTML(
-        string=html,
-        base_url=settings.BASE_DIR
-    ).write_pdf()
-
-    response = HttpResponse(pdf, content_type="application/pdf")
-    response["Content-Disposition"] = (
-        f'inline; filename="Informe_Estudio_{proyecto.id}.pdf"'
-    )
-
-    return response
-
-
-# ============================
-# APROBAR PROYECTO (NUEVA VISTA)
-# ============================
-from django.utils import timezone
-from django.views.decorators.http import require_POST
-from django.conf import settings
-import os
-
-@require_POST
-def aprobar_proyecto(request, proyecto_id):
-    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
-
-    if proyecto.aprobado:
-        return redirect("core:lista_estudios")
-
-    # Generar PDF usando la función existente
-    response = generar_pdf_estudio(request, proyecto_id)
-
-    nombre_pdf = f"proyecto_{proyecto.id}_{timezone.now().strftime('%Y%m%d_%H%M')}.pdf"
-    ruta_relativa = os.path.join("proyectos_aprobados", nombre_pdf)
-    ruta_absoluta = os.path.join(settings.MEDIA_ROOT, ruta_relativa)
-
-    os.makedirs(os.path.dirname(ruta_absoluta), exist_ok=True)
-
-    with open(ruta_absoluta, "wb") as f:
-        f.write(response.content)
-
-    proyecto.pdf_aprobado = ruta_relativa
-    proyecto.aprobado = True
-    proyecto.fecha_aprobacion = timezone.now()
-    proyecto.save(update_fields=["pdf_aprobado", "aprobado", "fecha_aprobacion"])
-
-    return redirect("core:lista_estudios")
-
-
-from django.shortcuts import get_object_or_404
-
-def estudio_detalle(request, proyecto_id):
-    estudio = Proyecto.objects.filter(
-        id=proyecto_id,
-        estado__iexact="estudio"
-    ).first()
-
-    if not estudio:
-        return redirect("core:lista_estudio")
-
-    return render(
-        request,
-        "core/simulador.html",
-        {
-            "estudio": estudio,
-        },
-    )
-# ============================
-# MEMORIA ECONÓMICA DEL PROYECTO (C3)
-# ============================
-from datetime import date
-from django.db.models import Sum
-
-def memoria_economica(request, proyecto_id):
-    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
-
-    # -------------------------
-    # DATOS CONSOLIDADOS
-    # -------------------------
-
-    # Gastos reales
-    gastos = GastoProyecto.objects.filter(proyecto=proyecto).order_by("fecha")
-    total_gastos = gastos.aggregate(
-        total=Sum("importe")
-    )["total"] or Decimal("0")
-
-    # Ingresos reales
-    ingresos = IngresoProyecto.objects.filter(proyecto=proyecto).order_by("fecha")
-    total_ingresos = ingresos.aggregate(
-        total=Sum("importe")
-    )["total"] or Decimal("0")
-
-    ingresos_imputables = ingresos.filter(imputable_inversores=True)
-    total_ingresos_imputables = ingresos_imputables.aggregate(
-        total=Sum("importe")
-    )["total"] or Decimal("0")
-
-    # KPIs finales (YA calculados)
-    inversion_total = (
-        (proyecto.precio_compra_inmueble or Decimal("0"))
-        + (proyecto.itp or Decimal("0"))
-        + (proyecto.notaria or Decimal("0"))
-        + (proyecto.registro or Decimal("0"))
-        + total_gastos
-    )
-
-    beneficio = proyecto.beneficio_neto or Decimal("0")
-    roi = proyecto.roi or Decimal("0")
-
-    contexto = {
-        "proyecto": proyecto,
-        "fecha_informe": date.today(),
-        "gastos": gastos,
-        "ingresos": ingresos,
-        "total_gastos": total_gastos,
-        "total_ingresos": total_ingresos,
-        "total_ingresos_imputables": total_ingresos_imputables,
-        "inversion_total": inversion_total,
-        "beneficio": beneficio,
-        "roi": roi,
-    }
-
-    return render(
-        request,
-        "core/memoria_economica.html",
-        contexto
-    )
-
-# =========================
-# NUEVA VISTA – PRESUPUESTO DEL PROYECTO (VIABILIDAD)
-# =========================
-from django.views.decorators.csrf import csrf_protect
-from django.shortcuts import get_object_or_404
-from decimal import Decimal
-from .models import PresupuestoProyecto
-
-@csrf_protect
-def proyecto_presupuesto(request, proyecto_id):
-    """
-    Vista de presupuesto del proyecto.
-    - Fuente única: PresupuestoProyecto
-    - Editable mientras el proyecto no esté cerrado
-    - NO toca gastos reales ni movimientos
-    """
-
-    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
-    presupuesto, _ = PresupuestoProyecto.objects.get_or_create(
-        proyecto=proyecto
-    )
-
-    editable = proyecto.estado not in ["cerrado", "cerrado_positivo"]
-
-    if request.method == "POST" and editable:
-        campos = [
-            "precio_compra_estimado",
-            "gastos_compra_estimados",
-            "reforma_estimada",
-            "otros_gastos_estimados",
-            "venta_estimada",
-        ]
-
-        for campo in campos:
-            if campo in request.POST:
-                raw = request.POST.get(campo)
-                if raw not in (None, ""):
-                    setattr(presupuesto, campo, parse_euro(raw))
-
-        presupuesto.save()
-
-    # =========================
-    # CÁLCULOS DE VIABILIDAD
-    # =========================
-    precio_compra = presupuesto.precio_compra_estimado or Decimal("0")
-    gastos_compra = presupuesto.gastos_compra_estimados or Decimal("0")
-    reforma = presupuesto.reforma_estimada or Decimal("0")
-    otros = presupuesto.otros_gastos_estimados or Decimal("0")
-    venta = presupuesto.venta_estimada or Decimal("0")
-
-    inversion_total = precio_compra + gastos_compra + reforma + otros
-    beneficio_estimado = venta - inversion_total
-    roi_estimado = (
-        (beneficio_estimado / inversion_total * Decimal("100"))
-        if inversion_total > 0 else Decimal("0")
-    )
-
-    contexto = {
-        "proyecto": proyecto,
-        "presupuesto": presupuesto,
-        "editable": editable,
-        "kpis": {
-            "inversion_total": inversion_total,
-            "beneficio_estimado": beneficio_estimado,
-            "roi_estimado": roi_estimado,
-        },
-    }
-
-    return render(
-        request,
-        "core/proyecto_presupuesto.html",
-        contexto
-    )
+        return JsonResponse({"ok": False, "error": str(e)}, status=500)

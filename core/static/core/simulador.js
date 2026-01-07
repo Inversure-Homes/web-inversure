@@ -19,26 +19,112 @@ function formatEuro(value) {
   }) + " €";
 }
 
+// ==============================
+// UTILIDADES FORMATO NÚMERO (m², etc.)
+// ==============================
+function parseNumberEs(value) {
+  if (value === null || typeof value === "undefined") return null;
+  const s = String(value).trim();
+  if (!s) return null;
+
+  const n = parseFloat(
+    s.replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "")
+  );
+
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatNumberEs(value, decimals = 0) {
+  if (value === null || typeof value === "undefined" || !Number.isFinite(value)) return "";
+  return value.toLocaleString("es-ES", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  });
+}
+
+function aplicarFormatoNumeroInput(input, decimals = 0) {
+  if (!input) return;
+
+  input.addEventListener("blur", () => {
+    const value = parseNumberEs(input.value);
+    if (value === null) {
+      input.value = "";
+      return;
+    }
+    input.value = formatNumberEs(value, decimals);
+  });
+
+  input.addEventListener("focus", () => {
+    const value = parseNumberEs(input.value);
+    input.value = value === null ? "" : String(value);
+  });
+}
+
 let estudioIdActual = null;
 // ==============================
 // ESTADO PERSISTENTE DEL ESTUDIO
 // ==============================
 const estadoEstudio = {
+  // Identificación / persistencia
   id: null,
+
+  // Datos adquisición
   precio_escritura: null,
   itp: null,
   notaria: null,
   registro: null,
   gastos_extras: null,
   valor_referencia: null,
+
+  // Totales
   valor_adquisicion: null,
   valor_transmision: null,
   media_valoraciones: null,
-valoraciones: {}, // { [id]: valor }
-tipologia: "",
-superficie_m2: null,
-estado_inmueble: "",
-situacion: "",
+
+  // Valoraciones mercado
+  valoraciones: {}, // { [data-id]: valor }
+
+  // Datos inmueble (nuevos)
+  tipologia: "",
+  superficie_m2: null,
+  estado_inmueble: "",
+  situacion: "",
+
+  // ==============================
+  // MÉTRICAS VISTA COMITÉ
+  // ==============================
+  comite: {
+    beneficio_bruto: 0,
+    roi: 0,
+    margen_pct: 0,
+    semáforo: 0,
+
+    // Métricas de robustez
+    ratio_euro_beneficio: 0,
+    colchon_seguridad: 0,
+    breakeven: 0,
+
+    // Presentación comité (automática)
+    colchon_mercado: 0,
+    decision_texto: "",
+    conclusion: "",
+    nivel_riesgo: "",
+
+    // ==============================
+    // NUEVO · VALORACIÓN Y DECISIÓN
+    // ==============================
+    decision_estado: "", // aprobada | estudio | denegada
+    valoracion: {
+      mercado: "",
+      riesgo: "",
+      ejecucion: "",
+      timing: ""
+    },
+    comentario: "",
+    resumen_ejecutivo: "",
+    fecha_decision: ""
+  }
+};
 
 // ==============================
 // MÉTRICAS VISTA COMITÉ
@@ -54,11 +140,25 @@ estadoEstudio.comite = {
   colchon_seguridad: 0,
   breakeven: 0,
 
-  // Presentación comité
+  // Presentación comité (automática)
   colchon_mercado: 0,
   decision_texto: "",
   conclusion: "",
-  nivel_riesgo: ""
+  nivel_riesgo: "",
+
+  // ==============================
+  // NUEVO · VALORACIÓN Y DECISIÓN
+  // ==============================
+  decision_estado: "", // aprobada | estudio | denegada
+  valoracion: {
+    mercado: "",
+    riesgo: "",
+    ejecucion: "",
+    timing: ""
+  },
+  comentario: "",
+  resumen_ejecutivo: "",
+  fecha_decision: ""
 };
 
 // ==============================
@@ -76,7 +176,7 @@ const mediaValoracionesInput = document.getElementById("media_valoraciones");
 const valoracionesInputs = document.querySelectorAll(".valoracion");
 const tipologiaInput = document.getElementById("tipologia");
 const superficieM2Input = document.getElementById("superficie_m2");
-const estadoInmuebleInput = document.getElementById("estado_inmueble");
+const estadoInmuebleInput = document.getElementById("estado_inmueble") || document.getElementById("estado");
 const situacionInput = document.getElementById("situacion");
 // Asegura que cada input tenga un data-id único
 valoracionesInputs.forEach((input, idx) => {
@@ -84,6 +184,15 @@ valoracionesInputs.forEach((input, idx) => {
     input.setAttribute("data-id", `valoracion_${idx}`);
   }
 });
+
+const valoracionMercado = document.getElementById("valoracion_mercado");
+const valoracionRiesgo = document.getElementById("valoracion_riesgo");
+const valoracionEjecucion = document.getElementById("valoracion_ejecucion");
+const valoracionTiming = document.getElementById("valoracion_timing");
+const comentarioComite = document.getElementById("comentario_comite");
+const decisionComite = document.getElementById("decision_comite");
+const resumenEjecutivoComite = document.getElementById("resumen_ejecutivo_comite");
+const fechaDecisionComite = document.getElementById("fecha_decision_comite");
 
 // ==============================
 // MOTOR DE CÁLCULO CENTRAL
@@ -178,6 +287,21 @@ function recalcularTodo() {
         : "";
     }
   });
+
+  // Pintar campos de inmueble (persistencia al cambiar de vista)
+  if (tipologiaInput && document.activeElement !== tipologiaInput) {
+    tipologiaInput.value = estadoEstudio.tipologia || "";
+  }
+  if (estadoInmuebleInput && document.activeElement !== estadoInmuebleInput) {
+    estadoInmuebleInput.value = estadoEstudio.estado_inmueble || "";
+  }
+  if (situacionInput && document.activeElement !== situacionInput) {
+    situacionInput.value = estadoEstudio.situacion || "";
+  }
+  if (superficieM2Input && document.activeElement !== superficieM2Input) {
+    const v = estadoEstudio.superficie_m2;
+    superficieM2Input.value = (v === null || typeof v === "undefined") ? "" : formatNumberEs(v, 0);
+  }
 
   // Métricas comité
   const beneficio = estadoEstudio.valor_transmision - estadoEstudio.valor_adquisicion;
@@ -429,6 +553,7 @@ function aplicarFormatoInput(input) {
   }
 });
 
+
 valoracionesInputs.forEach(input => {
   aplicarFormatoInput(input);
   input.addEventListener("input", (e) => {
@@ -438,6 +563,89 @@ valoracionesInputs.forEach(input => {
     recalcularTodo();
   });
 });
+
+// ==============================
+// EVENTOS CAMPOS INMUEBLE (PERSISTENCIA)
+// ==============================
+if (tipologiaInput) {
+  tipologiaInput.addEventListener("change", () => {
+    estadoEstudio.tipologia = tipologiaInput.value || "";
+    guardarEstado();
+  });
+}
+
+if (estadoInmuebleInput) {
+  const persistirEstadoInmueble = () => {
+    estadoEstudio.estado_inmueble = (estadoInmuebleInput.value || "").trim();
+    guardarEstado();
+  };
+
+  // Para <select> dispara con change; para <input> necesitamos input para no perder el dato al cambiar de vista.
+  estadoInmuebleInput.addEventListener("change", persistirEstadoInmueble);
+  estadoInmuebleInput.addEventListener("input", persistirEstadoInmueble);
+}
+
+if (situacionInput) {
+  situacionInput.addEventListener("change", () => {
+    estadoEstudio.situacion = situacionInput.value || "";
+    guardarEstado();
+  });
+}
+
+if (superficieM2Input) {
+  aplicarFormatoNumeroInput(superficieM2Input, 0);
+
+  superficieM2Input.addEventListener("input", () => {
+    estadoEstudio.superficie_m2 = parseNumberEs(superficieM2Input.value);
+    guardarEstado();
+  });
+}
+
+/* ==============================
+   EVENTOS · VALORACIÓN Y DECISIÓN COMITÉ
+   ============================== */
+
+/* ==============================
+   EVENTO · RESUMEN EJECUTIVO COMITÉ
+   ============================== */
+if (resumenEjecutivoComite) {
+  resumenEjecutivoComite.addEventListener("input", () => {
+    estadoEstudio.comite.resumen_ejecutivo = resumenEjecutivoComite.value || "";
+    guardarEstado();
+  });
+}
+
+function persistirValoracionComite() {
+  estadoEstudio.comite.valoracion.mercado = valoracionMercado?.value || "";
+  estadoEstudio.comite.valoracion.riesgo = valoracionRiesgo?.value || "";
+  estadoEstudio.comite.valoracion.ejecucion = valoracionEjecucion?.value || "";
+  estadoEstudio.comite.valoracion.timing = valoracionTiming?.value || "";
+  estadoEstudio.comite.comentario = comentarioComite?.value || "";
+  guardarEstado();
+}
+
+if (valoracionMercado) valoracionMercado.addEventListener("change", persistirValoracionComite);
+if (valoracionRiesgo) valoracionRiesgo.addEventListener("change", persistirValoracionComite);
+if (valoracionEjecucion) valoracionEjecucion.addEventListener("change", persistirValoracionComite);
+if (valoracionTiming) valoracionTiming.addEventListener("change", persistirValoracionComite);
+if (comentarioComite) comentarioComite.addEventListener("input", persistirValoracionComite);
+
+if (decisionComite) {
+  decisionComite.addEventListener("change", () => {
+    const nuevaDecision = decisionComite.value || "";
+    estadoEstudio.comite.decision_estado = nuevaDecision;
+
+    if (nuevaDecision) {
+      const hoy = new Date();
+      estadoEstudio.comite.fecha_decision = hoy.toISOString();
+      if (fechaDecisionComite) {
+        fechaDecisionComite.value = hoy.toLocaleDateString("es-ES");
+      }
+    }
+
+    guardarEstado();
+  });
+}
 
 // ==============================
 // ESTADO EN sessionStorage
@@ -528,7 +736,27 @@ function cargarEstado() {
     // Asegurar objeto valoraciones
     if (!estadoEstudio.valoraciones) estadoEstudio.valoraciones = {};
     if (!estadoEstudio.comite) {
-      estadoEstudio.comite = { beneficio_bruto: 0, roi: 0 };
+      estadoEstudio.comite = {
+        beneficio_bruto: 0,
+        roi: 0,
+        margen_pct: 0,
+        semáforo: 0,
+        ratio_euro_beneficio: 0,
+        colchon_seguridad: 0,
+        breakeven: 0,
+        colchon_mercado: 0,
+        decision_texto: "",
+        conclusion: "",
+        nivel_riesgo: "",
+        decision_estado: "",
+        valoracion: {
+          mercado: "",
+          riesgo: "",
+          ejecucion: "",
+          timing: ""
+        },
+        comentario: ""
+      };
     }
   } catch (e) {
     // Ignore
@@ -571,6 +799,27 @@ function inicializarEstadoDesdeInputsSiVacio() {
       if (v) estadoEstudio.valoraciones[id] = v;
     }
   });
+
+  // Tipología
+  if ((estadoEstudio.tipologia === null || typeof estadoEstudio.tipologia === "undefined" || estadoEstudio.tipologia === "") && tipologiaInput?.value) {
+    estadoEstudio.tipologia = (tipologiaInput.value || "").trim();
+  }
+
+  // Superficie m²
+  if ((estadoEstudio.superficie_m2 === null || typeof estadoEstudio.superficie_m2 === "undefined") && superficieM2Input?.value) {
+    const v = parseNumberEs(superficieM2Input.value);
+    if (v !== null) estadoEstudio.superficie_m2 = v;
+  }
+
+  // Estado
+  if ((estadoEstudio.estado_inmueble === null || typeof estadoEstudio.estado_inmueble === "undefined" || estadoEstudio.estado_inmueble === "") && estadoInmuebleInput?.value) {
+    estadoEstudio.estado_inmueble = (estadoInmuebleInput.value || "").trim();
+  }
+
+  // Situación
+  if ((estadoEstudio.situacion === null || typeof estadoEstudio.situacion === "undefined" || estadoEstudio.situacion === "") && situacionInput?.value) {
+    estadoEstudio.situacion = (situacionInput.value || "").trim();
+  }
 }
 
 function formateoInicialInputs() {
@@ -585,16 +834,61 @@ function formateoInicialInputs() {
     const v = parseEuro(input.value);
     if (v) input.value = formatEuro(v);
   });
+
+  if (superficieM2Input) {
+    const v = parseNumberEs(superficieM2Input.value);
+    if (v !== null) superficieM2Input.value = formatNumberEs(v, 0);
+  }
 }
 
 // ==============================
 // INICIALIZACIÓN
 // ==============================
 document.addEventListener("DOMContentLoaded", () => {
+  // ==============================
+  // BLOQUEO TOTAL DE SUBMIT DEL FORM
+  // ==============================
+  const formEstudio = document.getElementById("form-estudio");
+  if (formEstudio) {
+    // Neutralizar cualquier action HTML
+    formEstudio.setAttribute("action", "javascript:void(0)");
+
+    // Bloquear submit por cualquier vía
+    formEstudio.addEventListener(
+      "submit",
+      function (e) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return false;
+      },
+      true
+    );
+  }
+
   cargarEstado();
   inicializarEstadoDesdeInputsSiVacio();
   recalcularTodo();
   formateoInicialInputs();
+
+  /* ==============================
+     REPINTAR VALORACIÓN COMITÉ
+     ============================== */
+  if (valoracionMercado) valoracionMercado.value = estadoEstudio.comite.valoracion?.mercado || "";
+  if (valoracionRiesgo) valoracionRiesgo.value = estadoEstudio.comite.valoracion?.riesgo || "";
+  if (valoracionEjecucion) valoracionEjecucion.value = estadoEstudio.comite.valoracion?.ejecucion || "";
+  if (valoracionTiming) valoracionTiming.value = estadoEstudio.comite.valoracion?.timing || "";
+  if (comentarioComite) comentarioComite.value = estadoEstudio.comite.comentario || "";
+  if (decisionComite) decisionComite.value = estadoEstudio.comite.decision_estado || "";
+
+  if (resumenEjecutivoComite) {
+    resumenEjecutivoComite.value = estadoEstudio.comite.resumen_ejecutivo || "";
+  }
+
+  if (fechaDecisionComite) {
+    fechaDecisionComite.value = estadoEstudio.comite.fecha_decision
+      ? new Date(estadoEstudio.comite.fecha_decision).toLocaleDateString("es-ES")
+      : "";
+  }
 
   // ==============================
   // LÓGICA DE BOTONES DE ESTUDIO
@@ -628,7 +922,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Guardar estudio
   if (btnGuardarEstudio) {
-    btnGuardarEstudio.addEventListener("click", async function () {
+    btnGuardarEstudio.addEventListener("click", async function (e) {
+      e.preventDefault();
       try {
         const nombreProyecto = document.getElementById("nombre_proyecto")?.value || "";
         const direccionCompleta = document.getElementById("direccion_completa")?.value || "";
@@ -672,9 +967,7 @@ document.addEventListener("DOMContentLoaded", () => {
           estudioIdActual = data.id;
           estadoEstudio.id = data.id;
           guardarEstado();
-
-          // Redirección limpia al listado de estudios
-          window.location.href = "/estudios/";
+          // Guardado correcto: no navegamos
         }
       } catch (e) {
         alert("Error de comunicación con el servidor");
@@ -738,6 +1031,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // Convertir a proyecto
   if (btnConvertirProyecto) {
     btnConvertirProyecto.addEventListener("click", async function () {
+      if (estadoEstudio.comite?.decision_estado !== "aprobada") {
+        alert("El comité no ha aprobado este estudio. No se puede convertir en proyecto.");
+        return;
+      }
       if (!estudioIdActual) {
         alert("No hay estudio seleccionado.");
         return;

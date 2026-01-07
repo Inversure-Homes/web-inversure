@@ -2,6 +2,60 @@ from django.db import models
 from django.utils.timezone import now
 
 
+class Estudio(models.Model):
+    codigo_estudio = models.PositiveIntegerField(
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="Código interno visible del estudio (contador propio)"
+    )
+    nombre = models.CharField(max_length=255)
+    direccion = models.CharField(max_length=255, blank=True, null=True)
+    ref_catastral = models.CharField(max_length=50, blank=True, null=True)
+    valor_referencia = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True, default=None
+    )
+    datos = models.JSONField()
+    valor_adquisicion = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+
+    beneficio = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+
+    roi = models.DecimalField(
+        max_digits=6, decimal_places=2, null=True, blank=True
+    )
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.nombre
+
+    def save(self, *args, **kwargs):
+        if self.codigo_estudio is None:
+            ultimo = Estudio.objects.aggregate(models.Max("codigo_estudio"))["codigo_estudio__max"]
+            self.codigo_estudio = 0 if ultimo is None else ultimo + 1
+        super().save(*args, **kwargs)
+
+
+# =========================
+# MODELO SNAPSHOT DE ESTUDIO
+# =========================
+class EstudioSnapshot(models.Model):
+    estudio = models.ForeignKey(
+        Estudio,
+        on_delete=models.CASCADE,
+        related_name="snapshots"
+    )
+    creado_en = models.DateTimeField(auto_now_add=True)
+    datos = models.JSONField()
+    version_simulador = models.CharField(max_length=20, default="v1")
+
+    def __str__(self):
+        return f"Snapshot Estudio {self.estudio_id} - {self.creado_en.strftime('%d/%m/%Y %H:%M')}"
+
 class Proyecto(models.Model):
     # =========================
     # IDENTIFICACIÓN DEL PROYECTO
