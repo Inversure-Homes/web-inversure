@@ -2,85 +2,242 @@
 {% load static %}
 {% block content %}
 
-<div class="inversure-app" data-fase="{{ fase }}">
-  <section class="inversure-section">
-    <div class="inversure-section-header text-center mb-5">
-      <h1 class="inversure-section-title">Proyecto</h1>
-      <div class="inversure-divider mx-auto"></div>
-      <p class="inversure-section-subtitle">
-        Proyecto operativo creado desde un estudio. Los datos iniciales se heredan del snapshot de conversión.
-      </p>
-    </div>
+{#
+  Proyecto usa su propio JS (proyecto.js). Mantenemos flags globales para que cualquier lógica compartida
+  pueda detectar el modo proyecto.
+#}
+<script>
+  window.ES_MODO_PROYECTO = true;
+  window.PROYECTO_ID = {% if proyecto and proyecto.id %}{{ proyecto.id }}{% else %}null{% endif %};
+  window.ESTUDIO_ORIGEN_ID = {% if snapshot and snapshot.meta and snapshot.meta.estudio_id %}{{ snapshot.meta.estudio_id }}{% else %}null{% endif %};
+</script>
+{% if snapshot %}{{ snapshot|json_script:"snapshotData" }}{% endif %}
 
-    {% if snapshot.meta.estudio_id %}
-    <div class="alert alert-light border d-flex justify-content-between align-items-center mb-4">
-      <div>
-        <strong>Origen:</strong> Estudio #{{ snapshot.meta.estudio_id }} · <strong>Snapshot:</strong> {{ snapshot.meta.fecha_snapshot|default:"" }}
+<style>
+  /* Estilos corporativos Inversure (solo para esta vista) */
+  .btn-inversure {
+    background: #122135;
+    color: #ffffff;
+    border: 1px solid #122135;
+  }
+  .btn-inversure:hover {
+    background: #d7b04c;
+    color: #122135;
+    border-color: #d7b04c;
+  }
+
+  .btn-inversure .arrow {
+    color: #d7b04c;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .btn-inversure:hover .arrow {
+    color: #122135;
+  }
+
+  .btn-inversure-outline {
+    background: transparent;
+    color: #122135;
+    border: 1px solid #122135;
+  }
+  .btn-inversure-outline:hover {
+    background: #122135;
+    color: #ffffff;
+  }
+
+  .btn-inversure-outline .arrow {
+    color: #d7b04c;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .btn-inversure-outline:hover .arrow {
+    color: #d7b04c;
+  }
+</style>
+
+<div class="main-container simulador-page" data-fase="proyecto" data-modo="proyecto">
+  <div class="container mt-5">
+
+    <!-- CABECERA PROYECTO (misma estructura visual que el simulador) -->
+    <div class="card card-inversure shadow-sm border-0 mb-4">
+      <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+        <div>
+          <h1 class="mb-1">Proyecto{% if proyecto and proyecto.nombre %} · {{ proyecto.nombre }}{% endif %}</h1>
+
+          {% if proyecto and proyecto.id %}
+            <div class="mt-2">
+              <span class="badge bg-light text-dark fw-semibold">
+                PROYECTO · PRJ-{{ proyecto.id|stringformat:"06d" }}
+              </span>
+            </div>
+          {% endif %}
+
+          <p class="text-muted mb-0">
+            Proyecto operativo creado desde un estudio. Los datos iniciales se heredan del snapshot de conversión y se trabajan como valores reales.
+          </p>
+
+          {% if snapshot.meta.estudio_id %}
+            <div class="mt-2 small text-muted">
+              <strong>Origen:</strong> Estudio #{{ snapshot.meta.estudio_id }} · <strong>Snapshot:</strong> {{ snapshot.meta.fecha_snapshot|default:"" }}
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="action-panel mt-3 mt-md-0">
+          <div class="action-group secondary-actions">
+            <a href="{% url 'core:lista_proyectos' %}"
+               class="btn btn-inversure btn-sm px-3 py-2 fw-semibold shadow-sm d-inline-flex align-items-center gap-2"
+               aria-label="Volver a proyectos">
+              <span class="arrow">←</span>
+              <span>Volver a proyectos</span>
+            </a>
+          </div>
+        </div>
       </div>
-      <div class="small text-muted">Vista de solo lectura (base heredada)</div>
     </div>
-    {% endif %}
 
-<form method="post" {% if not editable %}class="form-readonly"{% endif %}>
+{% if proyecto and proyecto.id %}
+<form method="post" id="proyectoForm" data-proyecto-id="{% if proyecto and proyecto.id %}{{ proyecto.id }}{% else %}{% endif %}" data-guardar-url="{% url 'core:guardar_proyecto' proyecto.id %}" data-editable="{% if editable %}1{% else %}0{% endif %}" {% if not editable %}class="form-readonly"{% endif %}>
+{% else %}
+<form method="post" id="proyectoForm" data-proyecto-id="{% if proyecto and proyecto.id %}{{ proyecto.id }}{% else %}{% endif %}" data-guardar-url="" data-editable="{% if editable %}1{% else %}0{% endif %}" {% if not editable %}class="form-readonly"{% endif %}>
+{% endif %}
 {% csrf_token %}
-{% with inm=inmueble eco=economico inv=inversor met=kpis.metricas %}
+<input type="hidden" name="proyecto_id" id="proyecto_id" value="{% if proyecto and proyecto.id %}{{ proyecto.id }}{% else %}{% endif %}">
+{% with inm=inmueble eco=economico inv=inversor met=metricas %}
 
 
 
     <!-- ===============================
-         DATOS DEL INMUEBLE
+         CABECERA (PROYECTO) — compacta
     ================================ -->
-    <div class="card mb-4 shadow-sm border-0" data-fase="estudio">
+    <div class="card mb-4 shadow-sm border-0" data-fase="proyecto">
+        <div class="card-header bg-inversure-dark text-inversure fw-semibold border-0 d-flex align-items-center gap-2">
+            <span class="icon-inversure">📌</span>
+            <span>Proyecto</span>
+        </div>
         <div class="card-body">
-            <h5 class="mb-3 d-flex align-items-center gap-2 inversure-form-header">
-                <span>📍</span>
-                <span>Datos del inmueble</span>
-            </h5>
-
             <div class="row">
                 <div class="col-md-6 mb-3">
-                    <label class="form-label text-muted">
-                        Nombre del proyecto (identificador)
-                    </label>
+                    <label class="form-label text-muted">Nombre del proyecto</label>
                     <input type="text" name="nombre" class="form-control form-control-lg"
-                           value="{{ inm.nombre_proyecto|default:proyecto.nombre|default:'' }}" {% if not editable %}disabled{% endif %}>
+                           value="{{ proyecto.nombre|default:inm.nombre_proyecto|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
 
-                <div class="col-md-6 mb-3">
-                    <label class="form-label text-muted">
-                        Estado del proyecto
-                    </label>
-                    <select name="estado" class="form-select form-select-lg" {% if not editable %}disabled{% endif %}>
-                        <option value="estudio"
-                            {% if proyecto.estado == "estudio" or not proyecto.estado %}selected{% endif %}>
-                            En estudio
-                        </option>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label text-muted">Estado</label>
+                    <select name="estado" id="estado_proyecto" class="form-select form-select-lg" {% if not editable %}disabled{% endif %}>
+                        <option value="estudio" {% if proyecto.estado == "estudio" or not proyecto.estado %}selected{% endif %}>Estudio (captación)</option>
+                        <option value="comprado" {% if proyecto.estado == "comprado" %}selected{% endif %}>Comprado</option>
+                        <option value="comercializacion" {% if proyecto.estado == "comercializacion" %}selected{% endif %}>Comercialización</option>
+                        <option value="vendido" {% if proyecto.estado == "vendido" %}selected{% endif %}>Vendido</option>
+                        <option value="cerrado" {% if proyecto.estado == "cerrado" %}selected{% endif %}>Cerrado</option>
 
-                        <option value="operacion"
-                            {% if proyecto.estado == "operacion" %}selected{% endif %}>
-                            En operación
-                        </option>
-
-                        <option value="cerrado_positivo"
-                            {% if proyecto.estado == "cerrado_positivo" %}selected{% endif %}>
-                            Cerrado positivamente
-                        </option>
-
-                        <option value="descartado"
-                            {% if proyecto.estado == "descartado" %}selected{% endif %}>
-                            Descartado
-                        </option>
+                        <optgroup label="(Legacy)">
+                          <option value="reservado" {% if proyecto.estado == "reservado" %}selected{% endif %}>(Legacy) Reservado</option>
+                          <option value="operacion" {% if proyecto.estado == "operacion" %}selected{% endif %}>(Legacy) En operación</option>
+                          <option value="descartado" {% if proyecto.estado == "descartado" %}selected{% endif %}>(Legacy) Descartado</option>
+                        </optgroup>
                     </select>
+
+                    <!-- Resultado de cierre: solo aplica cuando estado = 'cerrado' -->
+                    <div id="resultadoCierreWrap" class="mt-2" style="display:none;">
+                      <label class="form-label text-muted mb-1">Resultado del cierre</label>
+                      <select name="resultado_cierre" id="resultado_cierre" class="form-select" {% if not editable %}disabled{% endif %}>
+                        <option value="" {% if not proyecto.resultado_cierre %}selected{% endif %}>— Seleccionar —</option>
+                        <option value="positivo" {% if proyecto.resultado_cierre == "positivo" %}selected{% endif %}>Cierre positivo</option>
+                        <option value="negativo" {% if proyecto.resultado_cierre == "negativo" %}selected{% endif %}>Cierre negativo</option>
+                      </select>
+                      <div class="form-text">Solo se utiliza si el estado es <strong>Cerrado</strong>.</div>
+                    </div>
                 </div>
 
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Fecha</label>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label text-muted">Fecha</label>
                     <input type="date" name="fecha" class="form-control form-control-lg"
                            value="{{ proyecto.fecha|date:'Y-m-d'|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
             </div>
 
+            <div class="row">
+                <div class="col-md-6 mb-0">
+                    <label class="form-label text-muted">Responsable</label>
+                    <input type="text" name="responsable" class="form-control form-control-lg"
+                           value="{{ proyecto.responsable|default:'' }}" placeholder="Ej.: Miguel Ángel" {% if not editable %}disabled{% endif %}>
+                    <div class="form-text">Campo preparatorio (se integrará con usuarios/permisos).</div>
+                </div>
+            </div>
+            <script>
+              (function () {
+                function toggleResultadoCierre() {
+                  var estadoEl = document.getElementById('estado_proyecto');
+                  var wrap = document.getElementById('resultadoCierreWrap');
+                  var res = document.getElementById('resultado_cierre');
+                  if (!estadoEl || !wrap) return;
 
+                  var isCerrado = (estadoEl.value === 'cerrado');
+                  wrap.style.display = isCerrado ? '' : 'none';
+
+                  // Si no está cerrado, limpiamos el resultado para evitar incoherencias.
+                  if (!isCerrado && res) {
+                    res.value = '';
+                  }
+                }
+
+                document.addEventListener('DOMContentLoaded', function () {
+                  var estadoEl = document.getElementById('estado_proyecto');
+                  if (estadoEl) {
+                    estadoEl.addEventListener('change', toggleResultadoCierre);
+                  }
+                  toggleResultadoCierre();
+                });
+              })();
+            </script>
+        </div>
+    </div>
+
+    <!-- ===============================
+         NAVEGACIÓN (TABS) — mismo patrón que el simulador
+    ================================ -->
+    <ul class="nav nav-tabs mb-4" id="simuladorTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-tecnica" data-bs-toggle="tab" data-bs-target="#vista-tecnica" type="button" role="tab" aria-controls="vista-tecnica" aria-selected="true">
+                Vista técnica
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-economicos" data-bs-toggle="tab" data-bs-target="#vista-economicos" type="button" role="tab" aria-controls="vista-economicos" aria-selected="false">
+                Datos económicos
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-inversores" data-bs-toggle="tab" data-bs-target="#vista-inversores" type="button" role="tab" aria-controls="vista-inversores" aria-selected="false">
+                Inversores
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-documentacion" data-bs-toggle="tab" data-bs-target="#vista-documentacion" type="button" role="tab" aria-controls="vista-documentacion" aria-selected="false">
+                Documentación
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-dashboard" data-bs-toggle="tab" data-bs-target="#vista-dashboard" type="button" role="tab" aria-controls="vista-dashboard" aria-selected="false">
+                Dashboard
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="vista-tecnica" role="tabpanel" aria-labelledby="tab-tecnica">
+
+    <!-- ===============================
+         INMUEBLE (dentro de Vista técnica)
+    ================================ -->
+    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
+        <div class="card-header bg-light fw-semibold border-0 d-flex align-items-center gap-2">
+            <span class="icon-inversure">🏠</span>
+            <span>Inmueble</span>
+        </div>
+        <div class="card-body">
 
             <div class="row">
                 <div class="col-md-6 mb-3 d-flex gap-2">
@@ -94,16 +251,23 @@
                                {% if not editable %}disabled{% endif %}>
                     </div>
                     <div class="align-self-end d-flex gap-2">
-                        <button type="button"
-                                id="btnCatastro"
-                                class="btn btn-sm px-2 d-flex align-items-center"
-                                style="background-color:#122135; color:white;"
-                                onclick="abrirCatastro()"
-                                title="Abrir Catastro">
-                            <img src="{% static 'core/catastro.png' %}"
-                                 alt="Catastro"
-                                 style="height:18px; width:auto; filter:brightness(0) invert(1);">
-                        </button>
+                        {% with rc_raw=inm.ref_catastral|default:proyecto.ref_catastral|default:'' %}
+                        {% with rc=rc_raw|upper|cut:' ' %}
+                        {% with rc1=rc|slice:':7' rc2=rc|slice:'7:14' rc14=rc|slice:':14' %}
+                        <a href="{% if rc14 %}https://www1.sedecatastro.gob.es/CYCBienInmueble/OVCListaBienes.aspx?pest=rc&RC1={{ rc1|urlencode }}&RC2={{ rc2|urlencode }}&RC3=&RC4=&RCCompleta={{ rc14|urlencode }}&from=OVCBusqueda{% else %}https://www.sedecatastro.gob.es/{% endif %}"
+                           id="btnCatastro"
+                           class="btn btn-sm px-2 d-flex align-items-center"
+                           style="background-color:#122135; color:white;"
+                           title="Abrir Catastro"
+                           target="_blank"
+                           rel="noopener noreferrer">
+                          <img src="{% static 'core/catastro.png' %}"
+                               alt="Catastro"
+                               style="height:18px; width:auto; filter:brightness(0) invert(1);">
+                        </a>
+                        {% endwith %}
+                        {% endwith %}
+                        {% endwith %}
 
                         <button type="button"
                                 id="btnMapa"
@@ -122,6 +286,7 @@
                            value="{{ inm.valor_referencia|default:proyecto.valor_referencia|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
             </div>
+
             <div class="row">
                 <div class="col-md-12 mb-3">
                     <label class="form-label">Dirección del inmueble</label>
@@ -156,11 +321,12 @@
                            value="{{ eco.valor_transmision|default:met.valor_transmision|default:met.precio_transmision|default:proyecto.precio_venta_estimado|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
             </div>
+
             <div class="row">
                 <div class="col-md-12">
                     <div class="ratio ratio-16x9 border rounded overflow-hidden">
                         <iframe id="mapIframe"
-                                src=""
+                                src="{% if inm.direccion or proyecto.direccion %}https://www.google.com/maps?q={{ inm.direccion|default:proyecto.direccion|urlencode }}&output=embed{% endif %}"
                                 loading="lazy"
                                 referrerpolicy="no-referrer-when-downgrade"
                                 style="border:0;">
@@ -168,8 +334,28 @@
                     </div>
                 </div>
             </div>
+
         </div>
     </div>
+
+    <script>
+      // Auto-mapa: en proyecto dejamos un src por defecto en el iframe.
+      // Si existe verMapa() (definida en proyecto.js) la ejecutamos en window.load para asegurar que el JS ya está cargado.
+      window.addEventListener('load', function () {
+        try {
+          const ref = document.getElementById('ref_catastral');
+          const dir = document.getElementById('direccion');
+          const hasData = (ref && ref.value && ref.value.trim()) || (dir && dir.value && dir.value.trim());
+          if (hasData && typeof window.verMapa === 'function') {
+            window.verMapa();
+          }
+        } catch (e) {}
+      });
+    </script>
+
+        </div>
+
+        <div class="tab-pane fade" id="vista-economicos" role="tabpanel" aria-labelledby="tab-economicos">
 
     <!-- ===============================
          DATOS PRINCIPALES
@@ -388,13 +574,13 @@
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label class="form-label">Cerrajero</label>
-                    <input type="text" name="seguridad_cerrajero" class="form-control" data-euro="true"
-                        value="{{ proyecto.cerrajero|default:'' }}">
+                    <input type="text" name="cerrajero" class="form-control" data-euro="true"
+                        value="{{ proyecto.cerrajero|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label class="form-label">Alarma</label>
-                    <input type="text" name="seguridad_alarma" class="form-control" data-euro="true"
-                        value="{{ proyecto.alarma|default:'' }}">
+                    <input type="text" name="alarma" class="form-control" data-euro="true"
+                        value="{{ proyecto.alarma|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
             </div>
         </div>
@@ -530,7 +716,7 @@
                       Media de valoraciones
                       <span class="ms-1 text-muted" title="Calculado automáticamente en base a los datos introducidos">ℹ️</span>
                     </label>
-                    <input type="text" name="media_valoraciones" class="form-control form-control-lg" readonly title="Calculado automáticamente en base a los datos introducidos"
+                    <input type="text" name="media_valoraciones" class="form-control form-control-lg" data-euro="true" readonly title="Calculado automáticamente en base a los datos introducidos"
                            value="{{ proyecto.media_valoraciones|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
             </div>
@@ -627,7 +813,7 @@
                             {% if resultado.viable %}text-success
                             {% elif resultado.ajustada %}text-warning
                             {% else %}text-danger{% endif %}">
-                            {{ resultado.roi }} %
+                            <span class="fmt-percent" data-percent="true" data-decimals="2">{{ resultado.roi }}</span>
                         </div>
                         <small class="text-muted">Objetivo ≥ 15 %</small>
                     </div>
@@ -638,7 +824,7 @@
                             {% if resultado.beneficio_neto >= 30000 %}text-success
                             {% elif resultado.beneficio_neto > 0 %}text-warning
                             {% else %}text-danger{% endif %}">
-                            <span class="js-euro" data-value="{{ resultado.beneficio_neto }}"></span>
+                            <span class="fmt-euro" data-euro="true">{{ resultado.beneficio_neto }}</span>
                         </div>
                         <small class="text-muted">Objetivo ≥ 30.000 €</small>
                     </div>
@@ -672,7 +858,7 @@
                     <div class="col-md-4 mb-3">
                         <div class="fw-semibold text-muted">Incrementar precio de venta</div>
                         <div class="fs-5 fw-bold text-warning">
-                            <span class="js-euro" data-value="{{ resultado.ajuste_precio_venta }}"></span>
+                            <span class="fmt-euro" data-euro="true">{{ resultado.ajuste_precio_venta }}</span>
                         </div>
                         <small class="text-muted">Manteniendo gastos actuales</small>
                     </div>
@@ -680,7 +866,7 @@
                     <div class="col-md-4 mb-3">
                         <div class="fw-semibold text-muted">Reducir gastos totales</div>
                         <div class="fs-5 fw-bold text-warning">
-                            <span class="js-euro" data-value="{{ resultado.ajuste_gastos }}"></span>
+                            <span class="fmt-euro" data-euro="true">{{ resultado.ajuste_gastos }}</span>
                         </div>
                         <small class="text-muted">Manteniendo precio de venta</small>
                     </div>
@@ -710,28 +896,28 @@
             <div class="col-md-3">
                 <div class="fw-semibold text-muted">Beneficio neto</div>
                 <div class="fs-4 fw-bold">
-                    <span class="js-euro" data-value="{{ resultado.beneficio_neto }}"></span>
+                    <span class="fmt-euro" data-euro="true">{{ resultado.beneficio_neto }}</span>
                 </div>
                 <small class="text-muted">Objetivo ≥ 30.000 €</small>
             </div>
 
             <div class="col-md-3">
                 <div class="fw-semibold text-muted">ROI</div>
-                <div class="fs-4 fw-bold">{{ resultado.roi }} %</div>
+                <div class="fs-4 fw-bold"><span class="fmt-percent" data-percent="true" data-decimals="2">{{ resultado.roi }}</span></div>
                 <small class="text-muted">Objetivo ≥ 15 %</small>
             </div>
 
             <div class="col-md-3">
                 <div class="fw-semibold text-muted">Capital invertido</div>
                 <div class="fs-5 fw-semibold">
-                    <span class="js-euro" data-value="{{ resultado.valor_adquisicion }}"></span>
+                    <span class="fmt-euro" data-euro="true">{{ resultado.valor_adquisicion }}</span>
                 </div>
             </div>
 
             <div class="col-md-3">
                 <div class="fw-semibold text-muted">€ ganados / € invertido</div>
                 <div class="fs-5 fw-semibold">
-                    {{ resultado.ratio_euro }} €
+                    <span class="fmt-number" data-number="true" data-decimals="2">{{ resultado.ratio_euro }}</span> €
                 </div>
             </div>
         </div>
@@ -742,27 +928,60 @@
         <div class="row">
             <div class="col-md-4">
                 <strong>Precio mínimo de venta</strong><br>
-                <span class="js-euro" data-value="{{ resultado.precio_minimo_venta }}"></span>
+                <span class="fmt-euro" data-euro="true">{{ resultado.precio_minimo_venta }}</span>
             </div>
 
             <div class="col-md-4">
                 <strong>Colchón de seguridad</strong><br>
-                {{ resultado.colchon_seguridad }} %
+                <span class="fmt-percent" data-percent="true" data-decimals="2">{{ resultado.colchon_seguridad }}</span>
             </div>
 
             <div class="col-md-4">
                 <strong>Margen neto</strong><br>
-                {{ resultado.margen_neto }} %
+                <span class="fmt-percent" data-percent="true" data-decimals="2">{{ resultado.margen_neto }}</span>
             </div>
         </div>
 
     </div>
 </div>
 {% endif %}
+
+        </div> <!-- /vista-operacion -->
+
+        <div class="tab-pane fade" id="vista-inversores" role="tabpanel" aria-labelledby="tab-inversores">
+            <div class="card mb-4 shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="mb-2 inversure-form-header">Inversores</h5>
+                    <p class="text-muted mb-0">Pendiente: alta de inversores, participaciones, aportaciones y distribución.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="vista-documentacion" role="tabpanel" aria-labelledby="tab-documentacion">
+            <div class="card mb-4 shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="mb-2 inversure-form-header">Documentación</h5>
+                    <p class="text-muted mb-0">Pendiente: subida de archivos (escritura, notas simples, presupuestos, fotos, etc.) y trazabilidad.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="vista-dashboard" role="tabpanel" aria-labelledby="tab-dashboard">
+            <div class="card mb-4 shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="mb-2 inversure-form-header">Dashboard</h5>
+                    <p class="text-muted mb-0">Pendiente: KPIs en tiempo real del proyecto (coste real vs estimado, ROI, margen, hitos y alertas).</p>
+                </div>
+            </div>
+        </div>
+
+    </div> <!-- /tab-content -->
+
 {% endwith %}
 </form>
-  </section>
+
+  </div>
 </div>
 
-<script src="{% static 'core/simulador.js' %}"></script>
+<script src="{% static 'core/proyecto.js' %}"></script>
 {% endblock %}

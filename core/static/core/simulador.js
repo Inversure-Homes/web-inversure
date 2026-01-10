@@ -2,13 +2,32 @@
 // UTILIDADES FORMATO EURO
 // ==============================
 function parseEuro(value) {
-  if (!value) return 0;
-  return parseFloat(
-    value
-      .replace(/\./g, "")
-      .replace(",", ".")
-      .replace(/[^\d.-]/g, "")
-  ) || 0;
+  if (value === null || typeof value === "undefined") return 0;
+  let s = String(value).trim();
+  if (!s) return 0;
+
+  // Remove currency symbol/spaces and keep only number chars
+  s = s.replace(/€/g, "").replace(/\s+/g, "");
+  s = s.replace(/[^0-9,\.\-]/g, "");
+
+  const hasComma = s.includes(",");
+  const dotCount = (s.match(/\./g) || []).length;
+
+  if (hasComma) {
+    // Spanish style: 147.199,66 -> 147199.66
+    s = s.replace(/\./g, "").replace(/,/g, ".");
+  } else {
+    // No comma: accept dot as decimal (e.g., 147199.66)
+    // If there are multiple dots, treat all but the last as thousand separators.
+    if (dotCount > 1) {
+      const last = s.lastIndexOf(".");
+      s = s.slice(0, last).replace(/\./g, "") + s.slice(last);
+    }
+    s = s.replace(/,/g, "");
+  }
+
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function formatEuro(value) {
@@ -19,18 +38,49 @@ function formatEuro(value) {
   }) + " €";
 }
 
+// Helpers para soportar INPUTs y también elementos tipo <span>/<div> en la vista de Proyecto
+function _isValueElement(el) {
+  if (!el || !el.tagName) return false;
+  const t = el.tagName.toUpperCase();
+  return t === "INPUT" || t === "TEXTAREA" || t === "SELECT";
+}
+
+function _getElText(el) {
+  if (!el) return "";
+  return _isValueElement(el) ? (el.value || "") : (el.textContent || "");
+}
+
+function _setElText(el, v) {
+  if (!el) return;
+  if (_isValueElement(el)) el.value = v;
+  else el.textContent = v;
+}
+
 // ==============================
 // UTILIDADES FORMATO NÚMERO (m², etc.)
 // ==============================
 function parseNumberEs(value) {
   if (value === null || typeof value === "undefined") return null;
-  const s = String(value).trim();
+  let s = String(value).trim();
   if (!s) return null;
 
-  const n = parseFloat(
-    s.replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "")
-  );
+  s = s.replace(/\s+/g, "");
+  s = s.replace(/[^0-9,\.\-]/g, "");
 
+  const hasComma = s.includes(",");
+  const dotCount = (s.match(/\./g) || []).length;
+
+  if (hasComma) {
+    s = s.replace(/\./g, "").replace(/,/g, ".");
+  } else {
+    if (dotCount > 1) {
+      const last = s.lastIndexOf(".");
+      s = s.slice(0, last).replace(/\./g, "") + s.slice(last);
+    }
+    s = s.replace(/,/g, "");
+  }
+
+  const n = parseFloat(s);
   return Number.isFinite(n) ? n : null;
 }
 
@@ -43,7 +93,7 @@ function formatNumberEs(value, decimals = 0) {
 }
 
 function aplicarFormatoNumeroInput(input, decimals = 0) {
-  if (!input) return;
+  if (!input || !_isValueElement(input)) return;
 
   input.addEventListener("blur", () => {
     const value = parseNumberEs(input.value);
@@ -61,6 +111,9 @@ function aplicarFormatoNumeroInput(input, decimals = 0) {
 }
 
 let estudioIdActual = null;
+
+// Este archivo SOLO gestiona Estudios. Los Proyectos usan `proyecto.js`.
+const STORAGE_NS = "estudio_inversure";
 // ==============================
 // ESTADO PERSISTENTE DEL ESTUDIO
 // ==============================
@@ -198,22 +251,51 @@ const fechaDecisionComite = document.getElementById("fecha_decision_comite");
 // MOTOR DE CÁLCULO CENTRAL
 // ==============================
 function recalcularTodo() {
-  // Guard clause: si precio_escritura es null, undefined o 0, salir
-  if (
-    estadoEstudio.precio_escritura === null ||
-    typeof estadoEstudio.precio_escritura === "undefined" ||
-    estadoEstudio.precio_escritura === 0
-  ) {
-    // Limpiar los campos dependientes
-    itpInput.value = "";
-    notariaInput.value = "";
-    registroInput.value = "";
-    valorAdquisicionInput.value = "";
-    mediaValoracionesInput.value = "";
-    valorTransmisionInput.value = "";
-    // Limpiar KPIs visuales
+  // Guard clause: si precio_escritura es null/undefined/0, NO debemos borrar datos guardados.
+  // Solo limpiamos si realmente no hay datos introducidos.
+  const _precio = estadoEstudio.precio_escritura;
+  const _precioInputVal = precioEscritura ? parseEuro(_getElText(precioEscritura)) : 0;
+
+  // Detectar si existen datos ya rellenados (en estado o en inputs) para evitar “autoborrado”.
+  const _hayValoraciones = !!(estadoEstudio.valoraciones && Object.values(estadoEstudio.valoraciones).some(v => (v || 0) > 0));
+  const _hayAlgoEnInputs = (() => {
+    try {
+      const extras = gastosExtrasInput ? parseEuro(_getElText(gastosExtrasInput)) : 0;
+      const ref = valorReferenciaInput ? parseEuro(_getElText(valorReferenciaInput)) : 0;
+      let algunaVal = false;
+      valoracionesInputs.forEach(inp => {
+        if (parseEuro(_getElText(inp)) > 0) algunaVal = true;
+      });
+      const sup = superficieM2Input ? (parseNumberEs(_getElText(superficieM2Input)) || 0) : 0;
+      const tip = tipologiaInput ? (tipologiaInput.value || "").trim() : "";
+      const est = estadoInmuebleInput ? (estadoInmuebleInput.value || "").trim() : "";
+      const sit = situacionInput ? (situacionInput.value || "").trim() : "";
+      return (extras > 0) || (ref > 0) || algunaVal || (sup > 0) || !!tip || !!est || !!sit;
+    } catch (e) {
+      return false;
+    }
+  })();
+
+  const _hayDatos = (_precioInputVal > 0) || _hayValoraciones || _hayAlgoEnInputs;
+
+  if (_precio === null || typeof _precio === "undefined" || _precio === 0) {
+    // Si hay datos (por ejemplo al abrir un estudio guardado), NO limpiar ni persistir.
+    // Solo repintar KPIs (saldrán como —) y salir.
+    if (_hayDatos) {
+      actualizarVistaComite();
+      return;
+    }
+
+    // Si no hay datos reales, entonces sí limpiamos dependientes.
+    if (itpInput) _setElText(itpInput, "");
+    if (notariaInput) _setElText(notariaInput, "");
+    if (registroInput) _setElText(registroInput, "");
+    if (valorAdquisicionInput) _setElText(valorAdquisicionInput, "");
+    if (mediaValoracionesInput) _setElText(mediaValoracionesInput, "");
+    if (valorTransmisionInput) _setElText(valorTransmisionInput, "");
+
     actualizarVistaComite();
-    guardarEstado();
+    // Importante: NO guardarEstado() aquí para no machacar datos por accidente.
     return;
   }
   // Leer siempre desde estadoEstudio
@@ -222,15 +304,15 @@ function recalcularTodo() {
   // ITP 2%
   const itp = precio * 0.02;
   estadoEstudio.itp = itp;
-  itpInput.value = formatEuro(itp);
+  _setElText(itpInput, formatEuro(itp));
 
   // Notaría y Registro (0,2% mínimo 500 €)
   const notaria = Math.max(precio * 0.002, 500);
   const registro = Math.max(precio * 0.002, 500);
   estadoEstudio.notaria = notaria;
   estadoEstudio.registro = registro;
-  notariaInput.value = formatEuro(notaria);
-  registroInput.value = formatEuro(registro);
+  _setElText(notariaInput, formatEuro(notaria));
+  _setElText(registroInput, formatEuro(registro));
 
   // Media de valoraciones
   let suma = 0;
@@ -246,14 +328,14 @@ function recalcularTodo() {
   if (contador === 0) {
     estadoEstudio.media_valoraciones = null;
     estadoEstudio.valor_transmision = null;
-    mediaValoracionesInput.value = "";
-    valorTransmisionInput.value = "";
+    _setElText(mediaValoracionesInput, "");
+    _setElText(valorTransmisionInput, "");
   } else {
     const media = suma / contador;
     estadoEstudio.media_valoraciones = media;
     estadoEstudio.valor_transmision = media;
-    mediaValoracionesInput.value = media ? formatEuro(media) : "";
-    valorTransmisionInput.value = media ? formatEuro(media) : "";
+    _setElText(mediaValoracionesInput, media ? formatEuro(media) : "");
+    _setElText(valorTransmisionInput, media ? formatEuro(media) : "");
   }
 
   // Gastos extras
@@ -262,29 +344,29 @@ function recalcularTodo() {
   // Valor de adquisición
   const valorAdquisicion = precio + itp + notaria + registro + gastosExtras;
   estadoEstudio.valor_adquisicion = valorAdquisicion;
-  valorAdquisicionInput.value = precio ? formatEuro(valorAdquisicion) : "";
+  _setElText(valorAdquisicionInput, precio ? formatEuro(valorAdquisicion) : "");
 
   // Pintar los valores de los inputs desde estadoEstudio (si no están enfocados)
   if (document.activeElement !== precioEscritura) {
-    precioEscritura.value = estadoEstudio.precio_escritura ? formatEuro(estadoEstudio.precio_escritura) : "";
+    _setElText(precioEscritura, estadoEstudio.precio_escritura ? formatEuro(estadoEstudio.precio_escritura) : "");
   }
   if (document.activeElement !== notariaInput) {
-    notariaInput.value = estadoEstudio.notaria ? formatEuro(estadoEstudio.notaria) : "";
+    _setElText(notariaInput, estadoEstudio.notaria ? formatEuro(estadoEstudio.notaria) : "");
   }
   if (document.activeElement !== registroInput) {
-    registroInput.value = estadoEstudio.registro ? formatEuro(estadoEstudio.registro) : "";
+    _setElText(registroInput, estadoEstudio.registro ? formatEuro(estadoEstudio.registro) : "");
   }
   if (valorReferenciaInput && document.activeElement !== valorReferenciaInput) {
-    valorReferenciaInput.value = estadoEstudio.valor_referencia
+    _setElText(valorReferenciaInput, estadoEstudio.valor_referencia
       ? formatEuro(estadoEstudio.valor_referencia)
-      : "";
+      : "");
   }
   valoracionesInputs.forEach(input => {
     const id = input.getAttribute("data-id");
     if (document.activeElement !== input) {
-      input.value = estadoEstudio.valoraciones[id]
+      _setElText(input, estadoEstudio.valoraciones[id]
         ? formatEuro(estadoEstudio.valoraciones[id])
-        : "";
+        : "");
     }
   });
 
@@ -423,14 +505,15 @@ function actualizarVistaComite() {
     ? formatEuro(estadoEstudio.comite.beneficio_bruto)
     : "—";
 
-  if (kpiRoi) kpiRoi.textContent = estadoEstudio.comite.roi
-    ? estadoEstudio.comite.roi.toFixed(2) + " %"
-    : "—";
+  if (kpiRoi) {
+    const v = estadoEstudio.comite.roi;
+    kpiRoi.textContent = Number.isFinite(v) ? (formatNumberEs(v, 2) + " %") : "—";
+  }
 
-  if (kpiMargen)
-    kpiMargen.textContent = estadoEstudio.comite.margen_pct
-      ? estadoEstudio.comite.margen_pct.toFixed(2) + " %"
-      : "—";
+  if (kpiMargen) {
+    const v = estadoEstudio.comite.margen_pct;
+    kpiMargen.textContent = Number.isFinite(v) ? (formatNumberEs(v, 2) + " %") : "—";
+  }
 
   if (kpiSemaforo) {
     let txt = "—";
@@ -459,9 +542,8 @@ function actualizarVistaComite() {
 
   // Ampliación: actualizar nuevos KPIs si existen
   if (kpiColchonMercado) {
-    kpiColchonMercado.textContent = estadoEstudio.comite.colchon_mercado
-      ? estadoEstudio.comite.colchon_mercado.toFixed(2) + " %"
-      : "—";
+    const v = estadoEstudio.comite.colchon_mercado;
+    kpiColchonMercado.textContent = Number.isFinite(v) ? (formatNumberEs(v, 2) + " %") : "—";
   }
   if (kpiDecisionTexto) {
     kpiDecisionTexto.textContent = estadoEstudio.comite.decision_texto || "—";
@@ -495,9 +577,8 @@ function actualizarVistaComite() {
     }
   }
   if (kpiRatioEB) {
-    kpiRatioEB.textContent = estadoEstudio.comite.ratio_euro_beneficio
-      ? estadoEstudio.comite.ratio_euro_beneficio.toFixed(2)
-      : "—";
+    const v = estadoEstudio.comite.ratio_euro_beneficio;
+    kpiRatioEB.textContent = Number.isFinite(v) && v !== 0 ? formatNumberEs(v, 2) : "—";
   }
 
   if (kpiColchonSeg) {
@@ -519,6 +600,8 @@ function actualizarVistaComite() {
 // FORMATO EN TIEMPO REAL
 // ==============================
 function aplicarFormatoInput(input) {
+  if (!input || !_isValueElement(input)) return;
+
   input.addEventListener("blur", () => {
     const value = parseEuro(input.value);
     if (value) input.value = formatEuro(value);
@@ -653,12 +736,12 @@ if (decisionComite) {
 
 function guardarEstado() {
   try {
-    // Guardado general (último estudio abierto)
-    sessionStorage.setItem("estudio_inversure_actual", JSON.stringify(estadoEstudio));
+    // Guardado general (último abierto)
+    sessionStorage.setItem(`${STORAGE_NS}_actual`, JSON.stringify(estadoEstudio));
 
-    // Guardado por estudio (para que no se pierdan datos al salir/volver)
+    // Guardado por ID del estudio
     if (estudioIdActual) {
-      sessionStorage.setItem(`estudio_inversure_${estudioIdActual}`, JSON.stringify(estadoEstudio));
+      sessionStorage.setItem(`${STORAGE_NS}_${estudioIdActual}`, JSON.stringify(estadoEstudio));
     }
   } catch (e) {
     // Ignore
@@ -737,17 +820,16 @@ function cargarEstado() {
     // 1) Intentar cargar estado por ID (si existe)
     let data = null;
     if (estudioIdActual) {
-      data = sessionStorage.getItem(`estudio_inversure_${estudioIdActual}`);
+      data = sessionStorage.getItem(`${STORAGE_NS}_${estudioIdActual}`);
     }
 
-    // 2) Fallback SOLO si el "último estado" pertenece al mismo estudio
-    // (y SOLO si tenemos un estudioIdActual válido; evita contaminar "Nuevo estudio")
-    if (!data && estudioIdActual) {
-      const last = sessionStorage.getItem("estudio_inversure_actual");
+    // 2) Fallback SOLO si el "último estado" pertenece al mismo estudioIdActual
+    if (!data) {
+      const last = sessionStorage.getItem(`${STORAGE_NS}_actual`);
       if (last) {
         try {
           const lastParsed = JSON.parse(last);
-          if (lastParsed && String(lastParsed.id || "") === String(estudioIdActual)) {
+          if (estudioIdActual && lastParsed && String(lastParsed.id || "") === String(estudioIdActual)) {
             data = last;
           }
         } catch (e) {}
@@ -886,27 +968,170 @@ function inicializarEstadoDesdeInputsSiVacio() {
 
 function formateoInicialInputs() {
   // Asegura que al entrar/volver se vean con formato euro
-  [precioEscritura, itpInput, notariaInput, registroInput, gastosExtrasInput, valorReferenciaInput, valorAdquisicionInput, valorTransmisionInput, mediaValoracionesInput].forEach(input => {
-    if (!input) return;
-    const v = parseEuro(input.value);
-    if (v) input.value = formatEuro(v);
+  [precioEscritura, itpInput, notariaInput, registroInput, gastosExtrasInput, valorReferenciaInput, valorAdquisicionInput, valorTransmisionInput, mediaValoracionesInput].forEach(el => {
+    if (!el) return;
+    const v = parseEuro(_getElText(el));
+    if (v) _setElText(el, formatEuro(v));
   });
 
-  valoracionesInputs.forEach(input => {
-    const v = parseEuro(input.value);
-    if (v) input.value = formatEuro(v);
+  valoracionesInputs.forEach(el => {
+    const v = parseEuro(_getElText(el));
+    if (v) _setElText(el, formatEuro(v));
   });
 
   if (superficieM2Input) {
-    const v = parseNumberEs(superficieM2Input.value);
-    if (v !== null) superficieM2Input.value = formatNumberEs(v, 0);
+    const v = parseNumberEs(_getElText(superficieM2Input));
+    if (v !== null) _setElText(superficieM2Input, formatNumberEs(v, 0));
   }
+}
+
+// ==============================
+// FORMATO GLOBAL (todas las pestañas)
+// ==============================
+function _shouldFormatRaw(raw) {
+  if (raw === null || typeof raw === "undefined") return false;
+  const s = String(raw).trim();
+  return s !== "";
+}
+
+function aplicarFormatoGlobal(root = document) {
+  try {
+    // 1) EUROS (inputs y spans/divs)
+    root.querySelectorAll('[data-euro="true"], .fmt-euro').forEach(el => {
+      // No tocar el elemento activo (evitar saltos de cursor)
+      if (_isValueElement(el) && document.activeElement === el) return;
+
+      const raw = _getElText(el);
+      if (!_shouldFormatRaw(raw)) return;
+
+      const n = parseEuro(raw);
+      // Formatear incluso 0 si el usuario escribió algo (p.ej. "0")
+      if (Number.isFinite(n)) {
+        _setElText(el, formatEuro(n));
+      }
+    });
+
+    // 2) NÚMEROS (sin €) — usar data-decimals si existe
+    root.querySelectorAll('[data-number="true"], .fmt-number').forEach(el => {
+      if (_isValueElement(el) && document.activeElement === el) return;
+
+      const raw = _getElText(el);
+      if (!_shouldFormatRaw(raw)) return;
+
+      const decimals = (() => {
+        const d = el && el.dataset ? el.dataset.decimals : null;
+        const n = parseInt(d || "0", 10);
+        return Number.isFinite(n) ? n : 0;
+      })();
+
+      const n = parseNumberEs(raw);
+      if (n !== null) {
+        _setElText(el, formatNumberEs(n, decimals));
+      }
+    });
+
+    // 3) PORCENTAJES — data-decimals y añade " %"
+    root.querySelectorAll('[data-percent="true"], .fmt-percent').forEach(el => {
+      if (_isValueElement(el) && document.activeElement === el) return;
+
+      let raw = _getElText(el);
+      if (!_shouldFormatRaw(raw)) return;
+
+      raw = String(raw).replace(/%/g, "");
+
+      const decimals = (() => {
+        const d = el && el.dataset ? el.dataset.decimals : null;
+        const n = parseInt(d || "2", 10);
+        return Number.isFinite(n) ? n : 2;
+      })();
+
+      const n = parseNumberEs(raw);
+      if (n !== null) {
+        _setElText(el, formatNumberEs(n, decimals) + " %");
+      }
+    });
+  } catch (e) {
+    // Ignore
+  }
+}
+
+function enlazarAutoFormatoInputs(root = document) {
+  try {
+    // Euros
+    root.querySelectorAll('input[data-euro="true"], textarea[data-euro="true"], input.fmt-euro, textarea.fmt-euro').forEach(el => {
+      if (el.dataset && el.dataset.fmtBound === "1") return;
+      if (el.dataset) el.dataset.fmtBound = "1";
+      aplicarFormatoInput(el);
+    });
+
+    // Números
+    root.querySelectorAll('input[data-number="true"], textarea[data-number="true"], input.fmt-number, textarea.fmt-number').forEach(el => {
+      if (el.dataset && el.dataset.fmtBound === "1") return;
+      if (el.dataset) el.dataset.fmtBound = "1";
+      const decimals = (() => {
+        const d = el && el.dataset ? el.dataset.decimals : null;
+        const n = parseInt(d || "0", 10);
+        return Number.isFinite(n) ? n : 0;
+      })();
+      aplicarFormatoNumeroInput(el, decimals);
+    });
+
+    // Porcentajes (inputs)
+    root.querySelectorAll('input[data-percent="true"], textarea[data-percent="true"], input.fmt-percent, textarea.fmt-percent').forEach(el => {
+      if (el.dataset && el.dataset.fmtBound === "1") return;
+      if (el.dataset) el.dataset.fmtBound = "1";
+
+      const decimals = (() => {
+        const d = el && el.dataset ? el.dataset.decimals : null;
+        const n = parseInt(d || "2", 10);
+        return Number.isFinite(n) ? n : 2;
+      })();
+
+      el.addEventListener("blur", () => {
+        const raw = String(el.value || "").replace(/%/g, "");
+        const n = parseNumberEs(raw);
+        if (n === null) {
+          el.value = "";
+          return;
+        }
+        el.value = formatNumberEs(n, decimals) + " %";
+      });
+
+      el.addEventListener("focus", () => {
+        const raw = String(el.value || "").replace(/%/g, "");
+        const n = parseNumberEs(raw);
+        el.value = n === null ? "" : String(n);
+      });
+    });
+  } catch (e) {
+    // Ignore
+  }
+}
+
+function _engancharFormatoEnPestanas() {
+  // Bootstrap (si existe)
+  try {
+    document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tab => {
+      tab.addEventListener('shown.bs.tab', () => {
+        enlazarAutoFormatoInputs(document);
+        aplicarFormatoGlobal(document);
+      });
+      // Fallback por click
+      tab.addEventListener('click', () => {
+        setTimeout(() => {
+          enlazarAutoFormatoInputs(document);
+          aplicarFormatoGlobal(document);
+        }, 0);
+      });
+    });
+  } catch (e) {}
 }
 
 // ==============================
 // INICIALIZACIÓN
 // ==============================
 document.addEventListener("DOMContentLoaded", () => {
+  window.__INV_DEBUG = { STORAGE_NS, estudioIdActual };
   // ==============================
   // BLOQUEO TOTAL DE SUBMIT DEL FORM
   // ==============================
@@ -931,6 +1156,12 @@ document.addEventListener("DOMContentLoaded", () => {
   inicializarEstadoDesdeInputsSiVacio();
   recalcularTodo();
   formateoInicialInputs();
+
+  // Formato global (Proyecto + Estudio) en todas las pestañas
+  enlazarAutoFormatoInputs(document);
+  aplicarFormatoGlobal(document);
+  _engancharFormatoEnPestanas();
+
 
   /* ==============================
      REPINTAR VALORACIÓN COMITÉ
@@ -993,7 +1224,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 2. Implementación de comportamientos
 
-  // Guardar estudio
+  // Guardar estudio (solo en modo estudio)
   if (btnGuardarEstudio) {
     btnGuardarEstudio.addEventListener("click", async function (e) {
       e.preventDefault();
@@ -1087,303 +1318,91 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Borrar estudio
-  if (btnBorrarEstudio) {
-    btnBorrarEstudio.addEventListener("click", function () {
-      // Eliminar del sessionStorage
-      try {
-        // Quitar el estudio actual del listado
-        let estudios = [];
-        const raw = sessionStorage.getItem("estudios_inversure");
-        if (raw) {
-          estudios = JSON.parse(raw);
-          if (!Array.isArray(estudios)) estudios = [];
-        }
-        if (estudioIdActual) {
-          estudios = estudios.filter(e => e.id !== estudioIdActual);
-        }
-        sessionStorage.setItem("estudios_inversure", JSON.stringify(estudios));
-      } catch (e) {
-        // Ignore
-      }
-      // Borrar el estado actual
-      sessionStorage.removeItem("estudio_inversure_actual");
-      // Resetear estadoEstudio y estudioIdActual
-      Object.keys(estadoEstudio).forEach(k => {
-        if (typeof estadoEstudio[k] === "object" && estadoEstudio[k] !== null) {
-          if (Array.isArray(estadoEstudio[k])) {
-            estadoEstudio[k] = [];
-          } else {
-            estadoEstudio[k] = {};
-          }
-        } else {
-          estadoEstudio[k] = null;
-        }
-      });
-      // Resetear comite a estructura inicial
-      estadoEstudio.comite = {
-        beneficio_bruto: 0,
-        roi: 0,
-        margen_pct: 0,
-        semáforo: 0,
-        ratio_euro_beneficio: 0,
-        colchon_seguridad: 0,
-        breakeven: 0,
-        colchon_mercado: 0,
-        decision_texto: "",
-        conclusion: "",
-        nivel_riesgo: ""
-      };
-      estudioIdActual = null;
-      guardarEstado();
-      recalcularTodo();
-    });
-  }
-
-
-  // Generar PDF (solo botón del header)
-  if (btnGenerarPdf) {
-    btnGenerarPdf.addEventListener("click", function (e) {
-      e.preventDefault();
-      if (!estudioIdActual) {
-        alert("Primero guarda el estudio para poder generar el PDF.");
-        return;
-      }
-      window.location.assign(`/estudios/pdf/${estudioIdActual}/`);
-    });
-  }
-
-  // Convertir a proyecto (FASE 2)
+  // Convertir estudio a proyecto (FASE 2)
   if (btnConvertirProyecto) {
-    btnConvertirProyecto.addEventListener("click", async function (e) {
-      e.preventDefault();
+    // Si el script se carga dos veces (por incluirlo en base + plantilla), evitamos doble binding.
+    if (btnConvertirProyecto.dataset.boundConvertir === "1") {
+      // ya enlazado
+    } else {
+      btnConvertirProyecto.dataset.boundConvertir = "1";
 
-      if (!estudioIdActual) {
-        alert("Primero guarda el estudio antes de convertirlo a proyecto.");
-        return;
-      }
-
-      // Confirmación ligera (evita clicks accidentales)
-      const ok = confirm("¿Convertir este estudio en proyecto? El estudio quedará bloqueado.");
-      if (!ok) return;
-
+      // Si el HTML trae onclick="return confirm(...)" u otro handler inline, lo anulamos
       try {
-        const resp = await fetch(`/convertir-a-proyecto/${estudioIdActual}/`, {
-          method: "POST",
-          headers: {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "X-Requested-With": "XMLHttpRequest",
-            "X-CSRFToken": csrftoken,
-          },
-          body: JSON.stringify({}),
-        });
+        btnConvertirProyecto.removeAttribute("onclick");
+        btnConvertirProyecto.onclick = null;
+      } catch (e) {}
 
-        const data = await resp.json().catch(() => null);
+      btnConvertirProyecto.addEventListener("click", async function (e) {
+        e.preventDefault();
 
-        if (!resp.ok || !data || data.ok !== true) {
-          const msg = (data && (data.error || data.detail)) ? (data.error || data.detail) : "No se pudo convertir el estudio a proyecto.";
-          alert(msg);
+        if (!estudioIdActual) {
+          alert("No se pudo identificar el estudio actual.");
           return;
         }
 
-        // Limpieza defensiva de sesión local del estudio (evita reabrirlo como activo)
+        // Evitar doble click (y doble confirm/fetch)
+        if (btnConvertirProyecto.dataset.inflight === "1") return;
+
+        const ok = confirm("¿Convertir este estudio en proyecto? El estudio quedará bloqueado.");
+        if (!ok) return;
+
+        btnConvertirProyecto.dataset.inflight = "1";
+        const prevText = btnConvertirProyecto.textContent;
+        btnConvertirProyecto.disabled = true;
+        btnConvertirProyecto.textContent = "Convirtiendo…";
+
         try {
-          sessionStorage.removeItem("estudio_inversure_actual");
-          sessionStorage.removeItem(`estudio_inversure_${estudioIdActual}`);
-        } catch (e) {}
+          const resp = await fetch(`/convertir-a-proyecto/${estudioIdActual}/`, {
+            method: "POST",
+            headers: {
+              "X-CSRFToken": csrftoken
+            }
+          });
 
-        const redirectUrl = data.redirect || "/proyectos/";
-        window.location.assign(redirectUrl);
-      } catch (err) {
-        alert("Error de comunicación con el servidor al convertir a proyecto.");
-      }
-    });
-  }
-});
+          if (!resp.ok) {
+            // Intentar extraer mensaje de error si el backend lo devuelve
+            let msg = "No se pudo convertir este estudio en proyecto.";
+            try {
+              const dataErr = await resp.json();
+              if (dataErr && (dataErr.error || dataErr.detail)) msg = dataErr.error || dataErr.detail;
+            } catch (e2) {
+              // ignore
+            }
+            alert(msg);
+            return;
+          }
 
-/* ==============================
-   VISUALES VISTA COMITÉ (NO TOCAR CÁLCULOS)
-   ============================== */
+          let data = {};
+          try {
+            data = await resp.json();
+          } catch (e3) {
+            data = {};
+          }
 
-function resetSemaforoDots() {
-  const bajo = document.getElementById("riesgo_bajo");
-  const medio = document.getElementById("riesgo_medio");
-  const alto = document.getElementById("riesgo_alto");
+          const proyectoId = data.proyecto_id || data.id || (data.proyecto && data.proyecto.id);
+          // Si el backend manda redirect, lo respetamos
+          const redirectUrl = data.redirect;
 
-  [bajo, medio, alto].forEach(el => {
-    if (!el) return;
-    el.classList.remove(
-      "activo",
-      "semaforo-verde",
-      "semaforo-amarillo",
-      "semaforo-rojo"
-    );
-    // Reset inline styles (solo opacidad, no backgroundColor)
-    el.style.opacity = "0.3";
-    // el.style.backgroundColor = ""; // Eliminado para no sobreescribir estilos CSS
-  });
-}
+          if (redirectUrl) {
+            window.location.assign(redirectUrl);
+            return;
+          }
 
-function renderSemaforoVisual() {
-  // Comprobación defensiva de existencia de elementos
-  const bajo = document.getElementById("riesgo_bajo");
-  const medio = document.getElementById("riesgo_medio");
-  const alto = document.getElementById("riesgo_alto");
-  if (!bajo || !medio || !alto) {
-    console.warn("Semáforo no renderizado: faltan elementos riesgo_bajo/medio/alto en el DOM");
-    return;
-  }
+          if (proyectoId) {
+            window.location.assign(`/proyectos/${proyectoId}/`);
+            return;
+          }
 
-  resetSemaforoDots();
-
-  const nivel = estadoEstudio.comite.nivel_riesgo;
-
-  if (nivel === "Bajo") {
-    const el = bajo;
-    if (el) {
-      el.classList.add("activo", "semaforo-verde");
-      el.style.opacity = "1";
-      el.style.backgroundColor = "#2ecc71";
+          // Fallback defensivo
+          window.location.assign("/proyectos/");
+        } catch (e) {
+          alert("Error de comunicación con el servidor");
+        } finally {
+          // Si redirigimos, esto no se verá, pero si hay error sí reponemos estado
+          btnConvertirProyecto.dataset.inflight = "0";
+          btnConvertirProyecto.disabled = false;
+          btnConvertirProyecto.textContent = prevText;
+        }
+      });
     }
   }
-
-  if (nivel === "Medio") {
-    const el = medio;
-    if (el) {
-      el.classList.add("activo", "semaforo-amarillo");
-      el.style.opacity = "1";
-      el.style.backgroundColor = "#f1c40f";
-    }
-  }
-
-  if (nivel === "Alto") {
-    const el = alto;
-    if (el) {
-      el.classList.add("activo", "semaforo-rojo");
-      el.style.opacity = "1";
-      el.style.backgroundColor = "#e74c3c";
-    }
-  }
-}
-
-function renderRoiBarra() {
-  const barra = document.getElementById("roi_barra");
-  if (!barra) return;
-
-  const roi = estadoEstudio.comite.roi || 0;
-  const valor = Math.max(0, Math.min(roi, 50));
-
-  barra.style.width = (valor * 2) + "%";
-  barra.textContent = roi.toFixed(2) + " %";
-
-  barra.classList.remove("bg-success", "bg-warning", "bg-danger");
-  if (roi >= 20) barra.classList.add("bg-success");
-  else if (roi >= 10) barra.classList.add("bg-warning");
-  else barra.classList.add("bg-danger");
-}
-
-// ==============================
-// BLOQUE DE SEGURIDAD · VISTA INVERSOR
-// ==============================
-// La vista inversor es PASIVA.
-// No contiene cálculos ni listeners.
-// Cualquier lógica futura deberá:
-// 1. Leer valores ya calculados
-// 2. No modificar estadoEstudio
-// 3. No interferir con recalcularTodo()
-
-function actualizarVistaInversorPlaceholder() {
-  // Intencionadamente vacío.
-  // Se implementará en la v2 de vista inversor.
-}
-// ==============================
-// VISTA INVERSOR v2 · SOLO LECTURA
-// ==============================
-// Regla absoluta:
-// - NO modifica estadoEstudio
-// - NO recalcula nada
-// - SOLO lee valores ya calculados
-// - SOLO pinta en el DOM
-
-(function () {
-  function invParseEuro(value) {
-    if (value === null || value === undefined) return 0;
-    const s = String(value)
-      .replace(/\s/g, "")
-      .replace(/€/g, "")
-      .replace(/\./g, "")
-      .replace(/,/g, ".");
-    const n = parseFloat(s);
-    return Number.isFinite(n) ? n : 0;
-  }
-
-  function invFormatEuro(value) {
-    if (!Number.isFinite(value)) value = 0;
-    return value.toLocaleString("es-ES", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }) + " €";
-  }
-
-  function invFormatPct(value) {
-    if (!Number.isFinite(value)) value = 0;
-    return value.toFixed(2) + " %";
-  }
-
-  function invReadInput(id) {
-    const el = document.getElementById(id);
-    if (!el) return 0;
-    return invParseEuro(el.value || el.textContent || "");
-  }
-
-  function actualizarVistaInversorV2() {
-    const select = document.getElementById("inv_porcentaje_comision");
-    if (!select) return;
-
-    const porcentaje = parseFloat(select.value) || 0;
-
-    const valorAdquisicion = invReadInput("valor_adquisicion");
-    const valorTransmision = invReadInput("valor_transmision");
-
-    const beneficioBruto = valorTransmision - valorAdquisicion;
-    const comision = beneficioBruto > 0 ? beneficioBruto * (porcentaje / 100) : 0;
-    const beneficioNeto = beneficioBruto - comision;
-    const roiNeto =
-      valorAdquisicion > 0 ? (beneficioNeto / valorAdquisicion) * 100 : 0;
-
-    const elInv = document.getElementById("inversor_inversion");
-    if (elInv) elInv.textContent = invFormatEuro(valorAdquisicion);
-
-    const elCom = document.getElementById("inversor_comision_eur");
-    if (elCom) elCom.textContent = invFormatEuro(comision);
-
-    const elBen = document.getElementById("inversor_beneficio_neto");
-    if (elBen) elBen.textContent = invFormatEuro(beneficioNeto);
-
-    const elRoi = document.getElementById("inversor_roi_neto");
-    if (elRoi) elRoi.textContent = invFormatPct(roiNeto);
-  }
-
-  document.addEventListener("change", function (e) {
-    if (e.target && e.target.id === "inv_porcentaje_comision") {
-      actualizarVistaInversorV2();
-    }
-  });
-
-  document.addEventListener("DOMContentLoaded", function () {
-    actualizarVistaInversorV2();
-  });
-
-  if (typeof window.recalcularTodo === "function" && !window.__wrapInversorV2) {
-    const original = window.recalcularTodo;
-    window.recalcularTodo = function () {
-      const r = original.apply(this, arguments);
-      try {
-        actualizarVistaInversorV2();
-      } catch (e) {}
-      return r;
-    };
-    window.__wrapInversorV2 = true;
-  }
-})();

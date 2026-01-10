@@ -15,7 +15,11 @@ class Estudio(models.Model):
     valor_referencia = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True, default=None
     )
-    datos = models.JSONField()
+    datos = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Payload JSON del estudio (estado del simulador). Se inicializa vacío para evitar errores en creación."
+    )
     guardado = models.BooleanField(
         default=False,
         help_text="Marca si el estudio está finalizado/guardado (True) o es borrador (False)"
@@ -143,6 +147,12 @@ class Proyecto(models.Model):
         null=True,
         blank=True,
         help_text="Copia inmutable de los datos del snapshot en el momento de conversión"
+    )
+    extra = models.JSONField(
+        null=True,
+        blank=True,
+        default=dict,
+        help_text="Datos extensibles del proyecto (checklists, notas, hitos, comité final, etc.)"
     )
 
     convertido_desde_estudio = models.BooleanField(
@@ -481,6 +491,80 @@ class Proyecto(models.Model):
     def __str__(self):
         return f"{self.nombre} ({self.fecha})"
 
+
+#
+# =========================
+# MODELO SNAPSHOT DE PROYECTO (TRAZABILIDAD / VERSIONADO)
+# =========================
+class ProyectoSnapshot(models.Model):
+    FUENTE_CHOICES = (
+        ("conversion", "Conversión desde estudio"),
+        ("guardado", "Guardado de proyecto"),
+        ("cierre", "Cierre / venta"),
+    )
+
+    proyecto = models.ForeignKey(
+        Proyecto,
+        on_delete=models.CASCADE,
+        related_name="snapshots",
+        help_text="Proyecto al que pertenece este snapshot"
+    )
+
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    fuente = models.CharField(
+        max_length=20,
+        choices=FUENTE_CHOICES,
+        default="guardado",
+        help_text="Motivo/origen del snapshot"
+    )
+
+    version_num = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Número de versión incremental por proyecto (v1, v2, ...)"
+    )
+
+    codigo_version = models.CharField(
+        max_length=40,
+        blank=True,
+        help_text="Código legible (ej: PRJ-2026-000001-v3)"
+    )
+
+    nota = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Nota corta de la versión (opcional)"
+    )
+
+    datos = models.JSONField(
+        help_text="Datos completos congelados del proyecto en este momento (overlay: base_snapshot + reales + kpis)"
+    )
+
+    class Meta:
+        ordering = ["-creado_en", "-id"]
+
+    def __str__(self):
+        cod = self.codigo_version or f"Proyecto {self.proyecto_id}"
+        return f"{cod} · {self.creado_en.strftime('%d/%m/%Y %H:%M')}"
+
+    def save(self, *args, **kwargs):
+        # Autonumeración por proyecto
+        if self.version_num is None:
+            ultimo = (
+                ProyectoSnapshot.objects.filter(proyecto=self.proyecto)
+                .aggregate(models.Max("version_num"))
+                .get("version_num__max")
+            )
+            self.version_num = 1 if ultimo is None else int(ultimo) + 1
+
+        # Código legible
+        if not self.codigo_version:
+            year = now().year
+            pid = self.proyecto_id or 0
+            self.codigo_version = f"PRJ-{year}-{pid:06d}-v{self.version_num}"
+
+        super().save(*args, **kwargs)
 
 # =========================
 # MODELO PRESUPUESTO DE PROYECTO (ESCENARIO EDITABLE)

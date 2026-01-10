@@ -3,9 +3,12 @@ from __future__ import annotations
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.urls import reverse
 from django.db import transaction
 from django.utils import timezone
+
+from copy import deepcopy
 
 import json
 from decimal import Decimal
@@ -13,7 +16,7 @@ from datetime import date, datetime
 
 
 from .models import Estudio, Proyecto
-from .models import EstudioSnapshot
+from .models import EstudioSnapshot, ProyectoSnapshot
 
 # --- SafeAccessDict helper and _safe_template_obj ---
 class SafeAccessDict(dict):
@@ -55,6 +58,20 @@ def _sanitize_for_json(value):
     if isinstance(value, (list, tuple)):
         return [_sanitize_for_json(v) for v in value]
     return value
+
+
+def _deep_merge_dict(base: dict, overlay: dict) -> dict:
+    """Merge recursivo: overlay pisa base; diccionarios se fusionan."""
+    if not isinstance(base, dict):
+        base = {}
+    if not isinstance(overlay, dict):
+        return base
+    for k, v in overlay.items():
+        if isinstance(v, dict) and isinstance(base.get(k), dict):
+            base[k] = _deep_merge_dict(base.get(k, {}), v)
+        else:
+            base[k] = v
+    return base
 
 
 def _safe_float(v, default: float = 0.0) -> float:
@@ -402,6 +419,8 @@ def simulador(request):
             "ref_catastral": "",
             "valor_referencia": "",
             "datos": {},
+            "guardado": False,
+            "bloqueado": False,
         }
     else:
         estudio = {
@@ -411,6 +430,8 @@ def simulador(request):
             "ref_catastral": estudio_obj.ref_catastral,
             "valor_referencia": estudio_obj.valor_referencia,
             "datos": estudio_obj.datos or {},
+            "guardado": bool(getattr(estudio_obj, "guardado", False)),
+            "bloqueado": bool(getattr(estudio_obj, "bloqueado", False)),
         }
 
     # --- Estado inicial para hidratar el simulador al abrir un estudio guardado ---
@@ -434,7 +455,20 @@ def simulador(request):
 
 
 def lista_estudio(request):
-    estudios_qs = Estudio.objects.filter(guardado=True).order_by("-datos__roi", "-id")
+    # Por defecto, ocultamos estudios ya convertidos a proyecto (bloqueados), para no saturar el listado.
+    # Si se desea ver también los convertidos, usar ?mostrar_convertidos=1
+    estudios_qs = Estudio.objects.filter(guardado=True)
+
+    mostrar_convertidos = (request.GET.get("mostrar_convertidos") == "1")
+    try:
+        Estudio._meta.get_field("bloqueado")
+        if not mostrar_convertidos:
+            estudios_qs = estudios_qs.filter(bloqueado=False)
+    except Exception:
+        # Si el modelo no tiene el campo (o hay inconsistencias), mantenemos el listado clásico
+        pass
+
+    estudios_qs = estudios_qs.order_by("-datos__roi", "-id")
     estudios = []
 
     for e in estudios_qs:
@@ -534,32 +568,147 @@ def lista_proyectos(request):
     )
 
 
+@ensure_csrf_cookie
 def proyecto(request, proyecto_id: int):
     """Vista única del Proyecto (pestañas), heredando el snapshot del estudio convertido."""
     proyecto_obj = get_object_or_404(Proyecto, id=proyecto_id)
 
-    # Snapshot heredado: snapshot_datos > origen_snapshot.datos > origen_estudio.datos
+    # --- Compatibilidad de plantilla: algunos campos pueden no existir en el modelo Proyecto ---
+    # Django templates fallan con VariableDoesNotExist si se accede a un atributo inexistente.
+    # Definimos atributos "dummy" para que la plantilla no rompa (los valores reales vendrán del snapshot).
+    _tpl_expected_fields = [
+        "venta_estimada",
+        "precio_propiedad",
+        "precio_compra_inmueble",
+        "precio_venta_estimado",
+        "notaria",
+        "registro",
+        "itp",
+        "direccion",
+        "ref_catastral",
+        "valor_referencia",
+    ]
+    for _f in _tpl_expected_fields:
+        if not hasattr(proyecto_obj, _f):
+            setattr(proyecto_obj, _f, "")
+
+    # Snapshot efectivo del proyecto (prioridad):
+    # 1) Último ProyectoSnapshot (guardados/versionado)
+    # 2) snapshot_datos (copia inmutable heredada)
+    # 3) origen_snapshot.datos
+    # 4) origen_estudio.datos
     snapshot: dict = {}
     try:
-        sd = getattr(proyecto_obj, "snapshot_datos", None)
-        if isinstance(sd, dict) and sd:
-            snapshot = sd
-        else:
+        last_ps = ProyectoSnapshot.objects.filter(proyecto=proyecto_obj).order_by("-version_num", "-id").first()
+        if last_ps is not None:
+            ps_d = getattr(last_ps, "datos", None)
+            if isinstance(ps_d, dict) and ps_d:
+                snapshot = ps_d
+
+        if not snapshot:
+            sd = getattr(proyecto_obj, "snapshot_datos", None)
+            if isinstance(sd, dict) and sd:
+                snapshot = sd
+
+        if not snapshot:
             osnap = getattr(proyecto_obj, "origen_snapshot", None)
             if osnap is not None:
                 od = getattr(osnap, "datos", None)
                 if isinstance(od, dict) and od:
                     snapshot = od
-            if not snapshot:
-                oest = getattr(proyecto_obj, "origen_estudio", None)
-                if oest is not None:
-                    ed = getattr(oest, "datos", None)
-                    if isinstance(ed, dict) and ed:
-                        snapshot = ed
+
+        if not snapshot:
+            oest = getattr(proyecto_obj, "origen_estudio", None)
+            if oest is not None:
+                ed = getattr(oest, "datos", None)
+                if isinstance(ed, dict) and ed:
+                    snapshot = ed
     except Exception:
         snapshot = {}
 
+    # --- Normalización defensiva del snapshot y KPIs ---
+    if not isinstance(snapshot, dict):
+        snapshot = {}
+
+    # --- Overlay persistente (ediciones del proyecto) ---
+    # Si el usuario guardó cambios operativos del proyecto, los almacenamos en `Proyecto.extra`
+    # y deben re-hidratar la vista al recargar la página.
+    overlay = {}
+    try:
+        # 1) Preferimos `Proyecto.extra` si existe
+        extra = getattr(proyecto_obj, "extra", None)
+        if isinstance(extra, dict):
+            ultimo = extra.get("ultimo_guardado")
+            if isinstance(ultimo, dict) and isinstance(ultimo.get("payload"), dict):
+                overlay = ultimo.get("payload") or {}
+
+        # 2) Fallback: si no hay `extra`, buscamos overlay persistido dentro de `snapshot_datos`
+        if not overlay:
+            sd = getattr(proyecto_obj, "snapshot_datos", None)
+            if isinstance(sd, dict) and isinstance(sd.get("_overlay"), dict):
+                overlay = sd.get("_overlay") or {}
+    except Exception:
+        overlay = {}
+
+    if overlay:
+        merged_snapshot = deepcopy(snapshot) if isinstance(snapshot, dict) else {}
+        merged_snapshot = _deep_merge_dict(merged_snapshot, overlay)
+        snapshot = merged_snapshot
+    # --- Forzar nombre persistido del PROYECTO en el snapshot renderizado ---
+    # Evita que al recargar se muestre el nombre heredado del estudio.
+    try:
+        nombre_p = (getattr(proyecto_obj, "nombre", "") or "").strip()
+    except Exception:
+        nombre_p = ""
+
+    if nombre_p:
+        if not isinstance(snapshot, dict):
+            snapshot = {}
+
+        if not isinstance(snapshot.get("proyecto"), dict):
+            snapshot["proyecto"] = {}
+        snapshot["proyecto"]["nombre"] = nombre_p
+        snapshot["proyecto"]["nombre_proyecto"] = nombre_p
+
+        if not isinstance(snapshot.get("inmueble"), dict):
+            snapshot["inmueble"] = {}
+        snapshot["inmueble"]["nombre_proyecto"] = nombre_p
+    kpis_raw = snapshot.get("kpis")
+    if not isinstance(kpis_raw, dict):
+        kpis_raw = {}
+        snapshot["kpis"] = kpis_raw
+
+    if not isinstance(kpis_raw.get("metricas"), dict):
+        kpis_raw["metricas"] = {}
+
+    # Exponer `metricas` como atajo seguro para la plantilla proyecto.html
+    metricas_raw = kpis_raw.get("metricas") if isinstance(kpis_raw.get("metricas"), dict) else {}
+
+    # --- Estado inicial para hidratar el simulador en modo proyecto ---
+    estado_inicial = {}
+    try:
+        if isinstance(snapshot, dict) and snapshot:
+            # Si el snapshot ya incluye un bloque snapshot (overlay completo), lo preferimos
+            estado_inicial = snapshot.get("snapshot") if isinstance(snapshot.get("snapshot"), dict) else snapshot
+    except Exception:
+        estado_inicial = {}
+
+    # --- Editabilidad del proyecto ---
+    # En proyecto (fase operativa) el formulario debe ser editable por defecto.
+    # Solo lo bloqueamos si existe un campo de estado/cierre que indique finalización.
+    editable = True
+    try:
+        estado = (getattr(proyecto_obj, "estado", "") or "").strip().lower()
+        # Estados típicos de cierre (ajústalos si tu modelo usa otros nombres)
+        if estado in {"cerrado", "cerrado_positivo", "cerrado_negativo", "finalizado", "descartado"}:
+            editable = False
+    except Exception:
+        editable = True
+
     ctx = {
+        "PROYECTO_ID": str(proyecto_obj.id),
+        "ESTADO_INICIAL_JSON": json.dumps(estado_inicial, ensure_ascii=False),
+        "editable": editable,
         "proyecto": proyecto_obj,
         "snapshot": _safe_template_obj(snapshot),
         # Atajos por si `proyecto.html` los usa como en el PDF/estudio
@@ -568,6 +717,7 @@ def proyecto(request, proyecto_id: int):
         "inversor": _safe_template_obj(snapshot.get("inversor", {})) if isinstance(snapshot.get("inversor"), dict) else SafeAccessDict(),
         "comite": _safe_template_obj(snapshot.get("comite", {})) if isinstance(snapshot.get("comite"), dict) else SafeAccessDict(),
         "kpis": _safe_template_obj(snapshot.get("kpis", {})) if isinstance(snapshot.get("kpis"), dict) else SafeAccessDict(),
+        "metricas": _safe_template_obj(metricas_raw) if isinstance(metricas_raw, dict) else SafeAccessDict(),
     }
 
     return render(request, "core/proyecto.html", ctx)
@@ -582,6 +732,18 @@ def guardar_estudio(request):
         data = json.loads(request.body)
 
         estudio_id = data.get("id")
+
+        # Si el estudio está bloqueado (ya convertido a proyecto), no permitimos cambios.
+        if estudio_id:
+            try:
+                _e0 = Estudio.objects.only("id", "bloqueado").get(id=estudio_id)
+                if getattr(_e0, "bloqueado", False):
+                    return JsonResponse(
+                        {"ok": False, "error": "Este estudio está bloqueado porque ya se convirtió en proyecto."},
+                        status=409,
+                    )
+            except Estudio.DoesNotExist:
+                pass
 
         # Aceptar tanto las keys antiguas como las del formulario actual (simulador.html)
         nombre = (
@@ -764,6 +926,197 @@ def guardar_estudio(request):
         return JsonResponse({"ok": False, "error": str(e)}, status=500)
 
 
+# --- NUEVO: Guardar cambios en Proyecto y snapshot versionado ---
+@csrf_exempt
+def guardar_proyecto(request, proyecto_id: int):
+    """Guarda cambios del proyecto (fase operativa) y crea snapshot versionado.
+
+    No modifica el snapshot base heredado (Proyecto.snapshot_datos). En su lugar:
+    - Guarda el último estado recibido en Proyecto.extra
+    - Crea un ProyectoSnapshot con los datos completos (base_snapshot + overlay)
+    """
+
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+
+    try:
+        raw_payload = json.loads(request.body or "{}")
+        if not isinstance(raw_payload, dict):
+            raw_payload = {}
+
+        # Aceptamos ambos formatos:
+        # 1) {"payload": { ... }}  (nuevo, usado por proyecto.js)
+        # 2) { ... }               (legacy)
+        incoming = raw_payload.get("payload") if isinstance(raw_payload.get("payload"), dict) else raw_payload
+
+        # Normalizar: si viene `datos` lo usamos como overlay; si no, el payload completo
+        overlay = incoming.get("datos") if isinstance(incoming.get("datos"), dict) else incoming
+        if not isinstance(overlay, dict):
+            overlay = {}
+
+        overlay = _sanitize_for_json(overlay)
+
+        # ------------------------------------------------------------
+        # Persistencia en BDD (campos principales del Proyecto)
+        # - nombre (cabecera / listado)
+        # - direccion, ref_catastral, valor_referencia (si existen en el modelo)
+        # ------------------------------------------------------------
+        def _has_field(model, fname: str) -> bool:
+            try:
+                model._meta.get_field(fname)
+                return True
+            except Exception:
+                return False
+
+        def _get_str(*candidates) -> str:
+            for v in candidates:
+                if v is None:
+                    continue
+                if isinstance(v, str):
+                    s = v.strip()
+                    if s:
+                        return s
+                else:
+                    s = str(v).strip()
+                    if s:
+                        return s
+            return ""
+
+        proyecto_sec = overlay.get("proyecto") if isinstance(overlay.get("proyecto"), dict) else {}
+        inmueble_sec = overlay.get("inmueble") if isinstance(overlay.get("inmueble"), dict) else {}
+
+        nuevo_nombre = _get_str(
+            proyecto_sec.get("nombre"),
+            proyecto_sec.get("nombre_proyecto"),
+            overlay.get("nombre"),
+            overlay.get("nombre_proyecto"),
+            inmueble_sec.get("nombre_proyecto"),
+        )
+        nueva_direccion = _get_str(
+            inmueble_sec.get("direccion"),
+            overlay.get("direccion"),
+            overlay.get("direccion_completa"),
+        )
+        nueva_ref = _get_str(
+            inmueble_sec.get("ref_catastral"),
+            overlay.get("ref_catastral"),
+            overlay.get("referencia_catastral"),
+        )
+
+        # valor_referencia puede venir en varias ubicaciones
+        vr_raw = None
+        if isinstance(inmueble_sec, dict):
+            vr_raw = inmueble_sec.get("valor_referencia")
+        if vr_raw in (None, ""):
+            vr_raw = overlay.get("valor_referencia")
+        nuevo_vr = _safe_float(vr_raw, None) if vr_raw not in (None, "") else None
+        # ------------------------------------------------------------
+        # Asegurar coherencia de NOMBRE en el overlay para que la UI no
+        # "vuelva" al nombre heredado del estudio al recargar.
+        # Muchas plantillas leen `snapshot.inmueble.nombre_proyecto` y/o
+        # `snapshot.proyecto.nombre_proyecto`, no solo `proyecto.nombre`.
+        # ------------------------------------------------------------
+        if nuevo_nombre:
+            # claves planas (fallbacks)
+            overlay["nombre"] = nuevo_nombre
+            overlay["nombre_proyecto"] = nuevo_nombre
+
+            # sección proyecto
+            if not isinstance(overlay.get("proyecto"), dict):
+                overlay["proyecto"] = {}
+            overlay["proyecto"]["nombre"] = nuevo_nombre
+            overlay["proyecto"]["nombre_proyecto"] = nuevo_nombre
+
+            # sección inmueble
+            if not isinstance(overlay.get("inmueble"), dict):
+                overlay["inmueble"] = {}
+            overlay["inmueble"]["nombre_proyecto"] = nuevo_nombre
+        update_fields: list[str] = []
+        if nuevo_nombre and _has_field(Proyecto, "nombre") and getattr(proyecto, "nombre", "") != nuevo_nombre:
+            proyecto.nombre = nuevo_nombre
+            update_fields.append("nombre")
+        if nueva_direccion and _has_field(Proyecto, "direccion") and getattr(proyecto, "direccion", "") != nueva_direccion:
+            proyecto.direccion = nueva_direccion
+            update_fields.append("direccion")
+        if nueva_ref and _has_field(Proyecto, "ref_catastral") and getattr(proyecto, "ref_catastral", "") != nueva_ref:
+            proyecto.ref_catastral = nueva_ref
+            update_fields.append("ref_catastral")
+        if _has_field(Proyecto, "valor_referencia"):
+            cur_vr = getattr(proyecto, "valor_referencia", None)
+            # Solo actualizamos si llega un valor explícito (evitamos pisar con None)
+            if nuevo_vr is not None and cur_vr != nuevo_vr:
+                proyecto.valor_referencia = nuevo_vr
+                update_fields.append("valor_referencia")
+
+        # Base snapshot (inmutable) + overlay (reales / ajustes / kpis)
+        base_snapshot = getattr(proyecto, "snapshot_datos", None)
+        if not isinstance(base_snapshot, dict):
+            base_snapshot = {}
+
+        merged = deepcopy(base_snapshot)
+        merged = _deep_merge_dict(merged, overlay)
+
+        # Guardar último estado recibido de forma robusta:
+        # - Preferimos `Proyecto.extra` si existe
+        # - Si el modelo no tiene `extra`, persistimos el overlay dentro de `snapshot_datos["_overlay"]`
+        saved_overlay = False
+        try:
+            Proyecto._meta.get_field("extra")
+        except Exception:
+            saved_overlay = False
+        else:
+            extra = getattr(proyecto, "extra", None)
+            if not isinstance(extra, dict):
+                extra = {}
+            extra["ultimo_guardado"] = {
+                "fecha": timezone.now().isoformat(),
+                "payload": overlay,
+            }
+            proyecto.extra = extra
+            update_fields.append("extra")
+            saved_overlay = True
+
+        if not saved_overlay:
+            sd = getattr(proyecto, "snapshot_datos", None)
+            if not isinstance(sd, dict):
+                sd = {}
+            sd["_overlay"] = overlay
+            proyecto.snapshot_datos = sd
+            update_fields.append("snapshot_datos")
+
+        # Guardar en una sola operación (incluye overlay y campos principales)
+        if update_fields:
+            proyecto.save(update_fields=sorted(set(update_fields)))
+
+        # Snapshot versionado
+        try:
+            snap = ProyectoSnapshot.objects.create(
+                proyecto=proyecto,
+                fuente="guardado",
+                datos=merged,
+            )
+            snap_id = snap.id
+            version_num = snap.version_num
+            codigo_version = snap.codigo_version
+        except Exception:
+            snap_id = None
+            version_num = None
+            codigo_version = ""
+
+        return JsonResponse({
+            "ok": True,
+            "proyecto_id": proyecto.id,
+            "snapshot_id": snap_id,
+            "version": version_num,
+            "codigo_version": codigo_version,
+        })
+
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=500)
+
+
 def convertir_a_proyecto(request, estudio_id: int):
     """FASE 2: Convierte un estudio guardado en un proyecto.
 
@@ -778,10 +1131,18 @@ def convertir_a_proyecto(request, estudio_id: int):
 
     estudio = get_object_or_404(Estudio, id=estudio_id)
 
+    # Para este endpoint, si viene por POST desde fetch, respondemos SIEMPRE JSON
+    wants_json = (
+        request.method == "POST"
+        or "application/json" in (request.headers.get("Accept", "") or "").lower()
+        or request.headers.get("X-Requested-With") == "XMLHttpRequest"
+        or request.content_type == "application/json"
+    )
+
     # No permitir convertir borradores
     if not getattr(estudio, "guardado", False):
         msg = "El estudio debe estar guardado antes de convertirlo a proyecto."
-        if request.headers.get("Accept", "").lower().find("application/json") >= 0 or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        if wants_json:
             return JsonResponse({"ok": False, "error": msg}, status=400)
         return redirect("core:simulador")
 
@@ -789,7 +1150,7 @@ def convertir_a_proyecto(request, estudio_id: int):
     if getattr(estudio, "bloqueado", False):
         existente = Proyecto.objects.filter(origen_estudio=estudio).order_by("-id").first()
         url_destino = reverse("core:lista_proyectos")
-        if request.headers.get("Accept", "").lower().find("application/json") >= 0 or request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        if wants_json:
             return JsonResponse({"ok": True, "already": True, "proyecto_id": getattr(existente, "id", None), "redirect": url_destino})
         return redirect(url_destino)
 
@@ -833,6 +1194,18 @@ def convertir_a_proyecto(request, estudio_id: int):
 
         proyecto = Proyecto.objects.create(**proyecto_kwargs)
 
+        # 2.1) Snapshot del PROYECTO (v1) para trazabilidad
+        try:
+            ProyectoSnapshot.objects.create(
+                proyecto=proyecto,
+                fuente="conversion",
+                nota="Snapshot inicial desde estudio",
+                datos=snapshot_data,
+            )
+        except Exception:
+            # No debe romper la conversión si falla el snapshot
+            pass
+
         # 3) Bloquear el estudio
         estudio.bloqueado = True
         estudio.bloqueado_en = timezone.now()
@@ -847,9 +1220,11 @@ def convertir_a_proyecto(request, estudio_id: int):
 
     url_destino = reverse("core:lista_proyectos")
 
-    # Respuesta JSON para llamadas desde JS
-    if request.headers.get("Accept", "").lower().find("application/json") >= 0 or request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.content_type == "application/json":
+    # Respuesta JSON para llamadas desde JS (POST/fetch) o redirección si se accede por navegador
+    if wants_json:
         return JsonResponse({"ok": True, "proyecto_id": proyecto.id, "redirect": url_destino})
+
+    return redirect(url_destino)
 
 
 
