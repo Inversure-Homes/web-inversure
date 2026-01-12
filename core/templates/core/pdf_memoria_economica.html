@@ -1,0 +1,251 @@
+{% load static humanize %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Memoria económica · {{ proyecto.nombre|default:"Proyecto" }}</title>
+  <style>
+    :root{
+      --inversure-blue:#122135;
+      --text:#0f172a;
+      --muted:#64748b;
+      --border:#e2e8f0;
+      --soft:#f8fafc;
+      --good:#16a34a;
+      --warn:#f59e0b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Inter", system-ui, -apple-system, Segoe UI, sans-serif;
+      margin: 0;
+      color: var(--text);
+      background: #fff;
+    }
+    .page { padding: 22px; }
+    .header {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:16px;
+      background: var(--inversure-blue);
+      color:#fff;
+      border-radius:12px;
+      padding:16px 18px;
+    }
+    .brand {
+      display:flex; align-items:center; gap:12px;
+    }
+    .brand img { height: 40px; width: auto; display:block; }
+    h1 { font-size:18px; margin:0; }
+    .meta { font-size:12px; opacity:.9; text-align:right; }
+
+    .grid { display:grid; gap:12px; }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+    .grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .card {
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:#fff;
+    }
+    .card__head {
+      padding:10px 12px;
+      background: var(--inversure-blue);
+      color:#fff;
+      font-weight:700;
+      border-radius:12px 12px 0 0;
+      font-size:13px;
+    }
+    .card__body { padding:12px; }
+    .kpi { border:1px solid var(--border); border-radius:10px; padding:10px; background: var(--soft); }
+    .kpi .label { font-size:11px; color: var(--muted); }
+    .kpi .value { font-size:16px; font-weight:800; margin-top:6px; }
+
+    table { width:100%; border-collapse:collapse; font-size:12px; }
+    th, td { border-bottom:1px solid var(--border); padding:6px 8px; text-align:left; }
+    th { color: var(--muted); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.04em; background: var(--soft); }
+    .right { text-align:right; }
+    .muted { color: var(--muted); }
+    .nowrap { white-space: nowrap; }
+
+    .pill {
+      display:inline-block; padding:3px 8px; border-radius:999px;
+      border:1px solid var(--border); background: var(--soft); font-size:11px;
+    }
+    .pill--good { background: rgba(22,163,74,.15); border-color: rgba(22,163,74,.3); }
+    .pill--warn { background: rgba(245,158,11,.18); border-color: rgba(245,158,11,.3); }
+
+    .section-title { font-size:13px; font-weight:800; margin: 8px 0; }
+    .kpi .sub { font-size:11px; color: var(--muted); margin-top:4px; }
+    .table-total { font-weight:700; background: var(--soft); }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div class="brand">
+        <a href="{% url 'core:proyecto' proyecto.id %}" style="display:inline-flex;">
+          <img src="{% static 'core/logo_inversure_blanco.png' %}" alt="Inversure">
+        </a>
+        <div>
+          <h1>Memoria económica</h1>
+          <div class="muted">{{ proyecto.nombre|default:"Proyecto" }}</div>
+        </div>
+      </div>
+      <div class="meta">
+        <div><strong>ID:</strong> {{ proyecto.id }}</div>
+        <div><strong>Fecha:</strong> {{ fecha_informe|date:"d/m/Y" }}</div>
+        <div><strong>Estado:</strong> {{ proyecto.estado|default:"—"|capfirst }}</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <div class="card__head">Resumen ejecutivo</div>
+      <div class="card__body">
+        <div class="grid grid-4">
+          <div class="kpi">
+            <div class="label">Ingresos</div>
+            <div class="value">{{ resumen.ingresos_reales|floatformat:2|intcomma }} €</div>
+            <div class="sub">Estimado: {{ resumen.ingresos_estimados|floatformat:2|intcomma }} €</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Gastos</div>
+            <div class="value">{{ resumen.gastos_reales|floatformat:2|intcomma }} €</div>
+            <div class="sub">Estimado: {{ resumen.gastos_estimados|floatformat:2|intcomma }} €</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Beneficio neto</div>
+            <div class="value">{{ resumen.beneficio_real|floatformat:2|intcomma }} €</div>
+            <div class="sub">Estimado: {{ resumen.beneficio_estimado|floatformat:2|intcomma }} €</div>
+          </div>
+          <div class="kpi">
+            <div class="label">ROI</div>
+            <div class="value">
+              {% if resumen.roi_real is not None %}
+                {{ resumen.roi_real|floatformat:2 }} %
+              {% else %}
+                —
+              {% endif %}
+            </div>
+            <div class="sub">
+              Estimado:
+              {% if resumen.roi_estimado is not None %}
+                {{ resumen.roi_estimado|floatformat:2 }} %
+              {% else %}
+                —
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <div class="card__head">Totales por categoría</div>
+      <div class="card__body">
+        <table>
+          <thead>
+            <tr>
+              <th>Categoría</th>
+              <th class="right">Estimado</th>
+              <th class="right">Real</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cat in resumen.categorias %}
+            <tr>
+              <td>{{ cat.nombre }}</td>
+              <td class="right">{{ cat.estimado|floatformat:2|intcomma }} €</td>
+              <td class="right">{{ cat.real|floatformat:2|intcomma }} €</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <div class="card__head">Asientos (gastos e ingresos)</div>
+      <div class="card__body">
+        <div class="section-title">Gastos</div>
+        <table>
+          <thead>
+            <tr>
+              <th class="nowrap">Fecha</th>
+              <th class="nowrap">Categoría</th>
+              <th>Concepto</th>
+              <th class="right nowrap">Importe</th>
+              <th class="nowrap">Estado</th>
+              <th>Observaciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for g in gastos %}
+            <tr>
+              <td class="nowrap">{{ g.fecha|date:"d/m/Y" }}</td>
+              <td class="nowrap">{{ g.get_categoria_display }}</td>
+              <td>{{ g.concepto }}</td>
+              <td class="right nowrap">{{ g.importe|floatformat:2|intcomma }} €</td>
+              <td class="nowrap">
+                <span class="pill {% if g.estado == 'confirmado' %}pill--good{% else %}pill--warn{% endif %}">
+                  {{ g.get_estado_display }}
+                </span>
+              </td>
+              <td>{{ g.observaciones|default:"—" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="muted">Sin gastos registrados.</td></tr>
+            {% endfor %}
+            <tr class="table-total">
+              <td colspan="3">Total gastos (estimado / real)</td>
+              <td class="right nowrap" colspan="3">
+                {{ resumen.gastos_estimados|floatformat:2|intcomma }} € /
+                {{ resumen.gastos_reales|floatformat:2|intcomma }} €
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="section-title" style="margin-top:10px;">Ingresos</div>
+        <table>
+          <thead>
+            <tr>
+              <th class="nowrap">Fecha</th>
+              <th class="nowrap">Tipo</th>
+              <th>Concepto</th>
+              <th class="right nowrap">Importe</th>
+              <th class="nowrap">Estado</th>
+              <th>Observaciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for i in ingresos %}
+            <tr>
+              <td class="nowrap">{{ i.fecha|date:"d/m/Y" }}</td>
+              <td class="nowrap">{{ i.get_tipo_display }}</td>
+              <td>{{ i.concepto }}</td>
+              <td class="right nowrap">{{ i.importe|floatformat:2|intcomma }} €</td>
+              <td class="nowrap">
+                <span class="pill {% if i.estado == 'confirmado' %}pill--good{% else %}pill--warn{% endif %}">
+                  {{ i.get_estado_display }}
+                </span>
+              </td>
+              <td>{{ i.observaciones|default:"—" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="muted">Sin ingresos registrados.</td></tr>
+            {% endfor %}
+            <tr class="table-total">
+              <td colspan="3">Total ingresos</td>
+              <td class="right nowrap" colspan="3">{{ resumen.ingresos_estimados|floatformat:2|intcomma }} € / {{ resumen.ingresos_reales|floatformat:2|intcomma }} €</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="muted" style="margin-top:10px; font-size:11px;">
+      Inversure · Documento informativo para inversores · Generado desde Inversure Web
+    </div>
+  </div>
+</body>
+</html>

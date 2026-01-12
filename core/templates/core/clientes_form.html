@@ -17,8 +17,8 @@
         <div class="mb-4">
             <label class="form-label fw-semibold">Tipo de cliente</label>
             <select name="tipo_persona" class="form-select form-select-lg" required>
-                <option value="F">Persona física</option>
-                <option value="J">Persona jurídica</option>
+                <option value="F" {% if cliente and cliente.tipo_persona == "F" %}selected{% endif %}>Persona física</option>
+                <option value="J" {% if cliente and cliente.tipo_persona == "J" %}selected{% endif %}>Persona jurídica</option>
             </select>
         </div>
 
@@ -28,14 +28,14 @@
                 <label class="form-label fw-semibold">
                     Nombre / Razón social
                 </label>
-                <input type="text" name="nombre" class="form-control form-control-lg" required>
+                <input type="text" name="nombre" class="form-control form-control-lg" value="{{ cliente.nombre|default:'' }}" required>
             </div>
 
             <div class="col-md-4 mb-3">
                 <label class="form-label fw-semibold">
                     DNI / CIF
                 </label>
-                <input type="text" name="dni_cif" class="form-control form-control-lg" required>
+                <input type="text" name="dni_cif" class="form-control form-control-lg" value="{{ cliente.dni_cif|default:'' }}" required>
             </div>
         </div>
 
@@ -43,48 +43,48 @@
         <div class="row">
             <div class="col-md-6 mb-3">
                 <label class="form-label fw-semibold">Email</label>
-                <input type="email" name="email" class="form-control form-control-lg">
+                <input type="email" name="email" class="form-control form-control-lg" value="{{ cliente.email|default:'' }}">
             </div>
 
             <div class="col-md-6 mb-3">
                 <label class="form-label fw-semibold">Teléfono</label>
-                <input type="text" name="telefono" class="form-control form-control-lg">
+                <input type="text" name="telefono" class="form-control form-control-lg" value="{{ cliente.telefono|default:'' }}">
             </div>
         </div>
 
         <!-- DATOS BANCARIOS -->
         <div class="mb-3">
             <label class="form-label fw-semibold">IBAN</label>
-            <input type="text" name="iban" class="form-control form-control-lg">
+            <input type="text" name="iban" class="form-control form-control-lg" value="{{ cliente.iban|default:'' }}">
         </div>
 
         <!-- NUEVOS CAMPOS -->
         <div class="mb-3">
             <label class="form-label fw-semibold">Fecha de introducción</label>
-            <input type="date" name="fecha_alta" class="form-control form-control-lg">
+            <input type="date" name="fecha_alta" class="form-control form-control-lg" value="{{ cliente.fecha_introduccion|date:'Y-m-d' }}">
         </div>
         <div class="mb-3">
             <label class="form-label fw-semibold">Dirección postal</label>
-            <input type="text" name="direccion" class="form-control form-control-lg">
+            <input type="text" name="direccion" class="form-control form-control-lg" value="{{ cliente.direccion_postal|default:'' }}">
         </div>
         <div class="form-check mb-3">
-            <input type="checkbox" name="cuota_pagada" class="form-check-input" id="cuota_pagada">
+            <input type="checkbox" name="cuota_pagada" class="form-check-input" id="cuota_pagada" {% if cliente and cliente.cuota_abonada %}checked{% endif %}>
             <label class="form-check-label" for="cuota_pagada">¿Ha abonado cuota?</label>
         </div>
         <div class="form-check mb-4">
-            <input type="checkbox" name="en_comunidad" class="form-check-input" id="en_comunidad">
+            <input type="checkbox" name="en_comunidad" class="form-check-input" id="en_comunidad" {% if cliente and cliente.presente_en_comunidad %}checked{% endif %}>
             <label class="form-check-label" for="en_comunidad">¿Presente en comunidad?</label>
         </div>
 
         <!-- OBSERVACIONES -->
         <div class="mb-4">
             <label class="form-label fw-semibold">Observaciones</label>
-            <textarea name="observaciones" rows="3" class="form-control"></textarea>
+            <textarea name="observaciones" rows="3" class="form-control">{{ cliente.observaciones|default:'' }}</textarea>
         </div>
 
         <!-- ACCIONES -->
         <div class="d-flex justify-content-between mt-4">
-            <a href="{% url 'clientes' %}" class="btn btn-outline-secondary">
+            <a href="{% url 'core:clientes' %}" class="btn btn-outline-secondary">
                 Volver
             </a>
             <button type="submit" class="btn btn-dark">

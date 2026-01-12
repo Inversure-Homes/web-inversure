@@ -1976,6 +1976,80 @@ function updateChecklistDashboard(rows) {
 }
 
 // -----------------------------
+// Participaciones (Inversores)
+// -----------------------------
+function bindParticipaciones() {
+  const tabla = document.getElementById("inv_tabla_rows");
+  const btnAdd = document.getElementById("inv_add_btn");
+  const elCliente = document.getElementById("inv_cliente");
+  const elImporte = document.getElementById("inv_importe");
+  const url = window.PROYECTO_PARTICIPACIONES_URL || "";
+  if (!tabla || !btnAdd || !url) return;
+
+  async function loadRows() {
+    try {
+      const resp = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+      const data = await resp.json();
+      if (!data || !data.ok) return;
+      const rows = data.participaciones || [];
+      if (!rows.length) {
+        tabla.innerHTML = "<tr><td colspan=\"5\" class=\"text-muted\">No hay participaciones todavía.</td></tr>";
+        return;
+      }
+      tabla.innerHTML = rows.map(r => {
+        const pct = r.porcentaje_participacion !== null ? (formatNumberEs(r.porcentaje_participacion, 2) + " %") : "—";
+        const fecha = r.fecha ? r.fecha.slice(0, 10).split("-").reverse().join("/") : "";
+        return `
+          <tr data-id="${r.id}">
+            <td>${r.cliente_nombre}</td>
+            <td class="text-end">${formatEuro(r.importe_invertido)}</td>
+            <td class="text-end">${pct}</td>
+            <td>${fecha}</td>
+            <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger inv-del">Borrar</button></td>
+          </tr>
+        `;
+      }).join("");
+    } catch (e) {}
+  }
+
+  btnAdd.addEventListener("click", async () => {
+    const clienteId = elCliente ? elCliente.value : "";
+    const importe = parseEuro(_getElText(elImporte));
+    if (!clienteId || importe === null) {
+      alert("Selecciona cliente e importe.");
+      return;
+    }
+    const resp = await postJson(url, { cliente_id: clienteId, importe_invertido: importe }, { keepalive: false });
+    if (!resp.ok) {
+      alert("No se pudo añadir la participación.");
+      return;
+    }
+    if (elImporte) elImporte.value = "";
+    await loadRows();
+  });
+
+  tabla.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".inv-del");
+    if (!btn) return;
+    const tr = btn.closest("tr");
+    const id = tr.getAttribute("data-id");
+    if (!id) return;
+    if (!confirm("¿Borrar participación?")) return;
+    const resp = await fetch(`${url}${id}/`, {
+      method: "DELETE",
+      headers: { ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}) },
+    });
+    if (!resp.ok) {
+      alert("No se pudo borrar la participación.");
+      return;
+    }
+    await loadRows();
+  });
+
+  loadRows();
+}
+
+// -----------------------------
 // Init
 // -----------------------------
 document.addEventListener("DOMContentLoaded", () => {
@@ -2009,4 +2083,5 @@ document.addEventListener("DOMContentLoaded", () => {
   bindAutocalcBeneficios();
   bindMemoriaEconomica();
   bindChecklistOperativo();
+  bindParticipaciones();
 });

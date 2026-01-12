@@ -13,6 +13,7 @@
   window.PROYECTO_GASTOS_URL = "{% url 'core:proyecto_gastos' proyecto.id %}";
   window.PROYECTO_INGRESOS_URL = "{% url 'core:proyecto_ingresos' proyecto.id %}";
   window.PROYECTO_CHECKLIST_URL = "{% url 'core:proyecto_checklist' proyecto.id %}";
+  window.PROYECTO_PARTICIPACIONES_URL = "{% url 'core:proyecto_participaciones' proyecto.id %}";
 </script>
 {% if snapshot %}{{ snapshot|json_script:"snapshotData" }}{% endif %}
 
@@ -672,7 +673,57 @@
             <div class="card mb-4 shadow-sm border-0">
                 <div class="card-body">
                     <h5 class="mb-2 inversure-form-header">Inversores</h5>
-                    <p class="text-muted mb-0">Pendiente: alta de inversores, participaciones, aportaciones y distribución.</p>
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-5">
+                            <label class="form-label">Cliente</label>
+                            <select class="form-select" id="inv_cliente">
+                                <option value="">— Selecciona cliente —</option>
+                                {% for c in clientes %}
+                                    <option value="{{ c.id }}">{{ c.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Importe invertido</label>
+                            <input type="text" class="form-control" id="inv_importe" data-euro="true">
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-inversure btn-sm w-100 text-nowrap" id="inv_add_btn">Añadir</button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive mt-3">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Cliente</th>
+                                    <th class="text-end">Importe</th>
+                                    <th class="text-end">% Participación</th>
+                                    <th>Fecha</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="inv_tabla_rows">
+                                {% if participaciones %}
+                                  {% for p in participaciones %}
+                                  <tr data-id="{{ p.id }}">
+                                      <td>{{ p.cliente.nombre }}</td>
+                                      <td class="text-end">{{ p.importe_invertido|floatformat:2 }} €</td>
+                                      <td class="text-end">
+                                        {% if p.porcentaje_participacion %}{{ p.porcentaje_participacion|floatformat:2 }} %{% else %}—{% endif %}
+                                      </td>
+                                      <td>{{ p.creado|date:"d/m/Y" }}</td>
+                                      <td class="text-end">
+                                          <button type="button" class="btn btn-sm btn-outline-danger inv-del">Borrar</button>
+                                      </td>
+                                  </tr>
+                                  {% endfor %}
+                                {% else %}
+                                  <tr><td colspan="5" class="text-muted">No hay participaciones todavía.</td></tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
