@@ -10,3 +10,5 @@ weasyprint
 matplotlib==3.8.4
 dj-database-url==2.1.0
 psycopg2-binary==2.9.9
+pandas==2.2.2
+openpyxl==3.1.5

@@ -1,77 +1,28 @@
-import pandas as pd
-from django.contrib import messages
-from django.shortcuts import render, redirect
-from .models import Cliente
+{% extends "core/base.html" %}
+{% block content %}
 
-def clientes_import(request):
-    if request.method == "POST" and request.FILES.get("archivo"):
-        archivo = request.FILES["archivo"]
+<div class="container mt-5">
+    <div class="text-center mb-5">
+        <h1 class="mb-1">Importar clientes</h1>
+        <p class="text-muted">Sube un archivo Excel con los datos de clientes.</p>
+    </div>
 
-        try:
-            df = pd.read_excel(archivo)
+    <div class="card shadow-sm border-0 p-4">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Archivo Excel</label>
+                <input type="file" name="archivo" class="form-control" accept=".xlsx,.xls">
+            </div>
+            <div class="d-flex justify-content-between mt-4">
+                <a href="{% url 'core:clientes' %}" class="btn btn-outline-secondary">Volver</a>
+                <button type="submit" class="btn btn-dark">Importar</button>
+            </div>
+        </form>
+        <div class="small text-muted mt-3">
+            Se importa desde la hoja "Datos Participes". Las columnas deben incluir: Nombre, DNI, Dirección, Correo, Contacto, Cuenta, Comunidad Whatsapp, Fecha incorporación.
+        </div>
+    </div>
+</div>
 
-            # Normalizar columnas
-            df.columns = (
-                df.columns
-                .astype(str)
-                .str.strip()
-                .str.lower()
-            )
-
-            # Mapeo flexible de columnas (Excel real → modelo)
-            COLUMN_MAP = {
-                "nombre": ["nombre", "nombre completo", "cliente"],
-                "dni_cif": ["dni", "dni/cif", "nif", "cif"],
-                "email": ["email", "correo", "correo electrónico"],
-                "telefono": ["telefono", "teléfono", "móvil", "movil"],
-                "iban": ["iban", "cuenta", "cuenta bancaria"],
-                "tipo_persona": ["tipo_persona", "tipo persona"],
-                "observaciones": ["observaciones", "notas"]
-            }
-
-            def get_value(row, keys):
-                for k in keys:
-                    if k in row and pd.notna(row[k]):
-                        return str(row[k]).strip()
-                return ""
-
-            creados = 0
-            omitidos = 0
-
-            for idx, row in df.iterrows():
-                nombre = get_value(row, COLUMN_MAP["nombre"])
-                dni_cif = get_value(row, COLUMN_MAP["dni_cif"])
-
-                if not nombre or not dni_cif:
-                    omitidos += 1
-                    continue
-
-                if Cliente.objects.filter(dni_cif=dni_cif).exists():
-                    omitidos += 1
-                    continue
-
-                Cliente.objects.create(
-                    nombre=nombre,
-                    dni_cif=dni_cif,
-                    tipo_persona=get_value(row, COLUMN_MAP["tipo_persona"]) or "F",
-                    email=get_value(row, COLUMN_MAP["email"]),
-                    telefono=get_value(row, COLUMN_MAP["telefono"]),
-                    iban=get_value(row, COLUMN_MAP["iban"]),
-                    observaciones=get_value(row, COLUMN_MAP["observaciones"]),
-                )
-                creados += 1
-
-            messages.success(
-                request,
-                f"Importación finalizada: {creados} clientes creados, {omitidos} filas omitidas."
-            )
-
-        except Exception as e:
-            messages.error(
-                request,
-                f"Error al importar el archivo: {e}"
-            )
-
-        return redirect("clientes")
-
-    return render(request, "core/clientes_import.html")
+{% endblock %}

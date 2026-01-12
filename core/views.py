@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.urls import reverse
 from django.db import transaction
+from django.db.models import Sum
 from django.utils import timezone
 
 from copy import deepcopy
@@ -18,6 +20,7 @@ from datetime import date, datetime
 from .models import Estudio, Proyecto
 from .models import EstudioSnapshot, ProyectoSnapshot
 from .models import GastoProyecto, IngresoProyecto, ChecklistItem
+from .models import Cliente, Participacion
 
 # --- SafeAccessDict helper and _safe_template_obj ---
 class SafeAccessDict(dict):
@@ -978,8 +981,9 @@ def lista_proyectos(request):
         )
         capital_objetivo = _as_float(capital_objetivo, 0.0)
 
-        # Mientras no exista módulo de inversores/captación, mostramos captado = objetivo
-        capital_captado = capital_objetivo
+        # Capital captado: suma de participaciones reales del proyecto
+        capital_captado = Participacion.objects.filter(proyecto=p).aggregate(total=Sum("importe_invertido")).get("total") or 0
+        capital_captado = _as_float(capital_captado, 0.0)
 
         # ROI heredado del estudio (preferimos neto si existe)
         roi = (
@@ -1003,6 +1007,137 @@ def lista_proyectos(request):
         "core/lista_proyectos.html",
         {"proyectos": proyectos},
     )
+
+
+def clientes(request):
+    clientes_qs = Cliente.objects.all().order_by("nombre")
+    return render(request, "core/clientes.html", {"clientes": clientes_qs})
+
+
+def clientes_form(request):
+    if request.method == "POST":
+        data = request.POST
+        try:
+            kwargs = {
+                "tipo_persona": data.get("tipo_persona") or "F",
+                "nombre": (data.get("nombre") or "").strip(),
+                "dni_cif": (data.get("dni_cif") or "").strip(),
+                "email": (data.get("email") or "").strip() or None,
+                "telefono": (data.get("telefono") or "").strip() or None,
+                "iban": (data.get("iban") or "").strip() or None,
+                "observaciones": (data.get("observaciones") or "").strip() or None,
+                "direccion_postal": (data.get("direccion") or "").strip() or None,
+                "cuota_abonada": bool(data.get("cuota_pagada")),
+                "presente_en_comunidad": bool(data.get("en_comunidad")),
+            }
+            fecha = _parse_date(data.get("fecha_alta"))
+            if fecha:
+                kwargs["fecha_introduccion"] = fecha
+            Cliente.objects.create(**kwargs)
+            messages.success(request, "Cliente creado correctamente.")
+            return redirect("core:clientes")
+        except Exception as e:
+            messages.error(request, f"No se pudo crear el cliente: {e}")
+
+    return render(request, "core/clientes_form.html", {"titulo": "Nuevo cliente"})
+
+
+def cliente_edit(request, cliente_id: int):
+    cliente = get_object_or_404(Cliente, id=cliente_id)
+    if request.method == "POST":
+        data = request.POST
+        try:
+            cliente.tipo_persona = data.get("tipo_persona") or cliente.tipo_persona
+            cliente.nombre = (data.get("nombre") or "").strip()
+            cliente.dni_cif = (data.get("dni_cif") or "").strip()
+            cliente.email = (data.get("email") or "").strip() or None
+            cliente.telefono = (data.get("telefono") or "").strip() or None
+            cliente.iban = (data.get("iban") or "").strip() or None
+            cliente.observaciones = (data.get("observaciones") or "").strip() or None
+            if data.get("fecha_alta"):
+                cliente.fecha_introduccion = _parse_date(data.get("fecha_alta")) or cliente.fecha_introduccion
+            cliente.direccion_postal = (data.get("direccion") or "").strip() or None
+            cliente.cuota_abonada = bool(data.get("cuota_pagada"))
+            cliente.presente_en_comunidad = bool(data.get("en_comunidad"))
+            cliente.save()
+            messages.success(request, "Cliente actualizado correctamente.")
+            return redirect("core:clientes")
+        except Exception as e:
+            messages.error(request, f"No se pudo actualizar el cliente: {e}")
+
+    return render(request, "core/clientes_form.html", {"titulo": "Editar cliente", "cliente": cliente})
+
+
+def clientes_import(request):
+    if request.method == "POST" and request.FILES.get("archivo"):
+        archivo = request.FILES["archivo"]
+        try:
+            import pandas as pd
+        except Exception:
+            messages.error(request, "Falta la dependencia pandas para importar el Excel.")
+            return redirect("core:clientes_import")
+
+        try:
+            df = pd.read_excel(archivo, sheet_name="Datos Participes", header=6)
+        except Exception as e:
+            messages.error(request, f"No se pudo leer la hoja 'Datos Participes': {e}")
+            return redirect("core:clientes_import")
+
+        # Limpiar columnas (eliminar 'Unnamed' y espacios)
+        df.columns = [str(c).strip() for c in df.columns]
+        df = df.loc[:, ~df.columns.str.contains("^Unnamed", case=False, na=False)]
+
+        def _to_str(val):
+            if val is None or (isinstance(val, float) and pd.isna(val)):
+                return ""
+            return str(val).strip()
+
+        def _to_bool(val):
+            s = _to_str(val).lower()
+            return s in {"ok", "si", "sí", "true", "1", "x"}
+
+        creados = 0
+        omitidos = 0
+
+        for _, row in df.iterrows():
+            nombre = _to_str(row.get("Nombre"))
+            dni_cif = _to_str(row.get("DNI"))
+            if not nombre or not dni_cif:
+                omitidos += 1
+                continue
+
+            if Cliente.objects.filter(dni_cif=dni_cif).exists():
+                omitidos += 1
+                continue
+
+            fecha = None
+            raw_fecha = row.get("Fecha incorporación")
+            if raw_fecha is not None and not (isinstance(raw_fecha, float) and pd.isna(raw_fecha)):
+                try:
+                    fecha = pd.to_datetime(raw_fecha).date()
+                except Exception:
+                    fecha = None
+
+            Cliente.objects.create(
+                tipo_persona="F",
+                nombre=nombre,
+                dni_cif=dni_cif,
+                email=_to_str(row.get("Correo")) or None,
+                telefono=_to_str(row.get("Contacto")) or None,
+                iban=_to_str(row.get("Cuenta")) or None,
+                direccion_postal=_to_str(row.get("Dirección")) or None,
+                presente_en_comunidad=_to_bool(row.get("Comunidad Whatsapp")),
+                fecha_introduccion=fecha or timezone.now().date(),
+            )
+            creados += 1
+
+        messages.success(
+            request,
+            f"Importación finalizada: {creados} clientes creados, {omitidos} filas omitidas."
+        )
+        return redirect("core:clientes")
+
+    return render(request, "core/clientes_import.html")
 
 
 @ensure_csrf_cookie
@@ -1273,6 +1408,14 @@ def proyecto(request, proyecto_id: int):
         ctx["checklist_items"] = ChecklistItem.objects.filter(proyecto=proyecto_obj).order_by("fase", "fecha_objetivo", "id")
     except Exception:
         ctx["checklist_items"] = []
+    try:
+        ctx["clientes"] = Cliente.objects.all().order_by("nombre")
+    except Exception:
+        ctx["clientes"] = []
+    try:
+        ctx["participaciones"] = Participacion.objects.filter(proyecto=proyecto_obj).select_related("cliente").order_by("-id")
+    except Exception:
+        ctx["participaciones"] = []
 
     return render(request, "core/proyecto.html", ctx)
 
@@ -2279,3 +2422,82 @@ def proyecto_checklist_detalle(request, proyecto_id: int, item_id: int):
         return JsonResponse({"ok": True})
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+
+@csrf_exempt
+def proyecto_participaciones(request, proyecto_id: int):
+    try:
+        proyecto = Proyecto.objects.get(id=proyecto_id)
+    except Proyecto.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Proyecto no encontrado"}, status=404)
+
+    if request.method == "GET":
+        participaciones = []
+        for p in Participacion.objects.filter(proyecto=proyecto).select_related("cliente").order_by("-id"):
+            participaciones.append({
+                "id": p.id,
+                "cliente_id": p.cliente_id,
+                "cliente_nombre": p.cliente.nombre,
+                "importe_invertido": float(p.importe_invertido),
+                "porcentaje_participacion": float(p.porcentaje_participacion) if p.porcentaje_participacion is not None else None,
+                "fecha": p.creado.isoformat(),
+            })
+        total = sum([p["importe_invertido"] for p in participaciones]) if participaciones else 0
+        return JsonResponse({"ok": True, "participaciones": participaciones, "total": total})
+
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+    try:
+        data = json.loads(request.body or "{}")
+        cliente_id = data.get("cliente_id")
+        importe = _parse_decimal(data.get("importe_invertido"))
+        if not cliente_id or importe is None:
+            return JsonResponse({"ok": False, "error": "Faltan campos obligatorios"}, status=400)
+
+        try:
+            cliente = Cliente.objects.get(id=cliente_id)
+        except Cliente.DoesNotExist:
+            return JsonResponse({"ok": False, "error": "Cliente no encontrado"}, status=404)
+
+        porcentaje = None
+        try:
+            snap = getattr(proyecto, "snapshot_datos", {}) or {}
+            economico = snap.get("economico") if isinstance(snap.get("economico"), dict) else {}
+            kpis = snap.get("kpis") if isinstance(snap.get("kpis"), dict) else {}
+            metricas = kpis.get("metricas") if isinstance(kpis.get("metricas"), dict) else {}
+            capital_objetivo = (
+                metricas.get("valor_adquisicion_total")
+                or metricas.get("valor_adquisicion")
+                or economico.get("valor_adquisicion")
+                or 0
+            )
+            capital_objetivo = _parse_decimal(capital_objetivo) or Decimal("0")
+            if capital_objetivo > 0:
+                porcentaje = (importe / capital_objetivo) * Decimal("100")
+        except Exception:
+            porcentaje = None
+
+        Participacion.objects.create(
+            proyecto=proyecto,
+            cliente=cliente,
+            importe_invertido=importe,
+            porcentaje_participacion=porcentaje,
+        )
+        return JsonResponse({"ok": True})
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+
+@csrf_exempt
+def proyecto_participacion_detalle(request, proyecto_id: int, participacion_id: int):
+    try:
+        part = Participacion.objects.select_related("proyecto").get(id=participacion_id, proyecto_id=proyecto_id)
+    except Participacion.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Participación no encontrada"}, status=404)
+
+    if request.method == "DELETE":
+        part.delete()
+        return JsonResponse({"ok": True})
+
+    return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
