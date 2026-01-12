@@ -114,6 +114,24 @@ def _fmt_pct(x: float) -> str:
 def _metricas_desde_estudio(estudio: Estudio) -> dict:
     d = estudio.datos or {}
 
+    def _deep_get(*keys, default=None):
+        containers = [
+            d,
+            d.get("inversor") if isinstance(d.get("inversor"), dict) else {},
+            (d.get("snapshot") or {}).get("inversor") if isinstance(d.get("snapshot"), dict) else {},
+            (d.get("kpis") or {}).get("metricas") if isinstance(d.get("kpis"), dict) else {},
+            d.get("kpis") if isinstance(d.get("kpis"), dict) else {},
+            d.get("economico") if isinstance(d.get("economico"), dict) else {},
+            d.get("comite") if isinstance(d.get("comite"), dict) else {},
+        ]
+        for k in keys:
+            for c in containers:
+                if not isinstance(c, dict):
+                    continue
+                if k in c and c.get(k) not in (None, ""):
+                    return c.get(k)
+        return default
+
     valor_adquisicion = _safe_float(d.get("valor_adquisicion"), 0.0)
 
     # intentar localizar precio de venta/valor de transmisión
@@ -217,6 +235,35 @@ def _metricas_desde_estudio(estudio: Estudio) -> dict:
         else:
             metricas_fmt[k] = _fmt_es_number(fv, 2)
 
+    # Enriquecer con métricas anidadas (comite/inversor/economico/kpis) si no estaban en raíz
+    nested_sections = [
+        d.get("comite"),
+        d.get("inversor"),
+        d.get("economico"),
+        d.get("kpis"),
+        (d.get("kpis") or {}).get("metricas") if isinstance(d.get("kpis"), dict) else None,
+        (d.get("snapshot") or {}).get("kpis") if isinstance(d.get("snapshot"), dict) else None,
+        ((d.get("snapshot") or {}).get("kpis") or {}).get("metricas") if isinstance(d.get("snapshot"), dict) else None,
+    ]
+    for sec in nested_sections:
+        if not isinstance(sec, dict):
+            continue
+        for k, v in sec.items():
+            if k in metricas:
+                continue
+            fv = _safe_float(v, None)
+            if fv is None:
+                continue
+            metricas[k] = fv
+            if _is_percent_key(k):
+                metricas_fmt[k] = _fmt_pct(fv)
+            elif _is_ratio_key(k):
+                metricas_fmt[k] = _fmt_es_number(fv, 2)
+            elif _is_currency_key(k):
+                metricas_fmt[k] = _fmt_eur(fv)
+            else:
+                metricas_fmt[k] = _fmt_es_number(fv, 2)
+
     # Algunos alias habituales (por si la plantilla usa nombres alternativos)
     if "margen" in metricas and "margen_seguridad" not in metricas:
         metricas["margen_seguridad"] = metricas.get("margen")
@@ -224,12 +271,162 @@ def _metricas_desde_estudio(estudio: Estudio) -> dict:
     if "colchon" in metricas and "colchon_seguridad" not in metricas:
         metricas["colchon_seguridad"] = metricas.get("colchon")
         metricas_fmt["colchon_seguridad"] = metricas_fmt.get("colchon")
+    if "breakeven" in metricas and "precio_breakeven" not in metricas:
+        metricas["precio_breakeven"] = metricas.get("breakeven")
+        metricas_fmt["precio_breakeven"] = metricas_fmt.get("breakeven")
+    if "break_even" in metricas and "precio_breakeven" not in metricas:
+        metricas["precio_breakeven"] = metricas.get("break_even")
+        metricas_fmt["precio_breakeven"] = metricas_fmt.get("break_even")
+
+    # --- Vista inversor + reparto (para PDF/plantillas) ---
+    inversion_total = _safe_float(
+        metricas.get("inversion_total")
+        or metricas.get("valor_adquisicion_total")
+        or metricas.get("valor_adquisicion")
+        or 0.0,
+        0.0,
+    )
+
+    beneficio_bruto = _safe_float(
+        metricas.get("beneficio_bruto")
+        or metricas.get("beneficio")
+        or 0.0,
+        0.0,
+    )
+
+    comision_pct = _safe_float(
+        _deep_get(
+            "comision_inversure_pct",
+            "inversure_comision_pct",
+            "comision_pct",
+        ),
+        0.0,
+    )
+    if comision_pct < 0:
+        comision_pct = 0.0
+    if comision_pct > 100:
+        comision_pct = 100.0
+
+    comision_eur = _safe_float(
+        _deep_get(
+            "comision_inversure_eur",
+            "inversure_comision_eur",
+            "comision_eur",
+        ),
+        0.0,
+    )
+
+    # Si no viene calculada, la calculamos sobre el beneficio bruto
+    if comision_eur == 0.0 and comision_pct and beneficio_bruto:
+        comision_eur = beneficio_bruto * (comision_pct / 100.0)
+
+    beneficio_neto_inversor = _safe_float(
+        metricas.get("beneficio_neto")
+        or (beneficio_bruto - comision_eur),
+        0.0,
+    )
+
+    roi_neto_inversor = _safe_float(
+        metricas.get("roi_neto")
+        or ((beneficio_neto_inversor / inversion_total) * 100.0 if inversion_total else 0.0),
+        0.0,
+    )
+
+    # Asegurar aliases útiles para plantillas
+    metricas["comision_inversure_pct"] = comision_pct
+    metricas["comision_inversure_eur"] = comision_eur
+    metricas["beneficio_bruto"] = beneficio_bruto
+    metricas["beneficio_neto"] = beneficio_neto_inversor
+    metricas["roi_neto"] = roi_neto_inversor
+    metricas["inversion_total"] = inversion_total
+    # Aliases esperados por el PDF
+    metricas["beneficio_estimado"] = metricas.get("beneficio_estimado", beneficio_bruto)
+    metricas["roi_estimado"] = metricas.get("roi_estimado", roi)
+
+    metricas_fmt["comision_inversure_pct"] = _fmt_pct(comision_pct)
+    metricas_fmt["comision_inversure_eur"] = _fmt_eur(comision_eur)
+    metricas_fmt["beneficio_bruto"] = _fmt_eur(beneficio_bruto)
+    metricas_fmt["beneficio_neto"] = _fmt_eur(beneficio_neto_inversor)
+    metricas_fmt["roi_neto"] = _fmt_pct(roi_neto_inversor)
+    metricas_fmt["inversion_total"] = _fmt_eur(inversion_total)
+    metricas_fmt["beneficio_estimado"] = _fmt_eur(metricas["beneficio_estimado"])
+    metricas_fmt["roi_estimado"] = _fmt_pct(metricas["roi_estimado"])
+
+    inversor = SafeAccessDict(
+        {
+            "inversion_total": inversion_total,
+            "comision_inversure_pct": comision_pct,
+            "comision_inversure_eur": comision_eur,
+            "beneficio_neto_inversor": beneficio_neto_inversor,
+            "roi_neto_inversor": roi_neto_inversor,
+            # aliases por si el template usa otros nombres
+            "comision_pct": comision_pct,
+            "comision_eur": comision_eur,
+            "beneficio_neto": beneficio_neto_inversor,
+            "roi_neto": roi_neto_inversor,
+        }
+    )
+
+    inversor_fmt = SafeAccessDict(
+        {
+            "inversion_total": _fmt_eur(inversion_total),
+            "comision_inversure_pct": _fmt_pct(comision_pct),
+            "comision_inversure_eur": _fmt_eur(comision_eur),
+            "beneficio_neto_inversor": _fmt_eur(beneficio_neto_inversor),
+            "roi_neto_inversor": _fmt_pct(roi_neto_inversor),
+            # aliases
+            "comision_pct": _fmt_pct(comision_pct),
+            "comision_eur": _fmt_eur(comision_eur),
+            "beneficio_neto": _fmt_eur(beneficio_neto_inversor),
+            "roi_neto": _fmt_pct(roi_neto_inversor),
+        }
+    )
+
+    # Reparto del beneficio (para barras/indicadores en PDF)
+    reparto_total = beneficio_bruto
+    reparto_inversure = comision_eur
+    reparto_inversor = max(reparto_total - reparto_inversure, 0.0)
+
+    if reparto_total > 0:
+        pct_inversure = (reparto_inversure / reparto_total) * 100.0
+        pct_inversor = (reparto_inversor / reparto_total) * 100.0
+    else:
+        pct_inversure = 0.0
+        pct_inversor = 0.0
+
+    # clamp para uso en CSS width
+    pct_inversure = max(0.0, min(100.0, pct_inversure))
+    pct_inversor = max(0.0, min(100.0, pct_inversor))
+
+    reparto = SafeAccessDict(
+        {
+            "total": reparto_total,
+            "inversure": reparto_inversure,
+            "inversor": reparto_inversor,
+            "pct_inversure": pct_inversure,
+            "pct_inversor": pct_inversor,
+        }
+    )
+
+    reparto_fmt = SafeAccessDict(
+        {
+            "total": _fmt_eur(reparto_total),
+            "inversure": _fmt_eur(reparto_inversure),
+            "inversor": _fmt_eur(reparto_inversor),
+            "pct_inversure": _fmt_pct(pct_inversure),
+            "pct_inversor": _fmt_pct(pct_inversor),
+        }
+    )
 
     return {
         "metricas": metricas,
         "metricas_fmt": metricas_fmt,
         "resultado": resultado,
         "texto": texto,
+        "inversor": inversor,
+        "inversor_fmt": inversor_fmt,
+        "reparto": reparto,
+        "reparto_fmt": reparto_fmt,
     }
 
 
@@ -305,6 +502,37 @@ def _datos_inmueble_desde_estudio(estudio: Estudio) -> dict:
     )
     superficie_m2 = _safe_float(superficie_raw, 0.0)
 
+    nombre_proyecto = _s(
+        _deep_get(
+            "nombre_proyecto",
+            "nombre",
+            "proyecto",
+            "proyecto_nombre",
+        )
+    )
+    if not nombre_proyecto:
+        nombre_proyecto = _s(getattr(estudio, "nombre", "") or "")
+
+    direccion = _s(
+        _deep_get(
+            "direccion",
+            "direccion_completa",
+            "proyecto_direccion",
+        )
+    )
+    if not direccion:
+        direccion = _s(getattr(estudio, "direccion", "") or "")
+
+    ref_catastral = _s(
+        _deep_get(
+            "ref_catastral",
+            "referencia_catastral",
+            "ref_catastral_inmueble",
+        )
+    )
+    if not ref_catastral:
+        ref_catastral = _s(getattr(estudio, "ref_catastral", "") or "")
+
     # Valor de referencia: preferimos el campo del modelo si existe
     valor_referencia_num = _safe_float(getattr(estudio, "valor_referencia", None), None)
     if valor_referencia_num is None:
@@ -327,6 +555,9 @@ def _datos_inmueble_desde_estudio(estudio: Estudio) -> dict:
     creado_fmt = creado.strftime("%d/%m/%Y") if creado else ""
 
     return {
+        "nombre_proyecto": nombre_proyecto,
+        "direccion": direccion,
+        "ref_catastral": ref_catastral,
         "tipologia": tipologia,
         "estado": estado,
         "situacion": situacion,
@@ -468,7 +699,13 @@ def lista_estudio(request):
         # Si el modelo no tiene el campo (o hay inconsistencias), mantenemos el listado clásico
         pass
 
-    estudios_qs = estudios_qs.order_by("-datos__roi", "-id")
+    estudios_qs_base = estudios_qs
+    try:
+        estudios_qs = estudios_qs.order_by("-datos__roi", "-id")
+        # Force evaluation to catch JSON lookup errors on backends without JSON1 support.
+        list(estudios_qs[:1])
+    except Exception:
+        estudios_qs = estudios_qs_base.order_by("-id")
     estudios = []
 
     for e in estudios_qs:
@@ -483,6 +720,8 @@ def lista_estudio(request):
             "beneficio": d.get("beneficio", 0),
             "roi": d.get("roi", 0),
            "fecha": e.creado,
+            "guardado": bool(getattr(e, "guardado", False)),
+            "bloqueado": bool(getattr(e, "bloqueado", False)),
         })
 
     return render(
@@ -705,6 +944,81 @@ def proyecto(request, proyecto_id: int):
     except Exception:
         editable = True
 
+    # --- Captación / Progreso de inversión (robusto) ---
+    # Objetivo: lo que se pretende captar (normalmente la inversión total)
+    try:
+        inv_sec = snapshot.get("inversor") if isinstance(snapshot.get("inversor"), dict) else {}
+        eco_sec = snapshot.get("economico") if isinstance(snapshot.get("economico"), dict) else {}
+        kpis_sec = snapshot.get("kpis") if isinstance(snapshot.get("kpis"), dict) else {}
+        met_sec = kpis_sec.get("metricas") if isinstance(kpis_sec.get("metricas"), dict) else {}
+
+        # Capital objetivo (prioridad)
+        capital_objetivo = _safe_float(
+            inv_sec.get("inversion_total")
+            or inv_sec.get("capital_objetivo")
+            or inv_sec.get("objetivo")
+            or met_sec.get("inversion_total")
+            or met_sec.get("valor_adquisicion_total")
+            or met_sec.get("valor_adquisicion")
+            or eco_sec.get("valor_adquisicion")
+            or eco_sec.get("valor_adquisicion_total"),
+            0.0,
+        )
+
+        # Capital captado: si aún no hay módulo de inversores, por defecto 0
+        cap_sec = snapshot.get("captacion") if isinstance(snapshot.get("captacion"), dict) else {}
+        capital_captado = _safe_float(
+            cap_sec.get("capital_captado")
+            or cap_sec.get("captado")
+            or inv_sec.get("capital_captado")
+            or inv_sec.get("captado")
+            or met_sec.get("capital_captado")
+            or 0.0,
+            0.0,
+        )
+
+        # Normalizar
+        if capital_objetivo < 0:
+            capital_objetivo = 0.0
+        if capital_captado < 0:
+            capital_captado = 0.0
+
+        # % captado
+        if capital_objetivo > 0:
+            pct_captado = (capital_captado / capital_objetivo) * 100.0
+        else:
+            pct_captado = 0.0
+
+        # clamp 0..100
+        if pct_captado < 0:
+            pct_captado = 0.0
+        if pct_captado > 100:
+            pct_captado = 100.0
+
+        restante = max(capital_objetivo - capital_captado, 0.0)
+
+        captacion_ctx = SafeAccessDict({
+            "capital_objetivo": capital_objetivo,
+            "capital_captado": capital_captado,
+            "pct_captado": pct_captado,
+            "restante": restante,
+            "capital_objetivo_fmt": _fmt_eur(capital_objetivo),
+            "capital_captado_fmt": _fmt_eur(capital_captado),
+            "restante_fmt": _fmt_eur(restante),
+            "pct_captado_fmt": _fmt_pct(pct_captado),
+        })
+    except Exception:
+        captacion_ctx = SafeAccessDict({
+            "capital_objetivo": 0.0,
+            "capital_captado": 0.0,
+            "pct_captado": 0.0,
+            "restante": 0.0,
+            "capital_objetivo_fmt": _fmt_eur(0.0),
+            "capital_captado_fmt": _fmt_eur(0.0),
+            "restante_fmt": _fmt_eur(0.0),
+            "pct_captado_fmt": _fmt_pct(0.0),
+        })
+
     ctx = {
         "PROYECTO_ID": str(proyecto_obj.id),
         "ESTADO_INICIAL_JSON": json.dumps(estado_inicial, ensure_ascii=False),
@@ -718,6 +1032,10 @@ def proyecto(request, proyecto_id: int):
         "comite": _safe_template_obj(snapshot.get("comite", {})) if isinstance(snapshot.get("comite"), dict) else SafeAccessDict(),
         "kpis": _safe_template_obj(snapshot.get("kpis", {})) if isinstance(snapshot.get("kpis"), dict) else SafeAccessDict(),
         "metricas": _safe_template_obj(metricas_raw) if isinstance(metricas_raw, dict) else SafeAccessDict(),
+        "captacion": captacion_ctx,
+        "capital_objetivo": captacion_ctx.get("capital_objetivo"),
+        "capital_captado": captacion_ctx.get("capital_captado"),
+        "pct_captado": captacion_ctx.get("pct_captado"),
     }
 
     return render(request, "core/proyecto.html", ctx)
@@ -729,9 +1047,13 @@ def guardar_estudio(request):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body or "{}")
 
-        estudio_id = data.get("id")
+        # Puede venir como `id` o puede no venir (si el frontend perdió el ID).
+        # Para evitar duplicados, si no llega ID usamos el estudio activo en sesión.
+        estudio_id = data.get("id") or data.get("estudio_id") or data.get("ESTUDIO_ID")
+        if not estudio_id:
+            estudio_id = request.session.get("estudio_id")
 
         # Si el estudio está bloqueado (ya convertido a proyecto), no permitimos cambios.
         if estudio_id:
@@ -772,25 +1094,97 @@ def guardar_estudio(request):
         if not isinstance(datos, dict):
             datos = {}
 
-        # --- NUEVO: compatibilidad con payloads que envían secciones en la raíz (no dentro de `datos`) ---
-        for _root_sec in ("inmueble", "economico", "comite", "inversor", "kpis", "tecnico"):
+        # --- HIDRATAR SNAPSHOT CANÓNICO PARA PDF / PROYECTO ---
+        # Garantiza que inversor, kpis y economico NUNCA sean strings vacíos
+        try:
+            fake_estudio = Estudio(
+                datos=datos,
+                valor_referencia=None,
+            )
+
+            kpis = _metricas_desde_estudio(fake_estudio)
+            inmueble = _datos_inmueble_desde_estudio(fake_estudio)
+
+            snapshot = {
+                "inmueble": inmueble,
+                "economico": kpis.get("metricas", {}),
+                "kpis": {
+                    "metricas": kpis.get("metricas", {}),
+                    "metricas_fmt": kpis.get("metricas_fmt", {}),
+                },
+                "inversor": kpis.get("inversor", {}),
+                "comite": datos.get("comite", {}) if isinstance(datos.get("comite"), dict) else {},
+                "resultado": kpis.get("resultado", {}),
+                "texto": kpis.get("texto", {}),
+                "reparto": kpis.get("reparto", {}),
+            }
+
+            # Preservar campos operativos no calculados (p.ej. meses/financiación)
+            meses_raw = datos.get("meses") or datos.get("meses_operacion") or datos.get("meses_operación")
+            financiacion_raw = datos.get("financiacion_pct") or datos.get("porcentaje_financiacion")
+            if meses_raw not in (None, ""):
+                snapshot["economico"]["meses"] = meses_raw
+            if financiacion_raw not in (None, ""):
+                snapshot["economico"]["financiacion_pct"] = financiacion_raw
+
+            # Forzar snapshot y secciones críticas
+            datos["snapshot"] = snapshot
+            datos["inversor"] = snapshot.get("inversor", {})
+            if not isinstance(datos.get("economico"), dict):
+                datos["economico"] = {}
+            datos["economico"] = _deep_merge_dict(datos["economico"], snapshot.get("economico", {}))
+            datos["kpis"] = snapshot.get("kpis", {})
+
+        except Exception:
+            # En caso extremo, evitar que inversor sea string
+            if not isinstance(datos.get("inversor"), dict):
+                datos["inversor"] = {}
+            if not isinstance(datos.get("economico"), dict):
+                datos["economico"] = {}
+            if not isinstance(datos.get("kpis"), dict):
+                datos["kpis"] = {}
+
+        # --- Compatibilidad: payloads que envían secciones en la raíz (no dentro de `datos`) ---
+        # Hay campos editables (p.ej. comisión) que deben sobrescribir valores existentes.
+        ALWAYS_OVERWRITE_KEYS = {
+            # comisión Inversure (porcentaje / euros)
+            "comision_inversure_pct",
+            "inversure_comision_pct",
+            "comision_pct",
+            "comision_inversure_eur",
+            "inversure_comision_eur",
+            "comision_eur",
+            # variantes usadas en diferentes pantallas
+            "comision_inversure",
+            "comision_inversure_sobre_beneficio",
+            "comision_inversure_sobre_beneficio_pct",
+            "comision_inversure_sobre_beneficio_eur",
+        }
+
+        for _root_sec in ("inmueble", "economico", "comite", "inversor", "kpis", "tecnico", "proyecto"):
             sec_val = data.get(_root_sec)
             if isinstance(sec_val, dict):
                 if _root_sec not in datos or not isinstance(datos.get(_root_sec), dict):
                     datos[_root_sec] = {}
                 for kk, vv in sec_val.items():
-                    if kk not in datos[_root_sec] or datos[_root_sec].get(kk) in (None, ""):
+                    if kk in ALWAYS_OVERWRITE_KEYS:
                         datos[_root_sec][kk] = vv
+                    else:
+                        if kk not in datos[_root_sec] or datos[_root_sec].get(kk) in (None, ""):
+                            datos[_root_sec][kk] = vv
 
-        # Aplanar secciones por compatibilidad
-        def _flatten_section(section_key: str):
+        # Aplanar secciones por compatibilidad (algunos templates esperan keys en raíz)
+        def _flatten_section(section_key: str) -> None:
             sec = datos.get(section_key)
             if isinstance(sec, dict):
                 for kk, vv in sec.items():
-                    if kk not in datos or datos.get(kk) in (None, ""):
+                    if kk in ALWAYS_OVERWRITE_KEYS:
                         datos[kk] = vv
+                    else:
+                        if kk not in datos or datos.get(kk) in (None, ""):
+                            datos[kk] = vv
 
-        for _sec in ("tecnico", "economico", "comite", "inversor", "kpis", "inmueble"):
+        for _sec in ("tecnico", "economico", "comite", "inversor", "kpis", "inmueble", "proyecto"):
             _flatten_section(_sec)
 
         # Absorber `datos.snapshot` si existe
@@ -809,169 +1203,20 @@ def guardar_estudio(request):
                     if kk not in datos["comite"] or datos["comite"].get(kk) in (None, ""):
                         datos["comite"][kk] = vv
 
-                for kk in ("decision", "decision_texto", "recomendacion", "nivel_riesgo", "comentario", "observaciones"):
+                for kk in (
+                    "decision",
+                    "decision_texto",
+                    "recomendacion",
+                    "nivel_riesgo",
+                    "comentario",
+                    "observaciones",
+                ):
                     if kk in datos["comite"] and (kk not in datos or datos.get(kk) in (None, "")):
                         datos[kk] = datos["comite"].get(kk)
 
-        # `valor_referencia` puede venir a nivel raíz, dentro de `datos` o dentro de secciones
-        valor_referencia_raw = data.get("valor_referencia")
-        if valor_referencia_raw is None:
-            valor_referencia_raw = datos.get("valor_referencia")
-        if valor_referencia_raw is None and isinstance(datos.get("inmueble"), dict):
-            valor_referencia_raw = datos["inmueble"].get("valor_referencia")
-        if valor_referencia_raw is None and isinstance(data.get("inmueble"), dict):
-            valor_referencia_raw = data["inmueble"].get("valor_referencia")
-
-        valor_referencia = None
-        if valor_referencia_raw is not None:
-            if isinstance(valor_referencia_raw, str) and not valor_referencia_raw.strip():
-                valor_referencia = None
-            else:
-                valor_referencia = _safe_float(valor_referencia_raw, None)
-
-        # Normalizar KPIs clave
-        valor_adq = _safe_float(
-            datos.get("valor_adquisicion")
-            or datos.get("precio_adquisicion")
-            or datos.get("precio_compra"),
-            0.0,
-        )
-
-        valor_transm = _safe_float(
-            datos.get("valor_transmision")
-            or datos.get("precio_transmision")
-            or datos.get("precio_venta_estimado"),
-            0.0,
-        )
-
-        beneficio = _safe_float(
-            datos.get("beneficio")
-            or datos.get("beneficio_estimado"),
-            (valor_transm - valor_adq) if (valor_transm and valor_adq) else 0.0,
-        )
-
-        roi = _safe_float(
-            datos.get("roi")
-            or datos.get("roi_estimado"),
-            (beneficio / valor_adq * 100.0) if valor_adq else 0.0,
-        )
-
-        datos["valor_adquisicion"] = valor_adq
-        datos["valor_transmision"] = valor_transm
-        datos["beneficio"] = beneficio
-        datos["roi"] = roi
-
-        # Comisión Inversure y métricas netas
-        com_pct = _safe_float(
-            datos.get("comision_inversure_pct")
-            or datos.get("inversure_comision_pct")
-            or datos.get("porcentaje_comision")
-            or datos.get("comision_pct")
-            or datos.get("comision_inversure_porcentaje"),
-            0.0,
-        )
-        if com_pct < 0:
-            com_pct = 0.0
-        if com_pct > 100:
-            com_pct = 100.0
-
-        beneficio_bruto = _safe_float(datos.get("beneficio_bruto"), beneficio)
-        com_eur = beneficio_bruto * (com_pct / 100.0)
-        beneficio_neto = beneficio_bruto - com_eur
-        roi_neto = (beneficio_neto / valor_adq * 100.0) if valor_adq else 0.0
-
-        datos["comision_inversure_pct"] = com_pct
-        datos["comision_inversure_eur"] = com_eur
-        datos["inversure_comision_pct"] = com_pct
-        datos["inversure_comision_eur"] = com_eur
-        datos["beneficio_bruto"] = beneficio_bruto
-        datos["beneficio_neto"] = beneficio_neto
-        datos["roi_neto"] = roi_neto
-        datos["inversion_total"] = valor_adq
-
-        # Evitar crear estudios vacíos
-        if (not estudio_id) and (not nombre) and (not direccion) and (not ref_catastral) and (not datos):
-            return JsonResponse({"ok": False, "error": "Estudio vacío"}, status=400)
-
-        campos = {
-            "nombre": nombre,
-            "direccion": direccion,
-            "ref_catastral": ref_catastral,
-            "valor_referencia": valor_referencia,
-            "datos": datos,
-            "guardado": True,
-        }
-
-        if estudio_id:
-            estudio, _ = Estudio.objects.update_or_create(
-                id=estudio_id,
-                defaults=campos,
-            )
-        else:
-            estudio = Estudio.objects.create(**campos)
-
-        # Al guardar, cerramos el estudio activo
-        request.session.pop("estudio_id", None)
-
-        if request.GET.get("debug") == "1":
-            return JsonResponse({
-                "ok": True,
-                "id": estudio.id,
-                "received_keys": sorted(list(data.keys())),
-            })
-
-        return JsonResponse({"ok": True, "id": estudio.id})
-
-    except Exception as e:
-        return JsonResponse({"ok": False, "error": str(e)}, status=500)
-
-
-# --- NUEVO: Guardar cambios en Proyecto y snapshot versionado ---
-@csrf_exempt
-def guardar_proyecto(request, proyecto_id: int):
-    """Guarda cambios del proyecto (fase operativa) y crea snapshot versionado.
-
-    No modifica el snapshot base heredado (Proyecto.snapshot_datos). En su lugar:
-    - Guarda el último estado recibido en Proyecto.extra
-    - Crea un ProyectoSnapshot con los datos completos (base_snapshot + overlay)
-    """
-
-    if request.method != "POST":
-        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
-
-    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
-
-    try:
-        raw_payload = json.loads(request.body or "{}")
-        if not isinstance(raw_payload, dict):
-            raw_payload = {}
-
-        # Aceptamos ambos formatos:
-        # 1) {"payload": { ... }}  (nuevo, usado por proyecto.js)
-        # 2) { ... }               (legacy)
-        incoming = raw_payload.get("payload") if isinstance(raw_payload.get("payload"), dict) else raw_payload
-
-        # Normalizar: si viene `datos` lo usamos como overlay; si no, el payload completo
-        overlay = incoming.get("datos") if isinstance(incoming.get("datos"), dict) else incoming
-        if not isinstance(overlay, dict):
-            overlay = {}
-
-        overlay = _sanitize_for_json(overlay)
-
-        # ------------------------------------------------------------
-        # Persistencia en BDD (campos principales del Proyecto)
-        # - nombre (cabecera / listado)
-        # - direccion, ref_catastral, valor_referencia (si existen en el modelo)
-        # ------------------------------------------------------------
-        def _has_field(model, fname: str) -> bool:
-            try:
-                model._meta.get_field(fname)
-                return True
-            except Exception:
-                return False
-
-        def _get_str(*candidates) -> str:
-            for v in candidates:
+        # Fallback de campos principales desde `datos` (para que lista_estudio tenga nombre/dirección)
+        def _get_str_from(*vals) -> str:
+            for v in vals:
                 if v is None:
                     continue
                 if isinstance(v, str):
@@ -984,594 +1229,466 @@ def guardar_proyecto(request, proyecto_id: int):
                         return s
             return ""
 
-        proyecto_sec = overlay.get("proyecto") if isinstance(overlay.get("proyecto"), dict) else {}
-        inmueble_sec = overlay.get("inmueble") if isinstance(overlay.get("inmueble"), dict) else {}
+        inmueble_sec = datos.get("inmueble") if isinstance(datos.get("inmueble"), dict) else {}
+        proyecto_sec = datos.get("proyecto") if isinstance(datos.get("proyecto"), dict) else {}
 
-        nuevo_nombre = _get_str(
-            proyecto_sec.get("nombre"),
-            proyecto_sec.get("nombre_proyecto"),
-            overlay.get("nombre"),
-            overlay.get("nombre_proyecto"),
-            inmueble_sec.get("nombre_proyecto"),
-        )
-        nueva_direccion = _get_str(
-            inmueble_sec.get("direccion"),
-            overlay.get("direccion"),
-            overlay.get("direccion_completa"),
-        )
-        nueva_ref = _get_str(
-            inmueble_sec.get("ref_catastral"),
-            overlay.get("ref_catastral"),
-            overlay.get("referencia_catastral"),
-        )
-
-        # valor_referencia puede venir en varias ubicaciones
-        vr_raw = None
-        if isinstance(inmueble_sec, dict):
-            vr_raw = inmueble_sec.get("valor_referencia")
-        if vr_raw in (None, ""):
-            vr_raw = overlay.get("valor_referencia")
-        nuevo_vr = _safe_float(vr_raw, None) if vr_raw not in (None, "") else None
-        # ------------------------------------------------------------
-        # Asegurar coherencia de NOMBRE en el overlay para que la UI no
-        # "vuelva" al nombre heredado del estudio al recargar.
-        # Muchas plantillas leen `snapshot.inmueble.nombre_proyecto` y/o
-        # `snapshot.proyecto.nombre_proyecto`, no solo `proyecto.nombre`.
-        # ------------------------------------------------------------
-        if nuevo_nombre:
-            # claves planas (fallbacks)
-            overlay["nombre"] = nuevo_nombre
-            overlay["nombre_proyecto"] = nuevo_nombre
-
-            # sección proyecto
-            if not isinstance(overlay.get("proyecto"), dict):
-                overlay["proyecto"] = {}
-            overlay["proyecto"]["nombre"] = nuevo_nombre
-            overlay["proyecto"]["nombre_proyecto"] = nuevo_nombre
-
-            # sección inmueble
-            if not isinstance(overlay.get("inmueble"), dict):
-                overlay["inmueble"] = {}
-            overlay["inmueble"]["nombre_proyecto"] = nuevo_nombre
-        update_fields: list[str] = []
-        if nuevo_nombre and _has_field(Proyecto, "nombre") and getattr(proyecto, "nombre", "") != nuevo_nombre:
-            proyecto.nombre = nuevo_nombre
-            update_fields.append("nombre")
-        if nueva_direccion and _has_field(Proyecto, "direccion") and getattr(proyecto, "direccion", "") != nueva_direccion:
-            proyecto.direccion = nueva_direccion
-            update_fields.append("direccion")
-        if nueva_ref and _has_field(Proyecto, "ref_catastral") and getattr(proyecto, "ref_catastral", "") != nueva_ref:
-            proyecto.ref_catastral = nueva_ref
-            update_fields.append("ref_catastral")
-        if _has_field(Proyecto, "valor_referencia"):
-            cur_vr = getattr(proyecto, "valor_referencia", None)
-            # Solo actualizamos si llega un valor explícito (evitamos pisar con None)
-            if nuevo_vr is not None and cur_vr != nuevo_vr:
-                proyecto.valor_referencia = nuevo_vr
-                update_fields.append("valor_referencia")
-
-        # Base snapshot (inmutable) + overlay (reales / ajustes / kpis)
-        base_snapshot = getattr(proyecto, "snapshot_datos", None)
-        if not isinstance(base_snapshot, dict):
-            base_snapshot = {}
-
-        merged = deepcopy(base_snapshot)
-        merged = _deep_merge_dict(merged, overlay)
-
-        # Guardar último estado recibido de forma robusta:
-        # - Preferimos `Proyecto.extra` si existe
-        # - Si el modelo no tiene `extra`, persistimos el overlay dentro de `snapshot_datos["_overlay"]`
-        saved_overlay = False
-        try:
-            Proyecto._meta.get_field("extra")
-        except Exception:
-            saved_overlay = False
-        else:
-            extra = getattr(proyecto, "extra", None)
-            if not isinstance(extra, dict):
-                extra = {}
-            extra["ultimo_guardado"] = {
-                "fecha": timezone.now().isoformat(),
-                "payload": overlay,
-            }
-            proyecto.extra = extra
-            update_fields.append("extra")
-            saved_overlay = True
-
-        if not saved_overlay:
-            sd = getattr(proyecto, "snapshot_datos", None)
-            if not isinstance(sd, dict):
-                sd = {}
-            sd["_overlay"] = overlay
-            proyecto.snapshot_datos = sd
-            update_fields.append("snapshot_datos")
-
-        # Guardar en una sola operación (incluye overlay y campos principales)
-        if update_fields:
-            proyecto.save(update_fields=sorted(set(update_fields)))
-
-        # Snapshot versionado
-        try:
-            snap = ProyectoSnapshot.objects.create(
-                proyecto=proyecto,
-                fuente="guardado",
-                datos=merged,
+        if not nombre:
+            nombre = _get_str_from(
+                datos.get("nombre"),
+                datos.get("nombre_proyecto"),
+                proyecto_sec.get("nombre"),
+                proyecto_sec.get("nombre_proyecto"),
+                inmueble_sec.get("nombre"),
+                inmueble_sec.get("nombre_proyecto"),
+                datos.get("proyecto_nombre"),
+                datos.get("proyecto"),
             )
-            snap_id = snap.id
-            version_num = snap.version_num
-            codigo_version = snap.codigo_version
-        except Exception:
-            snap_id = None
-            version_num = None
-            codigo_version = ""
 
-        return JsonResponse({
-            "ok": True,
-            "proyecto_id": proyecto.id,
-            "snapshot_id": snap_id,
-            "version": version_num,
-            "codigo_version": codigo_version,
-        })
+        if not direccion:
+            direccion = _get_str_from(
+                datos.get("direccion"),
+                datos.get("direccion_completa"),
+                proyecto_sec.get("direccion"),
+                proyecto_sec.get("direccion_completa"),
+                inmueble_sec.get("direccion"),
+                inmueble_sec.get("direccion_completa"),
+                datos.get("proyecto_direccion"),
+            )
+
+        if not ref_catastral:
+            ref_catastral = _get_str_from(
+                datos.get("ref_catastral"),
+                datos.get("referencia_catastral"),
+                proyecto_sec.get("ref_catastral"),
+                proyecto_sec.get("referencia_catastral"),
+                inmueble_sec.get("ref_catastral"),
+                inmueble_sec.get("referencia_catastral"),
+            )
+
+        # Valor de referencia (opcional)
+        valor_referencia_raw = (
+            data.get("valor_referencia")
+            or datos.get("valor_referencia")
+            or proyecto_sec.get("valor_referencia")
+            or inmueble_sec.get("valor_referencia")
+            or data.get("valor_referencia_catastral")
+            or datos.get("valor_referencia_catastral")
+        )
+        valor_referencia = None
+        if valor_referencia_raw not in (None, ""):
+            try:
+                # admitir formatos es-ES "231.369,24"
+                if isinstance(valor_referencia_raw, str):
+                    s = valor_referencia_raw.strip().replace("€", "").strip()
+                    if "." in s and "," in s:
+                        s = s.replace(".", "").replace(",", ".")
+                    else:
+                        s = s.replace(",", ".")
+                    valor_referencia = Decimal(s)
+                else:
+                    valor_referencia = Decimal(str(valor_referencia_raw))
+            except Exception:
+                valor_referencia = None
+
+        # Sanear datos para JSONField
+        datos = _sanitize_for_json(datos)
+
+        # Guardar (actualizando el borrador existente para NO duplicar)
+        if estudio_id:
+            try:
+                estudio_obj = Estudio.objects.get(id=int(estudio_id))
+            except Exception:
+                estudio_obj = None
+        else:
+            estudio_obj = None
+
+        if estudio_obj is None:
+            # Si por algún motivo no existe borrador, creamos uno nuevo
+            estudio_obj = Estudio.objects.create(
+                nombre=nombre,
+                direccion=direccion,
+                ref_catastral=ref_catastral,
+                valor_referencia=valor_referencia,
+                datos=datos,
+                guardado=True,
+            )
+        else:
+            estudio_obj.nombre = nombre
+            estudio_obj.direccion = direccion
+            estudio_obj.ref_catastral = ref_catastral
+            if valor_referencia is not None:
+                estudio_obj.valor_referencia = valor_referencia
+            estudio_obj.datos = datos
+            estudio_obj.guardado = True
+            estudio_obj.save()
+
+        # Asegurar sesión apuntando al estudio guardado
+        request.session["estudio_id"] = estudio_obj.id
+
+        return JsonResponse({"ok": True, "id": estudio_obj.id})
 
     except Exception as e:
-        return JsonResponse({"ok": False, "error": str(e)}, status=500)
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)
 
 
-def convertir_a_proyecto(request, estudio_id: int):
-    """FASE 2: Convierte un estudio guardado en un proyecto.
+@csrf_exempt
+def guardar_proyecto(request, proyecto_id: int):
+    """Guarda cambios del Proyecto de forma automática.
 
-    Reglas:
-    - El estudio debe estar guardado.
-    - Se crea un snapshot final (inmutable).
-    - Se crea un proyecto enlazado al estudio y al snapshot.
-    - Se bloquea el estudio.
-
-    Devuelve JSON si la petición es AJAX/JSON, o redirige a lista de proyectos.
+    Este endpoint existe porque `core/urls.py` lo referencia.
+    Persistimos el payload dentro de `Proyecto.extra['ultimo_guardado']` para re-hidratar la vista.
     """
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+    proyecto_obj = get_object_or_404(Proyecto, id=proyecto_id)
+
+    try:
+        payload = json.loads(request.body or "{}")
+    except Exception:
+        payload = {}
+
+    if not isinstance(payload, dict):
+        payload = {}
+
+    # Permitir que el payload incluya un nombre editable (si se quiere persistir)
+    nombre = (payload.get("nombre") or payload.get("nombre_proyecto") or "").strip()
+    if nombre:
+        try:
+            proyecto_obj.nombre = nombre
+            proyecto_obj.save(update_fields=["nombre"])
+        except Exception:
+            # si el campo no existe en el modelo, ignoramos
+            pass
+
+    # Guardar overlay en `extra`
+    try:
+        extra = getattr(proyecto_obj, "extra", None)
+        if not isinstance(extra, dict):
+            extra = {}
+
+        extra["ultimo_guardado"] = {
+            "ts": timezone.now().isoformat(),
+            "payload": _sanitize_for_json(payload),
+        }
+
+        # Guardar también dentro de snapshot_datos como fallback si existe
+        try:
+            proyecto_obj.extra = extra
+            proyecto_obj.save(update_fields=["extra"])
+        except Exception:
+            # si el campo extra no existe, intentamos snapshot_datos
+            sd = getattr(proyecto_obj, "snapshot_datos", None)
+            if isinstance(sd, dict):
+                sd["_overlay"] = _sanitize_for_json(payload)
+                proyecto_obj.snapshot_datos = sd
+                proyecto_obj.save(update_fields=["snapshot_datos"])
+
+        return JsonResponse({"ok": True})
+
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)
+              
+            
+
+        if not direccion:
+            direccion = _get_str_from(
+                datos.get("direccion"),
+                datos.get("direccion_completa"),
+                proyecto_sec.get("direccion"),
+                proyecto_sec.get("direccion_completa"),
+                inmueble_sec.get("direccion"),
+                inmueble_sec.get("direccion_completa"),
+            )
+
+        if not ref_catastral:
+            ref_catastral = _get_str_from(
+                datos.get("ref_catastral"),
+                datos.get("referencia_catastral"),
+                proyecto_sec.get("ref_catastral"),
+                proyecto_sec.get("referencia_catastral"),
+                inmueble_sec.get("ref_catastral"),
+                inmueble_sec.get("referencia_catastral"),
+            )
+
+        # Persistir valor de referencia si llega
+        valor_referencia = data.get("valor_referencia")
+        if valor_referencia in (None, ""):
+            valor_referencia = (
+                datos.get("valor_referencia")
+                or inmueble_sec.get("valor_referencia")
+                or inmueble_sec.get("valor_referencia_catastral")
+            )
+        try:
+            if valor_referencia in (None, ""):
+                valor_referencia = None
+            else:
+                valor_referencia = Decimal(str(valor_referencia).replace("€", "").strip().replace(".", "").replace(",", "."))
+        except Exception:
+            valor_referencia = None
+
+        # Sanear JSON (Decimal/fechas)
+        datos = _sanitize_for_json(datos)
+
+        # Guardar/actualizar
+        if estudio_id:
+            try:
+                estudio = Estudio.objects.get(id=estudio_id)
+            except Estudio.DoesNotExist:
+                estudio = Estudio.objects.create(
+                    nombre=nombre,
+                    direccion=direccion,
+                    ref_catastral=ref_catastral,
+                    valor_referencia=valor_referencia,
+                    datos=datos,
+                    guardado=True,
+                )
+        else:
+            estudio = Estudio.objects.create(
+                nombre=nombre,
+                direccion=direccion,
+                ref_catastral=ref_catastral,
+                valor_referencia=valor_referencia,
+                datos=datos,
+                guardado=True,
+            )
+
+        # Actualizar campos en cualquier caso
+        estudio.nombre = nombre
+        estudio.direccion = direccion
+        estudio.ref_catastral = ref_catastral
+        try:
+            # si el campo existe
+            Estudio._meta.get_field("valor_referencia")
+            estudio.valor_referencia = valor_referencia
+        except Exception:
+            pass
+
+        # Marcar como guardado
+        try:
+            Estudio._meta.get_field("guardado")
+            estudio.guardado = True
+        except Exception:
+            pass
+
+        estudio.datos = datos
+        estudio.save()
+
+        # Mantenerlo como estudio activo
+        request.session["estudio_id"] = estudio.id
+
+        return JsonResponse({"ok": True, "id": estudio.id})
+
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+
+def borrar_estudio(request, estudio_id: int):
+    estudio = get_object_or_404(Estudio, id=estudio_id)
+    estudio.delete()
+    # si se borró el activo en sesión, limpiar
+    if request.session.get("estudio_id") == estudio_id:
+        try:
+            del request.session["estudio_id"]
+        except KeyError:
+            pass
+    return redirect("core:lista_estudio")
+
+
+@csrf_exempt
+def convertir_a_proyecto(request, estudio_id: int):
+    """Convierte un Estudio guardado en Proyecto.
+
+    - Crea un EstudioSnapshot inmutable.
+    - Crea un Proyecto heredando nombre/dirección/ref y snapshot.
+    - Bloquea el estudio (si existe el campo).
+
+    Devuelve JSON con redirect a lista_proyectos.
+    """
+
+    if request.method not in ("POST", "GET"):
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
     estudio = get_object_or_404(Estudio, id=estudio_id)
 
-    # Para este endpoint, si viene por POST desde fetch, respondemos SIEMPRE JSON
-    wants_json = (
-        request.method == "POST"
-        or "application/json" in (request.headers.get("Accept", "") or "").lower()
-        or request.headers.get("X-Requested-With") == "XMLHttpRequest"
-        or request.content_type == "application/json"
-    )
+    # Si ya está bloqueado, intentamos redirigir al proyecto existente si lo hubiera
+    try:
+        if getattr(estudio, "bloqueado", False):
+            return JsonResponse({"ok": True, "redirect": reverse("core:lista_proyectos")})
+    except Exception:
+        pass
 
-    # No permitir convertir borradores
-    if not getattr(estudio, "guardado", False):
-        msg = "El estudio debe estar guardado antes de convertirlo a proyecto."
-        if wants_json:
-            return JsonResponse({"ok": False, "error": msg}, status=400)
-        return redirect("core:simulador")
-
-    # Si ya está bloqueado, intentamos reutilizar el proyecto existente (idempotencia)
-    if getattr(estudio, "bloqueado", False):
-        existente = Proyecto.objects.filter(origen_estudio=estudio).order_by("-id").first()
-        url_destino = reverse("core:lista_proyectos")
-        if wants_json:
-            return JsonResponse({"ok": True, "already": True, "proyecto_id": getattr(existente, "id", None), "redirect": url_destino})
-        return redirect(url_destino)
-
-    # Helper: comprobar si el modelo Proyecto tiene un campo
-    def _proyecto_has_field(fname: str) -> bool:
+    def _has_field(model_cls, field_name: str) -> bool:
         try:
-            Proyecto._meta.get_field(fname)
+            model_cls._meta.get_field(field_name)
             return True
         except Exception:
             return False
 
-    from core.services.estudio_snapshot import build_estudio_snapshot
-
     with transaction.atomic():
-        # 1) Snapshot final
-        snapshot_data = build_estudio_snapshot(estudio)
-        snapshot_data = _sanitize_for_json(snapshot_data)
+        # 1) Snapshot del estudio
+        datos_snapshot = _sanitize_for_json(estudio.datos or {})
 
-        snapshot = EstudioSnapshot.objects.create(
-            estudio=estudio,
-            datos=snapshot_data,
-        )
+        # versionado si existe
+        snap_kwargs = {"estudio": estudio, "datos": datos_snapshot}
+        if _has_field(EstudioSnapshot, "version_num"):
+            last_v = (
+                EstudioSnapshot.objects.filter(estudio=estudio)
+                .order_by("-version_num", "-id")
+                .values_list("version_num", flat=True)
+                .first()
+            )
+            snap_kwargs["version_num"] = int(last_v or 0) + 1
 
-        # 2) Crear Proyecto (copiamos campos comunes si existen)
-        proyecto_kwargs = {
-            "origen_estudio": estudio,
-            "origen_snapshot": snapshot,
-            "snapshot_datos": snapshot_data,
-            "convertido_desde_estudio": True,
-        }
+        estudio_snapshot = EstudioSnapshot.objects.create(**snap_kwargs)
 
-        # Campos típicos si existen en el modelo
-        if _proyecto_has_field("nombre"):
-            proyecto_kwargs["nombre"] = (getattr(estudio, "nombre", "") or "").strip() or f"Proyecto {estudio.id}"
-        if _proyecto_has_field("direccion"):
-            proyecto_kwargs["direccion"] = (getattr(estudio, "direccion", "") or "").strip()
-        if _proyecto_has_field("ref_catastral"):
-            proyecto_kwargs["ref_catastral"] = (getattr(estudio, "ref_catastral", "") or "").strip()
-        if _proyecto_has_field("valor_referencia"):
-            proyecto_kwargs["valor_referencia"] = getattr(estudio, "valor_referencia", None)
+        # 2) Crear proyecto heredando
+        proyecto_kwargs = {}
+        if _has_field(Proyecto, "nombre"):
+            proyecto_kwargs["nombre"] = estudio.nombre or ""
+        if _has_field(Proyecto, "origen_estudio"):
+            proyecto_kwargs["origen_estudio"] = estudio
+        if _has_field(Proyecto, "origen_snapshot"):
+            proyecto_kwargs["origen_snapshot"] = estudio_snapshot
+        if _has_field(Proyecto, "snapshot_datos"):
+            proyecto_kwargs["snapshot_datos"] = datos_snapshot
+        if _has_field(Proyecto, "estado"):
+            # estado inicial del proyecto
+            proyecto_kwargs["estado"] = "Estudio"
 
         proyecto = Proyecto.objects.create(**proyecto_kwargs)
 
-        # 2.1) Snapshot del PROYECTO (v1) para trazabilidad
-        try:
-            ProyectoSnapshot.objects.create(
-                proyecto=proyecto,
-                fuente="conversion",
-                nota="Snapshot inicial desde estudio",
-                datos=snapshot_data,
-            )
-        except Exception:
-            # No debe romper la conversión si falla el snapshot
-            pass
-
         # 3) Bloquear el estudio
-        estudio.bloqueado = True
-        estudio.bloqueado_en = timezone.now()
-        estudio.save(update_fields=["bloqueado", "bloqueado_en"])
+        if _has_field(Estudio, "bloqueado"):
+            estudio.bloqueado = True
+        if _has_field(Estudio, "bloqueado_en"):
+            estudio.bloqueado_en = timezone.now()
+        estudio.save()
 
-        # 4) Limpiar sesión del estudio activo (evita reusar el estudio bloqueado)
-        try:
-            if request.session.get("estudio_id") == estudio.id:
-                request.session.pop("estudio_id", None)
-        except Exception:
-            pass
+    return JsonResponse({"ok": True, "proyecto_id": proyecto.id, "redirect": reverse("core:lista_proyectos")})
 
-    url_destino = reverse("core:lista_proyectos")
-
-    # Respuesta JSON para llamadas desde JS (POST/fetch) o redirección si se accede por navegador
-    if wants_json:
-        return JsonResponse({"ok": True, "proyecto_id": proyecto.id, "redirect": url_destino})
-
-    return redirect(url_destino)
-
-
-
-def pdf_estudio_preview(request, estudio_id):
+def pdf_estudio_preview(request, estudio_id: int):
     estudio = get_object_or_404(Estudio, id=estudio_id)
 
-    from core.services.estudio_snapshot import build_estudio_snapshot
-    from core.models import EstudioSnapshot
+    # Recalcular SIEMPRE desde backend
+    kpis = _metricas_desde_estudio(estudio)
+    inmueble = _datos_inmueble_desde_estudio(estudio)
+    datos_raw = estudio.datos or {}
+    if not isinstance(datos_raw, dict):
+        datos_raw = {}
 
-    # --- Construir snapshot FINAL y persistir ---
-    snapshot_data = build_estudio_snapshot(estudio)
+    comite_raw = datos_raw.get("comite") if isinstance(datos_raw.get("comite"), dict) else {}
+    comite = dict(comite_raw) if isinstance(comite_raw, dict) else {}
+    # Completar con campos sueltos (compatibilidad con payloads antiguos)
+    for src_key, dst_key in (
+        ("recomendacion", "recomendacion"),
+        ("decision", "recomendacion"),
+        ("decision_texto", "recomendacion"),
+        ("observaciones", "observaciones"),
+        ("comentario", "observaciones"),
+        ("comentario_comite", "observaciones"),
+        ("resumen_ejecutivo_comite", "observaciones"),
+        ("resumen_ejecutivo", "resumen_ejecutivo"),
+        ("resumen_ejecutivo_comite", "resumen_ejecutivo"),
+    ):
+        if comite.get(dst_key) in (None, "") and datos_raw.get(src_key) not in (None, ""):
+            comite[dst_key] = datos_raw.get(src_key)
 
-    metricas_ctx = {}
-    metricas_fmt_ctx = {}
-    resultado_ctx = {}
-    texto_ctx = {}
-
-    # Enriquecimiento defensivo: si el builder no recibe ciertas claves (por cómo llegó el JSON),
-    # añadimos aquí métricas derivables desde `estudio.datos` para que el PDF nunca quede vacío.
-    try:
-        m = _metricas_desde_estudio(estudio)
-        metricas = m.get("metricas", {})
-        metricas_ctx = metricas
-        metricas_fmt_ctx = m.get("metricas_fmt", {})
-        resultado_ctx = m.get("resultado", {})
-        texto_ctx = m.get("texto", {})
-
-        # Exponer también en snapshot para que la plantilla pueda acceder vía snapshot.kpis.*
-        snapshot_data.setdefault("kpis", {})
-        if isinstance(snapshot_data.get("kpis"), dict):
-            snapshot_data["kpis"].setdefault("metricas", metricas_ctx)
-            snapshot_data["kpis"].setdefault("metricas_fmt", metricas_fmt_ctx)
-            snapshot_data["kpis"].setdefault("resultado", resultado_ctx)
-            snapshot_data["kpis"].setdefault("texto", texto_ctx)
-
-        # asegurar sub-dicts
-        if not isinstance(snapshot_data, dict):
-            snapshot_data = {}
-        snapshot_data.setdefault("economico", {})
-        snapshot_data.setdefault("inversor", {})
-
-        # económicos
-        if snapshot_data["economico"].get("valor_adquisicion") in (None, ""):
-            snapshot_data["economico"]["valor_adquisicion"] = metricas.get("valor_adquisicion")
-        if snapshot_data["economico"].get("valor_transmision") in (None, ""):
-            snapshot_data["economico"]["valor_transmision"] = metricas.get("valor_transmision")
-        if snapshot_data["economico"].get("beneficio_estimado") in (None, ""):
-            snapshot_data["economico"]["beneficio_estimado"] = metricas.get("beneficio")
-        if snapshot_data["economico"].get("roi_estimado") in (None, ""):
-            snapshot_data["economico"]["roi_estimado"] = metricas.get("roi")
-
-        # inversor (si vienen en estudio.datos)
-        d0 = estudio.datos or {}
-        snapshot_data["inversor"].setdefault("comision_inversure_pct", d0.get("comision_inversure_pct"))
-        snapshot_data["inversor"].setdefault("comision_inversure_eur", d0.get("comision_inversure_eur"))
-        snapshot_data["inversor"].setdefault("beneficio_neto", d0.get("beneficio_neto"))
-        snapshot_data["inversor"].setdefault("roi_neto", d0.get("roi_neto"))
-        snapshot_data["inversor"].setdefault("inversion_total", d0.get("inversion_total") or metricas.get("valor_adquisicion"))
-        # Compatibilidad con nombres que usa la plantilla PDF (comision_pct/comision_eur)
-        if snapshot_data["inversor"].get("comision_pct") in (None, ""):
-            snapshot_data["inversor"]["comision_pct"] = snapshot_data["inversor"].get("comision_inversure_pct")
-        if snapshot_data["inversor"].get("comision_eur") in (None, ""):
-            snapshot_data["inversor"]["comision_eur"] = snapshot_data["inversor"].get("comision_inversure_eur")
-
-        # Asegurar comisión Inversure (aliases)
-        snapshot_data["inversor"].setdefault("comision_inversure_pct", d0.get("comision_inversure_pct") or d0.get("inversure_comision_pct"))
-        snapshot_data["inversor"].setdefault("comision_inversure_eur", d0.get("comision_inversure_eur") or d0.get("inversure_comision_eur"))
-    except Exception:
-        pass
-
-    # --- Enriquecimiento defensivo: decisión del comité ---
-    try:
-        if not isinstance(snapshot_data, dict):
-            snapshot_data = {}
-        snapshot_data.setdefault("comite", {})
-        if not isinstance(snapshot_data.get("comite"), dict):
-            snapshot_data["comite"] = {}
-
-        d0 = estudio.datos or {}
-        c0 = d0.get("comite") if isinstance(d0.get("comite"), dict) else {}
-
-        for kk in ("recomendacion", "decision", "decision_texto", "nivel_riesgo", "comentario", "observaciones"):
-            if snapshot_data["comite"].get(kk) in (None, ""):
-                snapshot_data["comite"][kk] = c0.get(kk) or d0.get(kk)
-
-        # Fallback de texto de decisión
-        if not snapshot_data["comite"].get("decision_texto") and snapshot_data["comite"].get("decision"):
-            snapshot_data["comite"]["decision_texto"] = str(snapshot_data["comite"].get("decision")).strip().capitalize()
-    except Exception:
-        pass
-
-    # --- Enriquecimiento defensivo: identificación del inmueble ---
-    # Si el builder devuelve None en los campos de identificación, los reconstruimos desde el Estudio.
-    try:
-        if not isinstance(snapshot_data, dict):
-            snapshot_data = {}
-        snapshot_data.setdefault("inmueble", {})
-        inm = snapshot_data.get("inmueble")
-        if not isinstance(inm, dict):
-            inm = {}
-            snapshot_data["inmueble"] = inm
-
-        # asegurar básicos
-        if inm.get("nombre_proyecto") in (None, ""):
-            inm["nombre_proyecto"] = getattr(estudio, "nombre", "")
-        if inm.get("direccion") in (None, ""):
-            inm["direccion"] = getattr(estudio, "direccion", "")
-        if inm.get("ref_catastral") in (None, ""):
-            inm["ref_catastral"] = getattr(estudio, "ref_catastral", "")
-
-        di = _datos_inmueble_desde_estudio(estudio)
-
-        # Normalizar claves alternativas que puedan venir del builder
-        alt_map = {
-            "tipologia_inmueble": "tipologia",
-            "tipo_inmueble": "tipologia",
-            "tipo": "tipologia",
-            "superficie": "superficie_m2",
-            "m2": "superficie_m2",
-            "metros_cuadrados": "superficie_m2",
-            "estado_inmueble": "estado",
-            "ocupacion": "situacion",
-        }
-        for src_k, dst_k in alt_map.items():
-            if inm.get(dst_k) in (None, "") and inm.get(src_k) not in (None, ""):
-                inm[dst_k] = inm.get(src_k)
-
-        # Completar campos si vienen como None (caso actual)
-        if inm.get("valor_referencia") in (None, ""):
-            inm["valor_referencia"] = di.get("valor_referencia")
-        if inm.get("tipologia") in (None, ""):
-            inm["tipologia"] = di.get("tipologia")
-        if inm.get("superficie_m2") in (None, ""):
-            inm["superficie_m2"] = di.get("superficie_m2")
-        if inm.get("estado") in (None, ""):
-            inm["estado"] = di.get("estado")
-        if inm.get("situacion") in (None, ""):
-            inm["situacion"] = di.get("situacion")
-
-        # Añadir formatos listos para plantilla (no rompe nada si la plantilla no los usa)
-        inm.setdefault("valor_referencia_fmt", di.get("valor_referencia_fmt"))
-        inm.setdefault("superficie_m2_fmt", di.get("superficie_m2_fmt"))
-        inm.setdefault("fecha_fmt", di.get("fecha_fmt"))
-    except Exception:
-        pass
-
-    # --- Normalización final de KPIs y Comité para la plantilla PDF (sin tocar HTML) ---
-    try:
-        if not isinstance(snapshot_data, dict):
-            snapshot_data = {}
-
-        # KPIs top-level esperados por la plantilla: ratio_euro_beneficio / colchon_seguridad / precio_breakeven
-        kpis = snapshot_data.get("kpis")
-        if not isinstance(kpis, dict):
-            kpis = {}
-
-        metricas = kpis.get("metricas")
-        if not isinstance(metricas, dict):
-            metricas = {}
-
-        def _to_float_or_none(v):
-            try:
-                if v in (None, ""):
-                    return None
-                return float(v)
-            except Exception:
-                return None
-
-        inv_total = _to_float_or_none(
-            metricas.get("valor_adquisicion_total")
-            or metricas.get("inversion_total")
-            or metricas.get("valor_adquisicion")
-            or snapshot_data.get("economico", {}).get("valor_adquisicion")
-        )
-        v_trans = _to_float_or_none(
-            metricas.get("valor_transmision")
-            or metricas.get("precio_transmision")
-            or snapshot_data.get("economico", {}).get("valor_transmision")
-        )
-        ben = _to_float_or_none(
-            metricas.get("beneficio")
-            or metricas.get("beneficio_bruto")
-            or snapshot_data.get("economico", {}).get("beneficio_estimado")
-        )
-
-        breakeven = _to_float_or_none(kpis.get("precio_breakeven") or metricas.get("precio_breakeven"))
-        if breakeven is None and inv_total is not None:
-            breakeven = inv_total
-
-        colchon = _to_float_or_none(kpis.get("colchon_seguridad") or metricas.get("colchon_seguridad"))
-        if colchon is None and v_trans is not None and breakeven is not None:
-            colchon = v_trans - breakeven
-
-        ratio = _to_float_or_none(kpis.get("ratio_euro_beneficio") or metricas.get("ratio_euro_beneficio"))
-        if ratio is None and ben not in (None, 0) and inv_total is not None:
-            ratio = inv_total / ben
-
-        if kpis.get("precio_breakeven") in (None, "") and breakeven is not None:
-            kpis["precio_breakeven"] = float(breakeven)
-        if kpis.get("colchon_seguridad") in (None, "") and colchon is not None:
-            kpis["colchon_seguridad"] = float(colchon)
-        if kpis.get("ratio_euro_beneficio") in (None, "") and ratio is not None:
-            kpis["ratio_euro_beneficio"] = float(ratio)
-
-        snapshot_data["kpis"] = kpis
-
-        # Comité: la plantilla espera recomendación y observaciones
-        comite = snapshot_data.get("comite")
-        if not isinstance(comite, dict):
-            comite = {}
-
-        if comite.get("recomendacion") in (None, ""):
-            comite["recomendacion"] = comite.get("decision_texto") or comite.get("decision")
-        if comite.get("observaciones") in (None, ""):
-            comite["observaciones"] = comite.get("comentario") or ""
-
-        snapshot_data["comite"] = comite
-    except Exception:
-        pass
-    # Asegurar que el JSON es serializable (Decimal -> float, fechas -> string)
-    snapshot_data = _sanitize_for_json(snapshot_data)
-    snapshot = EstudioSnapshot.objects.create(
-        estudio=estudio,
-        datos=snapshot_data,
+    # Snapshot canónico (el PDF SOLO usa esto)
+    kpis_metricas = kpis.get("metricas", {}) if isinstance(kpis.get("metricas", {}), dict) else {}
+    meses = _safe_float(
+        datos_raw.get("meses")
+        or datos_raw.get("meses_operacion")
+        or datos_raw.get("meses_operación")
+        or (datos_raw.get("economico") or {}).get("meses") if isinstance(datos_raw.get("economico"), dict) else None,
+        None,
     )
-
-    snapshot_safe = _safe_template_obj(snapshot_data)
-
-    # Si pedimos debug, devolvemos el snapshot como JSON para inspeccionar sin usar shell
-    if request.GET.get("debug") == "1":
-        return JsonResponse(snapshot_data, json_dumps_params={"ensure_ascii": False, "indent": 2})
-
-    # --- Contexto ROBUSTO para el PDF ---
-    # (compatibilidad: además de snapshot.*, exponemos variables planas por si la plantilla antigua las usa)
-    inm_ctx = snapshot_safe.get("inmueble", {}) if isinstance(snapshot_safe, dict) else {}
-    eco_ctx = snapshot_safe.get("economico", {}) if isinstance(snapshot_safe, dict) else {}
-    inv_ctx = snapshot_safe.get("inversor", {}) if isinstance(snapshot_safe, dict) else {}
-
-    # --- Visual charts (robusto): porcentajes ya calculados para no depender de widthratio/formatos ---
-    kpis_ctx = snapshot_safe.get("kpis", {}) if isinstance(snapshot_safe, dict) else {}
-
-    def _clamp_pct(x: float) -> float:
-        if x < 0:
-            return 0.0
-        if x > 100:
-            return 100.0
-        return x
-
-    # 1) Break-even vs venta estimada (break-even + colchón = 100% de venta)
-    vt = _safe_float(eco_ctx.get("valor_transmision"), 0.0)
-    be = _safe_float(kpis_ctx.get("precio_breakeven"), 0.0)
-    col = _safe_float(kpis_ctx.get("colchon_seguridad"), 0.0)
-
-    if vt > 0:
-        pct_be = _clamp_pct((be / vt) * 100.0)
-        pct_col = _clamp_pct((col / vt) * 100.0)
-        # Normalizar si por redondeos/sumas > 100
-        total = pct_be + pct_col
-        if total > 100.0 and total > 0:
-            scale = 100.0 / total
-            pct_be *= scale
-            pct_col *= scale
-    else:
-        pct_be = 0.0
-        pct_col = 0.0
-
-    # 2) Reparto beneficio (comisión + neto = 100% del beneficio)
-    ben = _safe_float(eco_ctx.get("beneficio_estimado"), 0.0)
-    com = _safe_float(inv_ctx.get("comision_inversure_eur") or inv_ctx.get("comision_eur"), 0.0)
-    net = _safe_float(inv_ctx.get("beneficio_neto"), 0.0)
-
-    if ben > 0:
-        pct_com = _clamp_pct((com / ben) * 100.0)
-        pct_net = _clamp_pct((net / ben) * 100.0)
-        total2 = pct_com + pct_net
-        if total2 > 100.0 and total2 > 0:
-            scale2 = 100.0 / total2
-            pct_com *= scale2
-            pct_net *= scale2
-    else:
-        pct_com = 0.0
-        pct_net = 0.0
-
-    visual_ctx = {
-        # break-even chart
-        "pct_be": round(pct_be, 2),
-        "pct_col": round(pct_col, 2),
-        # reparto beneficio chart
-        "pct_com": round(pct_com, 2),
-        "pct_net": round(pct_net, 2),
+    financiacion_pct = _safe_float(
+        datos_raw.get("financiacion_pct")
+        or datos_raw.get("porcentaje_financiacion")
+        or (datos_raw.get("economico") or {}).get("financiacion_pct") if isinstance(datos_raw.get("economico"), dict) else None,
+        None,
+    )
+    if meses is not None and "meses" not in kpis_metricas:
+        kpis_metricas["meses"] = meses
+    if financiacion_pct is not None and "financiacion_pct" not in kpis_metricas:
+        kpis_metricas["financiacion_pct"] = financiacion_pct
+    snapshot = {
+        "inmueble": inmueble,
+        "economico": {**kpis_metricas},
+        # Compatibilidad: exponer KPIs tanto en raíz de "kpis" como dentro de "metricas".
+        "kpis": {
+            **kpis_metricas,
+            "metricas": kpis_metricas,
+            "metricas_fmt": kpis.get("metricas_fmt", {}),
+        },
+        "inversor": kpis.get("inversor", {}),
+        "inversor_fmt": kpis.get("inversor_fmt", {}),
+        "comite": comite,
+        "resultado": kpis.get("resultado", {}),
+        "texto": kpis.get("texto", {}),
+        "reparto": kpis.get("reparto", {}),
+        "reparto_fmt": kpis.get("reparto_fmt", {}),
     }
 
     ctx = {
-        "snapshot": snapshot_safe,
         "estudio": estudio,
-        "inmueble": inm_ctx,
-        "economico": eco_ctx,
-        "inversor": inv_ctx,
-        "visual": visual_ctx,
-
-        # Variables planas (fallbacks) — evitan que el PDF quede vacío si la plantilla no usa snapshot.inmueble.*
-        "nombre_proyecto": inm_ctx.get("nombre_proyecto") or getattr(estudio, "nombre", ""),
-        "direccion": inm_ctx.get("direccion") or getattr(estudio, "direccion", ""),
-        "ref_catastral": inm_ctx.get("ref_catastral") or getattr(estudio, "ref_catastral", ""),
-
-        "valor_referencia": inm_ctx.get("valor_referencia"),
-        "valor_referencia_fmt": inm_ctx.get("valor_referencia_fmt"),
-        "tipologia": inm_ctx.get("tipologia"),
-        "estado": inm_ctx.get("estado"),
-        "situacion": inm_ctx.get("situacion"),
-        "superficie_m2": inm_ctx.get("superficie_m2"),
-        "superficie_m2_fmt": inm_ctx.get("superficie_m2_fmt"),
-        "fecha_fmt": inm_ctx.get("fecha_fmt"),
-
-        # Gráfico/resumen económico
-        "grafico": {
-            "valor_adquisicion_fmt": eco_ctx.get("valor_adquisicion"),
-            "valor_transmision_fmt": eco_ctx.get("valor_transmision"),
-        },
-
-        # Aliases por si la plantilla usa estos nombres
-        "inversion_total": inv_ctx.get("inversion_total") or eco_ctx.get("valor_adquisicion") or eco_ctx.get("valor_adquisicion_total"),
-        "beneficio_neto": inv_ctx.get("beneficio_neto") or eco_ctx.get("beneficio_estimado"),
-        "roi_neto": inv_ctx.get("roi_neto") or eco_ctx.get("roi_estimado"),
-
-        "metricas": metricas_ctx,
-        "metricas_fmt": metricas_fmt_ctx,
-        "resultado": resultado_ctx,
-        "texto": texto_ctx,
-        "comite": snapshot_safe.get("comite", {}) if isinstance(snapshot_safe, dict) else {},
+        "datos": _safe_template_obj(estudio.datos or {}),
+        "inmueble": _safe_template_obj(inmueble),
+        "metricas": _safe_template_obj(kpis.get("metricas", {})),
+        "metricas_fmt": _safe_template_obj(kpis.get("metricas_fmt", {})),
+        "inversor": _safe_template_obj(kpis.get("inversor", {})),
+        "inversor_fmt": _safe_template_obj(kpis.get("inversor_fmt", {})),
+        "reparto": _safe_template_obj(kpis.get("reparto", {})),
+        "reparto_fmt": _safe_template_obj(kpis.get("reparto_fmt", {})),
+        "resultado": _safe_template_obj(kpis.get("resultado", {})),
+        "texto": _safe_template_obj(kpis.get("texto", {})),
+        "comite": _safe_template_obj(comite),
+        "snapshot": _safe_template_obj(snapshot),
     }
 
-    return render(
-        request,
-        "core/pdf_estudio_rentabilidad.html",
-        ctx
-    )
-
-
-def borrar_estudio(request, estudio_id):
+    return render(request, "core/pdf_estudio_rentabilidad.html", ctx)
+@csrf_exempt
+def guardar_proyecto(request, proyecto_id):
     if request.method != "POST":
-        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+        return JsonResponse(
+            {"ok": False, "error": "Método no permitido"},
+            status=405
+        )
+
     try:
-        estudio = Estudio.objects.get(id=estudio_id)
-        estudio.delete()
+        proyecto = Proyecto.objects.get(id=proyecto_id)
+    except Proyecto.DoesNotExist:
+        return JsonResponse(
+            {"ok": False, "error": "Proyecto no encontrado"},
+            status=404
+        )
+
+    try:
+        data = json.loads(request.body or "{}")
+        if not isinstance(data, dict):
+            data = {}
+
+        payload = data.get("payload") if isinstance(data.get("payload"), dict) else data
+        payload = _sanitize_for_json(payload)
+
+        with transaction.atomic():
+            extra = getattr(proyecto, "extra", None)
+            if not isinstance(extra, dict):
+                extra = {}
+
+            extra["ultimo_guardado"] = {
+                "ts": timezone.now().isoformat(),
+                "payload": payload,
+            }
+
+            proyecto.extra = extra
+            proyecto.save()
+
         return JsonResponse({"ok": True})
-    except Estudio.DoesNotExist:
-        return JsonResponse({"ok": False, "error": "Estudio no encontrado"}, status=404)
+
     except Exception as e:
-        return JsonResponse({"ok": False, "error": str(e)}, status=500)
+        return JsonResponse(
+            {"ok": False, "error": str(e)},
+            status=500
+        )

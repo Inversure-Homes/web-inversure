@@ -1,0 +1,131 @@
+{% extends "core/base.html" %}
+{% load humanize %}
+
+{% block content %}
+<div class="container mt-4">
+
+  <!-- CABECERA -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="mb-0">Presupuesto del proyecto</h2>
+      <small class="text-muted">
+        {{ proyecto.nombre }} · Estado: {{ proyecto.estado|capfirst }}
+      </small>
+    </div>
+    <div>
+      <a href="{% url 'proyecto_detalle' proyecto.id %}" class="btn btn-outline-secondary">
+        ← Volver al proyecto
+      </a>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="row mb-4">
+    <div class="col-md-4">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h6 class="text-muted">Inversión total estimada</h6>
+          <h4>{{ kpis.inversion_total|floatformat:2|intcomma }} €</h4>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h6 class="text-muted">Beneficio estimado</h6>
+          <h4 class="{% if kpis.beneficio_estimado >= 0 %}text-success{% else %}text-danger{% endif %}">
+            {{ kpis.beneficio_estimado|floatformat:2|intcomma }} €
+          </h4>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h6 class="text-muted">ROI estimado</h6>
+          <h4>
+            {{ kpis.roi_estimado|floatformat:2 }} %
+          </h4>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FORMULARIO PRESUPUESTO -->
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <h5 class="mb-3">Escenario económico</h5>
+      <p class="text-muted mb-4">
+        Este escenario representa una estimación editable mientras la operación esté en curso.
+        Los importes reales se incorporarán en la fase de cierre.
+      </p>
+
+      <form method="post">
+        {% csrf_token %}
+
+        <h6 class="text-uppercase text-secondary mb-3">Costes estimados</h6>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Precio de compra estimado</label>
+            <input type="number" step="0.01" name="precio_compra_estimado"
+                   class="form-control"
+                   value="{{ presupuesto.precio_compra_estimado }}"
+                   {% if not editable %}disabled{% endif %}>
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Gastos de compra estimados</label>
+            <input type="number" step="0.01" name="gastos_compra_estimados"
+                   class="form-control"
+                   value="{{ presupuesto.gastos_compra_estimados }}"
+                   {% if not editable %}disabled{% endif %}>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Reforma estimada</label>
+            <input type="number" step="0.01" name="reforma_estimada"
+                   class="form-control"
+                   value="{{ presupuesto.reforma_estimada }}"
+                   {% if not editable %}disabled{% endif %}>
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Otros gastos estimados</label>
+            <input type="number" step="0.01" name="otros_gastos_estimados"
+                   class="form-control"
+                   value="{{ presupuesto.otros_gastos_estimados }}"
+                   {% if not editable %}disabled{% endif %}>
+          </div>
+        </div>
+
+        <hr class="my-4">
+        <h6 class="text-uppercase text-secondary mb-3">Ingreso estimado</h6>
+        <div class="mb-3">
+          <label class="form-label">Precio de venta estimado</label>
+          <input type="number" step="0.01" name="venta_estimada"
+                 class="form-control"
+                 value="{{ presupuesto.venta_estimada }}"
+                 {% if not editable %}disabled{% endif %}>
+        </div>
+
+        {% if editable %}
+        <div class="mt-4">
+          <button type="submit" class="btn btn-primary">
+            Guardar escenario
+          </button>
+        </div>
+        {% else %}
+        <div class="alert alert-info mt-4">
+          El proyecto está cerrado. El presupuesto no se puede modificar.
+        </div>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

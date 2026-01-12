@@ -7,9 +7,7 @@
 
 {% csrf_token %}
 <form method="POST" id="form-estudio" onsubmit="return false;">
-{% if estudio %}
-    <input type="hidden" id="estudio_id" name="estudio_id" value="{{ estudio.id }}">
-{% endif %}
+  <input type="hidden" id="estudio_id" name="estudio_id" value="{% if estudio %}{{ estudio.id }}{% endif %}">
 
 <div class="main-container simulador-page">
     <div class="container mt-5">
@@ -180,6 +178,25 @@
 
     <!-- VISTA TECNICA -->
     <div class="tab-pane fade show active" id="vista-tecnica">
+
+      <div class="card card-inversure shadow-sm border-0 mb-4 inversure-section">
+        <div class="card-header bg-inversure-dark text-inversure fw-semibold border-0 d-flex align-items-center gap-2">
+          <span class="icon-inversure">📌</span>
+          <span>Datos principales</span>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Meses de operación</label>
+              <input type="number" class="form-control" id="meses" name="meses" min="0" step="1" inputmode="numeric" autocomplete="off">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">% financiación</label>
+              <input type="text" class="form-control" id="financiacion_pct" name="financiacion_pct" inputmode="decimal" autocomplete="off">
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div class="card card-inversure shadow-sm border-0 mb-4 inversure-section">
         <div class="card-header bg-inversure-dark text-inversure fw-semibold border-0 d-flex align-items-center gap-2">
@@ -564,7 +581,8 @@
                   <label class="form-label fw-semibold">
                     Comisión Inversure sobre beneficio
                   </label>
-                  <select id="inv_porcentaje_comision" class="form-select">
+                  <select id="inversure_comision_pct" class="form-select">
+                    <option value="">Selecciona…</option>
                     <option value="30">30 %</option>
                     <option value="35">35 %</option>
                     <option value="40">40 %</option>
@@ -575,7 +593,7 @@
     La comisión se descuenta del beneficio bruto antes del reparto al inversor.
   </div>
   <div class="mt-2 fw-semibold">
-    Comisión estimada: <span id="inversor_comision_eur">--</span>
+    Comisión estimada: <span id="inversure_comision_eur">--</span>
   </div>
 </div>
 
@@ -596,7 +614,7 @@
                   <div class="card text-center shadow-sm">
                     <div class="card-body">
                       <h6 class="text-muted">Inversión total</h6>
-                      <p class="fs-4 fw-bold" id="inversor_inversion">--</p>
+                      <p class="fs-4 fw-bold" id="inversion_total">--</p>
                     </div>
                   </div>
                 </div>
@@ -605,7 +623,7 @@
                   <div class="card text-center shadow-sm">
                     <div class="card-body">
                       <h6 class="text-muted">Beneficio neto</h6>
-                      <p class="fs-4 fw-bold text-success" id="inversor_beneficio_neto">--</p>
+                      <p class="fs-4 fw-bold text-success" id="beneficio_neto">--</p>
                     </div>
                   </div>
                 </div>
@@ -614,7 +632,7 @@
                   <div class="card text-center shadow-sm">
                     <div class="card-body">
                       <h6 class="text-muted">ROI neto</h6>
-                      <p class="fs-4 fw-bold" id="inversor_roi_neto">--</p>
+                      <p class="fs-4 fw-bold" id="roi_neto">--</p>
                     </div>
                   </div>
                 </div>
@@ -688,6 +706,11 @@
       setIfEmpty(document.getElementById('notaria'), metricas.notaria || s.notaria);
       setIfEmpty(document.getElementById('registro'), metricas.registro || s.registro);
       setIfEmpty(document.getElementById('gastos_extras'), metricas.gastos_extras || s.gastos_extras);
+      setIfEmpty(document.getElementById('meses'), metricas.meses || s.meses);
+      setIfEmpty(
+        document.getElementById('financiacion_pct'),
+        metricas.financiacion_pct || metricas.porcentaje_financiacion || s.financiacion_pct || s.porcentaje_financiacion
+      );
 
       // Valoraciones
       setByNameIfEmpty('valoracion_tasacion', (s.valoraciones && s.valoraciones.tasacion) || s.valoracion_tasacion);
@@ -702,7 +725,10 @@
       setIfEmpty(document.getElementById('comentario_comite'), comite.comentario || s.comentario_comite);
 
       // Comisión inversor
-      setSelectIfEmpty(document.getElementById('inv_porcentaje_comision'), (s.inversor && s.inversor.comision_pct) || s.comision_pct || s.comision_inversure_pct);
+      setSelectIfEmpty(
+        document.getElementById('inversure_comision_pct'),
+        (s.inversor && s.inversor.comision_pct) || s.comision_pct || s.comision_inversure_pct || s.inversure_comision_pct
+      );
 
       // Disparar recalculo si existe función global
       try {
@@ -711,7 +737,7 @@
     });
   })();
 </script>
-<script src="{% static 'core/simulador.js' %}"></script>
+<script src="{% static 'core/simulador.js' %}?v={{ estudio.id|default:'0' }}"></script>
 </div>
 </div>
 </form>

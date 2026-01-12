@@ -17,15 +17,15 @@
       {% if estudios %}
       <div class="row g-4">
         {% for estudio in estudios %}
-        <div class="col-xl-3 col-lg-4 col-md-6">
-          <div class="card h-100 shadow-sm inversure-card">
+        <div class="col-xl-4 col-lg-6 col-md-6">
+          <div class="card h-100 shadow-sm inversure-card{% if estudio.bloqueado %} inversure-card--bloqueado{% endif %}">
             <div class="card-header inversure-card-header text-white d-flex justify-content-between align-items-start" style="background-color:#122135;">
               <div>
                 <div class="fw-bold">
-                  {{ estudio.nombre|default:"Estudio sin nombre" }}
+                  {% firstof estudio.nombre estudio.datos.nombre_proyecto estudio.datos.nombre estudio.datos.inmueble.nombre_proyecto estudio.datos.inmueble.nombre "Estudio sin nombre" %}
                 </div>
                 <div class="small opacity-75">
-                  {{ estudio.direccion|default:"Sin dirección" }}
+                  {% firstof estudio.direccion estudio.datos.direccion estudio.datos.inmueble.direccion "Sin dirección" %}
                 </div>
 
                 <div class="mt-2">
@@ -40,13 +40,13 @@
               </div>
 
               <span class="badge bg-light text-dark small align-self-start">
-                ESTUDIO #{{ estudio.codigo_estudio }}
+                EST-{{ estudio.id|stringformat:"06d" }}
               </span>
             </div>
 
             <div class="card-body d-flex flex-column">
               <div class="mb-4 text-center inversure-kpis">
-                <div class="fw-bold inversure-roi" style="font-size:1.8rem;">
+                <div class="fw-bold inversure-roi">
                   {% if estudio.roi is not None %}
                     {% if estudio.roi < 0 %}
                       <span class="text-danger">{{ estudio.roi|floatformat:2 }}%</span>
@@ -67,7 +67,7 @@
                   <div class="fw-semibold small text-muted" title="Capital total invertido en la operación">Inversión</div>
                   <div class="fw-bold">
                     {% if estudio.valor_adquisicion %}
-                      {% widthratio estudio.valor_adquisicion 1000 1 %} k€
+                      {{ estudio.valor_adquisicion|floatformat:2|intcomma }} €
                     {% else %}
                       —
                     {% endif %}
@@ -79,11 +79,11 @@
                     {% if estudio.beneficio %}
                       {% if estudio.beneficio < 0 %}
                         <span class="text-danger">
-                          {% widthratio estudio.beneficio|floatformat:0 1000 1 %} k€
+                          {{ estudio.beneficio|floatformat:2|intcomma }} €
                         </span>
                       {% else %}
                         <span class="text-success">
-                          {% widthratio estudio.beneficio 1000 1 %} k€
+                          {{ estudio.beneficio|floatformat:2|intcomma }} €
                         </span>
                       {% endif %}
                     {% else %}
@@ -109,7 +109,19 @@
             </div>
 
             <div class="card-footer text-center small text-muted py-2">
-              ID interno: {{ estudio.id }} · Creado: {{ estudio.fecha|date:"d/m/Y" }}
+              <div>
+                ID interno: {{ estudio.id }} · Creado: {{ estudio.fecha|date:"d/m/Y" }}
+              </div>
+              <div class="mt-1">
+                Estado:
+                {% if estudio.bloqueado %}
+                  <span class="badge bg-secondary">🔒 Bloqueado</span>
+                {% elif estudio.guardado %}
+                  <span class="badge bg-success">✅ Guardado</span>
+                {% else %}
+                  <span class="badge bg-warning text-dark">📝 Borrador</span>
+                {% endif %}
+              </div>
             </div>
 
           </div>
@@ -126,16 +138,33 @@
   </section>
 </div>
 <style>
+  .inversure-card {
+    transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  }
+  .inversure-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 0.9rem 1.8rem rgba(18, 33, 53, 0.14);
+  }
+  .inversure-card-header {
+    background: linear-gradient(135deg, #122135 0%, #1f3a5c 100%);
+  }
+  .inversure-card-header .badge {
+    letter-spacing: 0.3px;
+  }
   .inversure-kpis .fw-semibold {
     font-size: 0.85rem;
     white-space: nowrap;
   }
-
   .inversure-kpis .fw-bold {
-    font-size: 0.95rem;
+    font-size: 0.98rem;
   }
   .inversure-roi {
-    font-size: 1.5rem;
+    font-size: 1.85rem;
+    line-height: 1;
+  }
+  .inversure-card--bloqueado {
+    border: 1px solid #d6dee8;
+    box-shadow: 0 0.5rem 1rem rgba(18, 33, 53, 0.08);
   }
 </style>
 <script>

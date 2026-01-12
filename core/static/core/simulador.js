@@ -134,14 +134,37 @@ const estadoEstudio = {
   valor_transmision: null,
   media_valoraciones: null,
 
+  // Datos principales
+  meses: null,
+  financiacion_pct: null,
+
   // Valoraciones mercado
   valoraciones: {}, // { [data-id]: valor }
 
   // Datos inmueble (nuevos)
+  nombre_proyecto: "",
+  direccion: "",
+  ref_catastral: "",
   tipologia: "",
   superficie_m2: null,
   estado_inmueble: "",
   situacion: "",
+
+  // ==============================
+  // VISTA INVERSOR (PERSISTENTE)
+  // ==============================
+  // Comisión Inversure (%) y su cálculo en €
+  comision_inversure_pct: 0,
+  comision_inversure_eur: 0,
+  // Legacy/compatibilidad
+  inversure_comision_pct: 0,
+  inversure_comision_eur: 0,
+
+  // KPIs inversor
+  inversion_total: 0,
+  beneficio: 0,
+  beneficio_neto: 0,
+  roi_neto: 0,
 
   // ==============================
   // MÉTRICAS VISTA COMITÉ
@@ -223,6 +246,8 @@ const notariaInput = document.getElementById("notaria");
 const registroInput = document.getElementById("registro");
 const gastosExtrasInput = document.getElementById("gastos_extras");
 const valorReferenciaInput = document.getElementById("valor_referencia");
+const mesesInput = document.getElementById("meses");
+const financiacionPctInput = document.getElementById("financiacion_pct");
 const valorAdquisicionInput = document.getElementById("valor_adquisicion");
 const valorTransmisionInput = document.getElementById("valor_transmision");
 const mediaValoracionesInput = document.getElementById("media_valoraciones");
@@ -231,6 +256,30 @@ const tipologiaInput = document.getElementById("tipologia");
 const superficieM2Input = document.getElementById("superficie_m2");
 const estadoInmuebleInput = document.getElementById("estado_inmueble") || document.getElementById("estado");
 const situacionInput = document.getElementById("situacion");
+function _byIdOrName(ids = [], names = []) {
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el) return el;
+  }
+  for (const nm of names) {
+    const el = document.querySelector(`[name="${nm}"]`);
+    if (el) return el;
+  }
+  return null;
+}
+
+const nombreProyectoInput = _byIdOrName(
+  ["nombre_proyecto", "proyecto_nombre", "nombre", "nombre_estudio", "nombre_operacion"],
+  ["nombre_proyecto", "proyecto_nombre", "nombre", "nombre_estudio", "nombre_operacion"]
+);
+const direccionInput = _byIdOrName(
+  ["direccion", "direccion_inmueble", "direccion_completa"],
+  ["direccion", "direccion_inmueble", "direccion_completa"]
+);
+const refCatastralInput = _byIdOrName(
+  ["ref_catastral", "referencia_catastral", "refCat", "ref_catastral_inmueble"],
+  ["ref_catastral", "referencia_catastral", "refCat", "ref_catastral_inmueble"]
+);
 // Asegura que cada input tenga un data-id único
 valoracionesInputs.forEach((input, idx) => {
   if (!input.getAttribute("data-id")) {
@@ -246,6 +295,20 @@ const comentarioComite = document.getElementById("comentario_comite");
 const decisionComite = document.getElementById("decision_comite");
 const resumenEjecutivoComite = document.getElementById("resumen_ejecutivo_comite");
 const fechaDecisionComite = document.getElementById("fecha_decision_comite");
+
+// ==============================
+// VISTA INVERSOR · ELEMENTOS DOM
+// ==============================
+const comisionInversurePctInput = _byIdOrName(
+  ["comision_inversure_pct", "inversure_comision_pct", "comision_pct", "comisionInversurePct"],
+  ["comision_inversure_pct", "inversure_comision_pct", "comision_pct"]
+);
+
+// Salidas típicas (pueden ser <input> o <span>/<div>)
+const inversionTotalEl = document.getElementById("inversion_total") || document.getElementById("kpi_inversion_total");
+const comisionInversureEurEl = document.getElementById("comision_inversure_eur") || document.getElementById("inversure_comision_eur");
+const beneficioNetoEl = document.getElementById("beneficio_neto") || document.getElementById("kpi_beneficio_neto");
+const roiNetoEl = document.getElementById("roi_neto") || document.getElementById("kpi_roi_neto");
 
 // ==============================
 // MOTOR DE CÁLCULO CENTRAL
@@ -270,7 +333,10 @@ function recalcularTodo() {
       const tip = tipologiaInput ? (tipologiaInput.value || "").trim() : "";
       const est = estadoInmuebleInput ? (estadoInmuebleInput.value || "").trim() : "";
       const sit = situacionInput ? (situacionInput.value || "").trim() : "";
-      return (extras > 0) || (ref > 0) || algunaVal || (sup > 0) || !!tip || !!est || !!sit;
+      const nom = nombreProyectoInput ? (nombreProyectoInput.value || "").trim() : "";
+      const dir = direccionInput ? (direccionInput.value || "").trim() : "";
+      const rc = refCatastralInput ? (refCatastralInput.value || "").trim() : "";
+      return (extras > 0) || (ref > 0) || algunaVal || (sup > 0) || !!tip || !!est || !!sit || !!nom || !!dir || !!rc;
     } catch (e) {
       return false;
     }
@@ -283,6 +349,7 @@ function recalcularTodo() {
     // Solo repintar KPIs (saldrán como —) y salir.
     if (_hayDatos) {
       actualizarVistaComite();
+      actualizarVistaInversor();
       return;
     }
 
@@ -295,6 +362,7 @@ function recalcularTodo() {
     if (valorTransmisionInput) _setElText(valorTransmisionInput, "");
 
     actualizarVistaComite();
+    actualizarVistaInversor();
     // Importante: NO guardarEstado() aquí para no machacar datos por accidente.
     return;
   }
@@ -371,6 +439,15 @@ function recalcularTodo() {
   });
 
   // Pintar campos de inmueble (persistencia al cambiar de vista)
+  if (nombreProyectoInput && document.activeElement !== nombreProyectoInput) {
+    nombreProyectoInput.value = estadoEstudio.nombre_proyecto || "";
+  }
+  if (direccionInput && document.activeElement !== direccionInput) {
+    direccionInput.value = estadoEstudio.direccion || "";
+  }
+  if (refCatastralInput && document.activeElement !== refCatastralInput) {
+    refCatastralInput.value = estadoEstudio.ref_catastral || "";
+  }
   if (tipologiaInput && document.activeElement !== tipologiaInput) {
     tipologiaInput.value = estadoEstudio.tipologia || "";
   }
@@ -386,7 +463,57 @@ function recalcularTodo() {
   }
 
   // Métricas comité
-  const beneficio = estadoEstudio.valor_transmision - estadoEstudio.valor_adquisicion;
+  const beneficio = (estadoEstudio.valor_transmision || 0) - (estadoEstudio.valor_adquisicion || 0);
+
+  // ==============================
+  // MÉTRICAS VISTA INVERSOR
+  // ==============================
+  // Beneficio bruto (para inversor también)
+  estadoEstudio.beneficio = beneficio;
+
+  // Comisión Inversure (%) configurable. Si no existe input, mantener lo que hubiera en estado o 0.
+  let comisionPct = null;
+
+  // 1) Si el input está ENFOCADO o tiene valor explícito, mandan los inputs
+  if (comisionInversurePctInput) {
+    const raw = _getElText(comisionInversurePctInput);
+    const v = parseNumberEs(raw);
+    if (v !== null && Number.isFinite(v)) {
+      comisionPct = v;
+    }
+  }
+
+  // 2) Si el input está vacío/no editable, usar el estado persistido
+  if (comisionPct === null) {
+    if (Number.isFinite(estadoEstudio.comision_inversure_pct)) {
+      comisionPct = estadoEstudio.comision_inversure_pct;
+    } else if (Number.isFinite(estadoEstudio.inversure_comision_pct)) {
+      comisionPct = estadoEstudio.inversure_comision_pct;
+    } else {
+      comisionPct = 0;
+    }
+  }
+
+  // Normalizar rango
+  comisionPct = Math.max(0, Math.min(100, comisionPct));
+  estadoEstudio.comision_inversure_pct = comisionPct;
+  estadoEstudio.inversure_comision_pct = comisionPct; // legacy
+
+  // Comisión en €: por defecto se aplica SOLO sobre beneficio positivo
+  const baseComision = Math.max(0, beneficio);
+  const comisionEur = baseComision * (comisionPct / 100);
+  estadoEstudio.comision_inversure_eur = comisionEur;
+  estadoEstudio.inversure_comision_eur = comisionEur; // legacy
+
+  // Inversión total del inversor: por defecto, valor de adquisición
+  const inversionTotal = estadoEstudio.valor_adquisicion || 0;
+  estadoEstudio.inversion_total = inversionTotal;
+
+  // Beneficio neto y ROI neto
+  const beneficioNeto = beneficio - comisionEur;
+  estadoEstudio.beneficio_neto = beneficioNeto;
+  estadoEstudio.roi_neto = inversionTotal > 0 ? (beneficioNeto / inversionTotal) * 100 : 0;
+
   estadoEstudio.comite.beneficio_bruto = beneficio;
   estadoEstudio.comite.roi = estadoEstudio.valor_adquisicion > 0
     ? (beneficio / estadoEstudio.valor_adquisicion) * 100
@@ -471,10 +598,65 @@ function recalcularTodo() {
   }
 
   actualizarVistaComite();
+  actualizarVistaInversor();
 
   guardarEstado();
 }
 
+// ==============================
+// PINTADO · VISTA INVERSOR
+// ==============================
+function actualizarVistaInversor() {
+  try {
+    // Si existen elementos en la vista inversor, los actualizamos.
+    if (inversionTotalEl) {
+      const v = estadoEstudio.inversion_total;
+      _setElText(
+        inversionTotalEl,
+        Number.isFinite(v) ? formatEuro(v) : "—"
+      );
+    }
+
+    if (comisionInversureEurEl) {
+      const v = estadoEstudio.comision_inversure_eur;
+      _setElText(
+        comisionInversureEurEl,
+        Number.isFinite(v) ? formatEuro(v) : "—"
+      );
+    }
+
+    if (beneficioNetoEl) {
+      const v = estadoEstudio.beneficio_neto;
+      _setElText(
+        beneficioNetoEl,
+        Number.isFinite(v) ? formatEuro(v) : "—"
+      );
+    }
+
+    if (roiNetoEl) {
+      const v = estadoEstudio.roi_neto;
+      _setElText(
+        roiNetoEl,
+        Number.isFinite(v) ? formatNumberEs(v, 2) : "—"
+      );
+    }
+
+    // Mantener el select/input de % sincronizado con el estado (UX limpia)
+    if (comisionInversurePctInput) {
+      const pct = estadoEstudio.comision_inversure_pct;
+
+      if (Number.isFinite(pct) && pct > 0) {
+        // Forzar visualización coherente (aunque no esté enfocado)
+        comisionInversurePctInput.value = String(pct);
+      } else {
+        // Mostrar placeholder "Selecciona…"
+        comisionInversurePctInput.value = "";
+      }
+    }
+  } catch (e) {
+    // Ignore
+  }
+}
 function actualizarVistaComite() {
   const kpiAdq = document.getElementById("kpi_valor_adquisicion");
   const kpiTrans = document.getElementById("kpi_valor_transmision");
@@ -507,12 +689,12 @@ function actualizarVistaComite() {
 
   if (kpiRoi) {
     const v = estadoEstudio.comite.roi;
-    kpiRoi.textContent = Number.isFinite(v) ? (formatNumberEs(v, 2) + " %") : "—";
+    kpiRoi.textContent = Number.isFinite(v) ? formatNumberEs(v, 2) : "—";
   }
 
   if (kpiMargen) {
     const v = estadoEstudio.comite.margen_pct;
-    kpiMargen.textContent = Number.isFinite(v) ? (formatNumberEs(v, 2) + " %") : "—";
+    kpiMargen.textContent = Number.isFinite(v) ? formatNumberEs(v, 2) : "—";
   }
 
   if (kpiSemaforo) {
@@ -592,8 +774,8 @@ function actualizarVistaComite() {
       ? formatEuro(estadoEstudio.comite.breakeven)
       : "—";
   }
-  renderSemaforoVisual();
-  renderRoiBarra();
+ if (typeof renderSemaforoVisual === "function") renderSemaforoVisual();
+if (typeof renderRoiBarra === "function") renderRoiBarra();
 }
 
 // ==============================
@@ -648,8 +830,53 @@ valoracionesInputs.forEach(input => {
 });
 
 // ==============================
+// EVENTO · % COMISIÓN INVERSURE (VISTA INVERSOR)
+// ==============================
+if (comisionInversurePctInput) {
+  comisionInversurePctInput.addEventListener("input", () => {
+    const v = parseNumberEs(_getElText(comisionInversurePctInput));
+    estadoEstudio.comision_inversure_pct = (v === null) ? 0 : v;
+    estadoEstudio.inversure_comision_pct = estadoEstudio.comision_inversure_pct; // legacy
+    recalcularTodo();
+  });
+
+  // Formateo suave en blur/focus (por si es input)
+  if (_isValueElement(comisionInversurePctInput)) {
+    comisionInversurePctInput.addEventListener("blur", () => {
+      const v = parseNumberEs(comisionInversurePctInput.value);
+      comisionInversurePctInput.value = (v === null) ? "" : formatNumberEs(v, 2);
+    });
+    comisionInversurePctInput.addEventListener("focus", () => {
+      const v = parseNumberEs(comisionInversurePctInput.value);
+      comisionInversurePctInput.value = (v === null) ? "" : String(v);
+    });
+  }
+}
+
+// ==============================
 // EVENTOS CAMPOS INMUEBLE (PERSISTENCIA)
 // ==============================
+if (nombreProyectoInput) {
+  nombreProyectoInput.addEventListener("input", () => {
+    estadoEstudio.nombre_proyecto = (nombreProyectoInput.value || "").trim();
+    guardarEstado();
+  });
+}
+
+if (direccionInput) {
+  direccionInput.addEventListener("input", () => {
+    estadoEstudio.direccion = (direccionInput.value || "").trim();
+    guardarEstado();
+  });
+}
+
+if (refCatastralInput) {
+  refCatastralInput.addEventListener("input", () => {
+    estadoEstudio.ref_catastral = (refCatastralInput.value || "").trim();
+    guardarEstado();
+  });
+}
+
 if (tipologiaInput) {
   tipologiaInput.addEventListener("change", () => {
     estadoEstudio.tipologia = tipologiaInput.value || "";
@@ -680,6 +907,27 @@ if (superficieM2Input) {
 
   superficieM2Input.addEventListener("input", () => {
     estadoEstudio.superficie_m2 = parseNumberEs(superficieM2Input.value);
+    guardarEstado();
+  });
+}
+
+// ==============================
+// EVENTOS · DATOS PRINCIPALES
+// ==============================
+if (mesesInput) {
+  aplicarFormatoNumeroInput(mesesInput, 0);
+  mesesInput.addEventListener("input", () => {
+    const v = parseNumberEs(mesesInput.value);
+    estadoEstudio.meses = (v === null) ? null : v;
+    guardarEstado();
+  });
+}
+
+if (financiacionPctInput) {
+  aplicarFormatoNumeroInput(financiacionPctInput, 2);
+  financiacionPctInput.addEventListener("input", () => {
+    const v = parseNumberEs(financiacionPctInput.value);
+    estadoEstudio.financiacion_pct = (v === null) ? null : v;
     guardarEstado();
   });
 }
@@ -944,6 +1192,17 @@ function inicializarEstadoDesdeInputsSiVacio() {
     }
   });
 
+  // Nombre / dirección / ref catastral
+  if ((estadoEstudio.nombre_proyecto === null || typeof estadoEstudio.nombre_proyecto === "undefined" || estadoEstudio.nombre_proyecto === "") && nombreProyectoInput?.value) {
+    estadoEstudio.nombre_proyecto = (nombreProyectoInput.value || "").trim();
+  }
+  if ((estadoEstudio.direccion === null || typeof estadoEstudio.direccion === "undefined" || estadoEstudio.direccion === "") && direccionInput?.value) {
+    estadoEstudio.direccion = (direccionInput.value || "").trim();
+  }
+  if ((estadoEstudio.ref_catastral === null || typeof estadoEstudio.ref_catastral === "undefined" || estadoEstudio.ref_catastral === "") && refCatastralInput?.value) {
+    estadoEstudio.ref_catastral = (refCatastralInput.value || "").trim();
+  }
+
   // Tipología
   if ((estadoEstudio.tipologia === null || typeof estadoEstudio.tipologia === "undefined" || estadoEstudio.tipologia === "") && tipologiaInput?.value) {
     estadoEstudio.tipologia = (tipologiaInput.value || "").trim();
@@ -964,6 +1223,18 @@ function inicializarEstadoDesdeInputsSiVacio() {
   if ((estadoEstudio.situacion === null || typeof estadoEstudio.situacion === "undefined" || estadoEstudio.situacion === "") && situacionInput?.value) {
     estadoEstudio.situacion = (situacionInput.value || "").trim();
   }
+
+  // Meses de operación
+  if ((estadoEstudio.meses === null || typeof estadoEstudio.meses === "undefined") && mesesInput?.value) {
+    const v = parseNumberEs(mesesInput.value);
+    if (v !== null) estadoEstudio.meses = v;
+  }
+
+  // % financiación
+  if ((estadoEstudio.financiacion_pct === null || typeof estadoEstudio.financiacion_pct === "undefined") && financiacionPctInput?.value) {
+    const v = parseNumberEs(financiacionPctInput.value);
+    if (v !== null) estadoEstudio.financiacion_pct = v;
+  }
 }
 
 function formateoInicialInputs() {
@@ -983,6 +1254,16 @@ function formateoInicialInputs() {
     const v = parseNumberEs(_getElText(superficieM2Input));
     if (v !== null) _setElText(superficieM2Input, formatNumberEs(v, 0));
   }
+
+  if (mesesInput) {
+    const v = parseNumberEs(_getElText(mesesInput));
+    if (v !== null) _setElText(mesesInput, formatNumberEs(v, 0));
+  }
+
+  if (financiacionPctInput) {
+    const v = parseNumberEs(_getElText(financiacionPctInput));
+    if (v !== null) _setElText(financiacionPctInput, formatNumberEs(v, 2));
+  }
 }
 
 // ==============================
@@ -998,6 +1279,9 @@ function aplicarFormatoGlobal(root = document) {
   try {
     // 1) EUROS (inputs y spans/divs)
     root.querySelectorAll('[data-euro="true"], .fmt-euro').forEach(el => {
+      // NO tocar KPIs (ni por clase ni por id)
+      if (el.closest && el.closest('.kpi')) return; // NO tocar KPIs
+      if (el.id && el.id.startsWith('kpi_')) return; // NO tocar KPIs
       // No tocar el elemento activo (evitar saltos de cursor)
       if (_isValueElement(el) && document.activeElement === el) return;
 
@@ -1013,6 +1297,8 @@ function aplicarFormatoGlobal(root = document) {
 
     // 2) NÚMEROS (sin €) — usar data-decimals si existe
     root.querySelectorAll('[data-number="true"], .fmt-number').forEach(el => {
+      if (el.closest && el.closest('.kpi')) return; // NO tocar KPIs
+      if (el.id && el.id.startsWith('kpi_')) return; // NO tocar KPIs
       if (_isValueElement(el) && document.activeElement === el) return;
 
       const raw = _getElText(el);
@@ -1032,6 +1318,8 @@ function aplicarFormatoGlobal(root = document) {
 
     // 3) PORCENTAJES — data-decimals y añade " %"
     root.querySelectorAll('[data-percent="true"], .fmt-percent').forEach(el => {
+      if (el.closest && el.closest('.kpi')) return; // NO tocar KPIs
+      if (el.id && el.id.startsWith('kpi_')) return; // NO tocar KPIs
       if (_isValueElement(el) && document.activeElement === el) return;
 
       let raw = _getElText(el);
@@ -1133,276 +1421,207 @@ function _engancharFormatoEnPestanas() {
 document.addEventListener("DOMContentLoaded", () => {
   window.__INV_DEBUG = { STORAGE_NS, estudioIdActual };
   // ==============================
-  // BLOQUEO TOTAL DE SUBMIT DEL FORM
+  // ACCIONES (GUARDAR / CONVERTIR) · ROBUSTO
   // ==============================
   const formEstudio = document.getElementById("form-estudio");
-  if (formEstudio) {
-    // Neutralizar cualquier action HTML
-    formEstudio.setAttribute("action", "javascript:void(0)");
 
-    // Bloquear submit por cualquier vía
-    formEstudio.addEventListener(
-      "submit",
-      function (e) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        return false;
-      },
-      true
-    );
+  function _inferActionFromElement(el) {
+    if (!el) return "";
+    const txt = (
+      el.dataset?.action ||
+      el.getAttribute?.("data-action") ||
+      el.id ||
+      el.name ||
+      el.value ||
+      el.textContent ||
+      ""
+    )
+      .toString()
+      .toLowerCase();
+
+    if (txt.includes("convert")) return "convert";
+    if (txt.includes("guardar") || txt.includes("save")) return "save";
+    return "";
   }
 
-  cargarEstado();
-  inicializarEstadoDesdeInputsSiVacio();
-  recalcularTodo();
-  formateoInicialInputs();
+  async function _runAction(action) {
+    if (!formEstudio) return;
 
-  // Formato global (Proyecto + Estudio) en todas las pestañas
-  enlazarAutoFormatoInputs(document);
-  aplicarFormatoGlobal(document);
-  _engancharFormatoEnPestanas();
+    if (formEstudio.dataset.busy === "1") return;
+    formEstudio.dataset.busy = "1";
 
-
-  /* ==============================
-     REPINTAR VALORACIÓN COMITÉ
-     ============================== */
-  if (valoracionMercado) valoracionMercado.value = estadoEstudio.comite.valoracion?.mercado || "";
-  if (valoracionRiesgo) valoracionRiesgo.value = estadoEstudio.comite.valoracion?.riesgo || "";
-  if (valoracionEjecucion) valoracionEjecucion.value = estadoEstudio.comite.valoracion?.ejecucion || "";
-  if (valoracionTiming) valoracionTiming.value = estadoEstudio.comite.valoracion?.timing || "";
-  if (comentarioComite) comentarioComite.value = estadoEstudio.comite.comentario || "";
-  if (decisionComite) decisionComite.value = estadoEstudio.comite.decision_estado || "";
-
-  if (resumenEjecutivoComite) {
-    resumenEjecutivoComite.value = estadoEstudio.comite.resumen_ejecutivo || "";
-  }
-
-  if (fechaDecisionComite) {
-    fechaDecisionComite.value = estadoEstudio.comite.fecha_decision
-      ? new Date(estadoEstudio.comite.fecha_decision).toLocaleDateString("es-ES")
-      : "";
-  }
-
-  // ==============================
-  // LÓGICA DE BOTONES DE ESTUDIO
-  // ==============================
-
-  // 1. Selectores DOM
-  const btnGuardarEstudio = document.getElementById("btnGuardarEstudio");
-  const btnBorrarEstudio = document.getElementById("btnBorrarEstudio");
-
-  // Convertir a proyecto (FASE 2)
-  const btnConvertirProyecto =
-    document.getElementById("btnConvertirProyecto") ||
-    document.getElementById("btnConvertirAProyecto") ||
-    document.querySelector('[data-action="convertir-a-proyecto"]');
-
-  // PDF: mantener SOLO el botón del header (#btnGenerarPdf). Si existe el duplicado legacy (#btnGenerarPDF), eliminarlo.
-  const btnGenerarPdf = document.getElementById("btnGenerarPdf");
-  const btnGenerarPDFDup = document.getElementById("btnGenerarPDF");
-  if (btnGenerarPDFDup && btnGenerarPDFDup !== btnGenerarPdf) {
-    try { btnGenerarPDFDup.remove(); } catch (e) {}
-  }
-
-  // 3. CSRF helper
-  function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== "") {
-      const cookies = document.cookie.split(";");
-      for (let i = 0; i < cookies.length; i++) {
-        const cookie = cookies[i].trim();
-        // Does this cookie string begin with the name we want?
-        if (cookie.substring(0, name.length + 1) === name + "=") {
-          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-          break;
+    try {
+      if (action === "convert") {
+        if (typeof convertirAProyectoFallback === "function") {
+          await convertirAProyectoFallback();
+        }
+      } else {
+        if (typeof guardarEstudioFallback === "function") {
+          await guardarEstudioFallback();
         }
       }
+    } finally {
+      formEstudio.dataset.busy = "0";
     }
-    return cookieValue;
   }
-  const csrftoken = getCookie("csrftoken");
 
-  // 2. Implementación de comportamientos
+  // Bind acciones una sola vez (Guardar / Convertir)
+  function _bind(el, action) {
+    if (!el) return;
+    if (el.dataset && el.dataset.boundAction === "1") return;
+    if (el.dataset) el.dataset.boundAction = "1";
 
-  // Guardar estudio (solo en modo estudio)
-  if (btnGuardarEstudio) {
-    btnGuardarEstudio.addEventListener("click", async function (e) {
-      e.preventDefault();
-      try {
-        const nombreProyecto = document.getElementById("nombre_proyecto")?.value || "";
-        const direccionCompleta = document.getElementById("direccion_completa")?.value || "";
-        const referenciaCatastral = document.getElementById("referencia_catastral")?.value || "";
-
-        // Comprobación defensiva de KPIs de comité y valor de adquisición
-        const roiSeguro = Number.isFinite(estadoEstudio.comite?.roi) ? estadoEstudio.comite.roi : 0;
-        const beneficioSeguro = Number.isFinite(estadoEstudio.comite?.beneficio_bruto) ? estadoEstudio.comite.beneficio_bruto : 0;
-        const valorAdqSeguro = Number.isFinite(estadoEstudio.valor_adquisicion) ? estadoEstudio.valor_adquisicion : 0;
-
-        const resp = await fetch("/guardar-estudio/", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": csrftoken
-          },
-          body: JSON.stringify({
-            id: estudioIdActual,
-            nombre: nombreProyecto,
-            direccion: direccionCompleta,
-            referencia_catastral: referenciaCatastral,
-
-            datos: {
-              valor_adquisicion: valorAdqSeguro,
-              valor_transmision: Number.isFinite(estadoEstudio.valor_transmision) ? estadoEstudio.valor_transmision : 0,
-
-              beneficio_bruto: Number.isFinite(estadoEstudio.comite?.beneficio_bruto)
-                ? estadoEstudio.comite.beneficio_bruto
-                : 0,
-
-              roi: roiSeguro,
-
-              // --- Datos inmueble (para snapshot/PDF) ---
-              valor_referencia: Number.isFinite(estadoEstudio.valor_referencia) ? estadoEstudio.valor_referencia : null,
-              tipologia: (estadoEstudio.tipologia || "").trim(),
-              superficie_m2: Number.isFinite(estadoEstudio.superficie_m2) ? estadoEstudio.superficie_m2 : null,
-              estado_inmueble: (estadoEstudio.estado_inmueble || "").trim(),
-              situacion: (estadoEstudio.situacion || "").trim(),
-
-              // También lo enviamos agrupado (por compatibilidad con el builder del snapshot)
-              inmueble: {
-                nombre_proyecto: nombreProyecto,
-                direccion: direccionCompleta,
-                ref_catastral: referenciaCatastral,
-                valor_referencia: Number.isFinite(estadoEstudio.valor_referencia) ? estadoEstudio.valor_referencia : null,
-                tipologia: (estadoEstudio.tipologia || "").trim(),
-                superficie_m2: Number.isFinite(estadoEstudio.superficie_m2) ? estadoEstudio.superficie_m2 : null,
-                estado: (estadoEstudio.estado_inmueble || "").trim(),
-                situacion: (estadoEstudio.situacion || "").trim()
-              },
-
-              // ---- Vista inversor (persistencia) ----
-              inversure_comision_pct: (() => {
-                const sel = document.getElementById("inv_porcentaje_comision");
-                const v = sel ? parseFloat(sel.value) : 0;
-                return Number.isFinite(v) ? v : 0;
-              })(),
-
-              snapshot: estadoEstudio
-            }
-          })
-        });
-
-        if (!resp.ok) {
-          alert("Error al guardar el estudio.");
-          return;
-        }
-
-        const data = await resp.json();
-
-        if (data && data.id) {
-          estudioIdActual = data.id;
-          estadoEstudio.id = data.id;
-          guardarEstado();
-
-          // Opción B: tras guardar, limpiamos cache local y volvemos a la lista
-          try {
-            sessionStorage.removeItem("estudio_inversure_actual");
-            sessionStorage.removeItem(`estudio_inversure_${estudioIdActual}`);
-            sessionStorage.removeItem("estudios_inversure");
-          } catch (e) {}
-
-          window.location.assign("/estudios/");
-        }
-      } catch (e) {
-        alert("Error de comunicación con el servidor");
-      }
+    el.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      await _runAction(action);
     });
   }
 
-  // Convertir estudio a proyecto (FASE 2)
-  if (btnConvertirProyecto) {
-    // Si el script se carga dos veces (por incluirlo en base + plantilla), evitamos doble binding.
-    if (btnConvertirProyecto.dataset.boundConvertir === "1") {
-      // ya enlazado
-    } else {
-      btnConvertirProyecto.dataset.boundConvertir = "1";
-
-      // Si el HTML trae onclick="return confirm(...)" u otro handler inline, lo anulamos
-      try {
-        btnConvertirProyecto.removeAttribute("onclick");
-        btnConvertirProyecto.onclick = null;
-      } catch (e) {}
-
-      btnConvertirProyecto.addEventListener("click", async function (e) {
-        e.preventDefault();
-
-        if (!estudioIdActual) {
-          alert("No se pudo identificar el estudio actual.");
-          return;
-        }
-
-        // Evitar doble click (y doble confirm/fetch)
-        if (btnConvertirProyecto.dataset.inflight === "1") return;
-
-        const ok = confirm("¿Convertir este estudio en proyecto? El estudio quedará bloqueado.");
-        if (!ok) return;
-
-        btnConvertirProyecto.dataset.inflight = "1";
-        const prevText = btnConvertirProyecto.textContent;
-        btnConvertirProyecto.disabled = true;
-        btnConvertirProyecto.textContent = "Convirtiendo…";
-
-        try {
-          const resp = await fetch(`/convertir-a-proyecto/${estudioIdActual}/`, {
-            method: "POST",
-            headers: {
-              "X-CSRFToken": csrftoken
-            }
-          });
-
-          if (!resp.ok) {
-            // Intentar extraer mensaje de error si el backend lo devuelve
-            let msg = "No se pudo convertir este estudio en proyecto.";
-            try {
-              const dataErr = await resp.json();
-              if (dataErr && (dataErr.error || dataErr.detail)) msg = dataErr.error || dataErr.detail;
-            } catch (e2) {
-              // ignore
-            }
-            alert(msg);
-            return;
-          }
-
-          let data = {};
-          try {
-            data = await resp.json();
-          } catch (e3) {
-            data = {};
-          }
-
-          const proyectoId = data.proyecto_id || data.id || (data.proyecto && data.proyecto.id);
-          // Si el backend manda redirect, lo respetamos
-          const redirectUrl = data.redirect;
-
-          if (redirectUrl) {
-            window.location.assign(redirectUrl);
-            return;
-          }
-
-          if (proyectoId) {
-            window.location.assign(`/proyectos/${proyectoId}/`);
-            return;
-          }
-
-          // Fallback defensivo
-          window.location.assign("/proyectos/");
-        } catch (e) {
-          alert("Error de comunicación con el servidor");
-        } finally {
-          // Si redirigimos, esto no se verá, pero si hay error sí reponemos estado
-          btnConvertirProyecto.dataset.inflight = "0";
-          btnConvertirProyecto.disabled = false;
-          btnConvertirProyecto.textContent = prevText;
-        }
-      });
+  // Resolver ID del estudio (URL -> hidden input -> dataset)
+  (function _ensureStudyId() {
+    const fromPage = getEstudioIdFromPage();
+    if (fromPage) {
+      estudioIdActual = fromPage;
+      estadoEstudio.id = fromPage;
+      return;
     }
-  }
+    const hid = document.getElementById("estudio_id") || document.getElementById("id_estudio");
+    if (hid && hid.value) {
+      estudioIdActual = String(hid.value).trim();
+      estadoEstudio.id = estudioIdActual;
+      return;
+    }
+    if (formEstudio && formEstudio.dataset && formEstudio.dataset.estudioId) {
+      estudioIdActual = String(formEstudio.dataset.estudioId).trim();
+      estadoEstudio.id = estudioIdActual;
+    }
+  })();
+
+  // Fallback de guardado (si no existe en el resto del archivo)
+  window.guardarEstudioFallback = window.guardarEstudioFallback || (async function guardarEstudioFallback() {
+    try { guardarEstado(); } catch (e) {}
+
+    // Sincronizar campos de inmueble justo antes de guardar (por si el usuario no ha perdido foco)
+    if (nombreProyectoInput) estadoEstudio.nombre_proyecto = (nombreProyectoInput.value || "").trim();
+    if (direccionInput) estadoEstudio.direccion = (direccionInput.value || "").trim();
+    if (refCatastralInput) estadoEstudio.ref_catastral = (refCatastralInput.value || "").trim();
+    if (mesesInput) {
+      const v = parseNumberEs(mesesInput.value);
+      estadoEstudio.meses = (v === null) ? null : v;
+    }
+    if (financiacionPctInput) {
+      const v = parseNumberEs(financiacionPctInput.value);
+      estadoEstudio.financiacion_pct = (v === null) ? null : v;
+      estadoEstudio.porcentaje_financiacion = estadoEstudio.financiacion_pct;
+    }
+
+    // Aliases legacy por compatibilidad (si alguna vista/serializer espera estos nombres)
+    estadoEstudio.nombre = estadoEstudio.nombre_proyecto;
+    estadoEstudio.direccion_inmueble = estadoEstudio.direccion;
+    estadoEstudio.referencia_catastral = estadoEstudio.ref_catastral;
+
+    const id = String(estudioIdActual || "").trim();
+    if (!id) {
+      alert("No se ha podido guardar: falta el ID del estudio.");
+      return;
+    }
+
+    const url = (formEstudio && (formEstudio.dataset.guardarUrl || formEstudio.getAttribute("action"))) || "/guardar-estudio/";
+    const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || "";
+
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(csrf ? { "X-CSRFToken": csrf } : {})
+      },
+      body: JSON.stringify({ estudio_id: parseInt(id, 10), datos: estadoEstudio }),
+    });
+
+    if (!resp.ok) {
+      const t = await resp.text().catch(() => "");
+      console.error("Error guardando estudio:", resp.status, t);
+      alert("No se pudo guardar (error del servidor). Mira consola/terminal.");
+      return;
+    }
+
+    window.location.href = "/estudios/";
+  });
+
+  // Fallback de convertir (si no existe en el resto del archivo)
+  window.convertirAProyectoFallback = window.convertirAProyectoFallback || (async function convertirAProyectoFallback() {
+    const id = String(estudioIdActual || "").trim();
+    if (!id) {
+      alert("No se ha podido convertir: falta el ID del estudio.");
+      return;
+    }
+
+    const ok = confirm("¿Convertir este estudio en proyecto? El estudio quedará bloqueado.");
+    if (!ok) return;
+
+    const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || "";
+    const url = (formEstudio && formEstudio.dataset.convertirUrl) || `/convertir-a-proyecto/${parseInt(id, 10)}/`;
+
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(csrf ? { "X-CSRFToken": csrf } : {})
+      },
+      body: JSON.stringify({ estudio_id: parseInt(id, 10) })
+    });
+
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || data.ok === false) {
+      console.error("Error convirtiendo a proyecto:", resp.status, data);
+      alert("No se pudo convertir este estudio en proyecto.");
+      return;
+    }
+
+    window.location.href = data.redirect_url || "/proyectos/";
+  });
+
+  // 1) Bind por data-action / ids / name
+  Array.from(document.querySelectorAll("button, a, input[type='button'], input[type='submit']")).forEach((el) => {
+    const inferred = _inferActionFromElement(el);
+    if (inferred === "save") _bind(el, "save");
+    if (inferred === "convert") _bind(el, "convert");
+  });
+
+  // 2) Delegación: si el HTML cambia, seguimos capturando clicks por texto
+  document.addEventListener("click", (ev) => {
+    const el = ev.target && ev.target.closest ? ev.target.closest("button, a, input[type='button'], input[type='submit']") : null;
+    if (!el) return;
+    const t = (el.textContent || el.value || "").toString().toLowerCase();
+    if (t.includes("guardar")) {
+      ev.preventDefault();
+      _runAction("save");
+    }
+    if (t.includes("convert") || t.includes("proyecto")) {
+      // evitar que cualquier botón con 'proyecto' dispare convertir si no es el botón
+      if (t.includes("convert")) {
+        ev.preventDefault();
+        _runAction("convert");
+      }
+    }
+  }, true);
+
+  // Guardado local continuo (para no perder datos al volver al listado)
+  let _saveT = null;
+  document.addEventListener("input", () => {
+    clearTimeout(_saveT);
+    _saveT = setTimeout(() => {
+      try { guardarEstado(); } catch (e) {}
+    }, 250);
+  }, true);
+
+  // Cargar + inicializar + formato
+  cargarEstado();
+  inicializarEstadoDesdeInputsSiVacio();
+  enlazarAutoFormatoInputs(document);
+  formateoInicialInputs();
+  _engancharFormatoEnPestanas();
+  aplicarFormatoGlobal(document);
+  recalcularTodo();
+});

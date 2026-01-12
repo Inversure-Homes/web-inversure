@@ -78,6 +78,7 @@
       font-size: 12px;
       opacity: .9;
     }
+    .status-pill { margin-top: 8px; }
 
     .meta {
       text-align: right;
@@ -113,6 +114,12 @@
       align-items: center;
       gap: 10px;
     }
+    .card--emphasis .card__head {
+      background: linear-gradient(135deg, #0f2036 0%, #193a66 100%);
+    }
+    .card--emphasis .card__body {
+      background: #fbfcff;
+    }
 
     .card__body {
       padding: 14px;
@@ -141,6 +148,7 @@
     .pill--good { background: rgba(22,163,74,.18); border-color: rgba(22,163,74,.35); }
     .pill--warn { background: rgba(245,158,11,.18); border-color: rgba(245,158,11,.35); }
     .pill--bad  { background: rgba(220,38,38,.18); border-color: rgba(220,38,38,.35); }
+    .pill--muted { background: #eef2f7; border-color: #d8e2ee; }
 
     .money {
       font-variant-numeric: tabular-nums;
@@ -167,6 +175,7 @@
     .kpi .value { margin-top: 6px; font-size: 22px; font-weight: 850; }
     .value--xl { font-size: 26px; font-weight: 900; }
     .v--big { font-size: 15px; font-weight: 800; }
+    .divider { height: 1px; background: #e7edf4; margin: 12px 0; }
 
     .bar {
       margin-top: 10px;
@@ -261,6 +270,18 @@
           <p>
             {{ snapshot.inmueble.nombre_proyecto|default:"—" }}
           </p>
+          <div class="status-pill">
+            {% with rec=snapshot.comite.recomendacion|default:'' %}
+              <span class="pill
+                {% if rec and 'Aprob' in rec %} pill--good
+                {% elif rec and 'Rech' in rec %} pill--bad
+                {% elif rec %} pill--warn
+                {% else %} pill--muted
+                {% endif %}">
+                {% if rec %}{{ rec }}{% else %}En estudio{% endif %}
+              </span>
+            {% endwith %}
+          </div>
         </div>
       </div>
       <div class="meta">
@@ -370,11 +391,24 @@
           </div>
 
           <div style="margin-top: 12px; display:flex; gap:10px; flex-wrap:wrap;">
-            <span class="pill">
+            <span class="pill
+              {% if snapshot.economico.roi_estimado >= 25 %} pill--good
+              {% elif snapshot.economico.roi_estimado >= 15 %} pill--warn
+              {% elif snapshot.economico.roi_estimado %} pill--bad
+              {% else %} pill--muted
+              {% endif %}">
               ROI:
               {% if snapshot.economico.roi_estimado %}
                 {{ snapshot.economico.roi_estimado|floatformat:2 }} %
               {% else %}—{% endif %}
+            </span>
+            <span class="pill
+              {% if snapshot.resultado.viable %} pill--good
+              {% elif snapshot.resultado.viable == False %} pill--bad
+              {% else %} pill--muted
+              {% endif %}">
+              Viabilidad:
+              {% if snapshot.resultado.mensaje %}{{ snapshot.resultado.mensaje }}{% else %}—{% endif %}
             </span>
           </div>
 
@@ -392,6 +426,84 @@
 
     </div>
 
+    <div class="card card--emphasis" style="margin-top: 14px;">
+      <div class="card__head">🧭 Vista comité</div>
+      <div class="card__body">
+        <div class="grid grid-2" style="gap: 12px;">
+          <div>
+            <div class="k">Resumen ejecutivo</div>
+            <div class="v" style="white-space:pre-wrap;">
+              {% if snapshot.comite.resumen_ejecutivo %}
+                {{ snapshot.comite.resumen_ejecutivo }}
+              {% elif snapshot.comite.observaciones %}
+                {{ snapshot.comite.observaciones }}
+              {% else %}
+                —
+              {% endif %}
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="k">Riesgos principales</div>
+            <div class="v">
+              {% with riesgo=snapshot.comite.nivel_riesgo|default:'' %}
+                <span class="pill
+                  {% if riesgo and 'Bajo' in riesgo %} pill--good
+                  {% elif riesgo and 'Medio' in riesgo %} pill--warn
+                  {% elif riesgo and 'Alto' in riesgo %} pill--bad
+                  {% else %} pill--muted
+                  {% endif %}">
+                  {% if riesgo %}{{ riesgo }}{% else %}—{% endif %}
+                </span>
+              {% endwith %}
+            </div>
+            <div class="note" style="white-space:pre-wrap;">
+              {{ snapshot.comite.comentario|default:"—" }}
+            </div>
+          </div>
+
+          <div>
+            <div class="k">Supuestos clave</div>
+            <div class="kv">
+              <div class="k">Compra</div>
+              <div class="v money">
+                {% if snapshot.economico.valor_adquisicion %}
+                  {{ snapshot.economico.valor_adquisicion|floatformat:2|intcomma }} €
+                {% else %}—{% endif %}
+              </div>
+
+              <div class="k">Venta</div>
+              <div class="v money">
+                {% if snapshot.economico.valor_transmision %}
+                  {{ snapshot.economico.valor_transmision|floatformat:2|intcomma }} €
+                {% else %}—{% endif %}
+              </div>
+
+              <div class="k">Meses operación</div>
+              <div class="v">
+                {% if snapshot.economico.meses %}
+                  {{ snapshot.economico.meses }}
+                {% elif snapshot.kpis.metricas.meses %}
+                  {{ snapshot.kpis.metricas.meses }}
+                {% else %}—{% endif %}
+              </div>
+
+              <div class="k">% financiación</div>
+              <div class="v">
+                {% if snapshot.economico.financiacion_pct %}
+                  {{ snapshot.economico.financiacion_pct|floatformat:2 }} %
+                {% elif snapshot.economico.porcentaje_financiacion %}
+                  {{ snapshot.economico.porcentaje_financiacion|floatformat:2 }} %
+                {% elif snapshot.kpis.metricas.financiacion_pct %}
+                  {{ snapshot.kpis.metricas.financiacion_pct|floatformat:2 }} %
+                {% else %}—{% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="grid grid-3" style="margin-top: 14px;">
       <div class="card">
         <div class="card__head">📌 Métricas de rentabilidad</div>
@@ -400,7 +512,7 @@
             <div class="k">Ratio €/beneficio</div>
             <div class="v money">
               {% if snapshot.kpis.ratio_euro_beneficio or snapshot.kpis.ratio_euro_beneficio == 0 %}
-                {{ snapshot.kpis.ratio_euro_beneficio|floatformat:2 }}
+                {{ snapshot.kpis.ratio_euro_beneficio|floatformat:2 }} €
               {% else %}
                 —
               {% endif %}
@@ -439,19 +551,19 @@
 
             <div class="k">Comisión Inversure</div>
             <div class="v">
-              {% if snapshot.inversor.comision_inversure_pct or snapshot.inversor.comision_inversure_pct == 0 %}
-                {{ snapshot.inversor.comision_inversure_pct|floatformat:2 }} %
-              {% elif snapshot.inversor.comision_pct or snapshot.inversor.comision_pct == 0 %}
-                {{ snapshot.inversor.comision_pct|floatformat:2 }} %
+              {% if inversor.comision_inversure_pct or inversor.comision_inversure_pct == 0 %}
+                {{ inversor.comision_inversure_pct|floatformat:2 }} %
+              {% elif inversor.comision_pct or inversor.comision_pct == 0 %}
+                {{ inversor.comision_pct|floatformat:2 }} %
               {% else %}—{% endif %}
             </div>
 
             <div class="k">Comisión (€)</div>
             <div class="v money">
-              {% if snapshot.inversor.comision_inversure_eur or snapshot.inversor.comision_inversure_eur == 0 %}
-                {{ snapshot.inversor.comision_inversure_eur|floatformat:2|intcomma }} €
-              {% elif snapshot.inversor.comision_eur or snapshot.inversor.comision_eur == 0 %}
-                {{ snapshot.inversor.comision_eur|floatformat:2|intcomma }} €
+              {% if inversor.comision_inversure_eur or inversor.comision_inversure_eur == 0 %}
+                {{ inversor.comision_inversure_eur|floatformat:2|intcomma }} €
+              {% elif inversor.comision_eur or inversor.comision_eur == 0 %}
+                {{ inversor.comision_eur|floatformat:2|intcomma }} €
               {% else %}—{% endif %}
             </div>
 
@@ -509,12 +621,14 @@
           <!-- 1) Break-even vs venta estimada (colchón) -->
           <div>
             <div class="k">Break-even vs venta estimada</div>
-            {% with vt=snapshot.economico.valor_transmision be=snapshot.kpis.precio_breakeven col=snapshot.kpis.colchon_seguridad %}
+            {% with vt=snapshot.economico.valor_transmision be=snapshot.kpis.precio_breakeven|default:snapshot.kpis.metricas.precio_breakeven col=snapshot.kpis.colchon_seguridad|default:snapshot.kpis.metricas.colchon_seguridad %}
               {% if vt and be and col %}
-                <div class="stack" title="Break-even (gris) + colchón (azul)">
-                  <span class="stack__part--a" style="width:{% widthratio be|floatformat:0 vt|floatformat:0 100 %}%;"></span>
-                  <span class="stack__part--b" style="width:{% widthratio col|floatformat:0 vt|floatformat:0 100 %}%;"></span>
-                </div>
+                {% with be_i=be|floatformat:0 vt_i=vt|floatformat:0 col_i=col|floatformat:0 %}
+                  <div class="stack" title="Break-even (gris) + colchón (azul)">
+                    <span class="stack__part--a" style="width:{% widthratio be_i vt_i 100 %}%;"></span>
+                    <span class="stack__part--b" style="width:{% widthratio col_i vt_i 100 %}%;"></span>
+                  </div>
+                {% endwith %}
                 <div class="note">
                   Break-even: {{ be|floatformat:2|intcomma }} € ·
                   Colchón: {{ col|floatformat:2|intcomma }} € ·
@@ -529,28 +643,30 @@
           <!-- 2) Reparto del beneficio (comisión vs neto inversor) -->
           <div>
             <div class="k">Reparto del beneficio estimado</div>
-            {% with ben=snapshot.economico.beneficio_estimado com=snapshot.inversor.comision_inversure_eur|default:snapshot.inversor.comision_eur net=snapshot.inversor.beneficio_neto %}
+            {% with ben=snapshot.economico.beneficio_estimado com=inversor.comision_inversure_eur|default:inversor.comision_eur net=inversor.beneficio_neto %}
               {% if ben and com and net %}
-                <div class="stack" title="Comisión (gris) + neto inversor (azul)">
-                  <span class="stack__part--a" style="width:{% widthratio com|floatformat:0 ben|floatformat:0 100 %}%;"></span>
-                  <span class="stack__part--b" style="width:{% widthratio net|floatformat:0 ben|floatformat:0 100 %}%;"></span>
-                </div>
-                {% widthratio net|floatformat:0 ben|floatformat:0 100 as pct_net %}
-                <div class="donut-wrap" title="Neto inversor sobre beneficio">
-                  <div>
-                    <div class="donut">
-                      <svg viewBox="0 0 120 120" role="img" aria-label="Neto inversor">
-                        <circle class="bg" cx="60" cy="60" r="44" pathLength="100" stroke-dasharray="100 100"></circle>
-                        <circle class="fg" cx="60" cy="60" r="44" pathLength="100" stroke-dasharray="{{ pct_net|default:0 }} 100"></circle>
-                      </svg>
-                      <div class="donut-center"><span>{{ pct_net|default:0 }}%</span></div>
+                {% with com_i=com|floatformat:0 ben_i=ben|floatformat:0 net_i=net|floatformat:0 %}
+                  <div class="stack" title="Comisión (gris) + neto inversor (azul)">
+                    <span class="stack__part--a" style="width:{% widthratio com_i ben_i 100 %}%;"></span>
+                    <span class="stack__part--b" style="width:{% widthratio net_i ben_i 100 %}%;"></span>
+                  </div>
+                  {% widthratio net_i ben_i 100 as pct_net %}
+                  <div class="donut-wrap" title="Neto inversor sobre beneficio">
+                    <div>
+                      <div class="donut">
+                        <svg viewBox="0 0 120 120" role="img" aria-label="Neto inversor">
+                          <circle class="bg" cx="60" cy="60" r="44" pathLength="100" stroke-dasharray="100 100"></circle>
+                          <circle class="fg" cx="60" cy="60" r="44" pathLength="100" stroke-dasharray="{{ pct_net|default:0 }} 100"></circle>
+                        </svg>
+                        <div class="donut-center"><span>{{ pct_net|default:0 }}%</span></div>
+                      </div>
+                    </div>
+                    <div class="note" style="margin-top:0;">
+                      <div><strong>Neto inversor</strong> (porcentaje sobre beneficio)</div>
+                      <div>Comisión: {{ com|floatformat:2|intcomma }} € · Neto: {{ net|floatformat:2|intcomma }} €</div>
                     </div>
                   </div>
-                  <div class="note" style="margin-top:0;">
-                    <div><strong>Neto inversor</strong> (porcentaje sobre beneficio)</div>
-                    <div>Comisión: {{ com|floatformat:2|intcomma }} € · Neto: {{ net|floatformat:2|intcomma }} €</div>
-                  </div>
-                </div>
+                {% endwith %}
                 <div class="note">
                   Beneficio: {{ ben|floatformat:2|intcomma }} € ·
                   Comisión: {{ com|floatformat:2|intcomma }} € ·

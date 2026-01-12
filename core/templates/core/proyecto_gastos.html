@@ -1,0 +1,495 @@
+{% extends "core/base.html" %}
+{% load humanize %}
+
+{% block content %}
+<div class="container-fluid">
+
+  <!-- CABECERA: Identidad del Proyecto -->
+  <div class="mb-4 d-flex justify-content-between align-items-start">
+    <div>
+      <h3 class="fw-semibold mb-1">Proyecto · {{ proyecto.nombre }}</h3>
+      <p class="text-muted mb-0">
+        {% if proyecto.direccion %}
+          {{ proyecto.direccion }}
+        {% endif %}
+      </p>
+    </div>
+    <a href="{% url 'core:lista_proyectos' %}" class="btn btn-outline-secondary">
+      ← Volver a proyectos
+    </a>
+  </div>
+
+  <form method="post" action="">
+    {% csrf_token %}
+    <input type="hidden" name="form_tipo" value="datos_economicos">
+
+
+    <!-- CABECERA ECONÓMICA DEL PROYECTO -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="card shadow-sm border-start border-4 border-primary">
+          <div class="card-body">
+            <div class="small text-muted">Valor de adquisición total</div>
+            <div class="fs-5 fw-semibold">
+              <span id="card-valor-adquisicion">{{ valor_adquisicion_total }}</span> €
+            </div>
+            <div class="small text-muted">
+              Escritura + gastos
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <div class="small text-muted">Precio de escritura</div>
+            <div class="fs-5 fw-semibold text-end">
+              {{ datos_economicos.precio_escritura|default_if_none:0|floatformat:2|intcomma }} €
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <div class="small text-muted">Total gastos acumulados</div>
+            <div class="fs-5 fw-semibold text-end">
+              <span id="card-total-gastos">{{ total_gastos }}</span> €
+            </div>
+            <div class="small text-muted">
+              Ordinarios + extraordinarios
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card shadow-sm border-start border-4 border-success">
+          <div class="card-body">
+            <label class="small text-muted mb-1">Valor de transmisión estimado</label>
+            <div class="input-group">
+              <input
+                type="number"
+                step="0.01"
+                class="form-control fw-semibold text-end auto-save"
+                name="valor_transmision_estimado"
+                value="{{ datos_economicos.valor_transmision_estimado|default_if_none:'' }}"
+              >
+              <span class="input-group-text">€</span>
+            </div>
+            <div class="small text-muted">
+              Estimación editable hasta venta real
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr>
+
+    <!-- BLOQUE A — Gastos de adquisición -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-light fw-semibold">
+        Gastos de adquisición
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Precio de escritura</span>
+              <input type="number" step="0.01" class="form-control text-end auto-save" name="precio_escritura" value="{{ gastos_base.precio_escritura|default_if_none:'' }}">
+              <select name="estado_precio_escritura" class="form-select form-select-sm auto-save" style="width: auto;">
+                <option value="estimado" {% if gastos_base.estado_precio_escritura == "estimado" %}selected{% endif %}>estimado</option>
+                <option value="real" {% if gastos_base.estado_precio_escritura == "real" %}selected{% endif %}>real</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>ITP / Impuestos</span>
+              <input type="number" step="0.01" class="form-control text-end auto-save" name="impuestos" value="{{ gastos_base.impuestos|default_if_none:'' }}">
+              <select name="estado_impuestos" class="form-select form-select-sm auto-save" style="width: auto;">
+                <option value="estimado" {% if gastos_base.estado_impuestos == "estimado" %}selected{% endif %}>estimado</option>
+                <option value="real" {% if gastos_base.estado_impuestos == "real" %}selected{% endif %}>real</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Notaría</span>
+              <input type="number" step="0.01" class="form-control text-end auto-save" name="notaria" value="{{ gastos_base.notaria|default_if_none:'' }}">
+              <select name="estado_notaria" class="form-select form-select-sm auto-save" style="width: auto;">
+                <option value="estimado" {% if gastos_base.estado_notaria == "estimado" %}selected{% endif %}>estimado</option>
+                <option value="real" {% if gastos_base.estado_notaria == "real" %}selected{% endif %}>real</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Registro</span>
+              <input type="number" step="0.01" class="form-control text-end auto-save" name="registro" value="{{ gastos_base.registro|default_if_none:'' }}">
+              <select name="estado_registro" class="form-select form-select-sm auto-save" style="width: auto;">
+                <option value="estimado" {% if gastos_base.estado_registro == "estimado" %}selected{% endif %}>estimado</option>
+                <option value="real" {% if gastos_base.estado_registro == "real" %}selected{% endif %}>real</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Gestoría</span>
+              <input type="number" step="0.01" class="form-control text-end auto-save" name="gestoria" value="{{ gastos_base.gestoria|default_if_none:'' }}">
+              <select name="estado_gestoria" class="form-select form-select-sm auto-save" style="width: auto;">
+                <option value="estimado" {% if gastos_base.estado_gestoria == "estimado" %}selected{% endif %}>estimado</option>
+                <option value="real" {% if gastos_base.estado_gestoria == "real" %}selected{% endif %}>real</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BLOQUE B — Gastos de mantenimiento / holding -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-light fw-semibold">
+        Gastos de mantenimiento / holding
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>IBI</span>
+              <input type="number" step="0.01" class="form-control text-end auto-save" name="ibi" value="{{ gastos_base.ibi|default_if_none:'' }}">
+              <select name="estado_ibi" class="form-select form-select-sm auto-save" style="width: auto;">
+                <option value="estimado" {% if gastos_base.estado_ibi == "estimado" %}selected{% endif %}>estimado</option>
+                <option value="real" {% if gastos_base.estado_ibi == "real" %}selected{% endif %}>real</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Comunidad</span>
+              <input type="number" step="0.01" class="form-control text-end auto-save" name="comunidad" value="{{ gastos_base.comunidad|default_if_none:'' }}">
+              <select name="estado_comunidad" class="form-select form-select-sm auto-save" style="width: auto;">
+                <option value="estimado" {% if gastos_base.estado_comunidad == "estimado" %}selected{% endif %}>estimado</option>
+                <option value="real" {% if gastos_base.estado_comunidad == "real" %}selected{% endif %}>real</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Luz</span>
+              <input type="number" step="0.01" class="form-control text-end auto-save" name="luz" value="{{ gastos_base.luz|default_if_none:'' }}">
+              <select name="estado_luz" class="form-select form-select-sm auto-save" style="width: auto;">
+                <option value="estimado" {% if gastos_base.estado_luz == "estimado" %}selected{% endif %}>estimado</option>
+                <option value="real" {% if gastos_base.estado_luz == "real" %}selected{% endif %}>real</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Agua</span>
+              <input type="number" step="0.01" class="form-control text-end auto-save" name="agua" value="{{ gastos_base.agua|default_if_none:'' }}">
+              <select name="estado_agua" class="form-select form-select-sm auto-save" style="width: auto;">
+                <option value="estimado" {% if gastos_base.estado_agua == "estimado" %}selected{% endif %}>estimado</option>
+                <option value="real" {% if gastos_base.estado_agua == "real" %}selected{% endif %}>real</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Alarma</span>
+              <input type="number" step="0.01" class="form-control text-end auto-save" name="alarma" value="{{ gastos_base.alarma|default_if_none:'' }}">
+              <select name="estado_alarma" class="form-select form-select-sm auto-save" style="width: auto;">
+                <option value="estimado" {% if gastos_base.estado_alarma == "estimado" %}selected{% endif %}>estimado</option>
+                <option value="real" {% if gastos_base.estado_alarma == "real" %}selected{% endif %}>real</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Cerrajero</span>
+              <input type="number" step="0.01" class="form-control text-end auto-save" name="cerrajero" value="{{ gastos_base.cerrajero|default_if_none:'' }}">
+              <select name="estado_cerrajero" class="form-select form-select-sm auto-save" style="width: auto;">
+                <option value="estimado" {% if gastos_base.estado_cerrajero == "estimado" %}selected{% endif %}>estimado</option>
+                <option value="real" {% if gastos_base.estado_cerrajero == "real" %}selected{% endif %}>real</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Limpieza / Vaciado</span>
+              <input type="number" step="0.01" class="form-control text-end auto-save" name="limpieza_vaciado" value="{{ gastos_base.limpieza_vaciado|default_if_none:'' }}">
+              <select name="estado_limpieza_vaciado" class="form-select form-select-sm auto-save" style="width: auto;">
+                <option value="estimado" {% if gastos_base.estado_limpieza_vaciado == "estimado" %}selected{% endif %}>estimado</option>
+                <option value="real" {% if gastos_base.estado_limpieza_vaciado == "real" %}selected{% endif %}>real</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BLOQUE D — Gastos de obra -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-light fw-semibold">
+        Gastos de obra / adecuación
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Reforma / obra</span>
+              <input type="number" step="0.01" class="form-control text-end auto-save" name="obra_reforma" value="{{ gastos_base.obra_reforma|default_if_none:'' }}">
+              <select name="estado_obra_reforma" class="form-select form-select-sm auto-save" style="width: auto;">
+                <option value="estimado" {% if gastos_base.estado_obra_reforma == "estimado" %}selected{% endif %}>estimado</option>
+                <option value="real" {% if gastos_base.estado_obra_reforma == "real" %}selected{% endif %}>real</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Materiales</span>
+              <input type="number" step="0.01" class="form-control text-end auto-save" name="obra_materiales" value="{{ gastos_base.obra_materiales|default_if_none:'' }}">
+              <select name="estado_obra_materiales" class="form-select form-select-sm auto-save" style="width: auto;">
+                <option value="estimado" {% if gastos_base.estado_obra_materiales == "estimado" %}selected{% endif %}>estimado</option>
+                <option value="real" {% if gastos_base.estado_obra_materiales == "real" %}selected{% endif %}>real</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Mano de obra</span>
+              <input type="number" step="0.01" class="form-control text-end auto-save" name="obra_mano_obra" value="{{ gastos_base.obra_mano_obra|default_if_none:'' }}">
+              <select name="estado_obra_mano_obra" class="form-select form-select-sm auto-save" style="width: auto;">
+                <option value="estimado" {% if gastos_base.estado_obra_mano_obra == "estimado" %}selected{% endif %}>estimado</option>
+                <option value="real" {% if gastos_base.estado_obra_mano_obra == "real" %}selected{% endif %}>real</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Técnico / Arquitecto</span>
+              <input type="number" step="0.01" class="form-control text-end auto-save" name="obra_tecnico" value="{{ gastos_base.obra_tecnico|default_if_none:'' }}">
+              <select name="estado_obra_tecnico" class="form-select form-select-sm auto-save" style="width: auto;">
+                <option value="estimado" {% if gastos_base.estado_obra_tecnico == "estimado" %}selected{% endif %}>estimado</option>
+                <option value="real" {% if gastos_base.estado_obra_tecnico == "real" %}selected{% endif %}>real</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Licencias / tasas</span>
+              <input type="number" step="0.01" class="form-control text-end auto-save" name="obra_licencias" value="{{ gastos_base.obra_licencias|default_if_none:'' }}">
+              <select name="estado_obra_licencias" class="form-select form-select-sm auto-save" style="width: auto;">
+                <option value="estimado" {% if gastos_base.estado_obra_licencias == "estimado" %}selected{% endif %}>estimado</option>
+                <option value="real" {% if gastos_base.estado_obra_licencias == "real" %}selected{% endif %}>real</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Imprevistos / contingencia</span>
+              <input type="number" step="0.01" class="form-control text-end auto-save" name="obra_contingencia" value="{{ gastos_base.obra_contingencia|default_if_none:'' }}">
+              <select name="estado_obra_contingencia" class="form-select form-select-sm auto-save" style="width: auto;">
+                <option value="estimado" {% if gastos_base.estado_obra_contingencia == "estimado" %}selected{% endif %}>estimado</option>
+                <option value="real" {% if gastos_base.estado_obra_contingencia == "real" %}selected{% endif %}>real</option>
+              </select>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+
+    <!-- BLOQUE C — Gastos de comercialización y gestión -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-light fw-semibold">
+        Gastos de comercialización y gestión
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Comercialización</span>
+              <input type="number" step="0.01" class="form-control text-end auto-save" name="comercializacion" value="{{ gastos_base.comercializacion|default_if_none:'' }}">
+              <select name="estado_comercializacion" class="form-select form-select-sm auto-save" style="width: auto;">
+                <option value="estimado" {% if gastos_base.estado_comercializacion == "estimado" %}selected{% endif %}>estimado</option>
+                <option value="real" {% if gastos_base.estado_comercializacion == "real" %}selected{% endif %}>real</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Administración</span>
+              <input type="number" step="0.01" class="form-control text-end auto-save" name="administracion" value="{{ gastos_base.administracion|default_if_none:'' }}">
+              <select name="estado_administracion" class="form-select form-select-sm auto-save" style="width: auto;">
+                <option value="estimado" {% if gastos_base.estado_administracion == "estimado" %}selected{% endif %}>estimado</option>
+                <option value="real" {% if gastos_base.estado_administracion == "real" %}selected{% endif %}>real</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 border rounded">
+              <span>Comisión Inversure</span>
+              <input type="number" step="0.01" class="form-control text-end auto-save" name="comision_inversure" value="{{ gastos_base.comision_inversure|default_if_none:'' }}">
+              <select name="estado_comision_inversure" class="form-select form-select-sm auto-save" style="width: auto;">
+                <option value="estimado" {% if gastos_base.estado_comision_inversure == "estimado" %}selected{% endif %}>estimado</option>
+                <option value="real" {% if gastos_base.estado_comision_inversure == "real" %}selected{% endif %}>real</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr>
+
+    <!-- BLOQUE: Gastos extraordinarios -->
+    <!-- Gastos extraordinarios registrados en la operación -->
+    <div class="card shadow-sm border-start border-4 border-danger">
+      <div class="card-header bg-light fw-semibold">
+        Gastos extraordinarios
+      </div>
+
+      {% if gastos_extraordinarios %}
+      <div class="table-responsive">
+        <table class="table table-striped mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Concepto</th>
+              <th class="text-end">Importe</th>
+              <th>Fecha</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for gasto in gastos_extraordinarios %}
+            <tr>
+              <td>{{ gasto.concepto }}</td>
+              <td class="text-end">{{ gasto.importe|floatformat:2|intcomma }} €</td>
+              <td>{{ gasto.fecha|date:"d/m/Y" }}</td>
+              <td class="text-end">
+                <a href="{{ gasto.justificante.url }}" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener noreferrer">Justificante</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <div class="p-4 text-center text-muted">No hay gastos extraordinarios registrados.</div>
+      {% endif %}
+    </div>
+
+    <div class="position-sticky bottom-0 bg-white border-top py-3 d-flex justify-content-end">
+      <button type="button" class="btn btn-secondary" disabled>
+        Guardado automático activado
+      </button>
+    </div>
+  </form>
+
+</div>
+<script>
+(function () {
+  const form = document.querySelector('form');
+  if (!form) return;
+
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+
+  const csrftoken = getCookie('csrftoken');
+  const inputs = form.querySelectorAll('.auto-save');
+  const totalGastosSpan = document.getElementById('card-total-gastos');
+  const valorAdquisicionSpan = document.getElementById('card-valor-adquisicion');
+
+  const formatter = new Intl.NumberFormat('es-ES', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
+  let debounceTimer = null;
+  let lastPayload = null;
+
+  function buildPayload() {
+    const data = {};
+    inputs.forEach(input => {
+      if (input.name) data[input.name] = input.value || "0";
+    });
+    return data;
+  }
+
+  function recalculateCards() {
+    let totalGastos = 0;
+    let precioEscritura = 0;
+
+    inputs.forEach(input => {
+      const name = input.name;
+      if (!name || name === 'valor_transmision_estimado') return;
+
+      const val = parseFloat(input.value.replace(',', '.'));
+      if (isNaN(val)) return;
+
+      if (name === 'precio_escritura') {
+        precioEscritura = val;
+      } else {
+        totalGastos += val;
+      }
+    });
+
+    if (totalGastosSpan) {
+      totalGastosSpan.textContent = formatter.format(totalGastos);
+    }
+    if (valorAdquisicionSpan) {
+      valorAdquisicionSpan.textContent = formatter.format(precioEscritura + totalGastos);
+    }
+  }
+
+  function autoSave() {
+    const formData = new FormData(form);
+
+    fetch(window.location.pathname, {
+      method: "POST",
+      headers: {
+        "X-CSRFToken": csrftoken
+      },
+      body: formData
+    }).catch(err => {
+      console.error("Error autoguardado:", err);
+    });
+  }
+
+  function scheduleSave() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      recalculateCards();
+      autoSave();
+    }, 500);
+  }
+
+  inputs.forEach(input => {
+    input.addEventListener('input', scheduleSave);
+    input.addEventListener('change', scheduleSave);
+  });
+
+  recalculateCards();
+})();
+</script>
+{% endblock %}
