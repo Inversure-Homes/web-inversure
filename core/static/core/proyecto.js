@@ -2198,6 +2198,77 @@ function bindComunicaciones() {
   loadRows();
 }
 
+function bindDocumentos() {
+  const wrap = document.getElementById("doc_upload_wrap");
+  const btn = document.getElementById("doc_upload_btn");
+  const elTitulo = document.getElementById("doc_titulo");
+  const elCategoria = document.getElementById("doc_categoria");
+  const elArchivo = document.getElementById("doc_archivo");
+  const status = document.getElementById("doc_upload_status");
+  if (!wrap || !btn || !elArchivo) return;
+
+  const url = wrap.getAttribute("data-upload-url") || "";
+  if (!url) return;
+
+  btn.addEventListener("click", async () => {
+    const file = elArchivo.files && elArchivo.files[0];
+    if (!file) {
+      if (status) status.textContent = "Selecciona un archivo para subir.";
+      return;
+    }
+    if (status) status.textContent = "Subiendo documento...";
+    const fd = new FormData();
+    fd.append("archivo", file);
+    fd.append("titulo", (elTitulo && elTitulo.value || "").trim());
+    fd.append("categoria", (elCategoria && elCategoria.value || "otros").trim());
+    const csrf = getCsrfToken();
+    try {
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          ...(csrf ? { "X-CSRFToken": csrf } : {}),
+        },
+        body: fd,
+      });
+      if (!resp.ok) {
+        if (status) status.textContent = "No se pudo subir el documento.";
+        return;
+      }
+      window.location.hash = "vista-documentacion";
+      window.location.reload();
+    } catch (e) {
+      if (status) status.textContent = "No se pudo subir el documento.";
+    }
+  });
+
+  document.querySelectorAll(".doc-delete-btn").forEach(btnDel => {
+    if (btnDel.dataset.bindDocDelete === "1") return;
+    btnDel.dataset.bindDocDelete = "1";
+    btnDel.addEventListener("click", async () => {
+      const delUrl = btnDel.getAttribute("data-url") || "";
+      if (!delUrl) return;
+      if (!confirm("¿Eliminar este documento?")) return;
+      const csrf = getCsrfToken();
+      try {
+        const resp = await fetch(delUrl, {
+          method: "POST",
+          headers: {
+            ...(csrf ? { "X-CSRFToken": csrf } : {}),
+          },
+        });
+        if (!resp.ok) {
+          alert("No se pudo borrar el documento.");
+          return;
+        }
+        window.location.hash = "vista-documentacion";
+        window.location.reload();
+      } catch (e) {
+        alert("No se pudo borrar el documento.");
+      }
+    });
+  });
+}
+
 // -----------------------------
 // Init
 // -----------------------------
@@ -2235,4 +2306,5 @@ document.addEventListener("DOMContentLoaded", () => {
   bindParticipaciones();
   bindSolicitudes();
   bindComunicaciones();
+  bindDocumentos();
 });

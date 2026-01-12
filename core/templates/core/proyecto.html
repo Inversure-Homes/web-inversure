@@ -796,19 +796,18 @@
                 <div class="card-body">
                     <h5 class="mb-2 inversure-form-header">Documentación</h5>
                     <p class="text-muted mb-4">Archiva documentos clave del proyecto con trazabilidad y categorías.</p>
-                    <div class="row g-3">
+                    <div class="row g-3" id="doc_upload_wrap" data-upload-url="{% url 'core:proyecto_documentos' proyecto.id %}">
                         <div class="col-lg-5">
-                            <form method="post" action="{% url 'core:proyecto_documentos' proyecto.id %}" enctype="multipart/form-data" class="card border-0 shadow-sm">
-                                {% csrf_token %}
+                            <div class="card border-0 shadow-sm">
                                 <div class="card-body">
                                     <h6 class="mb-3">Subir documento</h6>
                                     <div class="mb-3">
                                         <label class="form-label">Título</label>
-                                        <input type="text" name="titulo" class="form-control" placeholder="Ej. Escritura de compra">
+                                        <input type="text" id="doc_titulo" class="form-control" placeholder="Ej. Escritura de compra">
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label">Categoría</label>
-                                        <select name="categoria" class="form-select">
+                                        <select id="doc_categoria" class="form-select">
                                             <option value="inmueble">Documentación inmueble</option>
                                             <option value="facturas">Facturas</option>
                                             <option value="fotografias">Fotografías</option>
@@ -817,12 +816,13 @@
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label">Archivo</label>
-                                        <input type="file" name="archivo" class="form-control" required>
+                                        <input type="file" id="doc_archivo" class="form-control">
                                         <div class="form-text">Formatos: PDF, imágenes, hojas de cálculo.</div>
                                     </div>
-                                    <button type="submit" class="btn btn-inversure w-100 text-nowrap">Subir documento</button>
+                                    <div class="small text-muted mb-2" id="doc_upload_status"></div>
+                                    <button type="button" class="btn btn-inversure w-100 text-nowrap" id="doc_upload_btn">Subir documento</button>
                                 </div>
-                            </form>
+                            </div>
                         </div>
                         <div class="col-lg-7">
                             <div class="card border-0 shadow-sm">
@@ -846,10 +846,7 @@
                                                         <td>{{ doc.creado|date:"d/m/Y" }}</td>
                                                         <td class="text-end">
                                                             <a href="{{ doc.archivo.url }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">Ver</a>
-                                                            <form method="post" action="{% url 'core:proyecto_documento_borrar' proyecto.id doc.id %}" class="d-inline">
-                                                                {% csrf_token %}
-                                                                <button type="submit" class="btn btn-sm btn-outline-danger">Borrar</button>
-                                                            </form>
+                                                            <button type="button" class="btn btn-sm btn-outline-danger doc-delete-btn" data-url="{% url 'core:proyecto_documento_borrar' proyecto.id doc.id %}">Borrar</button>
                                                         </td>
                                                     </tr>
                                                 {% empty %}
