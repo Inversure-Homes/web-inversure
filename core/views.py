@@ -2426,6 +2426,7 @@ def proyecto_documentos(request, proyecto_id: int):
 
     DocumentoProyecto.objects.create(
         proyecto=proyecto,
+        tipo=categoria,
         categoria=categoria,
         titulo=titulo,
         archivo=archivo,

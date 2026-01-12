@@ -1072,11 +1072,17 @@ class DocumentoProyecto(models.Model):
         ("fotografias", "Fotografías"),
         ("otros", "Otros"),
     ]
+    TIPO_CHOICES = CATEGORIAS
 
     proyecto = models.ForeignKey(
         Proyecto,
         on_delete=models.CASCADE,
         related_name="documentos"
+    )
+    tipo = models.CharField(
+        max_length=30,
+        choices=TIPO_CHOICES,
+        default="otros"
     )
     categoria = models.CharField(max_length=20, choices=CATEGORIAS, default="otros")
     titulo = models.CharField(max_length=255)
