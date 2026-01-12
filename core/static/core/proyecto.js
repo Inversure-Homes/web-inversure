@@ -433,6 +433,7 @@ function bindNombreProyectoLiveUpdate() {
       const targets = [
         "[name='valor_adquisicion_total']",
         "[name='valor_adquisicion']",
+        "[name='precio_compra_inmueble']",
         "[data-bind='kpis.metricas.valor_adquisicion_total']",
         "[data-bind='kpis.metricas.valor_adquisicion']",
         "#valor_adquisicion_total",
@@ -467,6 +468,7 @@ function bindNombreProyectoLiveUpdate() {
     try {
       const precio = getEuroFromSelectors([
         "[name='precio_escritura']",
+        "[name='precio_propiedad']",
         "[name='kpis.metricas.precio_escritura']",
         "#precio_escritura",
       ]);
@@ -478,8 +480,30 @@ function bindNombreProyectoLiveUpdate() {
         ["[name='registro']", "[name='kpis.metricas.registro']", "#registro"],
         ["[name='gestoria']", "[name='kpis.metricas.gestoria']", "#gestoria"],
         ["[name='tasacion']", "[name='kpis.metricas.tasacion']", "#tasacion"],
-        ["[name='otros_gastos']", "[name='kpis.metricas.otros_gastos']", "#otros_gastos"],
+        ["[name='otros_gastos']", "[name='otros_gastos_compra']", "[name='kpis.metricas.otros_gastos']", "#otros_gastos"],
         ["[name='otros_gastos_adquisicion']", "[name='kpis.metricas.otros_gastos_adquisicion']", "#otros_gastos_adquisicion"],
+        ["[name='reforma']", "[name='kpis.metricas.reforma']"],
+        ["[name='limpieza_inicial']", "[name='kpis.metricas.limpieza_inicial']"],
+        ["[name='mobiliario']", "[name='kpis.metricas.mobiliario']"],
+        ["[name='otros_puesta_marcha']", "[name='kpis.metricas.otros_puesta_marcha']"],
+        ["[name='obra_demoliciones']", "[name='kpis.metricas.obra_demoliciones']"],
+        ["[name='obra_albanileria']", "[name='kpis.metricas.obra_albanileria']"],
+        ["[name='obra_fontaneria']", "[name='kpis.metricas.obra_fontaneria']"],
+        ["[name='obra_electricidad']", "[name='kpis.metricas.obra_electricidad']"],
+        ["[name='obra_carpinteria_interior']", "[name='kpis.metricas.obra_carpinteria_interior']"],
+        ["[name='obra_carpinteria_exterior']", "[name='kpis.metricas.obra_carpinteria_exterior']"],
+        ["[name='obra_cocina']", "[name='kpis.metricas.obra_cocina']"],
+        ["[name='obra_banos']", "[name='kpis.metricas.obra_banos']"],
+        ["[name='obra_pintura']", "[name='kpis.metricas.obra_pintura']"],
+        ["[name='obra_otros']", "[name='kpis.metricas.obra_otros']"],
+        ["[name='cerrajero']", "[name='kpis.metricas.cerrajero']"],
+        ["[name='alarma']", "[name='kpis.metricas.alarma']"],
+        ["[name='comunidad']", "[name='kpis.metricas.comunidad']"],
+        ["[name='ibi']", "[name='kpis.metricas.ibi']"],
+        ["[name='seguros']", "[name='kpis.metricas.seguros']"],
+        ["[name='suministros']", "[name='kpis.metricas.suministros']"],
+        ["[name='limpieza_periodica']", "[name='kpis.metricas.limpieza_periodica']"],
+        ["[name='ocupas']", "[name='kpis.metricas.ocupas']"],
       ];
 
       let gastos = 0;
@@ -580,6 +604,7 @@ function buildOverlayPayloadFromDOM() {
     proyecto: {},
     inmueble: {},
     kpis: { metricas: {} },
+    economico: {},
   };
 
   const inmuebleKeys = new Set([
@@ -680,6 +705,76 @@ function buildOverlayPayloadFromDOM() {
       return;
     }
 
+    // Campos económicos que deben quedar en economico (trazabilidad)
+    const economicoKeys = new Set([
+      "precio_propiedad",
+      "precio_escritura",
+      "venta_estimada",
+      "precio_compra_inmueble",
+      "precio_venta_estimado",
+      "precio_transmision",
+      "valor_adquisicion",
+      "valor_adquisicion_total",
+      "valor_transmision",
+      "beneficio_bruto",
+      "beneficio_neto",
+      "meses",
+      "financiacion_pct",
+      "porcentaje_financiacion",
+      "notaria",
+      "registro",
+      "itp",
+      "otros_gastos_compra",
+      "otros_gastos",
+      "reforma",
+      "limpieza_inicial",
+      "mobiliario",
+      "otros_puesta_marcha",
+      "obra_demoliciones",
+      "obra_albanileria",
+      "obra_fontaneria",
+      "obra_electricidad",
+      "obra_carpinteria_interior",
+      "obra_carpinteria_exterior",
+      "obra_cocina",
+      "obra_banos",
+      "obra_pintura",
+      "obra_otros",
+      "cerrajero",
+      "alarma",
+      "comunidad",
+      "ibi",
+      "seguros",
+      "suministros",
+      "limpieza_periodica",
+      "ocupas",
+      "plusvalia",
+      "inmobiliaria",
+      "gestion_comercial",
+      "gestion_administracion",
+      "val_idealista",
+      "val_fotocasa",
+      "val_registradores",
+      "val_casafari",
+      "val_tasacion",
+      "media_valoraciones",
+    ]);
+    if (economicoKeys.has(name)) {
+      payload.economico[name] = value;
+      // Alias para financiación
+      if (name === "financiacion_pct") {
+        payload.economico.porcentaje_financiacion = value;
+      }
+      if (name === "precio_compra_inmueble") {
+        payload.economico.valor_adquisicion = value;
+        payload.economico.valor_adquisicion_total = value;
+      }
+      if (name === "precio_venta_estimado") {
+        payload.economico.valor_transmision = value;
+      }
+      return;
+    }
+
     // Por defecto: lo guardamos como métrica (clave tal cual)
     payload.kpis.metricas[name] = value;
   });
@@ -687,8 +782,9 @@ function buildOverlayPayloadFromDOM() {
   // --- Derivado (persistencia): Valor de adquisición = precio_escritura + gastos ---
   try {
     const m = payload.kpis && payload.kpis.metricas ? payload.kpis.metricas : {};
+    const e = payload.economico || {};
 
-    const precio = Number.isFinite(m.precio_escritura) ? m.precio_escritura : null;
+    const precio = Number.isFinite(m.precio_escritura) ? m.precio_escritura : (Number.isFinite(e.precio_propiedad) ? e.precio_propiedad : null);
 
     const gastoKeys = [
       "itp",
@@ -711,6 +807,8 @@ function buildOverlayPayloadFromDOM() {
       // Guardamos con claves compatibles
       m.valor_adquisicion = valorAdq;
       m.valor_adquisicion_total = valorAdq;
+      e.valor_adquisicion = valorAdq;
+      e.valor_adquisicion_total = valorAdq;
 
       // Reflejo en DOM si hay hueco
       try {
@@ -781,6 +879,7 @@ async function autosaveNow({ keepalive = false } = {}) {
     const hasSomething = payload && (
       (payload.proyecto && Object.keys(payload.proyecto).length) ||
       (payload.inmueble && Object.keys(payload.inmueble).length) ||
+      (payload.economico && Object.keys(payload.economico).length) ||
       (payload.kpis && payload.kpis.metricas && Object.keys(payload.kpis.metricas).length)
     );
 
@@ -865,6 +964,1018 @@ function bindAutosaveListeners() {
 }
 
 // -----------------------------
+// Autocálculo (Proyecto) -> Notaría / Registro / ITP
+// -----------------------------
+function bindAutocalcGastos() {
+  const precioInput = document.querySelector("[name='precio_propiedad']");
+  const itpInput = document.querySelector("[name='itp']");
+  const notariaInput = document.querySelector("[name='notaria']");
+  const registroInput = document.querySelector("[name='registro']");
+
+  if (!precioInput || !itpInput || !notariaInput || !registroInput) return;
+
+  const markEdited = (el) => {
+    if (!el || !el.dataset) return;
+    el.dataset.userEdited = "1";
+  };
+
+  const setIfAuto = (el, value) => {
+    if (!el) return;
+    const edited = el.dataset && el.dataset.userEdited === "1";
+    if (edited && _shouldFormatRaw(_getElText(el))) return;
+    _setElText(el, formatEuro(value));
+  };
+
+  const recalc = () => {
+    const precio = parseEuro(_getElText(precioInput));
+    if (precio === null) return;
+
+    const itp = precio * 0.02;
+    const notaria = Math.max(precio * 0.002, 500);
+    const registro = Math.max(precio * 0.002, 500);
+
+    setIfAuto(itpInput, itp);
+    setIfAuto(notariaInput, notaria);
+    setIfAuto(registroInput, registro);
+  };
+
+  // Si el usuario edita manualmente, respetamos.
+  [itpInput, notariaInput, registroInput].forEach((el) => {
+    el.addEventListener("input", () => markEdited(el));
+  });
+
+  // Recalcular cuando cambia el precio
+  precioInput.addEventListener("input", recalc);
+  precioInput.addEventListener("blur", recalc);
+
+  // Cálculo inicial al cargar si hay precio
+  recalc();
+}
+
+// -----------------------------
+// Autocálculo (Proyecto) -> Media de valoraciones
+// -----------------------------
+function bindAutocalcValoraciones() {
+  const inputs = Array.from(document.querySelectorAll("[data-valuation='true']"));
+  const mediaInput = document.querySelector("[name='media_valoraciones']");
+  if (!inputs.length || !mediaInput) return;
+
+  const recalc = () => {
+    let suma = 0;
+    let count = 0;
+    inputs.forEach((el) => {
+      const v = parseEuro(_getElText(el));
+      if (Number.isFinite(v) && v > 0) {
+        suma += v;
+        count += 1;
+      }
+    });
+    const media = count > 0 ? (suma / count) : null;
+    if (media === null) {
+      _setElText(mediaInput, "");
+      return;
+    }
+    _setElText(mediaInput, formatEuro(media));
+  };
+
+  inputs.forEach((el) => {
+    el.addEventListener("input", recalc);
+    el.addEventListener("blur", recalc);
+  });
+
+  recalc();
+}
+
+// -----------------------------
+// Autocálculo (Proyecto) -> Valor de transmisión
+// -----------------------------
+function bindAutocalcValorTransmision() {
+  const ventaInput = document.querySelector("[name='venta_estimada']");
+  const valorAdqInput = document.querySelector("[name='precio_compra_inmueble']") || document.querySelector("[name='valor_adquisicion']");
+  const valorTransInput = document.querySelector("[name='precio_venta_estimado']");
+  const valorTransAltInput = document.querySelector("[name='valor_transmision']");
+  const plusvaliaInput = document.querySelector("[name='plusvalia']");
+  const inmobiliariaInput = document.querySelector("[name='inmobiliaria']");
+  const comercialInput = document.querySelector("[name='gestion_comercial']");
+  const adminInput = document.querySelector("[name='gestion_administracion']");
+
+  if (!ventaInput || !valorAdqInput || !valorTransInput) return;
+
+  const markEdited = (el) => {
+    if (!el || !el.dataset) return;
+    el.dataset.userEdited = "1";
+  };
+
+  const setIfAuto = (el, value) => {
+    if (!el) return;
+    const edited = el.dataset && el.dataset.userEdited === "1";
+    if (edited && _shouldFormatRaw(_getElText(el))) return;
+    _setElText(el, formatEuro(value));
+  };
+
+  const recalc = () => {
+    const venta = parseEuro(_getElText(ventaInput));
+    const valorAdq = parseEuro(_getElText(valorAdqInput));
+    if (venta === null || valorAdq === null) return;
+
+    const beneficio = venta - valorAdq;
+    const base = Math.max(beneficio, 0);
+    const gastoComercial = Math.min(base * 0.05, 2000);
+    const gastoAdministracion = Math.min(base * 0.05, 1500);
+    const plusvalia = plusvaliaInput ? (parseEuro(_getElText(plusvaliaInput)) || 0) : 0;
+    const inmobiliaria = inmobiliariaInput ? (parseEuro(_getElText(inmobiliariaInput)) || 0) : 0;
+    const comercial = comercialInput ? (parseEuro(_getElText(comercialInput)) || gastoComercial) : gastoComercial;
+    const admin = adminInput ? (parseEuro(_getElText(adminInput)) || gastoAdministracion) : gastoAdministracion;
+    const gastosVenta = comercial + admin + plusvalia + inmobiliaria;
+
+    // Valor de transmisión = venta estimada - gastos de venta.
+    const valorTrans = venta - gastosVenta;
+    setIfAuto(valorTransInput, valorTrans);
+    if (valorTransAltInput) setIfAuto(valorTransAltInput, valorTrans);
+  };
+
+  valorTransInput.addEventListener("input", () => markEdited(valorTransInput));
+
+  ventaInput.addEventListener("input", recalc);
+  ventaInput.addEventListener("blur", recalc);
+  [plusvaliaInput, inmobiliariaInput, comercialInput, adminInput].forEach((el) => {
+    if (!el) return;
+    el.addEventListener("input", recalc);
+    el.addEventListener("blur", recalc);
+  });
+  recalc();
+}
+
+// -----------------------------
+// Autocálculo (Proyecto) -> Gastos de venta (5% + 5% sobre beneficio)
+// -----------------------------
+function bindAutocalcGastosVenta() {
+  const ventaInput = document.querySelector("[name='venta_estimada']");
+  const valorAdqInput = document.querySelector("[name='precio_compra_inmueble']") || document.querySelector("[name='valor_adquisicion']");
+  const comercialInput = document.querySelector("[name='gestion_comercial']");
+  const adminInput = document.querySelector("[name='gestion_administracion']");
+  if (!ventaInput || !valorAdqInput || !comercialInput || !adminInput) return;
+
+  const markEdited = (el) => {
+    if (!el || !el.dataset) return;
+    el.dataset.userEdited = "1";
+  };
+
+  const setIfAuto = (el, value) => {
+    if (!el) return;
+    const edited = el.dataset && el.dataset.userEdited === "1";
+    if (edited && _shouldFormatRaw(_getElText(el))) return;
+    _setElText(el, formatEuro(value));
+  };
+
+  const recalc = () => {
+    const venta = parseEuro(_getElText(ventaInput));
+    const valorAdq = parseEuro(_getElText(valorAdqInput));
+    if (venta === null || valorAdq === null) return;
+
+    const beneficio = venta - valorAdq;
+    const base = Math.max(beneficio, 0);
+    const gastoComercial = Math.min(base * 0.05, 2000);
+    const gastoAdministracion = Math.min(base * 0.05, 1500);
+
+    setIfAuto(comercialInput, gastoComercial);
+    setIfAuto(adminInput, gastoAdministracion);
+  };
+
+  [comercialInput, adminInput].forEach((el) => {
+    el.addEventListener("input", () => markEdited(el));
+  });
+
+  ventaInput.addEventListener("input", recalc);
+  ventaInput.addEventListener("blur", recalc);
+  recalc();
+}
+
+// -----------------------------
+// Autocálculo (Proyecto) -> Beneficio bruto / neto
+// -----------------------------
+function bindAutocalcBeneficios() {
+  const ventaInput = document.querySelector("[name='venta_estimada']");
+  const valorAdqInput = document.querySelector("[name='precio_compra_inmueble']") || document.querySelector("[name='valor_adquisicion']");
+  const valorTransInput = document.querySelector("[name='precio_venta_estimado']");
+  const brutoInput = document.querySelector("[name='beneficio_bruto']");
+  const netoInput = document.querySelector("[name='beneficio_neto']");
+
+  if (!ventaInput || !valorAdqInput || !brutoInput || !netoInput) return;
+
+  const setOrClear = (el, value) => {
+    if (!el) return;
+    if (!Number.isFinite(value)) {
+      _setElText(el, "");
+      return;
+    }
+    _setElText(el, formatEuro(value));
+  };
+
+  const recalc = () => {
+    const venta = parseEuro(_getElText(ventaInput));
+    const valorAdq = parseEuro(_getElText(valorAdqInput));
+    const valorTrans = parseEuro(_getElText(valorTransInput));
+
+    if (venta !== null && valorAdq !== null) {
+      setOrClear(brutoInput, venta - valorAdq);
+    } else {
+      setOrClear(brutoInput, NaN);
+    }
+
+    if (valorTrans !== null && valorAdq !== null) {
+      setOrClear(netoInput, valorTrans - valorAdq);
+    } else {
+      setOrClear(netoInput, NaN);
+    }
+  };
+
+  [ventaInput, valorAdqInput, valorTransInput].forEach((el) => {
+    if (!el) return;
+    el.addEventListener("input", recalc);
+    el.addEventListener("blur", recalc);
+  });
+
+  recalc();
+}
+
+// -----------------------------
+// Memoria económica (Proyecto)
+// -----------------------------
+function bindMemoriaEconomica() {
+  const tabla = document.getElementById("eco_tabla_rows");
+  const btnAdd = document.getElementById("eco_add_btn");
+  const btnCancel = document.getElementById("eco_cancel_btn");
+
+  if (!tabla || !btnAdd) return;
+
+  const urlGastos = window.PROYECTO_GASTOS_URL || "";
+  const urlIngresos = window.PROYECTO_INGRESOS_URL || "";
+
+  const elFecha = document.getElementById("eco_fecha");
+  const elTipo = document.getElementById("eco_tipo");
+  const elCategoria = document.getElementById("eco_categoria");
+  const elTipoIngreso = document.getElementById("eco_tipo_ingreso");
+  const elConcepto = document.getElementById("eco_concepto");
+  const elImporte = document.getElementById("eco_importe");
+  const elEstado = document.getElementById("eco_estado");
+  const elImputable = document.getElementById("eco_imputable");
+  const elObs = document.getElementById("eco_obs");
+
+  const totalEstimadoEl = document.getElementById("eco_total_estimado");
+  const totalRealEl = document.getElementById("eco_total_real");
+  const totalIngresosEl = document.getElementById("eco_total_ingresos");
+  const totalIngresosEstEl = document.getElementById("eco_total_ingresos_estimado");
+  const balanceNetoEl = document.getElementById("eco_balance_neto");
+
+  let rows = [];
+  let editState = null;
+
+  function fmtEuroLocal(n) {
+    return formatEuro(n);
+  }
+
+  function renderTotals() {
+    let totalEstimado = 0;
+    let totalReal = 0;
+    let totalIngresosEstimados = 0;
+    let totalIngresosReales = 0;
+    let ventaEstimado = 0;
+    let ventaReal = 0;
+    let gastosAdqEstimado = 0;
+    let gastosAdqReal = 0;
+    let gastosVentaEstimado = 0;
+    let gastosVentaReal = 0;
+
+    const catsAdq = new Set([
+      "adquisicion",
+      "reforma",
+      "seguridad",
+      "operativos",
+      "financieros",
+      "legales",
+      "otros",
+    ]);
+
+    rows.forEach(r => {
+      if (r.tipo === "gasto") {
+        if (r.estado === "estimado") totalEstimado += r.importe;
+        if (r.estado === "confirmado") totalReal += r.importe;
+        if (catsAdq.has(r.categoria)) {
+          if (r.estado === "estimado") gastosAdqEstimado += r.importe;
+          if (r.estado === "confirmado") gastosAdqReal += r.importe;
+        }
+        if (r.categoria === "venta") {
+          if (r.estado === "estimado") gastosVentaEstimado += r.importe;
+          if (r.estado === "confirmado") gastosVentaReal += r.importe;
+        }
+      } else if (r.tipo === "ingreso") {
+        if (r.estado === "confirmado") totalIngresosReales += r.importe;
+        else totalIngresosEstimados += r.importe;
+        const ingresoTipo = r.categoria || r.tipo_ingreso || "";
+        if (ingresoTipo === "venta") {
+          if (r.estado === "confirmado") ventaReal += r.importe;
+          else ventaEstimado += r.importe;
+        }
+      }
+    });
+
+    if (totalEstimadoEl) totalEstimadoEl.textContent = fmtEuroLocal(totalEstimado);
+    if (totalRealEl) totalRealEl.textContent = fmtEuroLocal(totalReal);
+    if (totalIngresosEl) {
+      const shown = totalIngresosReales > 0 ? totalIngresosReales : totalIngresosEstimados;
+      totalIngresosEl.textContent = fmtEuroLocal(shown);
+    }
+    if (totalIngresosEstEl) totalIngresosEstEl.textContent = `Estimado: ${fmtEuroLocal(totalIngresosEstimados)}`;
+    if (balanceNetoEl) {
+      const hasReal = totalIngresosReales > 0 || totalReal > 0;
+      const balance = hasReal
+        ? (totalIngresosReales - totalReal)
+        : (totalIngresosEstimados - totalEstimado);
+      balanceNetoEl.textContent = fmtEuroLocal(balance);
+    }
+
+    // Derivados: valores estimados / reales desde memoria económica
+    const precioCompra = parseEuro(_getElText(document.querySelector("[name='precio_propiedad']"))) ??
+      parseEuro(_getElText(document.querySelector("[name='precio_escritura']")));
+    const ventaEstimada = parseEuro(_getElText(document.querySelector("[name='venta_estimada']")));
+
+    const valAdqEstimado = (precioCompra ?? 0) + gastosAdqEstimado;
+    const valAdqReal = (precioCompra ?? 0) + gastosAdqReal;
+    const valTransEstimado = (ventaEstimada ?? 0) - gastosVentaEstimado;
+    const valTransReal = (ventaEstimada ?? 0) - gastosVentaReal;
+
+    const adqEstEl = document.getElementById("valor_adq_estimado");
+    const adqRealEl = document.getElementById("valor_adq_real");
+    const transEstEl = document.getElementById("valor_trans_estimado");
+    const transRealEl = document.getElementById("valor_trans_real");
+    if (adqEstEl) adqEstEl.textContent = fmtEuroLocal(valAdqEstimado);
+    if (adqRealEl) adqRealEl.textContent = fmtEuroLocal(valAdqReal);
+    if (transEstEl) transEstEl.textContent = fmtEuroLocal(valTransEstimado);
+    if (transRealEl) transRealEl.textContent = fmtEuroLocal(valTransReal);
+
+    // Actualizar inputs principales: preferimos real si existe (gastos reales > 0)
+    const valAdqInput = document.querySelector("[name='precio_compra_inmueble']");
+    const valTransInput = document.querySelector("[name='precio_venta_estimado']");
+    const valTransInputAlt = document.querySelector("[name='valor_transmision']");
+    if (valAdqInput) {
+      const chosen = gastosAdqReal > 0 ? valAdqReal : valAdqEstimado;
+      _setElText(valAdqInput, formatEuro(chosen));
+    }
+    if (valTransInput) {
+      const chosen = gastosVentaReal > 0 ? valTransReal : valTransEstimado;
+      _setElText(valTransInput, formatEuro(chosen));
+    }
+    if (valTransInputAlt) {
+      const chosen = gastosVentaReal > 0 ? valTransReal : valTransEstimado;
+      _setElText(valTransInputAlt, formatEuro(chosen));
+    }
+
+    // Dashboard
+    const dash = {
+      ingresosEstimados: totalIngresosEstimados,
+      ingresosReales: totalIngresosReales,
+      gastosEstimados: totalEstimado,
+      gastosReales: totalReal,
+      beneficioEstimado: totalIngresosEstimados - totalEstimado,
+      beneficioReal: totalIngresosReales - totalReal,
+      roiEstimado: null,
+      roiReal: null,
+    };
+
+    const baseEst = valAdqEstimado || 0;
+    const baseReal = valAdqReal || 0;
+    dash.roiEstimado = baseEst > 0 ? (dash.beneficioEstimado / baseEst) * 100 : null;
+    dash.roiReal = baseReal > 0 ? (dash.beneficioReal / baseReal) * 100 : null;
+
+    const setDash = (id, value, isPct = false) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (value === null || typeof value === "undefined" || Number.isNaN(value)) {
+        el.textContent = "—";
+        return;
+      }
+      el.textContent = isPct ? (formatNumberEs(value, 2) + " %") : fmtEuroLocal(value);
+    };
+
+    setDash("dash_ingresos_estimados", dash.ingresosEstimados);
+    setDash("dash_ingresos_reales", dash.ingresosReales);
+    setDash("dash_gastos_estimados", dash.gastosEstimados);
+    setDash("dash_gastos_reales", dash.gastosReales);
+    setDash("dash_beneficio_estimado", dash.beneficioEstimado);
+    setDash("dash_beneficio_real", dash.beneficioReal);
+    setDash("dash_roi_estimado", dash.roiEstimado, true);
+    setDash("dash_roi_real", dash.roiReal, true);
+
+    updateDashboardVisuals({
+      ingresosReales: totalIngresosReales,
+      gastosReales: totalReal,
+      beneficioReal: dash.beneficioReal,
+      ingresosEstimados: totalIngresosEstimados,
+      gastosEstimados: totalEstimado,
+      rows,
+    });
+
+    updateInvestmentAnalysis({
+      ingresosEstimados: totalIngresosEstimados,
+      ingresosReales: totalIngresosReales,
+      gastosEstimados: totalEstimado,
+      gastosReales: totalReal,
+      gastosAdqEstimado,
+      gastosAdqReal,
+      ventaEstimado,
+      ventaReal,
+    });
+  }
+
+  function updateInvestmentAnalysis(data) {
+    const card = document.getElementById("resultado_card");
+    const roiEl = document.getElementById("resultado_roi");
+    const roiKpiEl = document.getElementById("resultado_roi_kpi");
+    const beneficioEl = document.getElementById("resultado_beneficio");
+    const beneficioKpiEl = document.getElementById("resultado_beneficio_kpi");
+    const valorAdqEl = document.getElementById("resultado_valor_adquisicion");
+    const ratioEl = document.getElementById("resultado_ratio_euro");
+    const minVentaEl = document.getElementById("resultado_precio_minimo_venta");
+    const colchonEl = document.getElementById("resultado_colchon_seguridad");
+    const margenEl = document.getElementById("resultado_margen_neto");
+    const ajusteVentaEl = document.getElementById("resultado_ajuste_precio_venta");
+    const ajusteGastosEl = document.getElementById("resultado_ajuste_gastos");
+    const veredictoEl = document.getElementById("resultado_veredicto");
+    const decisionEl = document.getElementById("resultado_decision");
+    const roiWrap = document.getElementById("resultado_roi_wrap");
+    const beneficioWrap = document.getElementById("resultado_beneficio_wrap");
+
+    if (!card) return;
+
+    const ingresosBase = data.ingresosReales > 0 ? data.ingresosReales : data.ingresosEstimados;
+    const gastosBase = data.gastosReales > 0 ? data.gastosReales : data.gastosEstimados;
+    const beneficio = ingresosBase - gastosBase;
+
+    const gastosAdqBase = data.gastosAdqReal > 0 ? data.gastosAdqReal : data.gastosAdqEstimado;
+    const basePrecio =
+      parseEuro(_getElText(document.querySelector("[name='precio_propiedad']"))) ??
+      parseEuro(_getElText(document.querySelector("[name='precio_escritura']"))) ??
+      parseEuro(_getElText(document.querySelector("[name='precio_compra_inmueble']"))) ??
+      0;
+    const valorAdq = (basePrecio || 0) + (gastosAdqBase || 0);
+
+    const ventaBaseMem = data.ventaReal > 0 ? data.ventaReal : data.ventaEstimado;
+    const ventaInput =
+      parseEuro(_getElText(document.querySelector("[name='venta_estimada']"))) ??
+      parseEuro(_getElText(document.querySelector("[name='valor_transmision']"))) ??
+      parseEuro(_getElText(document.querySelector("[name='precio_venta_estimado']"))) ??
+      0;
+    const valorTrans = ventaBaseMem > 0 ? ventaBaseMem : (ventaInput || 0);
+
+    const roi = valorAdq > 0 ? (beneficio / valorAdq) * 100 : 0;
+    const ratio = valorAdq > 0 ? (beneficio / valorAdq) : 0;
+    const margen = valorTrans > 0 ? (beneficio / valorTrans) * 100 : 0;
+
+    const beneficioObj = 30000;
+    const minVenta = Math.max(valorAdq * 1.15, valorAdq + beneficioObj);
+    const ajusteVenta = valorTrans > 0 ? Math.max(minVenta - valorTrans, 0) : minVenta;
+
+    const costoReqRoi = valorTrans > 0 ? (valorTrans / 1.15) : 0;
+    const costoReqBenef = valorTrans > 0 ? (valorTrans - beneficioObj) : 0;
+    const costoReq = Math.min(costoReqRoi, costoReqBenef);
+    const ajusteGastos = valorTrans > 0 ? Math.max(valorAdq - Math.max(costoReq, 0), 0) : valorAdq;
+
+    const colchon = valorTrans > 0 ? (valorTrans - valorAdq - beneficioObj) : 0;
+
+    const viable = roi >= 15 && beneficio >= 30000;
+    const ajustada = roi >= 15 && beneficio > 0 && beneficio < 30000;
+
+    const setText = (el, value) => { if (el) el.textContent = value; };
+    setText(roiEl, formatNumberEs(roi, 2) + " %");
+    setText(roiKpiEl, formatNumberEs(roi, 2) + " %");
+    setText(beneficioEl, formatEuro(beneficio));
+    setText(beneficioKpiEl, formatEuro(beneficio));
+    setText(valorAdqEl, formatEuro(valorAdq));
+    setText(ratioEl, formatNumberEs(ratio, 2));
+    setText(minVentaEl, formatEuro(minVenta));
+    setText(colchonEl, formatEuro(colchon));
+    setText(margenEl, formatNumberEs(margen, 2) + " %");
+    if (ajusteVentaEl) ajusteVentaEl.textContent = formatEuro(ajusteVenta);
+    if (ajusteGastosEl) ajusteGastosEl.textContent = formatEuro(ajusteGastos);
+
+    if (roiWrap) {
+      roiWrap.classList.remove("text-success", "text-warning", "text-danger");
+      roiWrap.classList.add(viable ? "text-success" : (ajustada ? "text-warning" : "text-danger"));
+    }
+    if (beneficioWrap) {
+      beneficioWrap.classList.remove("text-success", "text-warning", "text-danger");
+      beneficioWrap.classList.add(beneficio >= 30000 ? "text-success" : (beneficio > 0 ? "text-warning" : "text-danger"));
+    }
+    if (card) {
+      card.classList.remove("resultado-viable", "resultado-ajustada", "resultado-no-viable");
+      card.classList.add(viable ? "resultado-viable" : (ajustada ? "resultado-ajustada" : "resultado-no-viable"));
+    }
+    if (veredictoEl) {
+      veredictoEl.classList.remove("text-success", "text-warning", "text-danger");
+      if (viable) {
+        veredictoEl.classList.add("text-success");
+        veredictoEl.textContent = "✔ OPERACIÓN VIABLE";
+      } else if (ajustada) {
+        veredictoEl.classList.add("text-warning");
+        veredictoEl.textContent = "⚠ OPERACIÓN AJUSTADA";
+      } else {
+        veredictoEl.classList.add("text-danger");
+        veredictoEl.textContent = "✖ OPERACIÓN NO VIABLE";
+      }
+    }
+    if (decisionEl) {
+      decisionEl.textContent = viable ? "✅ Apta para inversión" : (ajustada ? "⚠ Requiere ajuste" : "❌ No invertir");
+    }
+  }
+
+  function updateDashboardVisuals(data) {
+    const barIngresos = document.querySelector("#dash_bar_ingresos span");
+    const barGastos = document.querySelector("#dash_bar_gastos span");
+    const barBalance = document.querySelector("#dash_bar_balance span");
+    const catRows = document.getElementById("dash_categorias_rows");
+    const ultimos = document.getElementById("dash_ultimos_movimientos");
+    if (!barIngresos || !barGastos || !barBalance || !catRows || !ultimos) return;
+
+    const ingresosBase = (data.ingresosReales || 0) > 0 ? data.ingresosReales : (data.ingresosEstimados || 0);
+    const gastosBase = (data.gastosReales || 0) > 0 ? data.gastosReales : (data.gastosEstimados || 0);
+    const maxBase = Math.max(ingresosBase || 0, gastosBase || 0, 1);
+    barIngresos.style.width = `${Math.min(100, (ingresosBase / maxBase) * 100)}%`;
+    barGastos.style.width = `${Math.min(100, (gastosBase / maxBase) * 100)}%`;
+
+    const beneficioBase = (data.beneficioReal || 0) !== 0 ? data.beneficioReal : (data.ingresosEstimados - data.gastosEstimados);
+    const balanceAbs = Math.abs(beneficioBase || 0);
+    const balBase = Math.max(balanceAbs, 1);
+    barBalance.style.width = `${Math.min(100, (balanceAbs / balBase) * 100)}%`;
+    barBalance.parentElement.classList.toggle("good", (beneficioBase || 0) >= 0);
+    barBalance.parentElement.classList.toggle("warn", (beneficioBase || 0) < 0);
+
+    const catLabels = {
+      adquisicion: "Adquisición",
+      reforma: "Reforma",
+      seguridad: "Seguridad",
+      operativos: "Operativos",
+      financieros: "Financieros",
+      legales: "Legales",
+      venta: "Venta",
+      otros: "Otros",
+    };
+    const totals = {};
+    data.rows.forEach(r => {
+      if (r.tipo !== "gasto") return;
+      const key = r.categoria || "otros";
+      if (!totals[key]) totals[key] = { real: 0, estimado: 0 };
+      if (r.estado === "confirmado") totals[key].real += r.importe;
+      else totals[key].estimado += r.importe;
+    });
+
+    const totalCats = Object.values(totals).reduce((acc, v) => {
+      return acc + (v.real > 0 ? v.real : v.estimado);
+    }, 0);
+
+    const catHtml = Object.keys(catLabels).map(key => {
+      const t = totals[key] || { real: 0, estimado: 0 };
+      const value = t.real > 0 ? t.real : t.estimado;
+      if (value <= 0) return "";
+      const pct = totalCats > 0 ? Math.round((value / totalCats) * 100) : 0;
+      return `
+        <div class="mb-2">
+          <div class="d-flex justify-content-between small text-muted">
+            <span>${catLabels[key]}</span>
+            <span>${formatEuro(value)}</span>
+          </div>
+          <div class="dash-bar"><span style="width:${pct}%;"></span></div>
+        </div>
+      `;
+    }).join("");
+
+    catRows.innerHTML = catHtml || "<div class=\"small text-muted\">Sin gastos registrados.</div>";
+
+    const sorted = [...data.rows].sort((a, b) => {
+      const da = new Date(a.fecha || "1970-01-01").getTime();
+      const db = new Date(b.fecha || "1970-01-01").getTime();
+      return db - da;
+    }).slice(0, 6);
+
+    if (!sorted.length) {
+      ultimos.innerHTML = "<li><span class=\"text-muted\">Sin movimientos aún.</span><span></span></li>";
+      return;
+    }
+
+    const formatDate = (iso) => {
+      if (!iso) return "";
+      const [y, m, d] = iso.split("-");
+      return d && m && y ? `${d}/${m}/${y}` : iso;
+    };
+
+    ultimos.innerHTML = sorted.map(r => {
+      const tipo = r.tipo === "gasto" ? "Gasto" : "Ingreso";
+      const estado = r.estado === "confirmado" ? "Real" : "Estimado";
+      const label = `${tipo} · ${r.concepto || (r.categoria || "")}`;
+      return `
+        <li>
+          <span>${formatDate(r.fecha)} · ${label}</span>
+          <span>${formatEuro(r.importe)} <span class="dash-pill">${estado}</span></span>
+        </li>
+      `;
+    }).join("");
+  }
+
+  function renderTable() {
+    if (!tabla) return;
+    if (!rows.length) {
+      tabla.innerHTML = "<tr><td colspan=\"7\" class=\"text-muted\">Sin asientos todavía.</td></tr>";
+      renderTotals();
+      return;
+    }
+
+    const _capFirst = (s) => {
+      const t = String(s || "").toLowerCase();
+      return t ? (t.charAt(0).toUpperCase() + t.slice(1)) : "";
+    };
+    const ingresoLabels = {
+      senal: "Señal / Arras",
+      venta: "Venta",
+      anticipo: "Anticipo",
+      devolucion: "Devolución",
+      indemnizacion: "Indemnización",
+      otro: "Otro ingreso",
+    };
+
+    tabla.innerHTML = rows.map(r => {
+      const catLabel = (r.tipo === "ingreso")
+        ? (ingresoLabels[r.categoria] || ingresoLabels[r.tipo_ingreso] || r.categoria || "")
+        : (r.categoria || "");
+      return `
+        <tr data-id="${r.id}" data-tipo="${r.tipo}">
+          <td>${r.fecha || ""}</td>
+          <td>${_capFirst(r.tipo)}</td>
+          <td>${r.tipo === "ingreso" ? catLabel : _capFirst(catLabel)}</td>
+          <td>${r.concepto || ""}</td>
+          <td class="text-end">${fmtEuroLocal(r.importe)}</td>
+          <td>${r.estado ? _capFirst(r.estado) : "-"}</td>
+          <td class="text-end">
+            <button type="button" class="btn btn-sm btn-outline-secondary eco-edit">Editar</button>
+            <button type="button" class="btn btn-sm btn-outline-danger eco-del">Borrar</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+    renderTotals();
+  }
+
+  async function loadRows() {
+    rows = [];
+    try {
+      if (urlGastos) {
+        const rg = await fetch(urlGastos, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+        const dg = await rg.json();
+        if (dg && dg.ok && Array.isArray(dg.gastos)) {
+          dg.gastos.forEach(g => {
+            rows.push({
+              id: g.id,
+              tipo: "gasto",
+              fecha: g.fecha,
+              categoria: g.categoria,
+              concepto: g.concepto,
+              importe: Number(g.importe) || 0,
+              estado: g.estado,
+              imputable_inversores: g.imputable_inversores,
+              observaciones: g.observaciones,
+            });
+          });
+        }
+      }
+
+      if (urlIngresos) {
+        const ri = await fetch(urlIngresos, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+        const di = await ri.json();
+        if (di && di.ok && Array.isArray(di.ingresos)) {
+          di.ingresos.forEach(i => {
+            rows.push({
+              id: i.id,
+              tipo: "ingreso",
+              fecha: i.fecha,
+              categoria: i.tipo,
+              tipo_ingreso: i.tipo,
+              concepto: i.concepto,
+              importe: Number(i.importe) || 0,
+              estado: i.estado || "estimado",
+              imputable_inversores: i.imputable_inversores,
+              observaciones: i.observaciones,
+            });
+          });
+        }
+      }
+    } catch (e) {}
+    renderTable();
+  }
+
+  function clearForm() {
+    if (elFecha) elFecha.value = "";
+    if (elConcepto) elConcepto.value = "";
+    if (elImporte) elImporte.value = "";
+    if (elObs) elObs.value = "";
+    if (elTipo) elTipo.value = "gasto";
+    if (elCategoria) elCategoria.value = "adquisicion";
+    if (elTipoIngreso) elTipoIngreso.value = "venta";
+    if (elEstado) elEstado.value = "estimado";
+    if (elImputable) elImputable.value = "1";
+    if (btnAdd) btnAdd.textContent = "Añadir";
+    if (btnCancel) btnCancel.classList.add("d-none");
+    editState = null;
+  }
+
+  async function addRow() {
+    if (!elFecha || !elTipo || !elConcepto || !elImporte) return;
+
+    let fecha = elFecha.value;
+    const tipo = elTipo.value || "gasto";
+    const concepto = elConcepto.value.trim();
+    const importe = parseEuro(_getElText(elImporte));
+
+    if (!fecha) {
+      const hoy = new Date();
+      const iso = hoy.toISOString().slice(0, 10);
+      fecha = iso;
+      elFecha.value = iso;
+    }
+
+    if (!concepto || importe === null) {
+      alert("Fecha, concepto e importe son obligatorios.");
+      return;
+    }
+
+    const payload = {
+      fecha,
+      concepto,
+      importe,
+    };
+
+    if (tipo === "gasto") {
+      payload.categoria = (elCategoria && elCategoria.value) || "otros";
+      payload.estado = (elEstado && elEstado.value) || "estimado";
+      payload.imputable_inversores = (elImputable && elImputable.value === "1");
+      payload.observaciones = (elObs && elObs.value) || "";
+    } else {
+      payload.tipo = (elTipoIngreso && elTipoIngreso.value) || "venta";
+      payload.estado = (elEstado && elEstado.value) || "estimado";
+      payload.imputable_inversores = (elImputable && elImputable.value === "1");
+      payload.observaciones = (elObs && elObs.value) || "";
+    }
+
+    const url = (tipo === "gasto") ? urlGastos : urlIngresos;
+    if (!url) return;
+
+    let resp;
+    if (editState && editState.id && editState.tipo === tipo) {
+      const targetUrl = (tipo === "gasto") ? `${urlGastos}${editState.id}/` : `${urlIngresos}${editState.id}/`;
+      resp = await fetch(targetUrl, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
+    } else {
+      resp = await postJson(url, payload, { keepalive: false });
+    }
+    if (!resp.ok) {
+      alert("No se pudo guardar el asiento.");
+      return;
+    }
+    clearForm();
+    await loadRows();
+  }
+
+  async function deleteRow(tr) {
+    if (!tr) return;
+    const id = tr.getAttribute("data-id");
+    const tipo = tr.getAttribute("data-tipo");
+    if (!id || !tipo) return;
+    if (!confirm("¿Borrar asiento?")) return;
+
+    const url = (tipo === "gasto") ? `${urlGastos}${id}/` : `${urlIngresos}${id}/`;
+    const csrf = getCsrfToken();
+    const resp = await fetch(url, { method: "DELETE", headers: { ...(csrf ? { "X-CSRFToken": csrf } : {}) } });
+    if (!resp.ok) {
+      alert("No se pudo borrar el asiento.");
+      return;
+    }
+    await loadRows();
+  }
+
+  function editRow(tr) {
+    const id = tr.getAttribute("data-id");
+    const tipo = tr.getAttribute("data-tipo");
+    if (!id || !tipo) return;
+    const row = rows.find(r => String(r.id) === String(id) && r.tipo === tipo);
+    if (!row) return;
+
+    if (elFecha) elFecha.value = row.fecha || "";
+    if (elTipo) elTipo.value = tipo;
+    if (elCategoria && tipo === "gasto") elCategoria.value = row.categoria || "otros";
+    if (elTipoIngreso && tipo === "ingreso") elTipoIngreso.value = row.tipo_ingreso || row.categoria || "venta";
+    if (elConcepto) elConcepto.value = row.concepto || "";
+    if (elImporte) _setElText(elImporte, formatEuro(row.importe || 0));
+    if (elEstado) elEstado.value = row.estado || "estimado";
+    if (elImputable) elImputable.value = row.imputable_inversores ? "1" : "0";
+    if (elObs) elObs.value = row.observaciones || "";
+
+    editState = { id, tipo };
+    if (btnAdd) btnAdd.textContent = "Guardar";
+    if (btnCancel) btnCancel.classList.remove("d-none");
+  }
+
+  function toggleTipoFields() {
+    const isIngreso = elTipo && elTipo.value === "ingreso";
+    document.querySelectorAll(".eco-only-gasto").forEach(el => {
+      el.classList.toggle("d-none", isIngreso);
+    });
+    document.querySelectorAll(".eco-only-ingreso").forEach(el => {
+      el.classList.toggle("d-none", !isIngreso);
+    });
+  }
+
+  btnAdd.addEventListener("click", addRow);
+  if (btnCancel) btnCancel.addEventListener("click", () => clearForm());
+  if (elTipo) elTipo.addEventListener("change", toggleTipoFields);
+  tabla.addEventListener("click", (e) => {
+    const btn = e.target.closest(".eco-del");
+    const btnEdit = e.target.closest(".eco-edit");
+    if (btnEdit) {
+      const tr = btnEdit.closest("tr");
+      editRow(tr);
+      return;
+    }
+    if (!btn) return;
+    const tr = btn.closest("tr");
+    deleteRow(tr);
+  });
+
+  // Recalcular si cambia compra/venta base
+  ["precio_propiedad", "precio_escritura", "venta_estimada"].forEach((name) => {
+    const el = document.querySelector(`[name='${name}']`);
+    if (!el) return;
+    el.addEventListener("input", renderTotals);
+    el.addEventListener("blur", renderTotals);
+  });
+
+  // Fecha por defecto: hoy
+  if (elFecha && !elFecha.value) {
+    const hoy = new Date().toISOString().slice(0, 10);
+    elFecha.value = hoy;
+  }
+
+  toggleTipoFields();
+  loadRows();
+}
+
+// -----------------------------
+// Checklist operativo
+// -----------------------------
+function bindChecklistOperativo() {
+  const tabla = document.getElementById("chk_tabla_rows");
+  if (!tabla) return;
+
+  const urlChecklist = window.PROYECTO_CHECKLIST_URL || "";
+  if (!urlChecklist) return;
+
+  const faseLabel = {
+    compra: "Compra",
+    post_compra: "Post-compra",
+    operacion: "Operación",
+    venta: "Venta",
+    post_venta: "Post-venta",
+  };
+
+  let rows = [];
+
+  function renderTable() {
+    if (!rows.length) {
+      tabla.innerHTML = "<tr><td colspan=\"6\" class=\"text-muted\">Sin tareas todavía.</td></tr>";
+      return;
+    }
+    tabla.innerHTML = rows.map(r => {
+      const estadoOptions = ["pendiente", "en_curso", "hecho"].map(v => {
+        const selected = r.estado === v ? "selected" : "";
+        const label = v === "pendiente" ? "Pendiente" : (v === "en_curso" ? "En curso" : "Hecho");
+        return `<option value="${v}" ${selected}>${label}</option>`;
+      }).join("");
+      const fechaVal = r.fecha_objetivo || "";
+      return `
+        <tr data-id="${r.id}">
+          <td>${faseLabel[r.fase] || r.fase || ""}</td>
+          <td>${r.titulo || ""}</td>
+          <td><input type="text" class="form-control form-control-sm chk-resp" value="${r.responsable || ""}"></td>
+          <td><input type="date" class="form-control form-control-sm chk-fecha" value="${fechaVal}"></td>
+          <td>
+            <select class="form-select form-select-sm chk-estado">
+              ${estadoOptions}
+            </select>
+          </td>
+          <td class="text-end">
+            <button type="button" class="btn btn-sm btn-outline-secondary chk-save">Guardar</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  async function loadRows() {
+    try {
+      const resp = await fetch(urlChecklist, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+      const data = await resp.json();
+      if (data && data.ok && Array.isArray(data.items)) {
+        rows = data.items;
+      } else {
+        return;
+      }
+    } catch (e) {
+      return;
+    }
+    renderTable();
+    updateChecklistDashboard(rows);
+  }
+
+  tabla.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".chk-save");
+    if (!btn) return;
+    const tr = btn.closest("tr");
+    const id = tr.getAttribute("data-id");
+    if (!id) return;
+    const respInput = tr.querySelector(".chk-resp");
+    const fechaInput = tr.querySelector(".chk-fecha");
+    const estadoInput = tr.querySelector(".chk-estado");
+    const todayIso = new Date().toISOString().slice(0, 10);
+    if (estadoInput && estadoInput.value === "hecho" && fechaInput && !fechaInput.value) {
+      fechaInput.value = todayIso;
+    }
+    const payload = {
+      responsable: respInput ? respInput.value : "",
+      fecha_objetivo: fechaInput ? fechaInput.value : "",
+      estado: estadoInput ? estadoInput.value : "pendiente",
+    };
+    const resp = await fetch(`${urlChecklist}${id}/`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) {
+      alert("No se pudo guardar la tarea.");
+      return;
+    }
+    await loadRows();
+  });
+
+  loadRows();
+}
+
+function updateChecklistDashboard(rows) {
+  const wrap = document.getElementById("dash_checklist_rows");
+  if (!wrap) return;
+  if (!Array.isArray(rows) || !rows.length) {
+    wrap.innerHTML = "<div class=\"small text-muted\">Sin tareas todavía.</div>";
+    return;
+  }
+
+  const fases = [
+    { key: "compra", label: "Compra" },
+    { key: "post_compra", label: "Post-compra" },
+    { key: "operacion", label: "Operación" },
+    { key: "venta", label: "Venta" },
+    { key: "post_venta", label: "Post-venta" },
+  ];
+
+  const itemsByFase = {};
+  fases.forEach(f => { itemsByFase[f.key] = { total: 0, done: 0 }; });
+  rows.forEach(r => {
+    const key = r.fase || "compra";
+    if (!itemsByFase[key]) itemsByFase[key] = { total: 0, done: 0 };
+    itemsByFase[key].total += 1;
+    if (r.estado === "hecho") itemsByFase[key].done += 1;
+  });
+
+  wrap.innerHTML = fases.map(f => {
+    const data = itemsByFase[f.key] || { total: 0, done: 0 };
+    const pct = data.total > 0 ? Math.round((data.done / data.total) * 100) : 0;
+    return `
+      <div class="mb-2">
+        <div class="d-flex justify-content-between small text-muted">
+          <span>${f.label}</span>
+          <span>${data.done}/${data.total} · ${pct}%</span>
+        </div>
+        <div class="dash-bar"><span style="width:${pct}%;"></span></div>
+      </div>
+    `;
+  }).join("");
+}
+
+// -----------------------------
 // Init
 // -----------------------------
 document.addEventListener("DOMContentLoaded", () => {
@@ -891,4 +2002,11 @@ document.addEventListener("DOMContentLoaded", () => {
     window.__recalcValorAdquisicion && window.__recalcValorAdquisicion();
   } catch (e) {}
   bindAutosaveListeners();
+  bindAutocalcGastos();
+  bindAutocalcValoraciones();
+  bindAutocalcValorTransmision();
+  bindAutocalcGastosVenta();
+  bindAutocalcBeneficios();
+  bindMemoriaEconomica();
+  bindChecklistOperativo();
 });

@@ -769,7 +769,12 @@ class IngresoProyecto(models.Model):
         ("venta", "Venta"),
         ("anticipo", "Anticipo"),
         ("devolucion", "Devolución"),
+        ("indemnizacion", "Indemnización"),
         ("otro", "Otro ingreso"),
+    ]
+    ESTADOS = [
+        ("estimado", "Estimado"),
+        ("confirmado", "Confirmado"),
     ]
 
     proyecto = models.ForeignKey(
@@ -794,6 +799,11 @@ class IngresoProyecto(models.Model):
         decimal_places=2,
         help_text="Importe del ingreso (positivo o negativo)"
     )
+    estado = models.CharField(
+        max_length=15,
+        choices=ESTADOS,
+        default="estimado"
+    )
 
     imputable_inversores = models.BooleanField(
         default=True,
@@ -813,6 +823,54 @@ class IngresoProyecto(models.Model):
 
     def __str__(self):
         return f"{self.proyecto} · {self.tipo} · {self.importe} €"
+
+
+# =========================
+# CHECKLIST OPERATIVO
+# =========================
+class ChecklistItem(models.Model):
+    FASES = [
+        ("compra", "Compra"),
+        ("post_compra", "Post-compra"),
+        ("operacion", "Operación"),
+        ("venta", "Venta"),
+        ("post_venta", "Post-venta"),
+    ]
+    ESTADOS = [
+        ("pendiente", "Pendiente"),
+        ("en_curso", "En curso"),
+        ("hecho", "Hecho"),
+    ]
+
+    proyecto = models.ForeignKey(
+        Proyecto,
+        on_delete=models.CASCADE,
+        related_name="checklist_items"
+    )
+    fase = models.CharField(max_length=20, choices=FASES, default="compra")
+    titulo = models.CharField(max_length=255)
+    descripcion = models.TextField(blank=True, null=True)
+    responsable = models.CharField(max_length=255, blank=True, null=True)
+    fecha_objetivo = models.DateField(blank=True, null=True)
+    estado = models.CharField(max_length=15, choices=ESTADOS, default="pendiente")
+    coste_estimado = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    coste_real = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    gasto = models.ForeignKey(
+        GastoProyecto,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="checklist_items"
+    )
+
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["fase", "fecha_objetivo", "id"]
+
+    def __str__(self):
+        return f"{self.proyecto} · {self.titulo}"
 
 
 # =========================

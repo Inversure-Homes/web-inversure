@@ -17,6 +17,7 @@ from datetime import date, datetime
 
 from .models import Estudio, Proyecto
 from .models import EstudioSnapshot, ProyectoSnapshot
+from .models import GastoProyecto, IngresoProyecto, ChecklistItem
 
 # --- SafeAccessDict helper and _safe_template_obj ---
 class SafeAccessDict(dict):
@@ -60,6 +61,38 @@ def _sanitize_for_json(value):
     return value
 
 
+def _parse_decimal(value):
+    if value is None or value == "":
+        return None
+    if isinstance(value, Decimal):
+        return value
+    if isinstance(value, (int, float)):
+        return Decimal(str(value))
+    if isinstance(value, str):
+        s = value.strip().replace("€", "").replace("%", "").strip()
+        if not s:
+            return None
+        if "." in s and "," in s:
+            s = s.replace(".", "").replace(",", ".")
+        else:
+            s = s.replace(",", ".")
+        return Decimal(s)
+    raise ValueError("decimal_invalido")
+
+
+def _parse_date(value):
+    if value is None or value == "":
+        return None
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        s = value.strip()
+        if not s:
+            return None
+        return date.fromisoformat(s)
+    raise ValueError("fecha_invalida")
+
+
 def _deep_merge_dict(base: dict, overlay: dict) -> dict:
     """Merge recursivo: overlay pisa base; diccionarios se fusionan."""
     if not isinstance(base, dict):
@@ -94,6 +127,171 @@ def _safe_float(v, default: float = 0.0) -> float:
         return float(v)
     except (TypeError, ValueError):
         return default
+
+
+def _resultado_desde_metricas(metricas: dict) -> dict:
+    if not isinstance(metricas, dict):
+        metricas = {}
+    beneficio_neto = _safe_float(
+        metricas.get("beneficio_neto") or metricas.get("beneficio") or 0.0,
+        0.0,
+    )
+    roi = _safe_float(metricas.get("roi") or metricas.get("roi_neto") or 0.0, 0.0)
+    valor_adq = _safe_float(
+        metricas.get("valor_adquisicion_total")
+        or metricas.get("valor_adquisicion")
+        or metricas.get("inversion_total")
+        or 0.0,
+        0.0,
+    )
+    ratio_euro = _safe_float(
+        metricas.get("ratio_euro") or (beneficio_neto / valor_adq if valor_adq else 0.0),
+        0.0,
+    )
+    precio_min_venta = _safe_float(
+        metricas.get("precio_minimo_venta")
+        or metricas.get("precio_breakeven")
+        or metricas.get("breakeven")
+        or metricas.get("break_even")
+        or 0.0,
+        0.0,
+    )
+    colchon = _safe_float(
+        metricas.get("colchon_seguridad")
+        or metricas.get("colchon")
+        or 0.0,
+        0.0,
+    )
+    margen = _safe_float(
+        metricas.get("margen_neto")
+        or metricas.get("margen")
+        or 0.0,
+        0.0,
+    )
+    ajuste_precio_venta = _safe_float(metricas.get("ajuste_precio_venta") or 0.0, 0.0)
+    ajuste_gastos = _safe_float(metricas.get("ajuste_gastos") or 0.0, 0.0)
+
+    viable = roi >= 15 and beneficio_neto >= 30000
+    ajustada = roi >= 15 and 0 < beneficio_neto < 30000
+
+    return {
+        "beneficio_neto": beneficio_neto,
+        "roi": roi,
+        "valor_adquisicion": valor_adq,
+        "ratio_euro": ratio_euro,
+        "precio_minimo_venta": precio_min_venta,
+        "colchon_seguridad": colchon,
+        "margen_neto": margen,
+        "ajuste_precio_venta": ajuste_precio_venta,
+        "ajuste_gastos": ajuste_gastos,
+        "viable": viable,
+        "ajustada": ajustada,
+    }
+
+
+def _checklist_defaults():
+    return [
+        ("compra", "Pagar notaría"),
+        ("compra", "Pagar registro"),
+        ("compra", "Liquidar ITP"),
+        ("post_compra", "Pagar deudas retenidas (IBI, comunidad)"),
+        ("post_compra", "Cambiar contratos de suministros"),
+        ("post_compra", "Cambiar cerradura"),
+        ("post_compra", "Instalar alarma"),
+        ("venta", "Tramitar plusvalía"),
+        ("post_venta", "Baja o cambio de suministros"),
+    ]
+
+
+def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
+    gastos = list(GastoProyecto.objects.filter(proyecto=proyecto))
+    ingresos = list(IngresoProyecto.objects.filter(proyecto=proyecto))
+
+    def _sum_importes(items):
+        total = Decimal("0")
+        for item in items:
+            if item is None:
+                continue
+            total += item
+        return total
+
+    ingresos_est = _sum_importes([i.importe for i in ingresos if i.estado == "estimado"])
+    ingresos_real = _sum_importes([i.importe for i in ingresos if i.estado == "confirmado"])
+    venta_est = _sum_importes(
+        [i.importe for i in ingresos if i.estado == "estimado" and i.tipo == "venta"]
+    )
+    venta_real = _sum_importes(
+        [i.importe for i in ingresos if i.estado == "confirmado" and i.tipo == "venta"]
+    )
+    gastos_est = _sum_importes([g.importe for g in gastos if g.estado == "estimado"])
+    gastos_real = _sum_importes([g.importe for g in gastos if g.estado == "confirmado"])
+
+    has_real = ingresos_real > 0 or gastos_real > 0
+    ingresos_base = ingresos_real if ingresos_real > 0 else ingresos_est
+    venta_base = venta_real if venta_real > 0 else venta_est
+    gastos_base = gastos_real if gastos_real > 0 else gastos_est
+    beneficio = ingresos_base - gastos_base
+
+    cats_adq = {"adquisicion", "reforma", "seguridad", "operativos", "financieros", "legales", "otros"}
+    gastos_adq_est = _sum_importes([g.importe for g in gastos if g.estado == "estimado" and g.categoria in cats_adq])
+    gastos_adq_real = _sum_importes([g.importe for g in gastos if g.estado == "confirmado" and g.categoria in cats_adq])
+    gastos_adq_base = gastos_adq_real if gastos_adq_real > 0 else gastos_adq_est
+
+    snap_econ = snapshot.get("economico") if isinstance(snapshot.get("economico"), dict) else {}
+    snap_kpis = snapshot.get("kpis") if isinstance(snapshot.get("kpis"), dict) else {}
+    snap_met = snap_kpis.get("metricas") if isinstance(snap_kpis.get("metricas"), dict) else {}
+
+    base_precio = (
+        proyecto.precio_compra_inmueble
+        or proyecto.precio_propiedad
+        or _parse_decimal(snap_econ.get("precio_propiedad") or snap_econ.get("precio_escritura") or "")
+        or _parse_decimal(snap_met.get("precio_propiedad") or snap_met.get("precio_escritura") or "")
+        or Decimal("0")
+    )
+
+    valor_adquisicion = base_precio + gastos_adq_base
+    venta_snapshot = _parse_decimal(
+        snap_econ.get("venta_estimada")
+        or snap_econ.get("valor_transmision")
+        or snap_met.get("venta_estimada")
+        or snap_met.get("valor_transmision")
+        or ""
+    ) or Decimal("0")
+    valor_transmision = venta_base if venta_base > 0 else venta_snapshot
+
+    roi = float(beneficio / valor_adquisicion * 100) if valor_adquisicion > 0 else 0.0
+    ratio_euro = float(beneficio / valor_adquisicion) if valor_adquisicion > 0 else 0.0
+    margen_pct = float(beneficio / valor_transmision * 100) if valor_transmision > 0 else 0.0
+
+    beneficio_objetivo = Decimal("30000")
+    min_venta_roi = valor_adquisicion * Decimal("1.15")
+    min_venta_benef = valor_adquisicion + beneficio_objetivo
+    min_venta = max(min_venta_roi, min_venta_benef)
+
+    ajuste_precio_venta = float(max(min_venta - valor_transmision, Decimal("0"))) if valor_transmision > 0 else float(min_venta)
+
+    costo_requerido_roi = valor_transmision / Decimal("1.15") if valor_transmision > 0 else Decimal("0")
+    costo_requerido_benef = valor_transmision - beneficio_objetivo
+    costo_requerido = min(costo_requerido_roi, costo_requerido_benef)
+    if costo_requerido < 0:
+        costo_requerido = Decimal("0")
+    ajuste_gastos = float(max(valor_adquisicion - costo_requerido, Decimal("0"))) if valor_transmision > 0 else float(valor_adquisicion)
+
+    colchon_seguridad = float(valor_transmision - valor_adquisicion - beneficio_objetivo) if valor_transmision > 0 else 0.0
+
+    return {
+        "beneficio_neto": float(beneficio),
+        "roi": roi,
+        "valor_adquisicion": float(valor_adquisicion),
+        "ratio_euro": ratio_euro,
+        "precio_minimo_venta": float(min_venta),
+        "colchon_seguridad": colchon_seguridad,
+        "margen_neto": margen_pct,
+        "ajuste_precio_venta": ajuste_precio_venta,
+        "ajuste_gastos": ajuste_gastos,
+        "origen_memoria": True,
+        "base_memoria_real": bool(has_real),
+    }
 
 
 def _fmt_es_number(x: float, decimals: int = 2) -> str:
@@ -826,6 +1024,8 @@ def proyecto(request, proyecto_id: int):
         "direccion",
         "ref_catastral",
         "valor_referencia",
+        "meses",
+        "financiacion_pct",
     ]
     for _f in _tpl_expected_fields:
         if not hasattr(proyecto_obj, _f):
@@ -922,6 +1122,28 @@ def proyecto(request, proyecto_id: int):
 
     # Exponer `metricas` como atajo seguro para la plantilla proyecto.html
     metricas_raw = kpis_raw.get("metricas") if isinstance(kpis_raw.get("metricas"), dict) else {}
+
+    # --- Resultado de inversión para dashboard / vista proyecto ---
+    resultado = {}
+    try:
+        snap_result = snapshot.get("resultado") if isinstance(snapshot.get("resultado"), dict) else {}
+        calc = _metricas_desde_estudio(Estudio(datos=snapshot))
+        metricas_calc = calc.get("metricas", {}) if isinstance(calc.get("metricas"), dict) else {}
+        resultado_calc = _resultado_desde_metricas(metricas_calc)
+        resultado = dict(resultado_calc)
+        try:
+            resultado_memoria = _resultado_desde_memoria(proyecto_obj, snapshot)
+            for k, v in resultado_memoria.items():
+                if v not in (None, ""):
+                    resultado[k] = v
+        except Exception:
+            pass
+        if isinstance(snap_result, dict):
+            for k, v in snap_result.items():
+                if v not in (None, "", []):
+                    resultado[k] = v
+    except Exception:
+        resultado = snapshot.get("resultado") if isinstance(snapshot.get("resultado"), dict) else {}
 
     # --- Estado inicial para hidratar el simulador en modo proyecto ---
     estado_inicial = {}
@@ -1032,11 +1254,25 @@ def proyecto(request, proyecto_id: int):
         "comite": _safe_template_obj(snapshot.get("comite", {})) if isinstance(snapshot.get("comite"), dict) else SafeAccessDict(),
         "kpis": _safe_template_obj(snapshot.get("kpis", {})) if isinstance(snapshot.get("kpis"), dict) else SafeAccessDict(),
         "metricas": _safe_template_obj(metricas_raw) if isinstance(metricas_raw, dict) else SafeAccessDict(),
+        "resultado": _safe_template_obj(resultado) if isinstance(resultado, dict) else SafeAccessDict(),
         "captacion": captacion_ctx,
         "capital_objetivo": captacion_ctx.get("capital_objetivo"),
         "capital_captado": captacion_ctx.get("capital_captado"),
         "pct_captado": captacion_ctx.get("pct_captado"),
     }
+
+    try:
+        if not ChecklistItem.objects.filter(proyecto=proyecto_obj).exists():
+            for fase, titulo in _checklist_defaults():
+                ChecklistItem.objects.create(
+                    proyecto=proyecto_obj,
+                    fase=fase,
+                    titulo=titulo,
+                    estado="pendiente",
+                )
+        ctx["checklist_items"] = ChecklistItem.objects.filter(proyecto=proyecto_obj).order_by("fase", "fecha_objetivo", "id")
+    except Exception:
+        ctx["checklist_items"] = []
 
     return render(request, "core/proyecto.html", ctx)
 
@@ -1648,6 +1884,73 @@ def pdf_estudio_preview(request, estudio_id: int):
     }
 
     return render(request, "core/pdf_estudio_rentabilidad.html", ctx)
+
+
+def pdf_memoria_economica(request, proyecto_id: int):
+    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+    gastos = list(GastoProyecto.objects.filter(proyecto=proyecto).order_by("fecha", "id"))
+    ingresos = list(IngresoProyecto.objects.filter(proyecto=proyecto).order_by("fecha", "id"))
+
+    for i in ingresos:
+        if not i.estado:
+            i.estado = "confirmado"
+
+    def _sum_importes(items):
+        total = Decimal("0")
+        for item in items:
+            if item is None:
+                continue
+            total += item
+        return total
+
+    ingresos_estimados = _sum_importes([i.importe for i in ingresos if i.estado == "estimado"])
+    ingresos_reales = _sum_importes([i.importe for i in ingresos if i.estado == "confirmado"])
+    gastos_estimados = _sum_importes([g.importe for g in gastos if g.estado == "estimado"])
+    gastos_reales = _sum_importes([g.importe for g in gastos if g.estado == "confirmado"])
+
+    beneficio_estimado = ingresos_estimados - gastos_estimados
+    beneficio_real = ingresos_reales - gastos_reales
+
+    base_precio = proyecto.precio_compra_inmueble or proyecto.precio_propiedad or Decimal("0")
+    cats_adq = {"adquisicion", "reforma", "seguridad", "operativos", "financieros", "legales", "otros"}
+    gastos_adq_estimado = _sum_importes(
+        [g.importe for g in gastos if g.estado == "estimado" and g.categoria in cats_adq]
+    )
+    gastos_adq_real = _sum_importes(
+        [g.importe for g in gastos if g.estado == "confirmado" and g.categoria in cats_adq]
+    )
+
+    base_est = base_precio + gastos_adq_estimado
+    base_real = base_precio + gastos_adq_real
+    roi_estimado = (beneficio_estimado / base_est * Decimal("100")) if base_est > 0 else None
+    roi_real = (beneficio_real / base_real * Decimal("100")) if base_real > 0 else None
+
+    categorias = []
+    for key, label in GastoProyecto.CATEGORIAS:
+        est = _sum_importes([g.importe for g in gastos if g.categoria == key and g.estado == "estimado"])
+        real = _sum_importes([g.importe for g in gastos if g.categoria == key and g.estado == "confirmado"])
+        categorias.append({"nombre": label, "estimado": est, "real": real})
+
+    resumen = {
+        "ingresos_estimados": ingresos_estimados,
+        "ingresos_reales": ingresos_reales,
+        "gastos_estimados": gastos_estimados,
+        "gastos_reales": gastos_reales,
+        "beneficio_estimado": beneficio_estimado,
+        "beneficio_real": beneficio_real,
+        "roi_estimado": roi_estimado,
+        "roi_real": roi_real,
+        "categorias": categorias,
+    }
+
+    ctx = {
+        "proyecto": proyecto,
+        "gastos": gastos,
+        "ingresos": ingresos,
+        "resumen": resumen,
+        "fecha_informe": timezone.now(),
+    }
+    return render(request, "core/pdf_memoria_economica.html", ctx)
 @csrf_exempt
 def guardar_proyecto(request, proyecto_id):
     if request.method != "POST":
@@ -1692,3 +1995,287 @@ def guardar_proyecto(request, proyecto_id):
             {"ok": False, "error": str(e)},
             status=500
         )
+
+
+@csrf_exempt
+def proyecto_gastos(request, proyecto_id: int):
+    try:
+        proyecto = Proyecto.objects.get(id=proyecto_id)
+    except Proyecto.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Proyecto no encontrado"}, status=404)
+
+    if request.method == "GET":
+        gastos = []
+        for g in GastoProyecto.objects.filter(proyecto=proyecto).order_by("fecha", "id"):
+            gastos.append({
+                "id": g.id,
+                "fecha": g.fecha.isoformat(),
+                "categoria": g.categoria,
+                "concepto": g.concepto,
+                "proveedor": g.proveedor,
+                "importe": float(g.importe),
+                "imputable_inversores": g.imputable_inversores,
+                "estado": g.estado,
+                "observaciones": g.observaciones,
+            })
+        return JsonResponse({"ok": True, "gastos": gastos})
+
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+    try:
+        data = json.loads(request.body or "{}")
+        fecha = _parse_date(data.get("fecha"))
+        categoria = (data.get("categoria") or "").strip()
+        concepto = (data.get("concepto") or "").strip()
+        importe = _parse_decimal(data.get("importe"))
+
+        if not fecha or not categoria or not concepto or importe is None:
+            return JsonResponse({"ok": False, "error": "Faltan campos obligatorios"}, status=400)
+
+        gasto = GastoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=fecha,
+            categoria=categoria,
+            concepto=concepto,
+            proveedor=(data.get("proveedor") or "").strip() or None,
+            importe=importe,
+            imputable_inversores=bool(data.get("imputable_inversores", True)),
+            estado=(data.get("estado") or "estimado"),
+            observaciones=(data.get("observaciones") or "").strip() or None,
+        )
+        return JsonResponse({"ok": True, "id": gasto.id})
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+
+@csrf_exempt
+def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
+    try:
+        gasto = GastoProyecto.objects.select_related("proyecto").get(id=gasto_id, proyecto_id=proyecto_id)
+    except GastoProyecto.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Gasto no encontrado"}, status=404)
+
+    if request.method == "GET":
+        return JsonResponse({
+            "ok": True,
+            "gasto": {
+                "id": gasto.id,
+                "fecha": gasto.fecha.isoformat(),
+                "categoria": gasto.categoria,
+                "concepto": gasto.concepto,
+                "proveedor": gasto.proveedor,
+                "importe": float(gasto.importe),
+                "imputable_inversores": gasto.imputable_inversores,
+                "estado": gasto.estado,
+                "observaciones": gasto.observaciones,
+            },
+        })
+
+    if request.method == "DELETE":
+        gasto.delete()
+        return JsonResponse({"ok": True})
+
+    if request.method not in ("PUT", "PATCH"):
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+    try:
+        data = json.loads(request.body or "{}")
+        if "fecha" in data:
+            gasto.fecha = _parse_date(data.get("fecha")) or gasto.fecha
+        if "categoria" in data:
+            gasto.categoria = (data.get("categoria") or gasto.categoria).strip()
+        if "concepto" in data:
+            gasto.concepto = (data.get("concepto") or gasto.concepto).strip()
+        if "proveedor" in data:
+            gasto.proveedor = (data.get("proveedor") or "").strip() or None
+        if "importe" in data:
+            gasto.importe = _parse_decimal(data.get("importe")) or gasto.importe
+        if "imputable_inversores" in data:
+            gasto.imputable_inversores = bool(data.get("imputable_inversores"))
+        if "estado" in data:
+            gasto.estado = (data.get("estado") or gasto.estado)
+        if "observaciones" in data:
+            gasto.observaciones = (data.get("observaciones") or "").strip() or None
+
+        gasto.save()
+        return JsonResponse({"ok": True})
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+
+@csrf_exempt
+def proyecto_ingresos(request, proyecto_id: int):
+    try:
+        proyecto = Proyecto.objects.get(id=proyecto_id)
+    except Proyecto.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Proyecto no encontrado"}, status=404)
+
+    if request.method == "GET":
+        ingresos = []
+        for i in IngresoProyecto.objects.filter(proyecto=proyecto).order_by("fecha", "id"):
+            ingresos.append({
+                "id": i.id,
+                "fecha": i.fecha.isoformat(),
+                "tipo": i.tipo,
+                "concepto": i.concepto,
+                "importe": float(i.importe),
+                "estado": i.estado,
+                "imputable_inversores": i.imputable_inversores,
+                "observaciones": i.observaciones,
+            })
+        return JsonResponse({"ok": True, "ingresos": ingresos})
+
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+    try:
+        data = json.loads(request.body or "{}")
+        fecha = _parse_date(data.get("fecha"))
+        tipo = (data.get("tipo") or "").strip()
+        concepto = (data.get("concepto") or "").strip()
+        importe = _parse_decimal(data.get("importe"))
+
+        if not fecha or not tipo or not concepto or importe is None:
+            return JsonResponse({"ok": False, "error": "Faltan campos obligatorios"}, status=400)
+
+        ingreso = IngresoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=fecha,
+            tipo=tipo,
+            concepto=concepto,
+            importe=importe,
+            estado=(data.get("estado") or "estimado"),
+            imputable_inversores=bool(data.get("imputable_inversores", True)),
+            observaciones=(data.get("observaciones") or "").strip() or None,
+        )
+        return JsonResponse({"ok": True, "id": ingreso.id})
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+
+@csrf_exempt
+def proyecto_ingreso_detalle(request, proyecto_id: int, ingreso_id: int):
+    try:
+        ingreso = IngresoProyecto.objects.select_related("proyecto").get(id=ingreso_id, proyecto_id=proyecto_id)
+    except IngresoProyecto.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Ingreso no encontrado"}, status=404)
+
+    if request.method == "GET":
+        return JsonResponse({
+            "ok": True,
+            "ingreso": {
+                "id": ingreso.id,
+                "fecha": ingreso.fecha.isoformat(),
+                "tipo": ingreso.tipo,
+                "concepto": ingreso.concepto,
+                "importe": float(ingreso.importe),
+                "estado": ingreso.estado,
+                "imputable_inversores": ingreso.imputable_inversores,
+                "observaciones": ingreso.observaciones,
+            },
+        })
+
+    if request.method == "DELETE":
+        ingreso.delete()
+        return JsonResponse({"ok": True})
+
+    if request.method not in ("PUT", "PATCH"):
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+    try:
+        data = json.loads(request.body or "{}")
+        if "fecha" in data:
+            ingreso.fecha = _parse_date(data.get("fecha")) or ingreso.fecha
+        if "tipo" in data:
+            ingreso.tipo = (data.get("tipo") or ingreso.tipo).strip()
+        if "concepto" in data:
+            ingreso.concepto = (data.get("concepto") or ingreso.concepto).strip()
+        if "importe" in data:
+            ingreso.importe = _parse_decimal(data.get("importe")) or ingreso.importe
+        if "estado" in data:
+            ingreso.estado = (data.get("estado") or ingreso.estado)
+        if "imputable_inversores" in data:
+            ingreso.imputable_inversores = bool(data.get("imputable_inversores"))
+        if "observaciones" in data:
+            ingreso.observaciones = (data.get("observaciones") or "").strip() or None
+
+        ingreso.save()
+        return JsonResponse({"ok": True})
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+
+@csrf_exempt
+def proyecto_checklist(request, proyecto_id: int):
+    try:
+        proyecto = Proyecto.objects.get(id=proyecto_id)
+    except Proyecto.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Proyecto no encontrado"}, status=404)
+
+    def _seed_defaults():
+        for fase, titulo in _checklist_defaults():
+            ChecklistItem.objects.create(
+                proyecto=proyecto,
+                fase=fase,
+                titulo=titulo,
+                estado="pendiente",
+            )
+
+    if request.method == "GET":
+        if not ChecklistItem.objects.filter(proyecto=proyecto).exists():
+            _seed_defaults()
+        items = []
+        for it in ChecklistItem.objects.filter(proyecto=proyecto).order_by("fase", "fecha_objetivo", "id"):
+            items.append({
+                "id": it.id,
+                "fase": it.fase,
+                "titulo": it.titulo,
+                "descripcion": it.descripcion,
+                "responsable": it.responsable,
+                "fecha_objetivo": it.fecha_objetivo.isoformat() if it.fecha_objetivo else "",
+                "estado": it.estado,
+                "gasto_id": it.gasto_id,
+            })
+        return JsonResponse({"ok": True, "items": items})
+
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+    try:
+        data = json.loads(request.body or "{}")
+        return JsonResponse({"ok": False, "error": "Las tareas son predefinidas"}, status=405)
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+
+@csrf_exempt
+def proyecto_checklist_detalle(request, proyecto_id: int, item_id: int):
+    try:
+        item = ChecklistItem.objects.select_related("proyecto").get(id=item_id, proyecto_id=proyecto_id)
+    except ChecklistItem.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Item no encontrado"}, status=404)
+
+    if request.method == "DELETE":
+        return JsonResponse({"ok": False, "error": "No se permite borrar tareas"}, status=405)
+
+    if request.method not in ("PUT", "PATCH"):
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+    try:
+        data = json.loads(request.body or "{}")
+        if "descripcion" in data:
+            item.descripcion = (data.get("descripcion") or "").strip() or None
+        if "responsable" in data:
+            item.responsable = (data.get("responsable") or "").strip() or None
+        if "fecha_objetivo" in data:
+            item.fecha_objetivo = _parse_date(data.get("fecha_objetivo")) or item.fecha_objetivo
+        if "estado" in data:
+            item.estado = (data.get("estado") or item.estado)
+            if item.estado == "hecho" and not item.fecha_objetivo:
+                item.fecha_objetivo = timezone.now().date()
+
+        item.save()
+        return JsonResponse({"ok": True})
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)

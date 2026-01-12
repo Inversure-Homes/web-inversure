@@ -10,6 +10,9 @@
   window.ES_MODO_PROYECTO = true;
   window.PROYECTO_ID = {% if proyecto and proyecto.id %}{{ proyecto.id }}{% else %}null{% endif %};
   window.ESTUDIO_ORIGEN_ID = {% if snapshot and snapshot.meta and snapshot.meta.estudio_id %}{{ snapshot.meta.estudio_id }}{% else %}null{% endif %};
+  window.PROYECTO_GASTOS_URL = "{% url 'core:proyecto_gastos' proyecto.id %}";
+  window.PROYECTO_INGRESOS_URL = "{% url 'core:proyecto_ingresos' proyecto.id %}";
+  window.PROYECTO_CHECKLIST_URL = "{% url 'core:proyecto_checklist' proyecto.id %}";
 </script>
 {% if snapshot %}{{ snapshot|json_script:"snapshotData" }}{% endif %}
 
@@ -311,6 +314,9 @@
                            data-euro="true"
                            readonly
                            value="{{ eco.valor_adquisicion|default:met.valor_adquisicion_total|default:met.valor_adquisicion|default:proyecto.precio_compra_inmueble|default:'' }}" {% if not editable %}disabled{% endif %}>
+                    <div class="form-text">
+                      Estimado: <span id="valor_adq_estimado">—</span> · Real: <span id="valor_adq_real">—</span>
+                    </div>
                 </div>
 
                 <div class="col-md-6 mb-3">
@@ -319,6 +325,9 @@
                            class="form-control form-control-lg"
                            data-euro="true"
                            value="{{ eco.valor_transmision|default:met.valor_transmision|default:met.precio_transmision|default:proyecto.precio_venta_estimado|default:'' }}" {% if not editable %}disabled{% endif %}>
+                    <div class="form-text">
+                      Estimado: <span id="valor_trans_estimado">—</span> · Real: <span id="valor_trans_real">—</span>
+                    </div>
                 </div>
             </div>
 
@@ -335,6 +344,105 @@
                 </div>
             </div>
 
+        </div>
+    </div>
+
+    <!-- ===============================
+         VALORACIONES (Vista técnica)
+    ================================ -->
+    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
+        <div class="card-body">
+            <h5 class="mb-3 inversure-form-header">Valoraciones</h5>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Idealista</label>
+                    <input type="text" name="val_idealista" class="form-control" data-euro="true" data-valuation="true"
+                           value="{{ eco.val_idealista|default:met.val_idealista|default:proyecto.val_idealista|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Fotocasa</label>
+                    <input type="text" name="val_fotocasa" class="form-control" data-euro="true" data-valuation="true"
+                           value="{{ eco.val_fotocasa|default:met.val_fotocasa|default:proyecto.val_fotocasa|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Registradores</label>
+                    <input type="text" name="val_registradores" class="form-control" data-euro="true" data-valuation="true"
+                           value="{{ eco.val_registradores|default:met.val_registradores|default:proyecto.val_registradores|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Casafari</label>
+                    <input type="text" name="val_casafari" class="form-control" data-euro="true" data-valuation="true"
+                           value="{{ eco.val_casafari|default:met.val_casafari|default:proyecto.val_casafari|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Tasación</label>
+                    <input type="text" name="val_tasacion" class="form-control" data-euro="true" data-valuation="true"
+                           value="{{ eco.val_tasacion|default:met.val_tasacion|default:proyecto.val_tasacion|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-12">
+                    <label class="form-label fw-semibold">
+                      Media de valoraciones
+                      <span class="ms-1 text-muted" title="Calculado automáticamente en base a los datos introducidos">ℹ️</span>
+                    </label>
+                    <input type="text" name="media_valoraciones" class="form-control form-control-lg" data-euro="true" readonly title="Calculado automáticamente en base a los datos introducidos"
+                           value="{{ eco.media_valoraciones|default:met.media_valoraciones|default:proyecto.media_valoraciones|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===============================
+         CHECKLIST OPERATIVO (Vista técnica)
+    ================================ -->
+    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
+        <div class="card-body">
+            <h5 class="mb-3 inversure-form-header">Checklist operativo</h5>
+
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>Fase</th>
+                            <th>Tarea</th>
+                            <th>Responsable</th>
+                            <th>Fecha realizada</th>
+                            <th>Estado</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="chk_tabla_rows">
+                        {% if checklist_items %}
+                          {% for it in checklist_items %}
+                          <tr data-id="{{ it.id }}">
+                              <td>{{ it.get_fase_display }}</td>
+                              <td>{{ it.titulo }}</td>
+                              <td><input type="text" class="form-control form-control-sm chk-resp" value="{{ it.responsable|default:'' }}"></td>
+                              <td><input type="date" class="form-control form-control-sm chk-fecha" value="{{ it.fecha_objetivo|date:'Y-m-d' }}"></td>
+                              <td>
+                                  <select class="form-select form-select-sm chk-estado">
+                                      <option value="pendiente" {% if it.estado == "pendiente" %}selected{% endif %}>Pendiente</option>
+                                      <option value="en_curso" {% if it.estado == "en_curso" %}selected{% endif %}>En curso</option>
+                                      <option value="hecho" {% if it.estado == "hecho" %}selected{% endif %}>Hecho</option>
+                                  </select>
+                              </td>
+                              <td class="text-end">
+                                  <button type="button" class="btn btn-sm btn-outline-secondary chk-save">Guardar</button>
+                              </td>
+                          </tr>
+                          {% endfor %}
+                        {% else %}
+                          <tr><td colspan="6" class="text-muted">Sin tareas todavía.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -355,7 +463,135 @@
 
         </div>
 
-        <div class="tab-pane fade" id="vista-economicos" role="tabpanel" aria-labelledby="tab-economicos">
+    <div class="tab-pane fade" id="vista-economicos" role="tabpanel" aria-labelledby="tab-economicos">
+
+    <!-- ===============================
+         MEMORIA ECONÓMICA (ASIENTOS)
+    ================================ -->
+    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <h5 class="mb-0 inversure-form-header">
+            <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">1</span>
+            Memoria económica
+          </h5>
+          <a class="btn btn-sm btn-outline-secondary"
+             href="{% url 'core:pdf_memoria_economica' proyecto.id %}"
+             target="_blank" rel="noopener noreferrer">
+            PDF memoria
+          </a>
+        </div>
+
+        <div class="row g-3 align-items-end">
+          <div class="col-md-2">
+            <label class="form-label">Fecha</label>
+            <input type="date" class="form-control" id="eco_fecha">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Tipo</label>
+            <select class="form-select" id="eco_tipo">
+              <option value="gasto" selected>Gasto</option>
+              <option value="ingreso">Ingreso</option>
+            </select>
+          </div>
+          <div class="col-md-2 eco-only-gasto">
+            <label class="form-label">Categoría</label>
+            <select class="form-select" id="eco_categoria">
+              <option value="adquisicion">Adquisición</option>
+              <option value="reforma">Reforma</option>
+              <option value="seguridad">Seguridad</option>
+              <option value="operativos">Operativos</option>
+              <option value="financieros">Financieros</option>
+              <option value="legales">Legales</option>
+              <option value="venta">Venta</option>
+              <option value="otros">Otros</option>
+            </select>
+          </div>
+          <div class="col-md-2 eco-only-ingreso d-none">
+            <label class="form-label">Tipo ingreso</label>
+            <select class="form-select" id="eco_tipo_ingreso">
+              <option value="senal">Señal / Arras</option>
+              <option value="venta" selected>Venta</option>
+              <option value="anticipo">Anticipo</option>
+              <option value="devolucion">Devolución</option>
+              <option value="indemnizacion">Indemnización</option>
+              <option value="otro">Otro ingreso</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Concepto</label>
+            <input type="text" class="form-control" id="eco_concepto" placeholder="Ej.: Notaría escritura">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Importe</label>
+            <input type="text" class="form-control" id="eco_importe" data-euro="true">
+          </div>
+          <div class="col-md-2">
+            <button type="button" class="btn btn-inversure btn-sm w-100 text-nowrap" id="eco_add_btn">Añadir</button>
+            <button type="button" class="btn btn-link btn-sm w-100 text-nowrap d-none" id="eco_cancel_btn">Cancelar</button>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Estado</label>
+            <select class="form-select" id="eco_estado">
+              <option value="estimado" selected>Estimado</option>
+              <option value="confirmado">Real</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Imputable inversores</label>
+            <select class="form-select" id="eco_imputable">
+              <option value="1" selected>Sí</option>
+              <option value="0">No</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Observaciones</label>
+            <input type="text" class="form-control" id="eco_obs" placeholder="Opcional">
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <div class="row g-3">
+            <div class="col-md-3">
+              <div class="small text-muted">Total estimado</div>
+              <div class="fw-bold" id="eco_total_estimado">—</div>
+            </div>
+            <div class="col-md-3">
+              <div class="small text-muted">Total real</div>
+              <div class="fw-bold" id="eco_total_real">—</div>
+            </div>
+            <div class="col-md-3">
+              <div class="small text-muted">Ingresos reales</div>
+              <div class="fw-bold" id="eco_total_ingresos">—</div>
+              <div class="small text-muted" id="eco_total_ingresos_estimado">Estimado: —</div>
+            </div>
+            <div class="col-md-3">
+              <div class="small text-muted">Balance neto</div>
+              <div class="fw-bold" id="eco_balance_neto">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-responsive mt-3">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Categoría</th>
+                <th>Concepto</th>
+                <th class="text-end">Importe</th>
+                <th>Estado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="eco_tabla_rows">
+              <tr><td colspan="7" class="text-muted">Sin asientos todavía.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
 
     <!-- ===============================
          DATOS PRINCIPALES
@@ -363,33 +599,42 @@
     <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
         <div class="card-body">
             <h5 class="mb-3 inversure-form-header">
-                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">1</span>
+                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">2</span>
                 Datos principales
             </h5>
 
             <div class="row">
-                <div class="col-md-4 mb-3">
+                <div class="col-md-3 mb-3">
                     <label class="form-label">Precio de escritura</label>
                     <input type="text" name="precio_propiedad"
                            class="form-control form-control-lg"
                            data-euro="true"
-                           value="{{ met.precio_escritura|default:proyecto.precio_propiedad|default:'' }}" {% if not editable %}disabled{% endif %}>
+                           value="{{ eco.precio_propiedad|default:eco.precio_escritura|default:met.precio_propiedad|default:met.precio_escritura|default:proyecto.precio_propiedad|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
 
-                <div class="col-md-4 mb-3">
+                <div class="col-md-3 mb-3">
                     <label class="form-label">Venta estimada</label>
                     <input type="text" name="venta_estimada"
                            class="form-control form-control-lg"
                            data-euro="true"
-                           value="{{ eco.valor_transmision|default:met.valor_transmision|default:met.precio_transmision|default:proyecto.venta_estimada|default:'' }}" {% if not editable %}disabled{% endif %}>
+                           value="{{ eco.venta_estimada|default:eco.valor_transmision|default:met.venta_estimada|default:met.valor_transmision|default:met.precio_transmision|default:proyecto.venta_estimada|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
 
-                <div class="col-md-4 mb-3">
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">Valor de transmisión</label>
+                    <input type="text" name="valor_transmision"
+                           class="form-control form-control-lg"
+                           data-euro="true"
+                           readonly
+                           value="{{ eco.valor_transmision|default:met.valor_transmision|default:met.precio_transmision|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+
+                <div class="col-md-3 mb-3">
                     <label class="form-label">Tiempo estimado de operación (meses)</label>
                     <input type="text" name="meses"
                            class="form-control"
                            data-number="true"
-                           value="{{ proyecto.meses|default:'' }}" {% if not editable %}disabled{% endif %}>
+                           value="{{ eco.meses|default:met.meses|default:proyecto.meses|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
             </div>
 
@@ -399,330 +644,11 @@
                     <input type="text" name="financiacion_pct"
                            class="form-control"
                            data-number="true"
-                           value="{{ proyecto.financiacion_pct|default:'' }}" {% if not editable %}disabled{% endif %}>
+                           value="{{ eco.financiacion_pct|default:eco.porcentaje_financiacion|default:met.financiacion_pct|default:met.porcentaje_financiacion|default:proyecto.financiacion_pct|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- ===============================
-         GASTOS DE ADQUISICIÓN
-    ================================ -->
-    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
-        <div class="card-body">
-            <h5 class="mb-3 inversure-form-header">
-                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">2</span>
-                Gastos de adquisición
-            </h5>
-
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">
-                      Notaría
-                      <span class="ms-1 text-muted" title="Calculado automáticamente en base a los datos introducidos">ℹ️</span>
-                    </label>
-                    <input type="text" name="notaria" class="form-control form-control-lg" data-euro="true"
-                           value="{{ met.notaria|default:proyecto.notaria|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">
-                      Registro
-                      <span class="ms-1 text-muted" title="Calculado automáticamente en base a los datos introducidos">ℹ️</span>
-                    </label>
-                    <input type="text" name="registro" class="form-control form-control-lg" data-euro="true"
-                           value="{{ met.registro|default:proyecto.registro|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">
-                      ITP
-                      <span class="ms-1 text-muted" title="Calculado automáticamente en base a los datos introducidos">ℹ️</span>
-                    </label>
-                    <input type="text" name="itp" class="form-control form-control-lg" data-euro="true"
-                           value="{{ met.itp|default:proyecto.itp|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Otros gastos</label>
-                    <input type="text" name="otros_gastos_compra" class="form-control" data-euro="true"
-                           value="{{ proyecto.otros_gastos_compra|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===============================
-         INVERSIÓN INICIAL
-    ================================ -->
-    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
-        <div class="card-body">
-            <h5 class="mb-3 inversure-form-header">
-                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">4</span>
-                Inversión inicial
-            </h5>
-
-            <div class="row">
-                <div class="col-md-3 mb-3">
-                    <label class="form-label">Reforma</label>
-                    <input type="text" name="reforma" class="form-control form-control-lg" data-euro="true"
-                           value="{{ proyecto.reforma|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <label class="form-label">Limpieza inicial</label>
-                    <input type="text" name="limpieza_inicial" class="form-control form-control-lg" data-euro="true"
-                           value="{{ proyecto.limpieza_inicial|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <label class="form-label">Mobiliario</label>
-                    <input type="text" name="mobiliario" class="form-control form-control-lg" data-euro="true"
-                           value="{{ proyecto.mobiliario|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <label class="form-label">Otros puesta en marcha</label>
-                    <input type="text" name="otros_puesta_marcha" class="form-control form-control-lg" data-euro="true"
-                           value="{{ proyecto.otros_puesta_marcha|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-            </div>
-        </div>
-    </div>
-
-
-    <!-- ===============================
-         OBRA (DETALLE POR PARTIDAS)
-    ================================ -->
-    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
-        <div class="card-body">
-            <h5 class="mb-3 inversure-form-header">
-                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">4A</span>
-                Obra (detalle por partidas)
-            </h5>
-
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Demoliciones / desescombro</label>
-                    <input type="text" name="obra_demoliciones" class="form-control" data-euro="true"
-                        value="{{ proyecto.obra_demoliciones|default:'' }}">
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Albañilería</label>
-                    <input type="text" name="obra_albanileria" class="form-control" data-euro="true"
-                        value="{{ proyecto.obra_albanileria|default:'' }}">
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Fontanería</label>
-                    <input type="text" name="obra_fontaneria" class="form-control" data-euro="true"
-                        value="{{ proyecto.obra_fontaneria|default:'' }}">
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Electricidad</label>
-                    <input type="text" name="obra_electricidad" class="form-control" data-euro="true"
-                        value="{{ proyecto.obra_electricidad|default:'' }}">
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Carpintería interior</label>
-                    <input type="text" name="obra_carpinteria_interior" class="form-control" data-euro="true"
-                        value="{{ proyecto.obra_carpinteria_interior|default:'' }}">
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Carpintería exterior</label>
-                    <input type="text" name="obra_carpinteria_exterior" class="form-control" data-euro="true"
-                        value="{{ proyecto.obra_carpinteria_exterior|default:'' }}">
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Cocina</label>
-                    <input type="text" name="obra_cocina" class="form-control" data-euro="true"
-                        value="{{ proyecto.obra_cocina|default:'' }}">
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Baños</label>
-                    <input type="text" name="obra_banos" class="form-control" data-euro="true"
-                        value="{{ proyecto.obra_banos|default:'' }}">
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Pintura</label>
-                    <input type="text" name="obra_pintura" class="form-control" data-euro="true"
-                        value="{{ proyecto.obra_pintura|default:'' }}">
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-12 mb-3">
-                    <label class="form-label">Otros trabajos de obra</label>
-                    <input type="text" name="obra_otros" class="form-control" data-euro="true"
-                        value="{{ proyecto.obra_otros|default:'' }}">
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===============================
-         SEGURIDAD Y CONTROL
-    ================================ -->
-    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
-        <div class="card-body">
-            <h5 class="mb-3 inversure-form-header">
-                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">4B</span>
-                Seguridad y control
-            </h5>
-
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Cerrajero</label>
-                    <input type="text" name="cerrajero" class="form-control" data-euro="true"
-                        value="{{ proyecto.cerrajero|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Alarma</label>
-                    <input type="text" name="alarma" class="form-control" data-euro="true"
-                        value="{{ proyecto.alarma|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===============================
-         GASTOS RECURRENTES
-    ================================ -->
-    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
-        <div class="card-body">
-            <h5 class="mb-3 inversure-form-header">
-                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">5</span>
-                Gastos recurrentes
-            </h5>
-
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Comunidad</label>
-                    <input type="text" name="comunidad" class="form-control" data-euro="true"
-                           value="{{ proyecto.comunidad|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">IBI</label>
-                    <input type="text" name="ibi" class="form-control" data-euro="true"
-                           value="{{ proyecto.ibi|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Seguros</label>
-                    <input type="text" name="seguros" class="form-control" data-euro="true"
-                           value="{{ proyecto.seguros|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Suministros</label>
-                    <input type="text" name="suministros" class="form-control" data-euro="true"
-                           value="{{ proyecto.suministros|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Limpieza periódica</label>
-                    <input type="text" name="limpieza_periodica" class="form-control" data-euro="true"
-                           value="{{ proyecto.limpieza_periodica|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Ocupas</label>
-                    <input type="text" name="ocupas" class="form-control" data-euro="true"
-                           value="{{ proyecto.ocupas|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===============================
-         GASTOS DE VENTA
-    ================================ -->
-    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
-        <div class="card-body">
-            <h5 class="mb-3 inversure-form-header">
-                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">6</span>
-                Gastos de venta
-            </h5>
-
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Plusvalía</label>
-                    <input type="text" name="plusvalia" class="form-control" data-euro="true"
-                           value="{{ proyecto.plusvalia|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Inmobiliaria</label>
-                    <input type="text" name="inmobiliaria" class="form-control" data-euro="true"
-                           value="{{ proyecto.inmobiliaria|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Gestión comercial</label>
-                    <input type="text" name="gestion_comercial" class="form-control" data-euro="true"
-                           value="{{ proyecto.gestion_comercial|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Gestión administración</label>
-                    <input type="text" name="gestion_administracion" class="form-control" data-euro="true"
-                           value="{{ proyecto.gestion_administracion|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===============================
-         VALORACIONES
-    ================================ -->
-    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
-        <div class="card-body">
-            <h5 class="mb-3 inversure-form-header">
-                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">7</span>
-                Valoraciones
-            </h5>
-
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Idealista</label>
-                    <input type="text" name="val_idealista" class="form-control" data-euro="true" data-valuation="true"
-                           value="{{ proyecto.val_idealista|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Fotocasa</label>
-                    <input type="text" name="val_fotocasa" class="form-control" data-euro="true" data-valuation="true"
-                           value="{{ proyecto.val_fotocasa|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Registradores</label>
-                    <input type="text" name="val_registradores" class="form-control" data-euro="true" data-valuation="true"
-                           value="{{ proyecto.val_registradores|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Casafari</label>
-                    <input type="text" name="val_casafari" class="form-control" data-euro="true" data-valuation="true"
-                           value="{{ proyecto.val_casafari|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Tasación</label>
-                    <input type="text" name="val_tasacion" class="form-control" data-euro="true" data-valuation="true"
-                           value="{{ proyecto.val_tasacion|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-            </div>
-
-            <div class="row mt-3">
-                <div class="col-md-12">
-                    <label class="form-label fw-semibold">
-                      Media de valoraciones
-                      <span class="ms-1 text-muted" title="Calculado automáticamente en base a los datos introducidos">ℹ️</span>
-                    </label>
-                    <input type="text" name="media_valoraciones" class="form-control form-control-lg" data-euro="true" readonly title="Calculado automáticamente en base a los datos introducidos"
-                           value="{{ proyecto.media_valoraciones|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- ===============================
          ACCIONES
     ================================ -->
@@ -734,217 +660,11 @@
 
     <div class="card mb-4 shadow-sm border-0">
         <div class="card-body d-flex justify-content-between align-items-center">
-            <div class="d-flex gap-2">
-                <button type="submit"
-                        name="accion"
-                        value="calcular"
-                        class="btn btn-outline-secondary"
-                        {% if not editable %}disabled{% endif %}>
-                    Calcular
-                </button>
-
-                <button type="submit"
-                        name="accion"
-                        value="guardar"
-                        class="btn btn-outline-primary"
-                        {% if not editable %}disabled{% endif %}>
-                    💾 Guardar proyecto
-                </button>
+            <div class="text-muted small">
+                La información se guarda automáticamente al editar.
             </div>
         </div>
     </div>
-
-    <div class="d-flex justify-content-center my-5">
-        <button type="submit"
-                name="accion"
-                value="analizar"
-                class="btn btn-primary btn-lg px-5 shadow">
-            Analizar viabilidad
-        </button>
-    </div>
-
-    <!-- ===============================
-         RESULTADOS
-    ================================ -->
-{% if resultado %}
-<div class="card mb-5 shadow-sm border-0 resultado-inversor
-     {% if resultado.viable %}resultado-viable{% elif resultado.ajustada %}resultado-ajustada{% else %}resultado-no-viable{% endif %}">
-    <div class="card-body">
-
-        <!-- VEREDICTO -->
-        <div class="mb-4">
-            {% if resultado.viable %}
-                <h3 class="text-success fw-bold">✔ OPERACIÓN VIABLE</h3>
-                <p class="text-muted mb-0">
-                    Cumple los criterios mínimos exigidos por Inversure
-                </p>
-                <div class="mt-2 small text-muted">
-                    <strong>Criterios aplicados:</strong>
-                    ROI mínimo ≥ 15 % · Beneficio mínimo ≥ 30.000 €
-                </div>
-            {% elif resultado.ajustada %}
-                <h3 class="text-warning fw-bold">⚠ OPERACIÓN AJUSTADA</h3>
-                <p class="text-muted mb-0">
-                    ROI correcto, pero beneficio inferior al objetivo
-                </p>
-                <div class="mt-2 small text-muted">
-                    <strong>Criterios aplicados:</strong>
-                    ROI mínimo ≥ 15 % · Beneficio mínimo ≥ 30.000 €
-                </div>
-            {% else %}
-                <h3 class="text-danger fw-bold">✖ OPERACIÓN NO VIABLE</h3>
-                <p class="text-muted mb-0">
-                    No alcanza los criterios mínimos de rentabilidad
-                </p>
-                <div class="mt-2 small text-muted">
-                    <strong>Criterios aplicados:</strong>
-                    ROI mínimo ≥ 15 % · Beneficio mínimo ≥ 30.000 €
-                </div>
-            {% endif %}
-        </div>
-
-        <!-- TARJETA VISUAL DE RENTABILIDAD -->
-        <div class="card mb-4 border-0 shadow-sm">
-            <div class="card-body">
-                <div class="row align-items-center text-center">
-                    <div class="col-md-4 mb-3 mb-md-0">
-                        <div class="fw-semibold text-muted">Rentabilidad global</div>
-                        <div class="fs-3 fw-bold
-                            {% if resultado.viable %}text-success
-                            {% elif resultado.ajustada %}text-warning
-                            {% else %}text-danger{% endif %}">
-                            <span class="fmt-percent" data-percent="true" data-decimals="2">{{ resultado.roi }}</span>
-                        </div>
-                        <small class="text-muted">Objetivo ≥ 15 %</small>
-                    </div>
-
-                    <div class="col-md-4 mb-3 mb-md-0">
-                        <div class="fw-semibold text-muted">Beneficio esperado</div>
-                        <div class="fs-3 fw-bold
-                            {% if resultado.beneficio_neto >= 30000 %}text-success
-                            {% elif resultado.beneficio_neto > 0 %}text-warning
-                            {% else %}text-danger{% endif %}">
-                            <span class="fmt-euro" data-euro="true">{{ resultado.beneficio_neto }}</span>
-                        </div>
-                        <small class="text-muted">Objetivo ≥ 30.000 €</small>
-                    </div>
-
-                    <div class="col-md-4">
-                        <div class="fw-semibold text-muted">Decisión Inversure</div>
-                        <div class="fs-5 fw-semibold">
-                            {% if resultado.viable %}
-                                ✅ Apta para inversión
-                            {% elif resultado.ajustada %}
-                                ⚠ Requiere ajuste
-                            {% else %}
-                                ❌ No invertir
-                            {% endif %}
-                        </div>
-                        <small class="text-muted">
-                            Basado en ROI y beneficio absoluto
-                        </small>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- TARJETA DE AJUSTES NECESARIOS -->
-        {% if not resultado.viable %}
-        <div class="card mb-4 border-0 shadow-sm">
-            <div class="card-body">
-                <h5 class="fw-bold mb-3">🔧 Qué habría que ajustar para que sea viable</h5>
-
-                <div class="row text-center">
-                    <div class="col-md-4 mb-3">
-                        <div class="fw-semibold text-muted">Incrementar precio de venta</div>
-                        <div class="fs-5 fw-bold text-warning">
-                            <span class="fmt-euro" data-euro="true">{{ resultado.ajuste_precio_venta }}</span>
-                        </div>
-                        <small class="text-muted">Manteniendo gastos actuales</small>
-                    </div>
-
-                    <div class="col-md-4 mb-3">
-                        <div class="fw-semibold text-muted">Reducir gastos totales</div>
-                        <div class="fs-5 fw-bold text-warning">
-                            <span class="fmt-euro" data-euro="true">{{ resultado.ajuste_gastos }}</span>
-                        </div>
-                        <small class="text-muted">Manteniendo precio de venta</small>
-                    </div>
-
-                    <div class="col-md-4 mb-3">
-                        <div class="fw-semibold text-muted">Escenario combinado</div>
-                        <div class="fs-6 fw-semibold">
-                            Ajuste parcial en precio y gastos
-                        </div>
-                        <small class="text-muted">
-                            Recomendado para negociación
-                        </small>
-                    </div>
-                </div>
-
-                <div class="alert alert-light border mt-3 mb-0 small">
-                    <strong>Nota:</strong> Estos ajustes son orientativos. No modifican el proyecto ni sus datos guardados.
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        <hr class="my-4">
-
-        <!-- KPIs PRINCIPALES -->
-        <div class="row text-center mb-4">
-            <div class="col-md-3">
-                <div class="fw-semibold text-muted">Beneficio neto</div>
-                <div class="fs-4 fw-bold">
-                    <span class="fmt-euro" data-euro="true">{{ resultado.beneficio_neto }}</span>
-                </div>
-                <small class="text-muted">Objetivo ≥ 30.000 €</small>
-            </div>
-
-            <div class="col-md-3">
-                <div class="fw-semibold text-muted">ROI</div>
-                <div class="fs-4 fw-bold"><span class="fmt-percent" data-percent="true" data-decimals="2">{{ resultado.roi }}</span></div>
-                <small class="text-muted">Objetivo ≥ 15 %</small>
-            </div>
-
-            <div class="col-md-3">
-                <div class="fw-semibold text-muted">Capital invertido</div>
-                <div class="fs-5 fw-semibold">
-                    <span class="fmt-euro" data-euro="true">{{ resultado.valor_adquisicion }}</span>
-                </div>
-            </div>
-
-            <div class="col-md-3">
-                <div class="fw-semibold text-muted">€ ganados / € invertido</div>
-                <div class="fs-5 fw-semibold">
-                    <span class="fmt-number" data-number="true" data-decimals="2">{{ resultado.ratio_euro }}</span> €
-                </div>
-            </div>
-        </div>
-
-        <hr class="my-4">
-
-        <!-- MÉTRICAS INVERSOR -->
-        <div class="row">
-            <div class="col-md-4">
-                <strong>Precio mínimo de venta</strong><br>
-                <span class="fmt-euro" data-euro="true">{{ resultado.precio_minimo_venta }}</span>
-            </div>
-
-            <div class="col-md-4">
-                <strong>Colchón de seguridad</strong><br>
-                <span class="fmt-percent" data-percent="true" data-decimals="2">{{ resultado.colchon_seguridad }}</span>
-            </div>
-
-            <div class="col-md-4">
-                <strong>Margen neto</strong><br>
-                <span class="fmt-percent" data-percent="true" data-decimals="2">{{ resultado.margen_neto }}</span>
-            </div>
-        </div>
-
-    </div>
-</div>
-{% endif %}
 
         </div> <!-- /vista-operacion -->
 
@@ -967,12 +687,316 @@
         </div>
 
         <div class="tab-pane fade" id="vista-dashboard" role="tabpanel" aria-labelledby="tab-dashboard">
-            <div class="card mb-4 shadow-sm border-0">
+            <style>
+              .dash-hero {
+                background: linear-gradient(135deg, #0f1d2e 0%, #142b45 60%, #1a3654 100%);
+                color: #fff;
+                border-radius: 16px;
+              }
+              .dash-kpi {
+                background: #fff;
+                border: 1px solid #e2e8f0;
+                border-radius: 14px;
+                padding: 14px 16px;
+                box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+              }
+              .dash-kpi .label { color: #64748b; font-size: 12px; }
+              .dash-kpi .value { font-size: 20px; font-weight: 800; }
+              .dash-sub { color: #94a3b8; font-size: 11px; }
+              .dash-bar {
+                height: 10px;
+                border-radius: 999px;
+                background: #e2e8f0;
+                overflow: hidden;
+              }
+              .dash-bar > span {
+                display: block;
+                height: 100%;
+                background: linear-gradient(90deg, #0ea5e9 0%, #38bdf8 100%);
+                width: 0%;
+              }
+              .dash-bar.warn > span { background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%); }
+              .dash-bar.good > span { background: linear-gradient(90deg, #16a34a 0%, #22c55e 100%); }
+              .dash-list { list-style: none; padding: 0; margin: 0; }
+              .dash-list li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px dashed #e2e8f0; }
+              .dash-list li:last-child { border-bottom: 0; }
+              .dash-pill {
+                font-size: 11px; padding: 2px 8px; border-radius: 999px;
+                background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0;
+              }
+            </style>
+
+            <div class="card mb-4 shadow-sm border-0 dash-hero">
                 <div class="card-body">
-                    <h5 class="mb-2 inversure-form-header">Dashboard</h5>
-                    <p class="text-muted mb-0">Pendiente: KPIs en tiempo real del proyecto (coste real vs estimado, ROI, margen, hitos y alertas).</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-1">Dashboard operativo</h5>
+                            <div class="dash-sub">Visión rápida del estado económico y trazabilidad del proyecto</div>
+                        </div>
+                        <div class="dash-pill">Equipo Inversure</div>
+                    </div>
                 </div>
             </div>
+
+            <div class="card mb-4 shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="mb-3 inversure-form-header">Indicadores clave</h5>
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <div class="dash-kpi">
+                                <div class="label">Ingresos reales</div>
+                                <div class="value" id="dash_ingresos_reales">—</div>
+                                <div class="dash-sub">Estimado: <span id="dash_ingresos_estimados">—</span></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="dash-kpi">
+                                <div class="label">Gastos reales</div>
+                                <div class="value" id="dash_gastos_reales">—</div>
+                                <div class="dash-sub">Estimado: <span id="dash_gastos_estimados">—</span></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="dash-kpi">
+                                <div class="label">Beneficio neto real</div>
+                                <div class="value" id="dash_beneficio_real">—</div>
+                                <div class="dash-sub">Estimado: <span id="dash_beneficio_estimado">—</span></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="dash-kpi">
+                                <div class="label">ROI real</div>
+                                <div class="value" id="dash_roi_real">—</div>
+                                <div class="dash-sub">Estimado: <span id="dash_roi_estimado">—</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-6">
+                            <div class="dash-kpi">
+                                <div class="label">Comparativa ingresos/gastos</div>
+                                <div class="small text-muted mt-2">Ingresos (real)</div>
+                                <div class="dash-bar good" id="dash_bar_ingresos"><span></span></div>
+                                <div class="small text-muted mt-2">Gastos (real)</div>
+                                <div class="dash-bar warn" id="dash_bar_gastos"><span></span></div>
+                                <div class="small text-muted mt-3">Balance neto</div>
+                                <div class="dash-bar" id="dash_bar_balance"><span></span></div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="dash-kpi">
+                                <div class="label">Distribución de gastos por categoría</div>
+                                <div class="mt-2" id="dash_categorias_rows">
+                                    <div class="small text-muted">Sin datos todavía.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-12">
+                            <div class="dash-kpi">
+                                <div class="label">Últimos movimientos</div>
+                                <ul class="dash-list mt-2" id="dash_ultimos_movimientos">
+                                    <li><span class="text-muted">Sin movimientos aún.</span><span></span></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4 shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="mb-3 inversure-form-header">Progreso operativo</h5>
+                    <div id="dash_checklist_rows">
+                        <div class="small text-muted">Sin tareas todavía.</div>
+                    </div>
+                </div>
+            </div>
+
+            {% if resultado %}
+            <div id="resultado_card" class="card mb-4 shadow-sm border-0 resultado-inversor
+                 {% if resultado.viable %}resultado-viable{% elif resultado.ajustada %}resultado-ajustada{% else %}resultado-no-viable{% endif %}">
+                <div class="card-body">
+
+                    <!-- VEREDICTO -->
+                    <div class="mb-4">
+                        {% if resultado.viable %}
+                            <h3 id="resultado_veredicto" class="text-success fw-bold">✔ OPERACIÓN VIABLE</h3>
+                            <p class="text-muted mb-0">
+                                Cumple los criterios mínimos exigidos por Inversure
+                            </p>
+                            <div class="mt-2 small text-muted">
+                                <strong>Criterios aplicados:</strong>
+                                ROI mínimo ≥ 15 % · Beneficio mínimo ≥ 30.000 €
+                            </div>
+                        {% elif resultado.ajustada %}
+                            <h3 id="resultado_veredicto" class="text-warning fw-bold">⚠ OPERACIÓN AJUSTADA</h3>
+                            <p class="text-muted mb-0">
+                                ROI correcto, pero beneficio inferior al objetivo
+                            </p>
+                            <div class="mt-2 small text-muted">
+                                <strong>Criterios aplicados:</strong>
+                                ROI mínimo ≥ 15 % · Beneficio mínimo ≥ 30.000 €
+                            </div>
+                        {% else %}
+                            <h3 id="resultado_veredicto" class="text-danger fw-bold">✖ OPERACIÓN NO VIABLE</h3>
+                            <p class="text-muted mb-0">
+                                No alcanza los criterios mínimos de rentabilidad
+                            </p>
+                            <div class="mt-2 small text-muted">
+                                <strong>Criterios aplicados:</strong>
+                                ROI mínimo ≥ 15 % · Beneficio mínimo ≥ 30.000 €
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- TARJETA VISUAL DE RENTABILIDAD -->
+                    <div class="card mb-4 border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="row align-items-center text-center">
+                                <div class="col-md-4 mb-3 mb-md-0">
+                                    <div class="fw-semibold text-muted">Rentabilidad global</div>
+                                    <div id="resultado_roi_wrap" class="fs-3 fw-bold
+                                        {% if resultado.viable %}text-success
+                                        {% elif resultado.ajustada %}text-warning
+                                        {% else %}text-danger{% endif %}">
+                                        <span id="resultado_roi" class="fmt-percent" data-percent="true" data-decimals="2">{{ resultado.roi }}</span>
+                                    </div>
+                                    <small class="text-muted">Objetivo ≥ 15 %</small>
+                                </div>
+
+                                <div class="col-md-4 mb-3 mb-md-0">
+                                    <div class="fw-semibold text-muted">Beneficio esperado</div>
+                                    <div id="resultado_beneficio_wrap" class="fs-3 fw-bold
+                                        {% if resultado.beneficio_neto >= 30000 %}text-success
+                                        {% elif resultado.beneficio_neto > 0 %}text-warning
+                                        {% else %}text-danger{% endif %}">
+                                        <span id="resultado_beneficio" class="fmt-euro" data-euro="true">{{ resultado.beneficio_neto }}</span>
+                                    </div>
+                                    <small class="text-muted">Objetivo ≥ 30.000 €</small>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <div class="fw-semibold text-muted">Decisión Inversure</div>
+                                    <div id="resultado_decision" class="fs-5 fw-semibold">
+                                        {% if resultado.viable %}
+                                            ✅ Apta para inversión
+                                        {% elif resultado.ajustada %}
+                                            ⚠ Requiere ajuste
+                                        {% else %}
+                                            ❌ No invertir
+                                        {% endif %}
+                                    </div>
+                                    <small class="text-muted">
+                                        Basado en ROI y beneficio absoluto
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TARJETA DE AJUSTES NECESARIOS -->
+                    {% if not resultado.viable %}
+                    <div class="card mb-4 border-0 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="fw-bold mb-3">🔧 Qué habría que ajustar para que sea viable</h5>
+
+                            <div class="row text-center">
+                                <div class="col-md-4 mb-3">
+                                    <div class="fw-semibold text-muted">Incrementar precio de venta</div>
+                                    <div class="fs-5 fw-bold text-warning">
+                                        <span id="resultado_ajuste_precio_venta" class="fmt-euro" data-euro="true">{{ resultado.ajuste_precio_venta }}</span>
+                                    </div>
+                                    <small class="text-muted">Manteniendo gastos actuales</small>
+                                </div>
+
+                                <div class="col-md-4 mb-3">
+                                    <div class="fw-semibold text-muted">Reducir gastos totales</div>
+                                    <div class="fs-5 fw-bold text-warning">
+                                        <span id="resultado_ajuste_gastos" class="fmt-euro" data-euro="true">{{ resultado.ajuste_gastos }}</span>
+                                    </div>
+                                    <small class="text-muted">Manteniendo precio de venta</small>
+                                </div>
+
+                                <div class="col-md-4 mb-3">
+                                    <div class="fw-semibold text-muted">Escenario combinado</div>
+                                    <div class="fs-6 fw-semibold">
+                                        Ajuste parcial en precio y gastos
+                                    </div>
+                                    <small class="text-muted">
+                                        Recomendado para negociación
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="alert alert-light border mt-3 mb-0 small">
+                                <strong>Nota:</strong> Estos ajustes son orientativos. No modifican el proyecto ni sus datos guardados.
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <hr class="my-4">
+
+                    <!-- KPIs PRINCIPALES -->
+                    <div class="row text-center mb-4">
+                        <div class="col-md-3">
+                            <div class="fw-semibold text-muted">Beneficio neto</div>
+                            <div class="fs-4 fw-bold">
+                                <span id="resultado_beneficio_kpi" class="fmt-euro" data-euro="true">{{ resultado.beneficio_neto }}</span>
+                            </div>
+                            <small class="text-muted">Objetivo ≥ 30.000 €</small>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="fw-semibold text-muted">ROI</div>
+                            <div class="fs-4 fw-bold"><span id="resultado_roi_kpi" class="fmt-percent" data-percent="true" data-decimals="2">{{ resultado.roi }}</span></div>
+                            <small class="text-muted">Objetivo ≥ 15 %</small>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="fw-semibold text-muted">Capital invertido</div>
+                            <div class="fs-5 fw-semibold">
+                                <span id="resultado_valor_adquisicion" class="fmt-euro" data-euro="true">{{ resultado.valor_adquisicion }}</span>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="fw-semibold text-muted">€ ganados / € invertido</div>
+                            <div class="fs-5 fw-semibold">
+                                <span id="resultado_ratio_euro" class="fmt-number" data-number="true" data-decimals="2">{{ resultado.ratio_euro }}</span> €
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <!-- MÉTRICAS INVERSOR -->
+                    <div class="row">
+                        <div class="col-md-4">
+                            <strong>Precio mínimo de venta</strong><br>
+                            <span id="resultado_precio_minimo_venta" class="fmt-euro" data-euro="true">{{ resultado.precio_minimo_venta }}</span>
+                        </div>
+
+                        <div class="col-md-4">
+                            <strong>Colchón de seguridad</strong><br>
+                            <span id="resultado_colchon_seguridad" class="fmt-euro" data-euro="true">{{ resultado.colchon_seguridad }}</span>
+                        </div>
+
+                        <div class="col-md-4">
+                            <strong>Margen neto</strong><br>
+                            <span id="resultado_margen_neto" class="fmt-percent" data-percent="true" data-decimals="2">{{ resultado.margen_neto }}</span>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+            {% endif %}
+
         </div>
 
     </div> <!-- /tab-content -->
