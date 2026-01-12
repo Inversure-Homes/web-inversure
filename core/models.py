@@ -604,49 +604,6 @@ class PresupuestoProyecto(models.Model):
 
 
 # =========================
-# MODELO DOCUMENTO DE PROYECTO
-# =========================
-class DocumentoProyecto(models.Model):
-    TIPO_CHOICES = [
-        ('escritura', 'Escritura'),
-        ('nota_simple', 'Nota simple'),
-        ('contrato', 'Contrato'),
-        ('tasacion', 'Tasación'),
-        ('otros', 'Otros'),
-    ]
-
-    proyecto = models.ForeignKey(
-        Proyecto,
-        on_delete=models.CASCADE,
-        related_name='documentos'
-    )
-    tipo = models.CharField(
-        max_length=30,
-        choices=TIPO_CHOICES
-    )
-    archivo = models.FileField(
-        upload_to='proyectos_documentos/%Y/%m/'
-    )
-    nombre_original = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True
-    )
-    fecha_documento = models.DateField(
-        null=True,
-        blank=True
-    )
-    observaciones = models.TextField(
-        blank=True,
-        null=True
-    )
-    creado = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"{self.proyecto} · {self.tipo}"
-
-
-# =========================
 # MODELO GASTO DE PROYECTO
 # =========================
 # GastoProyecto es la única fuente de verdad económica del proyecto.
@@ -999,6 +956,17 @@ class Participacion(models.Model):
         help_text="Porcentaje de participación sobre el total invertido"
     )
 
+    ESTADOS = [
+        ("pendiente", "Pendiente"),
+        ("confirmada", "Confirmada"),
+        ("cancelada", "Cancelada"),
+    ]
+    estado = models.CharField(
+        max_length=12,
+        choices=ESTADOS,
+        default="pendiente"
+    )
+
     # =========================
     # CONTROL
     # =========================
@@ -1007,6 +975,119 @@ class Participacion(models.Model):
 
     def __str__(self):
         return f"{self.cliente} → {self.proyecto} ({self.importe_invertido} €)"
+
+
+# =========================
+# PERFIL INVERSOR (PORTAL)
+# =========================
+class InversorPerfil(models.Model):
+    cliente = models.OneToOneField(
+        Cliente,
+        on_delete=models.CASCADE,
+        related_name="perfil_inversor"
+    )
+    token = models.CharField(max_length=64, unique=True)
+    activo = models.BooleanField(default=True)
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.token:
+            import secrets
+            self.token = secrets.token_urlsafe(32)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Inversor · {self.cliente.nombre}"
+
+
+# =========================
+# SOLICITUDES DE PARTICIPACIÓN
+# =========================
+class SolicitudParticipacion(models.Model):
+    ESTADOS = [
+        ("pendiente", "Pendiente"),
+        ("aprobada", "Aprobada"),
+        ("rechazada", "Rechazada"),
+    ]
+
+    proyecto = models.ForeignKey(
+        Proyecto,
+        on_delete=models.CASCADE,
+        related_name="solicitudes_participacion"
+    )
+    inversor = models.ForeignKey(
+        InversorPerfil,
+        on_delete=models.CASCADE,
+        related_name="solicitudes"
+    )
+    importe_solicitado = models.DecimalField(max_digits=12, decimal_places=2)
+    comentario = models.TextField(blank=True, null=True)
+    estado = models.CharField(max_length=12, choices=ESTADOS, default="pendiente")
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-creado", "-id"]
+
+    def __str__(self):
+        return f"{self.inversor.cliente.nombre} → {self.proyecto} ({self.importe_solicitado} €)"
+
+
+# =========================
+# COMUNICACIONES AL INVERSOR
+# =========================
+class ComunicacionInversor(models.Model):
+    inversor = models.ForeignKey(
+        InversorPerfil,
+        on_delete=models.CASCADE,
+        related_name="comunicaciones"
+    )
+    proyecto = models.ForeignKey(
+        Proyecto,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="comunicaciones_inversores"
+    )
+    titulo = models.CharField(max_length=255)
+    mensaje = models.TextField()
+    leida = models.BooleanField(default=False)
+    creado = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-creado", "-id"]
+
+    def __str__(self):
+        return f"{self.titulo} ({self.inversor.cliente.nombre})"
+
+
+# =========================
+# DOCUMENTOS DE PROYECTO
+# =========================
+class DocumentoProyecto(models.Model):
+    CATEGORIAS = [
+        ("inmueble", "Documentación inmueble"),
+        ("facturas", "Facturas"),
+        ("fotografias", "Fotografías"),
+        ("otros", "Otros"),
+    ]
+
+    proyecto = models.ForeignKey(
+        Proyecto,
+        on_delete=models.CASCADE,
+        related_name="documentos"
+    )
+    categoria = models.CharField(max_length=20, choices=CATEGORIAS, default="otros")
+    titulo = models.CharField(max_length=255)
+    archivo = models.FileField(upload_to="proyectos/documentos/%Y/%m/")
+    creado = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-creado", "-id"]
+
+    def __str__(self):
+        return f"{self.proyecto} · {self.titulo}"
 
 
 # =========================

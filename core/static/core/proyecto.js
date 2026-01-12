@@ -1993,19 +1993,30 @@ function bindParticipaciones() {
       if (!data || !data.ok) return;
       const rows = data.participaciones || [];
       if (!rows.length) {
-        tabla.innerHTML = "<tr><td colspan=\"5\" class=\"text-muted\">No hay participaciones todavía.</td></tr>";
+        tabla.innerHTML = "<tr><td colspan=\"7\" class=\"text-muted\">No hay participaciones todavía.</td></tr>";
         return;
       }
       tabla.innerHTML = rows.map(r => {
         const pct = r.porcentaje_participacion !== null ? (formatNumberEs(r.porcentaje_participacion, 2) + " %") : "—";
         const fecha = r.fecha ? r.fecha.slice(0, 10).split("-").reverse().join("/") : "";
+        const estado = r.estado || "pendiente";
         return `
           <tr data-id="${r.id}">
             <td>${r.cliente_nombre}</td>
             <td class="text-end">${formatEuro(r.importe_invertido)}</td>
             <td class="text-end">${pct}</td>
             <td>${fecha}</td>
-            <td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger inv-del">Borrar</button></td>
+            <td>
+              <select class="form-select form-select-sm inv-estado">
+                <option value="pendiente" ${estado === "pendiente" ? "selected" : ""}>Pendiente</option>
+                <option value="confirmada" ${estado === "confirmada" ? "selected" : ""}>Confirmada</option>
+                <option value="cancelada" ${estado === "cancelada" ? "selected" : ""}>Cancelada</option>
+              </select>
+            </td>
+            <td class="text-end">
+              <button type="button" class="btn btn-sm btn-outline-secondary inv-save">Guardar</button>
+              <button type="button" class="btn btn-sm btn-outline-danger inv-del">Borrar</button>
+            </td>
           </tr>
         `;
       }).join("");
@@ -2029,20 +2040,158 @@ function bindParticipaciones() {
   });
 
   tabla.addEventListener("click", async (e) => {
-    const btn = e.target.closest(".inv-del");
-    if (!btn) return;
-    const tr = btn.closest("tr");
+    const btnDel = e.target.closest(".inv-del");
+    const btnSave = e.target.closest(".inv-save");
+    const tr = e.target.closest("tr");
+    if (!tr) return;
     const id = tr.getAttribute("data-id");
     if (!id) return;
-    if (!confirm("¿Borrar participación?")) return;
-    const resp = await fetch(`${url}${id}/`, {
-      method: "DELETE",
-      headers: { ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}) },
-    });
-    if (!resp.ok) {
-      alert("No se pudo borrar la participación.");
+    if (btnSave) {
+      const estadoSel = tr.querySelector(".inv-estado");
+      const estado = estadoSel ? estadoSel.value : "pendiente";
+      const resp = await fetch(`${url}${id}/`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}),
+        },
+        body: JSON.stringify({ estado }),
+      });
+      if (!resp.ok) {
+        alert("No se pudo guardar el estado.");
+        return;
+      }
+      await loadRows();
       return;
     }
+    if (btnDel) {
+      if (!confirm("¿Borrar participación?")) return;
+      const resp = await fetch(`${url}${id}/`, {
+        method: "DELETE",
+        headers: { ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}) },
+      });
+      if (!resp.ok) {
+        alert("No se pudo borrar la participación.");
+        return;
+      }
+      await loadRows();
+    }
+  });
+
+  loadRows();
+}
+
+function bindSolicitudes() {
+  const tabla = document.getElementById("inv_solicitudes_rows");
+  const url = window.PROYECTO_SOLICITUDES_URL || "";
+  if (!tabla || !url) return;
+
+  async function loadRows() {
+    try {
+      const resp = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+      const data = await resp.json();
+      if (!data || !data.ok) return;
+      const rows = data.solicitudes || [];
+      if (!rows.length) {
+        tabla.innerHTML = "<tr><td colspan=\"5\" class=\"text-muted\">Sin solicitudes todavía.</td></tr>";
+        return;
+      }
+      tabla.innerHTML = rows.map(r => {
+        const fecha = r.fecha ? r.fecha.slice(0, 10).split("-").reverse().join("/") : "";
+        return `
+          <tr data-id="${r.id}">
+            <td>${r.cliente_nombre}</td>
+            <td class="text-end">${formatEuro(r.importe_solicitado)}</td>
+            <td>${fecha}</td>
+            <td>${r.estado}</td>
+            <td class="text-end">
+              <button type="button" class="btn btn-sm btn-outline-success sol-aprobar">Aprobar</button>
+              <button type="button" class="btn btn-sm btn-outline-danger sol-rechazar">Rechazar</button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    } catch (e) {}
+  }
+
+  tabla.addEventListener("click", async (e) => {
+    const btnAprobar = e.target.closest(".sol-aprobar");
+    const btnRechazar = e.target.closest(".sol-rechazar");
+    if (!btnAprobar && !btnRechazar) return;
+    const tr = e.target.closest("tr");
+    const id = tr.getAttribute("data-id");
+    if (!id) return;
+    const estado = btnAprobar ? "aprobada" : "rechazada";
+    const resp = await fetch(`${url}${id}/`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}),
+      },
+      body: JSON.stringify({ estado }),
+    });
+    if (!resp.ok) {
+      alert("No se pudo actualizar la solicitud.");
+      return;
+    }
+    await loadRows();
+    if (typeof bindParticipaciones === "function") {
+      // refrescar participaciones al aprobar
+      setTimeout(() => {
+        try { bindParticipaciones(); } catch (e) {}
+      }, 300);
+    }
+  });
+
+  loadRows();
+}
+
+function bindComunicaciones() {
+  const tabla = document.getElementById("inv_comunicaciones_rows");
+  const btnSend = document.getElementById("com_send_btn");
+  const elTitulo = document.getElementById("com_titulo");
+  const elMensaje = document.getElementById("com_mensaje");
+  const url = window.PROYECTO_COMUNICACIONES_URL || "";
+  if (!tabla || !btnSend || !url) return;
+
+  async function loadRows() {
+    try {
+      const resp = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+      const data = await resp.json();
+      if (!data || !data.ok) return;
+      const rows = data.comunicaciones || [];
+      if (!rows.length) {
+        tabla.innerHTML = "<tr><td colspan=\"4\" class=\"text-muted\">Sin comunicaciones todavía.</td></tr>";
+        return;
+      }
+      tabla.innerHTML = rows.map(r => {
+        const fecha = r.fecha ? r.fecha.slice(0, 10).split("-").reverse().join("/") : "";
+        return `
+          <tr>
+            <td>${r.cliente_nombre}</td>
+            <td>${r.titulo}</td>
+            <td>${r.mensaje}</td>
+            <td>${fecha}</td>
+          </tr>
+        `;
+      }).join("");
+    } catch (e) {}
+  }
+
+  btnSend.addEventListener("click", async () => {
+    const titulo = (elTitulo && elTitulo.value || "").trim();
+    const mensaje = (elMensaje && elMensaje.value || "").trim();
+    if (!titulo || !mensaje) {
+      alert("Título y mensaje son obligatorios.");
+      return;
+    }
+    const resp = await postJson(url, { titulo, mensaje }, { keepalive: false });
+    if (!resp.ok) {
+      alert("No se pudo enviar la comunicación.");
+      return;
+    }
+    if (elTitulo) elTitulo.value = "";
+    if (elMensaje) elMensaje.value = "";
     await loadRows();
   });
 
@@ -2084,4 +2233,6 @@ document.addEventListener("DOMContentLoaded", () => {
   bindMemoriaEconomica();
   bindChecklistOperativo();
   bindParticipaciones();
+  bindSolicitudes();
+  bindComunicaciones();
 });

@@ -14,6 +14,8 @@
   window.PROYECTO_INGRESOS_URL = "{% url 'core:proyecto_ingresos' proyecto.id %}";
   window.PROYECTO_CHECKLIST_URL = "{% url 'core:proyecto_checklist' proyecto.id %}";
   window.PROYECTO_PARTICIPACIONES_URL = "{% url 'core:proyecto_participaciones' proyecto.id %}";
+  window.PROYECTO_SOLICITUDES_URL = "{% url 'core:proyecto_solicitudes' proyecto.id %}";
+  window.PROYECTO_COMUNICACIONES_URL = "{% url 'core:proyecto_comunicaciones' proyecto.id %}";
 </script>
 {% if snapshot %}{{ snapshot|json_script:"snapshotData" }}{% endif %}
 
@@ -700,6 +702,7 @@
                                     <th class="text-end">Importe</th>
                                     <th class="text-end">% Participación</th>
                                     <th>Fecha</th>
+                                    <th>Estado</th>
                                     <th></th>
                                 </tr>
                             </thead>
@@ -713,16 +716,76 @@
                                         {% if p.porcentaje_participacion %}{{ p.porcentaje_participacion|floatformat:2 }} %{% else %}—{% endif %}
                                       </td>
                                       <td>{{ p.creado|date:"d/m/Y" }}</td>
+                                      <td>
+                                        <select class="form-select form-select-sm inv-estado">
+                                          <option value="pendiente" {% if p.estado == "pendiente" %}selected{% endif %}>Pendiente</option>
+                                          <option value="confirmada" {% if p.estado == "confirmada" %}selected{% endif %}>Confirmada</option>
+                                          <option value="cancelada" {% if p.estado == "cancelada" %}selected{% endif %}>Cancelada</option>
+                                        </select>
+                                      </td>
                                       <td class="text-end">
+                                          <button type="button" class="btn btn-sm btn-outline-secondary inv-save">Guardar</button>
                                           <button type="button" class="btn btn-sm btn-outline-danger inv-del">Borrar</button>
                                       </td>
                                   </tr>
                                   {% endfor %}
                                 {% else %}
-                                  <tr><td colspan="5" class="text-muted">No hay participaciones todavía.</td></tr>
+                                  <tr><td colspan="7" class="text-muted">No hay participaciones todavía.</td></tr>
                                 {% endif %}
                             </tbody>
                         </table>
+                    </div>
+
+                    <div class="mt-4">
+                        <h6 class="mb-2">Solicitudes pendientes</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Cliente</th>
+                                        <th class="text-end">Importe solicitado</th>
+                                        <th>Fecha</th>
+                                        <th>Estado</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inv_solicitudes_rows">
+                                    <tr><td colspan="5" class="text-muted">Sin solicitudes todavía.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <h6 class="mb-2">Comunicaciones a inversores</h6>
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-4">
+                                <label class="form-label">Título</label>
+                                <input type="text" class="form-control" id="com_titulo" placeholder="Actualización de proyecto">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Mensaje</label>
+                                <input type="text" class="form-control" id="com_mensaje" placeholder="Resumen breve para inversores">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-inversure btn-sm w-100 text-nowrap" id="com_send_btn">Enviar</button>
+                            </div>
+                        </div>
+                        <div class="table-responsive mt-3">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Cliente</th>
+                                        <th>Título</th>
+                                        <th>Mensaje</th>
+                                        <th>Fecha</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inv_comunicaciones_rows">
+                                    <tr><td colspan="4" class="text-muted">Sin comunicaciones todavía.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -732,7 +795,75 @@
             <div class="card mb-4 shadow-sm border-0">
                 <div class="card-body">
                     <h5 class="mb-2 inversure-form-header">Documentación</h5>
-                    <p class="text-muted mb-0">Pendiente: subida de archivos (escritura, notas simples, presupuestos, fotos, etc.) y trazabilidad.</p>
+                    <p class="text-muted mb-4">Archiva documentos clave del proyecto con trazabilidad y categorías.</p>
+                    <div class="row g-3">
+                        <div class="col-lg-5">
+                            <form method="post" action="{% url 'core:proyecto_documentos' proyecto.id %}" enctype="multipart/form-data" class="card border-0 shadow-sm">
+                                {% csrf_token %}
+                                <div class="card-body">
+                                    <h6 class="mb-3">Subir documento</h6>
+                                    <div class="mb-3">
+                                        <label class="form-label">Título</label>
+                                        <input type="text" name="titulo" class="form-control" placeholder="Ej. Escritura de compra">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Categoría</label>
+                                        <select name="categoria" class="form-select">
+                                            <option value="inmueble">Documentación inmueble</option>
+                                            <option value="facturas">Facturas</option>
+                                            <option value="fotografias">Fotografías</option>
+                                            <option value="otros">Otros</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Archivo</label>
+                                        <input type="file" name="archivo" class="form-control" required>
+                                        <div class="form-text">Formatos: PDF, imágenes, hojas de cálculo.</div>
+                                    </div>
+                                    <button type="submit" class="btn btn-inversure w-100 text-nowrap">Subir documento</button>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="col-lg-7">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-body">
+                                    <h6 class="mb-3">Documentos cargados</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm align-middle">
+                                            <thead>
+                                                <tr>
+                                                    <th>Título</th>
+                                                    <th>Categoría</th>
+                                                    <th>Fecha</th>
+                                                    <th class="text-end">Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for doc in documentos %}
+                                                    <tr>
+                                                        <td class="fw-semibold">{{ doc.titulo }}</td>
+                                                        <td>{{ doc.get_categoria_display }}</td>
+                                                        <td>{{ doc.creado|date:"d/m/Y" }}</td>
+                                                        <td class="text-end">
+                                                            <a href="{{ doc.archivo.url }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">Ver</a>
+                                                            <form method="post" action="{% url 'core:proyecto_documento_borrar' proyecto.id doc.id %}" class="d-inline">
+                                                                {% csrf_token %}
+                                                                <button type="submit" class="btn btn-sm btn-outline-danger">Borrar</button>
+                                                            </form>
+                                                        </td>
+                                                    </tr>
+                                                {% empty %}
+                                                    <tr>
+                                                        <td colspan="4" class="text-muted">No hay documentos todavía.</td>
+                                                    </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

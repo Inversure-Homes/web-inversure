@@ -1,0 +1,166 @@
+{% extends "core/base.html" %}
+{% load humanize %}
+{% block content %}
+
+<style>
+  :root{
+    --ink:#0b1626;
+    --sky:#0f2a44;
+    --mist:#f3f6fb;
+    --accent:#d4a34f;
+    --green:#16a34a;
+    --warn:#f59e0b;
+  }
+  .portal-wrap {
+    background: radial-gradient(1200px 400px at 10% -10%, #1b3a5a 0%, #0f1d2e 40%, #0b1626 100%);
+    color:#fff;
+    border-radius:18px;
+    padding:24px;
+  }
+  .portal-title {
+    font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+    font-size: 28px;
+    letter-spacing: .5px;
+  }
+  .portal-card {
+    background:#fff;
+    border:1px solid #e2e8f0;
+    border-radius:14px;
+    padding:16px;
+    box-shadow: 0 12px 30px rgba(15,23,42,.08);
+  }
+  .portal-kpi { font-size:20px; font-weight:800; color: var(--ink); }
+  .portal-label { color:#64748b; font-size:12px; }
+  .badge-soft { background:#f8fafc; border:1px solid #e2e8f0; color:#475569; }
+  .btn-portal { background:#122135; color:#fff; }
+  .btn-portal:hover { background:#0f1d2e; color:#fff; }
+  .list-clean { list-style:none; padding:0; margin:0; }
+  .list-clean li { padding:8px 0; border-bottom:1px dashed #e2e8f0; }
+  .list-clean li:last-child { border-bottom:none; }
+  .tag { font-size:11px; padding:2px 8px; border-radius:999px; }
+  .tag.ok { background:rgba(22,163,74,.15); color:#166534; }
+  .tag.warn { background:rgba(245,158,11,.18); color:#92400e; }
+  .tag.mute { background:#f1f5f9; color:#475569; }
+</style>
+
+<div class="container mt-4 mb-5">
+  <div class="portal-wrap mb-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <div class="portal-title">Portal del inversor</div>
+        <div class="small text-light">{{ perfil.cliente.nombre }} · {{ perfil.cliente.email|default:"" }}</div>
+      </div>
+      <span class="badge badge-soft">Acceso privado</span>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-4">
+      <div class="portal-card">
+        <div class="portal-label">Total invertido (confirmado)</div>
+        <div class="portal-kpi">{{ total_invertido|floatformat:2|intcomma }} €</div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="portal-card">
+        <div class="portal-label">Proyectos activos</div>
+        <div class="portal-kpi">{{ participaciones|length }}</div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="portal-card">
+        <div class="portal-label">Solicitudes pendientes</div>
+        <div class="portal-kpi">
+          {{ solicitudes|dictsort:"estado"|length }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-1">
+    <div class="col-md-7">
+      <div class="portal-card">
+        <h5 class="mb-3">Mis participaciones</h5>
+        {% if participaciones %}
+          <ul class="list-clean">
+            {% for p in participaciones %}
+              <li>
+                <div class="d-flex justify-content-between">
+                  <div>
+                    <strong>{{ p.proyecto.nombre }}</strong>
+                    <div class="small text-muted">Aportación: {{ p.importe_invertido|floatformat:2|intcomma }} €</div>
+                  </div>
+                  {% if p.estado == "confirmada" %}
+                    <span class="tag ok">Confirmada</span>
+                  {% elif p.estado == "cancelada" %}
+                    <span class="tag mute">Cancelada</span>
+                  {% else %}
+                    <span class="tag warn">Pendiente</span>
+                  {% endif %}
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="text-muted">No hay participaciones todavía.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="col-md-5">
+      <div class="portal-card">
+        <h5 class="mb-3">Comunicaciones</h5>
+        {% if comunicaciones %}
+          <ul class="list-clean">
+            {% for c in comunicaciones %}
+              <li>
+                <strong>{{ c.titulo }}</strong>
+                <div class="small text-muted">{{ c.mensaje|truncatechars:140 }}</div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="text-muted">Sin comunicaciones nuevas.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="portal-card mt-3">
+    <h5 class="mb-3">Proyectos disponibles</h5>
+    {% if proyectos_abiertos %}
+      <div class="row g-3">
+        {% for p in proyectos_abiertos %}
+        <div class="col-md-6">
+          <div class="border rounded p-3 h-100">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <strong>{{ p.nombre }}</strong>
+                <div class="small text-muted">Estado: {{ p.estado|default:"activo" }}</div>
+              </div>
+            </div>
+            <form method="post" action="{% url 'core:inversor_solicitar' perfil.token p.id %}" class="mt-2">
+              {% csrf_token %}
+              <div class="row g-2">
+                <div class="col-6">
+                  <input type="number" step="0.01" name="importe" class="form-control form-control-sm" placeholder="Importe €" required>
+                </div>
+                <div class="col-6">
+                  <button type="submit" class="btn btn-portal btn-sm w-100">Solicitar</button>
+                </div>
+                <div class="col-12">
+                  <input type="text" name="comentario" class="form-control form-control-sm" placeholder="Comentario (opcional)">
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-muted">No hay proyectos abiertos para inversión.</div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

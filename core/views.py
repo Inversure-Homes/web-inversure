@@ -13,6 +13,7 @@ from django.utils import timezone
 from copy import deepcopy
 
 import json
+import os
 from decimal import Decimal
 from datetime import date, datetime
 
@@ -20,7 +21,7 @@ from datetime import date, datetime
 from .models import Estudio, Proyecto
 from .models import EstudioSnapshot, ProyectoSnapshot
 from .models import GastoProyecto, IngresoProyecto, ChecklistItem
-from .models import Cliente, Participacion
+from .models import Cliente, Participacion, InversorPerfil, SolicitudParticipacion, ComunicacionInversor, DocumentoProyecto
 
 # --- SafeAccessDict helper and _safe_template_obj ---
 class SafeAccessDict(dict):
@@ -982,7 +983,9 @@ def lista_proyectos(request):
         capital_objetivo = _as_float(capital_objetivo, 0.0)
 
         # Capital captado: suma de participaciones reales del proyecto
-        capital_captado = Participacion.objects.filter(proyecto=p).aggregate(total=Sum("importe_invertido")).get("total") or 0
+        capital_captado = Participacion.objects.filter(
+            proyecto=p, estado="confirmada"
+        ).aggregate(total=Sum("importe_invertido")).get("total") or 0
         capital_captado = _as_float(capital_captado, 0.0)
 
         # ROI heredado del estudio (preferimos neto si existe)
@@ -1138,6 +1141,55 @@ def clientes_import(request):
         return redirect("core:clientes")
 
     return render(request, "core/clientes_import.html")
+
+
+def cliente_inversor_link(request, cliente_id: int):
+    cliente = get_object_or_404(Cliente, id=cliente_id)
+    perfil, _ = InversorPerfil.objects.get_or_create(cliente=cliente)
+    return render(request, "core/inversor_link.html", {"cliente": cliente, "perfil": perfil})
+
+
+def inversor_portal(request, token: str):
+    perfil = get_object_or_404(InversorPerfil, token=token, activo=True)
+    participaciones = Participacion.objects.filter(cliente=perfil.cliente).select_related("proyecto").order_by("-creado")
+    comunicaciones = ComunicacionInversor.objects.filter(inversor=perfil)
+    proyectos_abiertos = Proyecto.objects.filter(estado__in=["activo", "captacion"]).order_by("-id")
+    solicitudes = SolicitudParticipacion.objects.filter(inversor=perfil).select_related("proyecto")
+
+    total_invertido = participaciones.filter(estado="confirmada").aggregate(total=Sum("importe_invertido")).get("total") or 0
+    total_invertido = float(total_invertido or 0)
+
+    ctx = {
+        "perfil": perfil,
+        "participaciones": participaciones,
+        "comunicaciones": comunicaciones,
+        "proyectos_abiertos": proyectos_abiertos,
+        "solicitudes": solicitudes,
+        "total_invertido": total_invertido,
+    }
+    return render(request, "core/inversor_portal.html", ctx)
+
+
+def inversor_solicitar(request, token: str, proyecto_id: int):
+    perfil = get_object_or_404(InversorPerfil, token=token, activo=True)
+    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+    if request.method != "POST":
+        return redirect("core:inversor_portal", token=token)
+
+    importe = _parse_decimal(request.POST.get("importe"))
+    comentario = (request.POST.get("comentario") or "").strip()
+    if importe is None:
+        messages.error(request, "Indica un importe válido.")
+        return redirect("core:inversor_portal", token=token)
+
+    SolicitudParticipacion.objects.create(
+        proyecto=proyecto,
+        inversor=perfil,
+        importe_solicitado=importe,
+        comentario=comentario or None,
+    )
+    messages.success(request, "Solicitud enviada correctamente.")
+    return redirect("core:inversor_portal", token=token)
 
 
 @ensure_csrf_cookie
@@ -1416,6 +1468,10 @@ def proyecto(request, proyecto_id: int):
         ctx["participaciones"] = Participacion.objects.filter(proyecto=proyecto_obj).select_related("cliente").order_by("-id")
     except Exception:
         ctx["participaciones"] = []
+    try:
+        ctx["documentos"] = DocumentoProyecto.objects.filter(proyecto=proyecto_obj).order_by("-creado", "-id")
+    except Exception:
+        ctx["documentos"] = []
 
     return render(request, "core/proyecto.html", ctx)
 
@@ -2349,6 +2405,48 @@ def proyecto_ingreso_detalle(request, proyecto_id: int, ingreso_id: int):
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
 
 
+def proyecto_documentos(request, proyecto_id: int):
+    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+    archivo = request.FILES.get("archivo")
+    if not archivo:
+        return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-documentacion")
+
+    titulo = (request.POST.get("titulo") or "").strip()
+    if not titulo:
+        titulo = os.path.splitext(archivo.name or "")[0] or "Documento"
+
+    categoria = (request.POST.get("categoria") or "otros").strip()
+    categorias_validas = {c[0] for c in DocumentoProyecto.CATEGORIAS}
+    if categoria not in categorias_validas:
+        categoria = "otros"
+
+    DocumentoProyecto.objects.create(
+        proyecto=proyecto,
+        categoria=categoria,
+        titulo=titulo,
+        archivo=archivo,
+    )
+
+    return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-documentacion")
+
+
+def proyecto_documento_borrar(request, proyecto_id: int, documento_id: int):
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+    documento = get_object_or_404(
+        DocumentoProyecto,
+        id=documento_id,
+        proyecto_id=proyecto_id,
+    )
+    documento.delete()
+    return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-documentacion")
+
+
 @csrf_exempt
 def proyecto_checklist(request, proyecto_id: int):
     try:
@@ -2441,6 +2539,7 @@ def proyecto_participaciones(request, proyecto_id: int):
                 "importe_invertido": float(p.importe_invertido),
                 "porcentaje_participacion": float(p.porcentaje_participacion) if p.porcentaje_participacion is not None else None,
                 "fecha": p.creado.isoformat(),
+                "estado": p.estado,
             })
         total = sum([p["importe_invertido"] for p in participaciones]) if participaciones else 0
         return JsonResponse({"ok": True, "participaciones": participaciones, "total": total})
@@ -2483,6 +2582,7 @@ def proyecto_participaciones(request, proyecto_id: int):
             cliente=cliente,
             importe_invertido=importe,
             porcentaje_participacion=porcentaje,
+            estado="pendiente",
         )
         return JsonResponse({"ok": True})
     except Exception as e:
@@ -2496,8 +2596,146 @@ def proyecto_participacion_detalle(request, proyecto_id: int, participacion_id: 
     except Participacion.DoesNotExist:
         return JsonResponse({"ok": False, "error": "Participación no encontrada"}, status=404)
 
+    if request.method == "PATCH":
+        try:
+            data = json.loads(request.body or "{}")
+            if "estado" in data:
+                nuevo_estado = (data.get("estado") or part.estado)
+                if nuevo_estado != part.estado:
+                    part.estado = nuevo_estado
+                    # Comunicación automática al inversor
+                    try:
+                        perfil = getattr(part.cliente, "perfil_inversor", None)
+                        if perfil:
+                            titulo = "Actualización de tu inversión"
+                            mensaje = f"Tu participación en {part.proyecto.nombre} ha cambiado a estado: {nuevo_estado}."
+                            ComunicacionInversor.objects.create(
+                                inversor=perfil,
+                                proyecto=part.proyecto,
+                                titulo=titulo,
+                                mensaje=mensaje,
+                            )
+                    except Exception:
+                        pass
+            part.save()
+            return JsonResponse({"ok": True})
+        except Exception as e:
+            return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
     if request.method == "DELETE":
         part.delete()
         return JsonResponse({"ok": True})
 
     return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+
+@csrf_exempt
+def proyecto_solicitudes(request, proyecto_id: int):
+    try:
+        proyecto = Proyecto.objects.get(id=proyecto_id)
+    except Proyecto.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Proyecto no encontrado"}, status=404)
+
+    if request.method == "GET":
+        solicitudes = []
+        for s in SolicitudParticipacion.objects.filter(proyecto=proyecto).select_related("inversor", "inversor__cliente"):
+            solicitudes.append({
+                "id": s.id,
+                "cliente_nombre": s.inversor.cliente.nombre,
+                "importe_solicitado": float(s.importe_solicitado),
+                "estado": s.estado,
+                "fecha": s.creado.isoformat(),
+            })
+        return JsonResponse({"ok": True, "solicitudes": solicitudes})
+
+    return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+
+@csrf_exempt
+def proyecto_solicitud_detalle(request, proyecto_id: int, solicitud_id: int):
+    try:
+        solicitud = SolicitudParticipacion.objects.select_related("proyecto", "inversor", "inversor__cliente").get(
+            id=solicitud_id, proyecto_id=proyecto_id
+        )
+    except SolicitudParticipacion.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Solicitud no encontrada"}, status=404)
+
+    if request.method != "PATCH":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+    try:
+        data = json.loads(request.body or "{}")
+        estado = (data.get("estado") or "").strip()
+        if estado not in ("aprobada", "rechazada", "pendiente"):
+            return JsonResponse({"ok": False, "error": "Estado inválido"}, status=400)
+        solicitud.estado = estado
+        solicitud.save()
+
+        if estado == "aprobada":
+            # Crear participación confirmada si no existe una igual
+            Participacion.objects.create(
+                proyecto=solicitud.proyecto,
+                cliente=solicitud.inversor.cliente,
+                importe_invertido=solicitud.importe_solicitado,
+                estado="confirmada",
+            )
+        # Comunicación automática
+        try:
+            titulo = "Estado de tu solicitud"
+            mensaje = f"Tu solicitud en {solicitud.proyecto.nombre} ha sido {estado}."
+            ComunicacionInversor.objects.create(
+                inversor=solicitud.inversor,
+                proyecto=solicitud.proyecto,
+                titulo=titulo,
+                mensaje=mensaje,
+            )
+        except Exception:
+            pass
+        return JsonResponse({"ok": True})
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+
+@csrf_exempt
+def proyecto_comunicaciones(request, proyecto_id: int):
+    try:
+        proyecto = Proyecto.objects.get(id=proyecto_id)
+    except Proyecto.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Proyecto no encontrado"}, status=404)
+
+    if request.method == "GET":
+        comunicaciones = []
+        for c in ComunicacionInversor.objects.filter(proyecto=proyecto).select_related("inversor", "inversor__cliente"):
+            comunicaciones.append({
+                "id": c.id,
+                "cliente_nombre": c.inversor.cliente.nombre,
+                "titulo": c.titulo,
+                "mensaje": c.mensaje,
+                "fecha": c.creado.isoformat(),
+            })
+        return JsonResponse({"ok": True, "comunicaciones": comunicaciones})
+
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+    try:
+        data = json.loads(request.body or "{}")
+        titulo = (data.get("titulo") or "").strip()
+        mensaje = (data.get("mensaje") or "").strip()
+        if not titulo or not mensaje:
+            return JsonResponse({"ok": False, "error": "Título y mensaje son obligatorios"}, status=400)
+
+        clientes = Cliente.objects.filter(participaciones__proyecto=proyecto).distinct()
+        count = 0
+        for cliente in clientes:
+            perfil, _ = InversorPerfil.objects.get_or_create(cliente=cliente)
+            ComunicacionInversor.objects.create(
+                inversor=perfil,
+                proyecto=proyecto,
+                titulo=titulo,
+                mensaje=mensaje,
+            )
+            count += 1
+        return JsonResponse({"ok": True, "enviadas": count})
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)

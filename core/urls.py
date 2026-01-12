@@ -36,6 +36,8 @@ urlpatterns = [
     path("proyectos/<int:proyecto_id>/gastos/<int:gasto_id>/", views.proyecto_gasto_detalle, name="proyecto_gasto_detalle"),
     path("proyectos/<int:proyecto_id>/ingresos/", views.proyecto_ingresos, name="proyecto_ingresos"),
     path("proyectos/<int:proyecto_id>/ingresos/<int:ingreso_id>/", views.proyecto_ingreso_detalle, name="proyecto_ingreso_detalle"),
+    path("proyectos/<int:proyecto_id>/documentos/", views.proyecto_documentos, name="proyecto_documentos"),
+    path("proyectos/<int:proyecto_id>/documentos/<int:documento_id>/borrar/", views.proyecto_documento_borrar, name="proyecto_documento_borrar"),
     path("proyectos/<int:proyecto_id>/checklist/", views.proyecto_checklist, name="proyecto_checklist"),
     path("proyectos/<int:proyecto_id>/checklist/<int:item_id>/", views.proyecto_checklist_detalle, name="proyecto_checklist_detalle"),
     path("proyectos/<int:proyecto_id>/participaciones/", views.proyecto_participaciones, name="proyecto_participaciones"),
@@ -46,4 +48,14 @@ urlpatterns = [
     path("clientes/nuevo/", views.clientes_form, name="clientes_form"),
     path("clientes/editar/<int:cliente_id>/", views.cliente_edit, name="cliente_edit"),
     path("clientes/importar/", views.clientes_import, name="clientes_import"),
+    path("clientes/<int:cliente_id>/inversor/", views.cliente_inversor_link, name="cliente_inversor_link"),
+
+    # Portal inversor (token)
+    path("inversor/<str:token>/", views.inversor_portal, name="inversor_portal"),
+    path("inversor/<str:token>/solicitar/<int:proyecto_id>/", views.inversor_solicitar, name="inversor_solicitar"),
+
+    # Solicitudes de participación (interno)
+    path("proyectos/<int:proyecto_id>/solicitudes/", views.proyecto_solicitudes, name="proyecto_solicitudes"),
+    path("proyectos/<int:proyecto_id>/solicitudes/<int:solicitud_id>/", views.proyecto_solicitud_detalle, name="proyecto_solicitud_detalle"),
+    path("proyectos/<int:proyecto_id>/comunicaciones/", views.proyecto_comunicaciones, name="proyecto_comunicaciones"),
 ]
