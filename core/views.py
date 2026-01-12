@@ -9,11 +9,13 @@ from django.urls import reverse
 from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
+from django.conf import settings
 
 from copy import deepcopy
 
 import json
 import os
+import boto3
 from decimal import Decimal
 from datetime import date, datetime
 
@@ -36,6 +38,31 @@ class SafeAccessDict(dict):
 
     def get(self, key, default=""):
         return dict.get(self, key, default)
+
+
+def _s3_presigned_url(key: str, expires_seconds: int = 300) -> str:
+    if not key:
+        return ""
+    bucket = getattr(settings, "AWS_STORAGE_BUCKET_NAME", None)
+    access_key = getattr(settings, "AWS_ACCESS_KEY_ID", None)
+    secret_key = getattr(settings, "AWS_SECRET_ACCESS_KEY", None)
+    region = getattr(settings, "AWS_S3_REGION_NAME", None)
+    if not bucket or not access_key or not secret_key:
+        return ""
+    try:
+        client = boto3.client(
+            "s3",
+            region_name=region,
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+        )
+        return client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket, "Key": key},
+            ExpiresIn=expires_seconds,
+        )
+    except Exception:
+        return ""
 
 
 
@@ -1469,7 +1496,22 @@ def proyecto(request, proyecto_id: int):
     except Exception:
         ctx["participaciones"] = []
     try:
-        ctx["documentos"] = DocumentoProyecto.objects.filter(proyecto=proyecto_obj).order_by("-creado", "-id")
+        documentos = list(DocumentoProyecto.objects.filter(proyecto=proyecto_obj).order_by("-creado", "-id"))
+        use_signed = False
+        try:
+            use_signed = bool(getattr(settings, "AWS_STORAGE_BUCKET_NAME", None))
+        except Exception:
+            use_signed = False
+        if use_signed:
+            for doc in documentos:
+                try:
+                    key = getattr(doc.archivo, "name", "") or ""
+                    signed = _s3_presigned_url(key)
+                    if signed:
+                        doc.signed_url = signed
+                except Exception:
+                    pass
+        ctx["documentos"] = documentos
     except Exception:
         ctx["documentos"] = []
 

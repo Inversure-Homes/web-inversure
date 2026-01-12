@@ -845,7 +845,7 @@
                                                         <td>{{ doc.get_categoria_display }}</td>
                                                         <td>{{ doc.creado|date:"d/m/Y" }}</td>
                                                         <td class="text-end">
-                                                            <a href="{{ doc.archivo.url }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">Ver</a>
+                                                            <a href="{{ doc.signed_url|default:doc.archivo.url }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">Ver</a>
                                                             <button type="button" class="btn btn-sm btn-outline-danger doc-delete-btn" data-url="{% url 'core:proyecto_documento_borrar' proyecto.id doc.id %}">Borrar</button>
                                                         </td>
                                                     </tr>
