@@ -1443,6 +1443,7 @@ def inversor_portal(request, token: str):
         "beneficio_chart": beneficio_chart,
         "documentos_por_proyecto": documentos_por_proyecto,
         "documentos_personales": documentos_personales,
+        "logo_url": reverse("core:inversores_list"),
     }
     return render(request, "core/inversor_portal.html", ctx)
 

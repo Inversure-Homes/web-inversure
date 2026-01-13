@@ -22,11 +22,12 @@
     {% block extra_head %}{% endblock %}
 </head>
 
-<body class="simulador-page" data-app-base="{% url 'core:home' %}">
+{% url 'core:home' as home_url %}
+<body class="simulador-page" data-app-base="{{ home_url }}">
 
 <header class="inversure-header">
     <div class="container d-flex align-items-center justify-content-between py-3">
-        <a href="{% url 'core:home' %}">
+        <a href="{{ logo_url|default:home_url }}">
             <img src="{% static 'core/logo_inversure_blanco.png' %}"
                  alt="Inversure"
                  style="height:56px;width:auto;">
