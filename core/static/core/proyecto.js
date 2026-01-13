@@ -2283,6 +2283,19 @@ function bindDocumentos() {
 // Init
 // -----------------------------
 document.addEventListener("DOMContentLoaded", () => {
+  try {
+    const hash = window.location.hash || "";
+    if (hash.startsWith("#vista-")) {
+      const tabBtn = document.querySelector(`[data-bs-target="${hash}"]`);
+      if (tabBtn && typeof bootstrap !== "undefined") {
+        const tab = new bootstrap.Tab(tabBtn);
+        tab.show();
+      } else if (tabBtn) {
+        tabBtn.click();
+      }
+    }
+  } catch (e) {}
+
   // 1) Formato
   enlazarAutoFormatoInputs(document);
   aplicarFormatoGlobal(document);
