@@ -1445,16 +1445,19 @@ def proyecto(request, proyecto_id: int):
             pct_captado = 100.0
 
         restante = max(capital_objetivo - capital_captado, 0.0)
+        pct_restante = max(0.0, 100.0 - pct_captado)
 
         captacion_ctx = SafeAccessDict({
             "capital_objetivo": capital_objetivo,
             "capital_captado": capital_captado,
             "pct_captado": pct_captado,
             "restante": restante,
+            "pct_restante": pct_restante,
             "capital_objetivo_fmt": _fmt_eur(capital_objetivo),
             "capital_captado_fmt": _fmt_eur(capital_captado),
             "restante_fmt": _fmt_eur(restante),
             "pct_captado_fmt": _fmt_pct(pct_captado),
+            "pct_restante_fmt": _fmt_pct(pct_restante),
         })
     except Exception:
         captacion_ctx = SafeAccessDict({
@@ -1462,10 +1465,12 @@ def proyecto(request, proyecto_id: int):
             "capital_captado": 0.0,
             "pct_captado": 0.0,
             "restante": 0.0,
+            "pct_restante": 0.0,
             "capital_objetivo_fmt": _fmt_eur(0.0),
             "capital_captado_fmt": _fmt_eur(0.0),
             "restante_fmt": _fmt_eur(0.0),
             "pct_captado_fmt": _fmt_pct(0.0),
+            "pct_restante_fmt": _fmt_pct(0.0),
         })
 
     ctx = {

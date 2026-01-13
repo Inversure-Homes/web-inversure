@@ -89,6 +89,13 @@
           {% endif %}
         </div>
 
+        {% if foto_principal_url %}
+        <div class="me-md-3 mt-3 mt-md-0 text-center">
+          <img src="{{ foto_principal_url }}" alt="{{ foto_principal_titulo|default:'Foto principal' }}" style="width:120px;height:80px;object-fit:cover;border-radius:10px;border:1px solid #e5e7eb;">
+          <div class="small text-muted mt-1">Foto principal</div>
+        </div>
+        {% endif %}
+
         <div class="action-panel mt-3 mt-md-0">
           <div class="action-group secondary-actions">
             <a href="{% url 'core:lista_proyectos' %}"
@@ -850,10 +857,18 @@
                                                                 <tbody>
                                                                     {% for doc in docs %}
                                                                         <tr>
-                                                                            <td class="fw-semibold">{{ doc.titulo }}</td>
+                                                                            <td class="fw-semibold">
+                                                                                {{ doc.titulo }}
+                                                                                {% if doc.categoria == "fotografias" and doc.es_principal %}
+                                                                                    <span class="badge bg-success ms-2">Principal</span>
+                                                                                {% endif %}
+                                                                            </td>
                                                                             <td>{{ doc.creado|date:"d/m/Y" }}</td>
                                                                             <td class="text-end">
                                                                                 <a href="{{ doc.signed_url|default:doc.archivo.url }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">Ver</a>
+                                                                                {% if doc.categoria == "fotografias" %}
+                                                                                    <button type="button" class="btn btn-sm btn-outline-success doc-principal-btn" data-url="{% url 'core:proyecto_documento_principal' proyecto.id doc.id %}">Principal</button>
+                                                                                {% endif %}
                                                                                 <button type="button" class="btn btn-sm btn-outline-danger doc-delete-btn" data-url="{% url 'core:proyecto_documento_borrar' proyecto.id doc.id %}">Borrar</button>
                                                                             </td>
                                                                         </tr>
@@ -962,6 +977,26 @@
                                 <div class="label">ROI real</div>
                                 <div class="value" id="dash_roi_real">—</div>
                                 <div class="dash-sub">Estimado: <span id="dash_roi_estimado">—</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-6">
+                            <div class="dash-kpi">
+                                <div class="label">Captación de inversión</div>
+                                <div class="value">{{ captacion.capital_captado_fmt }}</div>
+                                <div class="dash-sub">Objetivo: {{ captacion.capital_objetivo_fmt }}</div>
+                                <div class="dash-bar good mt-2"><span style="width: {{ captacion.pct_captado|floatformat:0 }}%;"></span></div>
+                                <div class="dash-sub mt-2">Captado: {{ captacion.pct_captado_fmt }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="dash-kpi">
+                                <div class="label">Pendiente de captar</div>
+                                <div class="value">{{ captacion.restante_fmt }}</div>
+                                <div class="dash-sub">Falta: {{ captacion.pct_restante_fmt }}</div>
+                                <div class="dash-bar warn mt-2"><span style="width: {{ captacion.pct_restante|floatformat:0 }}%;"></span></div>
                             </div>
                         </div>
                     </div>
