@@ -215,7 +215,7 @@
             {% csrf_token %}
             <div class="col-md-4">
               <label class="inv-meta fw-semibold">Título</label>
-              <input type="text" name="doc_titulo" class="form-control form-control-sm" placeholder="Ej. Contrato">
+              <input type="text" name="doc_titulo" class="form-control form-control-sm" placeholder="Ej. Contrato" required>
             </div>
             <div class="col-md-3">
               <label class="inv-meta fw-semibold">Categoría</label>
@@ -228,7 +228,7 @@
             </div>
             <div class="col-md-3">
               <label class="inv-meta fw-semibold">Archivo</label>
-              <input type="file" name="doc_archivo" class="form-control form-control-sm">
+              <input type="file" name="doc_archivo" class="form-control form-control-sm" required>
             </div>
             <div class="col-md-2">
               <button type="submit" class="btn btn-sm btn-portal w-100">Subir</button>
