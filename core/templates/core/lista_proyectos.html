@@ -21,10 +21,10 @@
 
       <!-- PROYECTOS GUARDADOS -->
       {% if proyectos %}
-        <div class="row">
+        <div class="row gx-4">
           {% for item in proyectos %}
             {% with p=item.proyecto|default:item %}
-            <div class="col-md-4 mb-4">
+            <div class="col-lg-4 col-md-6 mb-4">
               <div class="card h-100 shadow-sm inversure-project-card position-relative"
                    {% if p.pk %}role="button" style="cursor:pointer;" onclick="window.location.href='{% url 'core:proyecto' p.pk %}';"{% endif %}>
                 <div class="card-body d-flex flex-column">
@@ -55,22 +55,22 @@
                   </div>
 
                   <!-- MÉTRICAS -->
-                  <div class="row text-center mb-4">
+                  <div class="row text-center mb-4 g-2">
                     <div class="col-4">
                       <div class="fw-semibold small text-muted">Inversión</div>
-                      <div class="fw-bold">
+                      <div class="fw-bold text-nowrap">
                         {{ item.capital_captado|default:p.capital_captado|default:0|floatformat:0|intcomma }} €
                       </div>
                     </div>
                     <div class="col-4">
                       <div class="fw-semibold small text-muted">Objetivo</div>
-                      <div class="fw-bold">
+                      <div class="fw-bold text-nowrap">
                         {{ item.capital_objetivo|default:p.capital_objetivo|default:0|floatformat:0|intcomma }} €
                       </div>
                     </div>
                     <div class="col-4">
                       <div class="fw-semibold small text-muted">ROI</div>
-                      <div class="fw-bold">
+                      <div class="fw-bold text-nowrap">
                         {{ item.roi|default:p.roi|default:0|floatformat:2 }} %
                       </div>
                     </div>
