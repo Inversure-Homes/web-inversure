@@ -1408,6 +1408,15 @@ function bindMemoriaEconomica() {
     }
 
     // Dashboard
+    const getProyectoEstado = () => {
+      const el = document.getElementById("estado_proyecto");
+      return (el && _getElText(el)) ? String(_getElText(el)).toLowerCase() : "";
+    };
+    const estadoProyecto = getProyectoEstado();
+    const usarEstimados = ["estudio", "captacion"].includes(estadoProyecto);
+    const ingresosBaseDash = usarEstimados ? totalIngresosEstimados : totalIngresosReales;
+    const gastosBaseDash = usarEstimados ? totalEstimado : totalReal;
+
     const dash = {
       ingresosEstimados: totalIngresosEstimados,
       ingresosReales: totalIngresosReales,
@@ -1449,6 +1458,9 @@ function bindMemoriaEconomica() {
       beneficioReal: dash.beneficioReal,
       ingresosEstimados: totalIngresosEstimados,
       gastosEstimados: totalEstimado,
+      ingresosBase: ingresosBaseDash,
+      gastosBase: gastosBaseDash,
+      beneficioBase: ingresosBaseDash - gastosBaseDash,
       rows,
     });
 
@@ -1472,9 +1484,7 @@ function bindMemoriaEconomica() {
       capitalCaptado: Number.isFinite(window.__captacionCaptado) ? window.__captacionCaptado : 0,
     });
 
-    const beneficioBase = (totalIngresosReales > 0 || totalReal > 0)
-      ? (totalIngresosReales - totalReal)
-      : (totalIngresosEstimados - totalEstimado);
+    const beneficioBase = ingresosBaseDash - gastosBaseDash;
     const valorAdqBase = (valAdqReal > 0 ? valAdqReal : valAdqEstimado);
     updateComisionInversureMetrics({
       beneficioBase,
@@ -1597,13 +1607,19 @@ function bindMemoriaEconomica() {
     const ultimos = document.getElementById("dash_ultimos_movimientos");
     if (!barIngresos || !barGastos || !barBalance || !catRows || !ultimos) return;
 
-    const ingresosBase = (data.ingresosReales || 0) > 0 ? data.ingresosReales : (data.ingresosEstimados || 0);
-    const gastosBase = (data.gastosReales || 0) > 0 ? data.gastosReales : (data.gastosEstimados || 0);
+    const ingresosBase = Number.isFinite(data.ingresosBase)
+      ? data.ingresosBase
+      : ((data.ingresosReales || 0) > 0 ? data.ingresosReales : (data.ingresosEstimados || 0));
+    const gastosBase = Number.isFinite(data.gastosBase)
+      ? data.gastosBase
+      : ((data.gastosReales || 0) > 0 ? data.gastosReales : (data.gastosEstimados || 0));
     const maxBase = Math.max(ingresosBase || 0, gastosBase || 0, 1);
     barIngresos.style.width = `${Math.min(100, (ingresosBase / maxBase) * 100)}%`;
     barGastos.style.width = `${Math.min(100, (gastosBase / maxBase) * 100)}%`;
 
-    const beneficioBase = (data.beneficioReal || 0) !== 0 ? data.beneficioReal : (data.ingresosEstimados - data.gastosEstimados);
+    const beneficioBase = Number.isFinite(data.beneficioBase)
+      ? data.beneficioBase
+      : ((data.beneficioReal || 0) !== 0 ? data.beneficioReal : (data.ingresosEstimados - data.gastosEstimados));
     const balanceAbs = Math.abs(beneficioBase || 0);
     const balBase = Math.max(balanceAbs, 1);
     barBalance.style.width = `${Math.min(100, (balanceAbs / balBase) * 100)}%`;
@@ -1823,6 +1839,11 @@ function bindMemoriaEconomica() {
   if (comisionInput) {
     comisionInput.addEventListener("input", () => renderTotals());
     comisionInput.addEventListener("blur", () => renderTotals());
+  }
+
+  const estadoProyecto = document.getElementById("estado_proyecto");
+  if (estadoProyecto) {
+    estadoProyecto.addEventListener("change", () => renderTotals());
   }
   window.__captacionObjetivo = calcCaptacionObjectiveFromInputs();
   if (typeof window.__updateCaptacionDashboard === "function") {
