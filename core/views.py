@@ -2894,14 +2894,39 @@ def proyecto_participaciones(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": "Proyecto no encontrado"}, status=404)
 
     if request.method == "GET":
+        capital_objetivo = Decimal("0")
+        try:
+            snap = getattr(proyecto, "snapshot_datos", {}) or {}
+            economico = snap.get("economico") if isinstance(snap.get("economico"), dict) else {}
+            kpis = snap.get("kpis") if isinstance(snap.get("kpis"), dict) else {}
+            metricas = kpis.get("metricas") if isinstance(kpis.get("metricas"), dict) else {}
+            capital_objetivo = (
+                metricas.get("valor_adquisicion_total")
+                or metricas.get("valor_adquisicion")
+                or economico.get("valor_adquisicion")
+                or 0
+            )
+            capital_objetivo = _parse_decimal(capital_objetivo) or Decimal("0")
+        except Exception:
+            capital_objetivo = Decimal("0")
+
         participaciones = []
-        for p in Participacion.objects.filter(proyecto=proyecto).select_related("cliente").order_by("-id"):
+        qs = Participacion.objects.filter(proyecto=proyecto).select_related("cliente").order_by("-id")
+        total_confirmadas = qs.filter(estado="confirmada").aggregate(total=Sum("importe_invertido")).get("total") or Decimal("0")
+        total_confirmadas = _parse_decimal(total_confirmadas) or Decimal("0")
+        for p in qs:
+            pct = p.porcentaje_participacion
+            if pct is None:
+                if capital_objetivo > 0:
+                    pct = (p.importe_invertido / capital_objetivo) * Decimal("100")
+                elif total_confirmadas > 0:
+                    pct = (p.importe_invertido / total_confirmadas) * Decimal("100")
             participaciones.append({
                 "id": p.id,
                 "cliente_id": p.cliente_id,
                 "cliente_nombre": p.cliente.nombre,
                 "importe_invertido": float(p.importe_invertido),
-                "porcentaje_participacion": float(p.porcentaje_participacion) if p.porcentaje_participacion is not None else None,
+                "porcentaje_participacion": float(pct) if pct is not None else None,
                 "fecha": p.creado.isoformat(),
                 "estado": p.estado,
             })
