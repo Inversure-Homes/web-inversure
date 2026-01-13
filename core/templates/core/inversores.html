@@ -1,0 +1,214 @@
+{% extends "core/base.html" %}
+{% load humanize %}
+{% block content %}
+<style>
+  :root {
+    --ink:#0b1523;
+    --slate:#475569;
+    --steel:#1f2a3a;
+    --gold:#d4a34f;
+    --paper:#f7f9fc;
+    --line:#e2e8f0;
+  }
+  .inv-hero {
+    background: linear-gradient(120deg, #0f1d2e 0%, #12263f 60%, #0b1523 100%);
+    color: #fff;
+    border-radius: 18px;
+    padding: 22px 24px;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.25);
+  }
+  .inv-hero h1 {
+    font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+    font-size: 28px;
+    margin: 0;
+    letter-spacing: .4px;
+  }
+  .inv-hero .muted {
+    color: rgba(255,255,255,.72);
+  }
+  .inv-kpi {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 16px;
+    box-shadow: 0 10px 26px rgba(15,23,42,.08);
+  }
+  .inv-kpi .label { color: var(--slate); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+  .inv-kpi .value { color: var(--ink); font-size: 20px; font-weight: 800; }
+  .inv-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 12px 30px rgba(15,23,42,.08);
+    height: 100%;
+  }
+  .inv-card h3 {
+    font-size: 18px;
+    margin: 0;
+    color: var(--ink);
+  }
+  .inv-tag {
+    font-size: 11px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 2px 8px;
+    color: var(--slate);
+  }
+  .inv-meta { color: var(--slate); font-size: 13px; }
+  .inv-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .inv-stat {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 12px;
+  }
+  .inv-stat .label { font-size: 11px; color: var(--slate); }
+  .inv-stat .value { font-size: 16px; font-weight: 700; color: var(--ink); }
+  .inv-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .inv-list li {
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--line);
+    font-size: 13px;
+  }
+  .inv-list li:last-child { border-bottom: none; }
+  .btn-portal {
+    background: var(--steel);
+    color: #fff;
+  }
+  .btn-portal:hover {
+    background: #0f1d2e;
+    color: #fff;
+  }
+  @media (max-width: 991px) {
+    .inv-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 575px) {
+    .inv-stats { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="container mt-4 mb-5">
+  <div class="inv-hero mb-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <h1>Inversores</h1>
+        <div class="muted small">Resumen operativo de clientes inversores y acceso a sus fichas.</div>
+      </div>
+      <span class="inv-tag">Portal privado</span>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-3">
+      <div class="inv-kpi">
+        <div class="label">Inversores activos</div>
+        <div class="value">{{ total_inversores|default:0 }}</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="inv-kpi">
+        <div class="label">Capital invertido</div>
+        <div class="value">{{ total_invertido|floatformat:2|intcomma }} €</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="inv-kpi">
+        <div class="label">Participaciones</div>
+        <div class="value">{{ total_participaciones|default:0 }}</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="inv-kpi">
+        <div class="label">Solicitudes pendientes</div>
+        <div class="value">{{ total_pendientes|default:0 }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4 mt-1">
+    {% for inv in inversores %}
+    <div class="col-lg-6">
+      <div class="inv-card">
+        <div class="d-flex justify-content-between align-items-start gap-3">
+          <div>
+            <h3>{{ inv.cliente.nombre }}</h3>
+            <div class="inv-meta">
+              {{ inv.cliente.get_tipo_persona_display }} · {{ inv.cliente.dni_cif }}
+            </div>
+            <div class="inv-meta">
+              {{ inv.cliente.email|default:"Sin email" }} · {{ inv.cliente.telefono|default:"Sin teléfono" }}
+            </div>
+          </div>
+          <span class="inv-tag">Token activo</span>
+        </div>
+
+        <div class="inv-stats mt-3">
+          <div class="inv-stat">
+            <div class="label">Total invertido</div>
+            <div class="value">{{ inv.total_invertido|floatformat:2|intcomma }} €</div>
+          </div>
+          <div class="inv-stat">
+            <div class="label">Proyectos activos</div>
+            <div class="value">{{ inv.proyectos_activos|default:0 }}</div>
+          </div>
+          <div class="inv-stat">
+            <div class="label">Participaciones</div>
+            <div class="value">{{ inv.num_participaciones|default:0 }}</div>
+          </div>
+          <div class="inv-stat">
+            <div class="label">Solicitudes pendientes</div>
+            <div class="value">{{ inv.solicitudes_pendientes|default:0 }}</div>
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <div class="inv-meta fw-semibold mb-2">Últimas participaciones</div>
+          {% if inv.participaciones_preview %}
+            <ul class="inv-list">
+              {% for p in inv.participaciones_preview %}
+                <li>
+                  {{ p.proyecto.nombre|default:"Proyecto" }} · {{ p.importe_invertido|floatformat:2|intcomma }} €
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <div class="inv-meta">Sin participaciones confirmadas.</div>
+          {% endif %}
+        </div>
+
+        <div class="mt-3 d-flex flex-wrap gap-2">
+          <a href="{% url 'core:inversor_portal' inv.perfil.token %}" class="btn btn-sm btn-portal">Abrir portal</a>
+          <a href="{% url 'core:cliente_inversor_link' inv.cliente.id %}" class="btn btn-sm btn-outline-secondary">Acceso inversor</a>
+        </div>
+
+        <div class="inv-meta mt-3">
+          Comunicaciones: {{ inv.total_comunicaciones|default:0 }}
+          {% if inv.ultima_comunicacion %}
+            · Última: {{ inv.ultima_comunicacion|date:"d/m/Y" }}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+      <div class="inv-card text-center">
+        <div class="inv-meta">No hay inversores registrados todavía.</div>
+        <div class="mt-2">
+          <a href="{% url 'core:clientes' %}" class="btn btn-sm btn-outline-primary">Crear cliente inversor</a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -7,7 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.urls import reverse
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Sum, Count, Max, Prefetch
 from django.utils import timezone
 from django.conf import settings
 
@@ -1103,6 +1103,103 @@ def cliente_edit(request, cliente_id: int):
             messages.error(request, f"No se pudo actualizar el cliente: {e}")
 
     return render(request, "core/clientes_form.html", {"titulo": "Editar cliente", "cliente": cliente})
+
+
+def inversores_list(request):
+    perfiles_base = InversorPerfil.objects.select_related("cliente").order_by("cliente__nombre")
+    perfiles_ids = list(perfiles_base.values_list("id", flat=True))
+    cliente_ids = list(perfiles_base.values_list("cliente_id", flat=True))
+
+    participaciones_qs = Participacion.objects.select_related("proyecto").filter(
+        estado="confirmada"
+    ).order_by("-creado")
+    perfiles = perfiles_base.prefetch_related(
+        Prefetch("cliente__participaciones", queryset=participaciones_qs, to_attr="participaciones_confirmadas")
+    )
+
+    totales = {
+        row["cliente_id"]: row
+        for row in (
+            Participacion.objects.filter(cliente_id__in=cliente_ids, estado="confirmada")
+            .values("cliente_id")
+            .annotate(total=Sum("importe_invertido"), num=Count("id"))
+        )
+    }
+
+    estados_cerrados = {"cerrado", "cerrado_positivo", "cerrado_negativo", "finalizado", "descartado", "vendido"}
+    activos = {
+        row["cliente_id"]: row["num"]
+        for row in (
+            Participacion.objects.filter(cliente_id__in=cliente_ids, estado="confirmada")
+            .exclude(proyecto__estado__in=estados_cerrados)
+            .values("cliente_id")
+            .annotate(num=Count("proyecto", distinct=True))
+        )
+    }
+
+    solicitudes_pend = {
+        row["inversor_id"]: row["total"]
+        for row in (
+            SolicitudParticipacion.objects.filter(inversor_id__in=perfiles_ids, estado="pendiente")
+            .values("inversor_id")
+            .annotate(total=Count("id"))
+        )
+    }
+
+    comunicaciones = {
+        row["inversor_id"]: row
+        for row in (
+            ComunicacionInversor.objects.filter(inversor_id__in=perfiles_ids)
+            .values("inversor_id")
+            .annotate(total=Count("id"), ultima=Max("creado"))
+        )
+    }
+
+    inversores = []
+    total_invertido = 0
+    total_participaciones = 0
+    total_pendientes = 0
+
+    for perfil in perfiles:
+        cliente = perfil.cliente
+        total_row = totales.get(cliente.id, {})
+        total_cli = float(total_row.get("total") or 0)
+        num_part = int(total_row.get("num") or 0)
+        total_invertido += total_cli
+        total_participaciones += num_part
+
+        pend = int(solicitudes_pend.get(perfil.id, 0))
+        total_pendientes += pend
+
+        comm = comunicaciones.get(perfil.id, {})
+        ultima_com = comm.get("ultima")
+        total_com = int(comm.get("total") or 0)
+
+        participaciones = getattr(cliente, "participaciones_confirmadas", []) or []
+        preview = participaciones[:3]
+
+        inversores.append(
+            {
+                "perfil": perfil,
+                "cliente": cliente,
+                "total_invertido": total_cli,
+                "num_participaciones": num_part,
+                "proyectos_activos": int(activos.get(cliente.id, 0)),
+                "solicitudes_pendientes": pend,
+                "ultima_comunicacion": ultima_com,
+                "total_comunicaciones": total_com,
+                "participaciones_preview": preview,
+            }
+        )
+
+    ctx = {
+        "inversores": inversores,
+        "total_inversores": len(inversores),
+        "total_invertido": total_invertido,
+        "total_participaciones": total_participaciones,
+        "total_pendientes": total_pendientes,
+    }
+    return render(request, "core/inversores.html", ctx)
 
 
 def clientes_import(request):
