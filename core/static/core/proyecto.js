@@ -1276,6 +1276,8 @@ function bindMemoriaEconomica() {
     let gastosAdqReal = 0;
     let gastosVentaEstimado = 0;
     let gastosVentaReal = 0;
+    let compraEstimada = 0;
+    let compraReal = 0;
 
     const catsAdq = new Set([
       "adquisicion",
@@ -1287,10 +1289,30 @@ function bindMemoriaEconomica() {
       "otros",
     ]);
 
+    const isCompraRow = (row) => {
+      if (row.tipo !== "gasto") return false;
+      if ((row.categoria || "").toLowerCase() !== "adquisicion") return false;
+      const concepto = (row.concepto || "").toLowerCase();
+      const normalized = concepto.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return (
+        normalized.includes("compraventa") ||
+        normalized.includes("compra") ||
+        normalized.includes("precio compra") ||
+        normalized.includes("precio inmueble") ||
+        normalized.includes("propiedad")
+      );
+    };
+
     rows.forEach(r => {
+      const isCompra = isCompraRow(r);
       if (r.tipo === "gasto") {
         if (r.estado === "estimado") totalEstimado += r.importe;
         if (r.estado === "confirmado") totalReal += r.importe;
+        if (isCompra) {
+          if (r.estado === "estimado") compraEstimada += r.importe;
+          if (r.estado === "confirmado") compraReal += r.importe;
+          return;
+        }
         if (catsAdq.has(r.categoria)) {
           if (r.estado === "estimado") gastosAdqEstimado += r.importe;
           if (r.estado === "confirmado") gastosAdqReal += r.importe;
@@ -1326,12 +1348,15 @@ function bindMemoriaEconomica() {
     }
 
     // Derivados: valores estimados / reales desde memoria económica
-    const precioCompra = parseEuro(_getElText(document.querySelector("[name='precio_propiedad']"))) ??
+    const precioCompraInput = parseEuro(_getElText(document.querySelector("[name='precio_propiedad']"))) ??
       parseEuro(_getElText(document.querySelector("[name='precio_escritura']")));
+    const precioCompraBase = (Number.isFinite(precioCompraInput) && precioCompraInput > 0)
+      ? precioCompraInput
+      : ((compraReal > 0) ? compraReal : compraEstimada);
     const ventaEstimada = parseEuro(_getElText(document.querySelector("[name='venta_estimada']")));
 
-    const valAdqEstimado = (precioCompra ?? 0) + gastosAdqEstimado;
-    const valAdqReal = (precioCompra ?? 0) + gastosAdqReal;
+    const valAdqEstimado = (precioCompraBase || 0) + gastosAdqEstimado;
+    const valAdqReal = (precioCompraBase || 0) + gastosAdqReal;
     const valTransEstimado = (ventaEstimada ?? 0) - gastosVentaEstimado;
     const valTransReal = (ventaEstimada ?? 0) - gastosVentaReal;
 
