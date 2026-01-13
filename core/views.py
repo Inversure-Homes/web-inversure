@@ -1679,6 +1679,20 @@ def proyecto(request, proyecto_id: int):
     except Exception:
         resultado = snapshot.get("resultado") if isinstance(snapshot.get("resultado"), dict) else {}
 
+    inv_calc = {}
+    try:
+        inv_calc = calc.get("inversor") if isinstance(calc.get("inversor"), dict) else {}
+    except Exception:
+        inv_calc = {}
+    try:
+        inv_snap = snapshot.get("inversor") if isinstance(snapshot.get("inversor"), dict) else {}
+    except Exception:
+        inv_snap = {}
+    if isinstance(inv_snap, dict) and isinstance(inv_calc, dict):
+        for k, v in inv_snap.items():
+            if k not in inv_calc or inv_calc.get(k) in (None, ""):
+                inv_calc[k] = v
+
     # --- Estado inicial para hidratar el simulador en modo proyecto ---
     estado_inicial = {}
     try:
@@ -1807,7 +1821,8 @@ def proyecto(request, proyecto_id: int):
         # Atajos por si `proyecto.html` los usa como en el PDF/estudio
         "inmueble": _safe_template_obj(snapshot.get("inmueble", {})) if isinstance(snapshot.get("inmueble"), dict) else SafeAccessDict(),
         "economico": _safe_template_obj(snapshot.get("economico", {})) if isinstance(snapshot.get("economico"), dict) else SafeAccessDict(),
-        "inversor": _safe_template_obj(snapshot.get("inversor", {})) if isinstance(snapshot.get("inversor"), dict) else SafeAccessDict(),
+        "inversor": _safe_template_obj(inv_calc) if isinstance(inv_calc, dict) else SafeAccessDict(),
+        "inv": _safe_template_obj(inv_calc) if isinstance(inv_calc, dict) else SafeAccessDict(),
         "comite": _safe_template_obj(snapshot.get("comite", {})) if isinstance(snapshot.get("comite"), dict) else SafeAccessDict(),
         "kpis": _safe_template_obj(snapshot.get("kpis", {})) if isinstance(snapshot.get("kpis"), dict) else SafeAccessDict(),
         "metricas": _safe_template_obj(metricas_raw) if isinstance(metricas_raw, dict) else SafeAccessDict(),
