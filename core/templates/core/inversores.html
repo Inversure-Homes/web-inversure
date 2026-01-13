@@ -138,6 +138,55 @@
     </div>
   </div>
 
+  <div class="inv-card mt-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <h3>Comunicaciones a inversores</h3>
+        <div class="inv-meta">Envía avisos por proyecto a los inversores confirmados.</div>
+      </div>
+    </div>
+    {% if proyectos %}
+      <div class="row g-3 align-items-end mt-1">
+        <div class="col-md-3">
+          <label class="form-label">Proyecto</label>
+          <select class="form-select" id="com_proyecto">
+            {% for p in proyectos %}
+              <option value="{{ p.id }}">{{ p.nombre|default:"Proyecto" }} · ID {{ p.id }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Título</label>
+          <input type="text" class="form-control" id="com_titulo" placeholder="Actualización de proyecto">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Mensaje</label>
+          <input type="text" class="form-control" id="com_mensaje" placeholder="Resumen breve para inversores">
+        </div>
+        <div class="col-md-2">
+          <button type="button" class="btn btn-portal btn-sm w-100 text-nowrap" id="com_send_btn">Enviar</button>
+        </div>
+      </div>
+      <div class="table-responsive mt-3">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Título</th>
+              <th>Mensaje</th>
+              <th>Fecha</th>
+            </tr>
+          </thead>
+          <tbody id="inv_comunicaciones_rows">
+            <tr><td colspan="4" class="text-muted">Selecciona un proyecto para ver comunicaciones.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="inv-meta mt-2">No hay proyectos disponibles para comunicaciones.</div>
+    {% endif %}
+  </div>
+
   <div class="row g-4 mt-1">
     {% for inv in inversores %}
     <div class="col-lg-6">
@@ -256,4 +305,80 @@
     {% endfor %}
   </div>
 </div>
+
+<script>
+  (function () {
+    const proyectoEl = document.getElementById("com_proyecto");
+    const tabla = document.getElementById("inv_comunicaciones_rows");
+    const btnSend = document.getElementById("com_send_btn");
+    const elTitulo = document.getElementById("com_titulo");
+    const elMensaje = document.getElementById("com_mensaje");
+    if (!proyectoEl || !tabla || !btnSend) return;
+
+    const baseUrl = "{% url 'core:proyecto_comunicaciones' 0 %}";
+
+    function getCsrfToken() {
+      const match = document.cookie.match(/csrftoken=([^;]+)/);
+      return match ? match[1] : "";
+    }
+
+    function getUrl() {
+      const id = proyectoEl.value;
+      return baseUrl.replace("/0/", "/" + id + "/");
+    }
+
+    async function loadRows() {
+      const url = getUrl();
+      try {
+        const resp = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+        const data = await resp.json();
+        if (!data || !data.ok) return;
+        const rows = data.comunicaciones || [];
+        if (!rows.length) {
+          tabla.innerHTML = "<tr><td colspan=\"4\" class=\"text-muted\">Sin comunicaciones todavía.</td></tr>";
+          return;
+        }
+        tabla.innerHTML = rows.map(r => {
+          const fecha = r.fecha ? r.fecha.slice(0, 10).split("-").reverse().join("/") : "";
+          return `
+            <tr>
+              <td>${r.cliente_nombre}</td>
+              <td>${r.titulo}</td>
+              <td>${r.mensaje}</td>
+              <td>${fecha}</td>
+            </tr>
+          `;
+        }).join("");
+      } catch (e) {}
+    }
+
+    btnSend.addEventListener("click", async () => {
+      const titulo = (elTitulo && elTitulo.value || "").trim();
+      const mensaje = (elMensaje && elMensaje.value || "").trim();
+      if (!titulo || !mensaje) {
+        alert("Título y mensaje son obligatorios.");
+        return;
+      }
+      const url = getUrl();
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}),
+        },
+        body: JSON.stringify({ titulo, mensaje }),
+      });
+      if (!resp.ok) {
+        alert("No se pudo enviar la comunicación.");
+        return;
+      }
+      if (elTitulo) elTitulo.value = "";
+      if (elMensaje) elMensaje.value = "";
+      await loadRows();
+    });
+
+    proyectoEl.addEventListener("change", loadRows);
+    loadRows();
+  })();
+</script>
 {% endblock %}

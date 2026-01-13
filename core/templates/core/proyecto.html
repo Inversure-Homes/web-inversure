@@ -15,7 +15,6 @@
   window.PROYECTO_CHECKLIST_URL = "{% url 'core:proyecto_checklist' proyecto.id %}";
   window.PROYECTO_PARTICIPACIONES_URL = "{% url 'core:proyecto_participaciones' proyecto.id %}";
   window.PROYECTO_SOLICITUDES_URL = "{% url 'core:proyecto_solicitudes' proyecto.id %}";
-  window.PROYECTO_COMUNICACIONES_URL = "{% url 'core:proyecto_comunicaciones' proyecto.id %}";
 </script>
 {% if snapshot %}{{ snapshot|json_script:"snapshotData" }}{% endif %}
 
@@ -817,37 +816,6 @@
                         </div>
                     </div>
 
-                    <div class="mt-4">
-                        <h6 class="mb-2">Comunicaciones a inversores</h6>
-                        <div class="row g-3 align-items-end">
-                            <div class="col-md-4">
-                                <label class="form-label">Título</label>
-                                <input type="text" class="form-control" id="com_titulo" placeholder="Actualización de proyecto">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Mensaje</label>
-                                <input type="text" class="form-control" id="com_mensaje" placeholder="Resumen breve para inversores">
-                            </div>
-                            <div class="col-md-2">
-                                <button type="button" class="btn btn-inversure btn-sm w-100 text-nowrap" id="com_send_btn">Enviar</button>
-                            </div>
-                        </div>
-                        <div class="table-responsive mt-3">
-                            <table class="table table-sm align-middle">
-                                <thead>
-                                    <tr>
-                                        <th>Cliente</th>
-                                        <th>Título</th>
-                                        <th>Mensaje</th>
-                                        <th>Fecha</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="inv_comunicaciones_rows">
-                                    <tr><td colspan="4" class="text-muted">Sin comunicaciones todavía.</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

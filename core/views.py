@@ -1224,6 +1224,7 @@ def inversores_list(request):
         "total_invertido": total_invertido,
         "total_participaciones": total_participaciones,
         "total_pendientes": total_pendientes,
+        "proyectos": Proyecto.objects.order_by("-id"),
     }
     return render(request, "core/inversores.html", ctx)
 
