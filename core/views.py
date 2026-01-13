@@ -1119,16 +1119,19 @@ def cliente_edit(request, cliente_id: int):
 
 
 def inversores_list(request):
-    perfiles_base = InversorPerfil.objects.select_related("cliente").order_by("cliente__nombre")
-    perfiles_ids = list(perfiles_base.values_list("id", flat=True))
-    cliente_ids = list(perfiles_base.values_list("cliente_id", flat=True))
-
     participaciones_qs = Participacion.objects.select_related("proyecto").filter(
         estado="confirmada"
     ).order_by("-creado")
-    perfiles = perfiles_base.prefetch_related(
-        Prefetch("cliente__participaciones", queryset=participaciones_qs, to_attr="participaciones_confirmadas")
+    clientes_base = Cliente.objects.all().order_by("nombre").prefetch_related(
+        Prefetch("participaciones", queryset=participaciones_qs, to_attr="participaciones_confirmadas")
     )
+    perfiles_map = {}
+    for cliente in clientes_base:
+        perfil, _ = InversorPerfil.objects.get_or_create(cliente=cliente)
+        perfiles_map[cliente.id] = perfil
+
+    perfiles_ids = [p.id for p in perfiles_map.values()]
+    cliente_ids = list(clientes_base.values_list("id", flat=True))
 
     totales = {
         row["cliente_id"]: row
@@ -1180,8 +1183,10 @@ def inversores_list(request):
     total_participaciones = 0
     total_pendientes = 0
 
-    for perfil in perfiles:
-        cliente = perfil.cliente
+    for cliente in clientes_base:
+        perfil = perfiles_map.get(cliente.id)
+        if not perfil:
+            continue
         total_row = totales.get(cliente.id, {})
         total_cli = float(total_row.get("total") or 0)
         num_part = int(total_row.get("num") or 0)
