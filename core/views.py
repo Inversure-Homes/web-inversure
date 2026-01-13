@@ -1423,6 +1423,12 @@ def proyecto(request, proyecto_id: int):
             0.0,
         )
 
+        # Capital captado: suma de participaciones confirmadas (si existe el módulo)
+        capital_captado_db = Participacion.objects.filter(
+            proyecto=proyecto_obj, estado="confirmada"
+        ).aggregate(total=Sum("importe_invertido")).get("total") or 0
+        capital_captado_db = _safe_float(capital_captado_db, 0.0)
+
         # Capital captado: si aún no hay módulo de inversores, por defecto 0
         cap_sec = snapshot.get("captacion") if isinstance(snapshot.get("captacion"), dict) else {}
         capital_captado = _safe_float(
@@ -1434,6 +1440,18 @@ def proyecto(request, proyecto_id: int):
             or 0.0,
             0.0,
         )
+        if capital_captado_db > 0:
+            capital_captado = capital_captado_db
+
+        # Fallback si no hay objetivo en snapshot: usar resultado o valores del proyecto
+        if capital_objetivo <= 0:
+            capital_objetivo = _safe_float(
+                resultado.get("valor_adquisicion")
+                or getattr(proyecto_obj, "precio_compra_inmueble", None)
+                or getattr(proyecto_obj, "precio_propiedad", None)
+                or 0.0,
+                0.0,
+            )
 
         # Normalizar
         if capital_objetivo < 0:
