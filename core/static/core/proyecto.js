@@ -64,13 +64,7 @@ function calcCaptacionObjectiveFromInputs() {
       ? baseInput
       : ((Number.isFinite(baseRealText) && baseRealText > 0) ? baseRealText : (Number.isFinite(baseEstText) && baseEstText > 0 ? baseEstText : 0));
 
-  const pctFinRaw =
-    parseEuro(_getElText(document.querySelector("[name='financiacion_pct']"))) ??
-    parseEuro(_getElText(document.querySelector("[name='porcentaje_financiacion']"))) ??
-    0;
-  const pctFin = Math.min(100, Math.max(0, Number(pctFinRaw) || 0));
-
-  const objetivo = base * (1 - pctFin / 100);
+  const objetivo = base;
   return Number.isFinite(objetivo) ? Math.max(0, objetivo) : 0;
 }
 
