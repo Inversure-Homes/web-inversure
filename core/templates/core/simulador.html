@@ -6,7 +6,10 @@
 
 
 {% csrf_token %}
-<form method="POST" id="form-estudio" onsubmit="return false;">
+<form method="POST" id="form-estudio" onsubmit="return false;"
+      data-estudio-id="{% if estudio %}{{ estudio.id }}{% endif %}"
+      data-guardar-url="{% url 'core:guardar_estudio' %}"
+      data-convertir-url="{% if estudio %}{% url 'core:convertir_a_proyecto' estudio.id %}{% endif %}">
   <input type="hidden" id="estudio_id" name="estudio_id" value="{% if estudio %}{{ estudio.id }}{% endif %}">
 
 <div class="main-container simulador-page">

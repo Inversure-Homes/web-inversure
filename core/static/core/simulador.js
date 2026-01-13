@@ -1575,7 +1575,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!ok) return;
 
     const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || "";
-    const url = (formEstudio && formEstudio.dataset.convertirUrl) || `/convertir-a-proyecto/${parseInt(id, 10)}/`;
+    const url = (formEstudio && formEstudio.dataset.convertirUrl) || (getAppBase() + `convertir-a-proyecto/${parseInt(id, 10)}/`);
 
     const resp = await fetch(url, {
       method: "POST",
