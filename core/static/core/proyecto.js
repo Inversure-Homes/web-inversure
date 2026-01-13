@@ -645,6 +645,7 @@ function buildOverlayPayloadFromDOM() {
     inmueble: {},
     kpis: { metricas: {} },
     economico: {},
+    inversor: {},
   };
 
   const inmuebleKeys = new Set([
@@ -977,7 +978,8 @@ async function autosaveNow({ keepalive = false } = {}) {
       (payload.proyecto && Object.keys(payload.proyecto).length) ||
       (payload.inmueble && Object.keys(payload.inmueble).length) ||
       (payload.economico && Object.keys(payload.economico).length) ||
-      (payload.kpis && payload.kpis.metricas && Object.keys(payload.kpis.metricas).length)
+      (payload.kpis && payload.kpis.metricas && Object.keys(payload.kpis.metricas).length) ||
+      (payload.inversor && Object.keys(payload.inversor).length)
     );
 
     if (hasSomething) {
