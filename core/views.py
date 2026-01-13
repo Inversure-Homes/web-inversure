@@ -1320,6 +1320,15 @@ def proyecto(request, proyecto_id: int):
                 setattr(proyecto_obj, "responsable", overlay.get("responsable"))
         except Exception:
             pass
+        try:
+            if overlay.get("proyecto", {}).get("estado") and not getattr(proyecto_obj, "estado", ""):
+                proyecto_obj.estado = overlay["proyecto"]["estado"]
+            if overlay.get("proyecto", {}).get("fecha") and not getattr(proyecto_obj, "fecha", None):
+                proyecto_obj.fecha = _parse_date(overlay["proyecto"]["fecha"])
+            if overlay.get("proyecto", {}).get("responsable") and not getattr(proyecto_obj, "responsable", ""):
+                setattr(proyecto_obj, "responsable", overlay["proyecto"]["responsable"])
+        except Exception:
+            pass
     # --- Forzar nombre persistido del PROYECTO en el snapshot renderizado ---
     # Evita que al recargar se muestre el nombre heredado del estudio.
     try:
@@ -1960,99 +1969,6 @@ def guardar_proyecto(request, proyecto_id: int):
 
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
-              
-            
-
-        if not direccion:
-            direccion = _get_str_from(
-                datos.get("direccion"),
-                datos.get("direccion_completa"),
-                proyecto_sec.get("direccion"),
-                proyecto_sec.get("direccion_completa"),
-                inmueble_sec.get("direccion"),
-                inmueble_sec.get("direccion_completa"),
-            )
-
-        if not ref_catastral:
-            ref_catastral = _get_str_from(
-                datos.get("ref_catastral"),
-                datos.get("referencia_catastral"),
-                proyecto_sec.get("ref_catastral"),
-                proyecto_sec.get("referencia_catastral"),
-                inmueble_sec.get("ref_catastral"),
-                inmueble_sec.get("referencia_catastral"),
-            )
-
-        # Persistir valor de referencia si llega
-        valor_referencia = data.get("valor_referencia")
-        if valor_referencia in (None, ""):
-            valor_referencia = (
-                datos.get("valor_referencia")
-                or inmueble_sec.get("valor_referencia")
-                or inmueble_sec.get("valor_referencia_catastral")
-            )
-        try:
-            if valor_referencia in (None, ""):
-                valor_referencia = None
-            else:
-                valor_referencia = Decimal(str(valor_referencia).replace("€", "").strip().replace(".", "").replace(",", "."))
-        except Exception:
-            valor_referencia = None
-
-        # Sanear JSON (Decimal/fechas)
-        datos = _sanitize_for_json(datos)
-
-        # Guardar/actualizar
-        if estudio_id:
-            try:
-                estudio = Estudio.objects.get(id=estudio_id)
-            except Estudio.DoesNotExist:
-                estudio = Estudio.objects.create(
-                    nombre=nombre,
-                    direccion=direccion,
-                    ref_catastral=ref_catastral,
-                    valor_referencia=valor_referencia,
-                    datos=datos,
-                    guardado=True,
-                )
-        else:
-            estudio = Estudio.objects.create(
-                nombre=nombre,
-                direccion=direccion,
-                ref_catastral=ref_catastral,
-                valor_referencia=valor_referencia,
-                datos=datos,
-                guardado=True,
-            )
-
-        # Actualizar campos en cualquier caso
-        estudio.nombre = nombre
-        estudio.direccion = direccion
-        estudio.ref_catastral = ref_catastral
-        try:
-            # si el campo existe
-            Estudio._meta.get_field("valor_referencia")
-            estudio.valor_referencia = valor_referencia
-        except Exception:
-            pass
-
-        # Marcar como guardado
-        try:
-            Estudio._meta.get_field("guardado")
-            estudio.guardado = True
-        except Exception:
-            pass
-
-        estudio.datos = datos
-        estudio.save()
-
-        # Mantenerlo como estudio activo
-        request.session["estudio_id"] = estudio.id
-
-        return JsonResponse({"ok": True, "id": estudio.id})
-
-    except Exception as e:
-        return JsonResponse({"ok": False, "error": str(e)}, status=400)
 
 
 def borrar_estudio(request, estudio_id: int):
@@ -2287,50 +2203,6 @@ def pdf_memoria_economica(request, proyecto_id: int):
         "fecha_informe": timezone.now(),
     }
     return render(request, "core/pdf_memoria_economica.html", ctx)
-@csrf_exempt
-def guardar_proyecto(request, proyecto_id):
-    if request.method != "POST":
-        return JsonResponse(
-            {"ok": False, "error": "Método no permitido"},
-            status=405
-        )
-
-    try:
-        proyecto = Proyecto.objects.get(id=proyecto_id)
-    except Proyecto.DoesNotExist:
-        return JsonResponse(
-            {"ok": False, "error": "Proyecto no encontrado"},
-            status=404
-        )
-
-    try:
-        data = json.loads(request.body or "{}")
-        if not isinstance(data, dict):
-            data = {}
-
-        payload = data.get("payload") if isinstance(data.get("payload"), dict) else data
-        payload = _sanitize_for_json(payload)
-
-        with transaction.atomic():
-            extra = getattr(proyecto, "extra", None)
-            if not isinstance(extra, dict):
-                extra = {}
-
-            extra["ultimo_guardado"] = {
-                "ts": timezone.now().isoformat(),
-                "payload": payload,
-            }
-
-            proyecto.extra = extra
-            proyecto.save()
-
-        return JsonResponse({"ok": True})
-
-    except Exception as e:
-        return JsonResponse(
-            {"ok": False, "error": str(e)},
-            status=500
-        )
 
 
 @csrf_exempt
