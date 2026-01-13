@@ -1746,7 +1746,34 @@ function bindMemoriaEconomica() {
 
     catRows.innerHTML = catHtml || "<div class=\"small text-muted\">Sin gastos registrados.</div>";
 
-    const sorted = [...data.rows].sort((a, b) => {
+    let baseRows = Array.isArray(data.rows) ? data.rows : [];
+    if (!baseRows.length) {
+      const ingresosVal = (data.ingresosBase ?? ((data.ingresosReales || 0) > 0 ? data.ingresosReales : (data.ingresosEstimados || 0))) || 0;
+      const gastosVal = (data.gastosBase ?? ((data.gastosReales || 0) > 0 ? data.gastosReales : (data.gastosEstimados || 0))) || 0;
+      const useReal = (data.ingresosReales || 0) > 0 || (data.gastosReales || 0) > 0;
+      if (gastosVal > 0) {
+        baseRows.push({
+          tipo: "gasto",
+          fecha: "",
+          categoria: "otros",
+          concepto: useReal ? "Gastos reales" : "Gastos estimados",
+          importe: gastosVal,
+          estado: useReal ? "confirmado" : "estimado",
+        });
+      }
+      if (ingresosVal > 0) {
+        baseRows.push({
+          tipo: "ingreso",
+          fecha: "",
+          categoria: "otros",
+          concepto: useReal ? "Ingresos reales" : "Ingresos estimados",
+          importe: ingresosVal,
+          estado: useReal ? "confirmado" : "estimado",
+        });
+      }
+    }
+
+    const sorted = [...baseRows].sort((a, b) => {
       const da = new Date(a.fecha || "1970-01-01").getTime();
       const db = new Date(b.fecha || "1970-01-01").getTime();
       return db - da;
