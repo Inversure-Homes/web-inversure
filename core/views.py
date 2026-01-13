@@ -1398,10 +1398,16 @@ def inversor_portal(request, token: str):
         )
 
         fecha_ref = getattr(proyecto, "fecha", None) or getattr(p, "creado", None)
+        if isinstance(fecha_ref, datetime):
+            fecha_ref = fecha_ref.date().isoformat()
+        elif isinstance(fecha_ref, date):
+            fecha_ref = fecha_ref.isoformat()
+        elif fecha_ref is not None:
+            fecha_ref = str(fecha_ref)
         beneficio_chart.append(
             {
                 "label": proyecto.nombre,
-                "fecha": fecha_ref,
+                "fecha": fecha_ref or "",
                 "beneficio": beneficio_inversor,
             }
         )

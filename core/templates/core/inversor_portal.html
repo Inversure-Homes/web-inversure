@@ -293,7 +293,7 @@
     <div class="col-lg-7">
       <div class="chart-card">
         <h5 class="mb-3">Beneficio por operación y tiempo</h5>
-        <div id="beneficioChart" class="bar-chart" data-chart='{{ beneficio_chart|json_script:"beneficioChartData" }}'></div>
+        <div id="beneficioChart" class="bar-chart"></div>
       </div>
     </div>
     <div class="col-lg-5">
@@ -310,53 +310,6 @@
         </div>
       </div>
     </div>
-  </div>
-
-  <div class="portal-card mt-3">
-    <h5 class="mb-3">Documentación disponible</h5>
-    {% if documentos_por_proyecto %}
-      <div class="accordion" id="docsPortal">
-        {% for group in documentos_por_proyecto %}
-          <div class="accordion-item">
-            <h2 class="accordion-header" id="docHead-{{ group.proyecto.id }}">
-              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#docBody-{{ group.proyecto.id }}">
-                {{ group.proyecto.nombre }} ({{ group.docs|length }})
-              </button>
-            </h2>
-            <div id="docBody-{{ group.proyecto.id }}" class="accordion-collapse collapse" data-bs-parent="#docsPortal">
-              <div class="accordion-body">
-                <div class="table-responsive">
-                  <table class="table table-sm align-middle">
-                    <thead>
-                      <tr>
-                        <th>Título</th>
-                        <th>Categoría</th>
-                        <th>Fecha</th>
-                        <th class="text-end">Archivo</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {% for d in group.docs %}
-                        <tr>
-                          <td>{{ d.titulo }}</td>
-                          <td>{{ d.get_categoria_display }}</td>
-                          <td>{{ d.creado|date:"d/m/Y" }}</td>
-                          <td class="text-end">
-                            <a class="btn btn-sm btn-outline-primary" href="{{ d.signed_url|default:d.archivo.url }}" target="_blank" rel="noopener">Descargar</a>
-                          </td>
-                        </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        {% endfor %}
-      </div>
-    {% else %}
-      <div class="text-muted">No hay documentación disponible.</div>
-    {% endif %}
   </div>
 
   <div class="portal-card mt-3">
