@@ -859,6 +859,9 @@ function updateComisionInversureMetrics({ beneficioBase = 0, valorAdqBase = 0 } 
   const eurInput = document.getElementById("inv_comision_eur");
   const netoInput = document.getElementById("inv_beneficio_neto");
   const roiInput = document.getElementById("inv_roi_neto");
+  const dashComision = document.getElementById("dash_comision_inversure");
+  const dashNeto = document.getElementById("dash_beneficio_neto_inversor");
+  const dashRoi = document.getElementById("dash_roi_neto_inversor");
 
   if (!pctInput || !eurInput || !netoInput || !roiInput) return;
 
@@ -871,6 +874,10 @@ function updateComisionInversureMetrics({ beneficioBase = 0, valorAdqBase = 0 } 
   _setElText(eurInput, formatEuro(comision));
   _setElText(netoInput, formatEuro(neto));
   _setElText(roiInput, formatNumberEs(roi, 2));
+
+  if (dashComision) dashComision.textContent = formatEuro(comision);
+  if (dashNeto) dashNeto.textContent = formatEuro(neto);
+  if (dashRoi) dashRoi.textContent = formatNumberEs(roi, 2) + " %";
 }
 
 async function postJson(url, data, { keepalive = false } = {}) {
