@@ -1394,10 +1394,10 @@ function bindMemoriaEconomica() {
       : ((compraReal > 0) ? compraReal : compraEstimada);
     const ventaEstimada = parseEuro(_getElText(document.querySelector("[name='venta_estimada']")));
 
-    const valAdqEstimado = (precioCompraBase || 0) + gastosAdqEstimado;
-    const valAdqReal = (precioCompraBase || 0) + gastosAdqReal;
-    const valTransEstimado = (ventaEstimada ?? 0) - gastosVentaEstimado;
-    const valTransReal = (ventaEstimada ?? 0) - gastosVentaReal;
+    const valAdqEstimado = totalEstimado;
+    const valAdqReal = totalReal;
+    const valTransEstimado = totalIngresosEstimados - gastosVentaEstimado;
+    const valTransReal = totalIngresosReales - gastosVentaReal;
 
     const adqEstEl = document.getElementById("valor_adq_estimado");
     const adqRealEl = document.getElementById("valor_adq_real");
@@ -1457,7 +1457,7 @@ function bindMemoriaEconomica() {
     };
 
     const baseEst = usarEstimados
-      ? ((precioCompraBase || 0) + dashGastosAdqEstimado)
+      ? (dashGastosEstimados || 0)
       : (valAdqEstimado || 0);
     const baseReal = valAdqReal || 0;
     dash.roiEstimado = baseEst > 0 ? (dash.beneficioEstimado / baseEst) * 100 : null;
@@ -1516,7 +1516,7 @@ function bindMemoriaEconomica() {
 
     const beneficioBase = ingresosBaseDash - gastosBaseDash;
     const valorAdqBase = usarEstimados
-      ? ((precioCompraBase || 0) + dashGastosAdqEstimado)
+      ? (dashGastosEstimados || 0)
       : (valAdqReal > 0 ? valAdqReal : valAdqEstimado);
     updateComisionInversureMetrics({
       beneficioBase,
