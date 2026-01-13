@@ -720,9 +720,22 @@
       setByNameIfEmpty('valoracion_casafari', (s.valoraciones && s.valoraciones.casafari) || s.valoracion_casafari);
 
       // Comité (campos de texto/selección)
-      setIfEmpty(document.getElementById('resumen_ejecutivo_comite'), comite.observaciones || s.resumen_ejecutivo_comite);
-      setSelectIfEmpty(document.getElementById('decision_comite'), comite.decision || s.decision_comite);
-      setIfEmpty(document.getElementById('comentario_comite'), comite.comentario || s.comentario_comite);
+      setIfEmpty(
+        document.getElementById('resumen_ejecutivo_comite'),
+        comite.resumen_ejecutivo || comite.observaciones || s.resumen_ejecutivo_comite
+      );
+      setSelectIfEmpty(
+        document.getElementById('decision_comite'),
+        comite.decision || comite.decision_estado || s.decision_comite
+      );
+      setIfEmpty(
+        document.getElementById('comentario_comite'),
+        comite.comentario || comite.observaciones || s.comentario_comite
+      );
+      setSelectIfEmpty(document.getElementById('valoracion_mercado'), (comite.valoracion && comite.valoracion.mercado) || s.valoracion_mercado);
+      setSelectIfEmpty(document.getElementById('valoracion_riesgo'), (comite.valoracion && comite.valoracion.riesgo) || s.valoracion_riesgo);
+      setSelectIfEmpty(document.getElementById('valoracion_ejecucion'), (comite.valoracion && comite.valoracion.ejecucion) || s.valoracion_ejecucion);
+      setSelectIfEmpty(document.getElementById('valoracion_timing'), (comite.valoracion && comite.valoracion.timing) || s.valoracion_timing);
 
       // Comisión inversor
       setSelectIfEmpty(

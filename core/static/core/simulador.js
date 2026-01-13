@@ -950,7 +950,9 @@ if (financiacionPctInput) {
    ============================== */
 if (resumenEjecutivoComite) {
   resumenEjecutivoComite.addEventListener("input", () => {
-    estadoEstudio.comite.resumen_ejecutivo = resumenEjecutivoComite.value || "";
+    const v = resumenEjecutivoComite.value || "";
+    estadoEstudio.comite.resumen_ejecutivo = v;
+    estadoEstudio.comite.observaciones = v;
     guardarEstado();
   });
 }
@@ -960,7 +962,9 @@ function persistirValoracionComite() {
   estadoEstudio.comite.valoracion.riesgo = valoracionRiesgo?.value || "";
   estadoEstudio.comite.valoracion.ejecucion = valoracionEjecucion?.value || "";
   estadoEstudio.comite.valoracion.timing = valoracionTiming?.value || "";
-  estadoEstudio.comite.comentario = comentarioComite?.value || "";
+  const comentario = comentarioComite?.value || "";
+  estadoEstudio.comite.comentario = comentario;
+  if (comentario) estadoEstudio.comite.observaciones = comentario;
   guardarEstado();
 }
 
@@ -974,6 +978,7 @@ if (decisionComite) {
   decisionComite.addEventListener("change", () => {
     const nuevaDecision = decisionComite.value || "";
     estadoEstudio.comite.decision_estado = nuevaDecision;
+    estadoEstudio.comite.decision = nuevaDecision;
 
     if (nuevaDecision) {
       const hoy = new Date();

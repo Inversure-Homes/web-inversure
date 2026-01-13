@@ -1664,6 +1664,19 @@ def guardar_estudio(request):
         for _sec in ("tecnico", "economico", "comite", "inversor", "kpis", "inmueble", "proyecto"):
             _flatten_section(_sec)
 
+        # Normalizar decisiones de comité si llegan con claves alternativas
+        if isinstance(datos.get("comite"), dict):
+            comite_sec = datos["comite"]
+            if comite_sec.get("decision") in (None, "") and comite_sec.get("decision_estado") not in (None, ""):
+                comite_sec["decision"] = comite_sec.get("decision_estado")
+            if comite_sec.get("observaciones") in (None, ""):
+                if comite_sec.get("comentario") not in (None, ""):
+                    comite_sec["observaciones"] = comite_sec.get("comentario")
+                elif comite_sec.get("resumen_ejecutivo") not in (None, ""):
+                    comite_sec["observaciones"] = comite_sec.get("resumen_ejecutivo")
+            if comite_sec.get("resumen_ejecutivo") in (None, "") and comite_sec.get("resumen_ejecutivo_comite") not in (None, ""):
+                comite_sec["resumen_ejecutivo"] = comite_sec.get("resumen_ejecutivo_comite")
+
         # Absorber `datos.snapshot` si existe
         snap = datos.get("snapshot") if isinstance(datos.get("snapshot"), dict) else {}
         if snap:
