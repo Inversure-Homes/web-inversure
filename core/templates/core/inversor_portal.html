@@ -268,16 +268,18 @@
                 <td class="text-end">{{ b.retencion|floatformat:2|intcomma }} €</td>
                 <td class="text-end">{{ b.neto_cobrar|floatformat:2|intcomma }} €</td>
                 <td class="text-end">
-                  <form method="post" action="{% url 'core:inversor_beneficio_update' perfil.token b.participacion_id %}" class="d-flex gap-2 justify-content-end">
-                    {% csrf_token %}
-                    <input type="text"
-                           name="beneficio_neto"
-                           class="form-control form-control-sm"
-                           style="max-width: 120px;"
-                           value="{% if b.beneficio_override is not None %}{{ b.beneficio_override|floatformat:2 }}{% endif %}"
-                           placeholder="Editar €">
-                    <button type="submit" class="btn btn-sm btn-outline-secondary">Guardar</button>
-                  </form>
+                  {% if internal_view %}
+                    <form method="post" action="{% url 'core:inversor_beneficio_update' perfil.token b.participacion_id %}" class="d-flex gap-2 justify-content-end">
+                      {% csrf_token %}
+                      <input type="text"
+                             name="beneficio_neto"
+                             class="form-control form-control-sm"
+                             style="max-width: 120px;"
+                             value="{% if b.beneficio_override is not None %}{{ b.beneficio_override|floatformat:2 }}{% endif %}"
+                             placeholder="Editar €">
+                      <button type="submit" class="btn btn-sm btn-outline-secondary">Guardar</button>
+                    </form>
+                  {% endif %}
                 </td>
               </tr>
             {% endfor %}

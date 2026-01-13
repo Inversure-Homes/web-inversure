@@ -1444,6 +1444,7 @@ def inversor_portal(request, token: str):
         "documentos_por_proyecto": documentos_por_proyecto,
         "documentos_personales": documentos_personales,
         "logo_url": reverse("core:inversores_list"),
+        "internal_view": False,
     }
     return render(request, "core/inversor_portal.html", ctx)
 
