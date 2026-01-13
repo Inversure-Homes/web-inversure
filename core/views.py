@@ -1333,6 +1333,8 @@ def inversor_portal(request, token: str):
 
     beneficios_por_proyecto = []
     total_beneficio = 0.0
+    total_retencion = 0.0
+    beneficio_chart = []
     for p in participaciones_conf:
         proyecto = p.proyecto
         if not proyecto:
@@ -1364,7 +1366,13 @@ def inversor_portal(request, token: str):
         beneficio_neto_inversor_total = beneficio_bruto - comision_eur
         ratio_part = float(p.importe_invertido or 0) / total_proj if total_proj > 0 else 0.0
         beneficio_inversor = beneficio_neto_inversor_total * ratio_part
+        override_val = float(p.beneficio_neto_override) if p.beneficio_neto_override is not None else None
+        if override_val is not None:
+            beneficio_inversor = override_val
+        retencion = beneficio_inversor * 0.19
+        neto_cobrar = beneficio_inversor - retencion
         total_beneficio += beneficio_inversor
+        total_retencion += retencion
 
         beneficios_por_proyecto.append(
             {
@@ -1373,7 +1381,20 @@ def inversor_portal(request, token: str):
                 "comision_eur": comision_eur,
                 "beneficio_neto_total": beneficio_neto_inversor_total,
                 "beneficio_inversor": beneficio_inversor,
+                "beneficio_override": override_val,
+                "retencion": retencion,
+                "neto_cobrar": neto_cobrar,
                 "participacion_pct": ratio_part * 100.0,
+                "participacion_id": p.id,
+            }
+        )
+
+        fecha_ref = getattr(proyecto, "fecha", None) or getattr(p, "creado", None)
+        beneficio_chart.append(
+            {
+                "label": proyecto.nombre,
+                "fecha": fecha_ref,
+                "beneficio": beneficio_inversor,
             }
         )
 
@@ -1397,9 +1418,39 @@ def inversor_portal(request, token: str):
         "total_invertido": total_invertido,
         "beneficios_por_proyecto": beneficios_por_proyecto,
         "total_beneficio": total_beneficio,
+        "total_retencion": total_retencion,
+        "total_neto_cobrar": total_beneficio - total_retencion,
+        "beneficio_chart": beneficio_chart,
         "documentos_por_proyecto": documentos_por_proyecto,
     }
     return render(request, "core/inversor_portal.html", ctx)
+
+
+def inversor_beneficio_update(request, token: str, participacion_id: int):
+    perfil = get_object_or_404(InversorPerfil, token=token, activo=True)
+    if request.method != "POST":
+        return redirect("core:inversor_portal", token=token)
+
+    participacion = get_object_or_404(Participacion, id=participacion_id, cliente=perfil.cliente)
+    raw = (request.POST.get("beneficio_neto") or "").strip()
+    if raw == "":
+        participacion.beneficio_neto_override = None
+        participacion.save(update_fields=["beneficio_neto_override"])
+        messages.success(request, "Beneficio actualizado correctamente.")
+        return redirect("core:inversor_portal", token=token)
+
+    try:
+        value = _parse_decimal(raw)
+    except Exception:
+        value = None
+    if value is None:
+        messages.error(request, "El beneficio indicado no es válido.")
+        return redirect("core:inversor_portal", token=token)
+
+    participacion.beneficio_neto_override = value
+    participacion.save(update_fields=["beneficio_neto_override"])
+    messages.success(request, "Beneficio actualizado correctamente.")
+    return redirect("core:inversor_portal", token=token)
 
 
 def inversor_solicitar(request, token: str, proyecto_id: int):

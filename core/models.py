@@ -973,6 +973,14 @@ class Participacion(models.Model):
     creado = models.DateTimeField(auto_now_add=True)
     actualizado = models.DateTimeField(auto_now=True)
 
+    beneficio_neto_override = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Beneficio neto del inversor para operaciones históricas (override manual)"
+    )
+
     def __str__(self):
         return f"{self.cliente} → {self.proyecto} ({self.importe_invertido} €)"
 

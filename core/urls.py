@@ -55,6 +55,7 @@ urlpatterns = [
     # Portal inversor (token)
     path("inversor/<str:token>/", views.inversor_portal, name="inversor_portal"),
     path("inversor/<str:token>/solicitar/<int:proyecto_id>/", views.inversor_solicitar, name="inversor_solicitar"),
+    path("inversor/<str:token>/beneficio/<int:participacion_id>/", views.inversor_beneficio_update, name="inversor_beneficio_update"),
 
     # Solicitudes de participación (interno)
     path("proyectos/<int:proyecto_id>/solicitudes/", views.proyecto_solicitudes, name="proyecto_solicitudes"),
