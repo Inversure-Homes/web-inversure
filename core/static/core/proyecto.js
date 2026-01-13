@@ -2131,6 +2131,25 @@ function bindParticipaciones() {
         }
         return acc;
       }, 0);
+      const totalConfirmadas = captado || 0;
+      const inversureName = "INVERSURE HOME & INVESTMENT";
+      const pctParticipe = rows.reduce((acc, r) => {
+        if (r.estado !== "confirmada") return acc;
+        const clienteNombre = String(r.cliente_nombre || "").trim().toUpperCase();
+        if (clienteNombre === inversureName) return acc;
+        const pct = Number.isFinite(r.porcentaje_participacion)
+          ? Number(r.porcentaje_participacion)
+          : (totalConfirmadas > 0 ? ((Number(r.importe_invertido) || 0) / totalConfirmadas) * 100 : 0);
+        return acc + (Number.isFinite(pct) ? pct : 0);
+      }, 0);
+      const pctFinanciacion = Math.max(0, Math.min(100, pctParticipe));
+      const finInputs = [
+        document.querySelector("[name='financiacion_pct']"),
+        document.querySelector("[name='porcentaje_financiacion']"),
+      ].filter(Boolean);
+      finInputs.forEach((el) => {
+        _setElText(el, formatNumberEs(pctFinanciacion, 2));
+      });
       window.__captacionCaptado = captado;
       if (!Number.isFinite(window.__captacionObjetivo) || window.__captacionObjetivo <= 0) {
         window.__captacionObjetivo = calcCaptacionObjectiveFromInputs();
