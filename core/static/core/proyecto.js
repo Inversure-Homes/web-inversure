@@ -1400,7 +1400,13 @@ function bindMemoriaEconomica() {
       ventaReal,
     });
 
-    const objetivoCaptacion = valAdqReal > 0 ? valAdqReal : valAdqEstimado;
+    const pctFinRaw =
+      parseEuro(_getElText(document.querySelector("[name='financiacion_pct']"))) ??
+      parseEuro(_getElText(document.querySelector("[name='porcentaje_financiacion']"))) ??
+      0;
+    const pctFin = Math.min(100, Math.max(0, Number(pctFinRaw) || 0));
+    const objetivoBase = valAdqReal > 0 ? valAdqReal : valAdqEstimado;
+    const objetivoCaptacion = objetivoBase * (1 - pctFin / 100);
     window.__captacionObjetivo = Number.isFinite(objetivoCaptacion) ? objetivoCaptacion : 0;
     updateCaptacionDashboard({
       capitalObjetivo: window.__captacionObjetivo,
@@ -1735,6 +1741,8 @@ function bindMemoriaEconomica() {
     "[name='venta_estimada']",
     "[name='valor_transmision']",
     "[name='precio_venta_estimado']",
+    "[name='financiacion_pct']",
+    "[name='porcentaje_financiacion']",
   ];
   dashRecalcInputs.forEach((sel) => {
     const el = document.querySelector(sel);
