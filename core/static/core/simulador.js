@@ -1575,7 +1575,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!ok) return;
 
     const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || "";
-    const url = (formEstudio && formEstudio.dataset.convertirUrl) || (getAppBase() + `convertir-a-proyecto/${parseInt(id, 10)}/`);
+    let url = (formEstudio && formEstudio.dataset.convertirUrl) || (getAppBase() + `convertir-a-proyecto/${parseInt(id, 10)}/`);
+    if (url.startsWith("/convertir-a-proyecto/")) {
+      const base = getAppBase().replace(/\/$/, "");
+      url = `${base}${url}`;
+    }
 
     const resp = await fetch(url, {
       method: "POST",
