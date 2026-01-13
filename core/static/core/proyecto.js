@@ -56,16 +56,25 @@ function parseEuro(value) {
 }
 
 function calcCaptacionObjectiveFromInputs() {
+  const estadoEl = document.getElementById("estado_proyecto");
+  const estado = estadoEl ? String(_getElText(estadoEl)).toLowerCase() : "";
+  const usarEstimados = ["estudio", "captacion"].includes(estado);
+
   const baseInput = parseEuro(_getElText(document.querySelector("[name='precio_compra_inmueble']")));
   const baseRealText = parseEuro(_getElText(document.getElementById("valor_adq_real")));
   const baseEstText = parseEuro(_getElText(document.getElementById("valor_adq_estimado")));
-  const gastosDashText = parseEuro(_getElText(document.getElementById("dash_gastos_reales")));
+  const gastosDashEst = parseEuro(_getElText(document.getElementById("dash_gastos_estimados")));
+  const gastosDashReal = parseEuro(_getElText(document.getElementById("dash_gastos_reales")));
+  const gastosEstText = parseEuro(_getElText(document.getElementById("eco_total_estimado")));
   const gastosRealText = parseEuro(_getElText(document.getElementById("eco_total_real")));
+
+  const gastosPreferidos = usarEstimados ? gastosDashEst : gastosDashReal;
+  const gastosFallback = usarEstimados ? gastosEstText : gastosRealText;
   const base =
-    (Number.isFinite(gastosDashText) && gastosDashText > 0)
-      ? gastosDashText
-      : ((Number.isFinite(gastosRealText) && gastosRealText > 0)
-        ? gastosRealText
+    (Number.isFinite(gastosPreferidos) && gastosPreferidos > 0)
+      ? gastosPreferidos
+      : ((Number.isFinite(gastosFallback) && gastosFallback > 0)
+        ? gastosFallback
         : ((Number.isFinite(baseInput) && baseInput > 0)
           ? baseInput
           : ((Number.isFinite(baseRealText) && baseRealText > 0)
@@ -1421,24 +1430,36 @@ function bindMemoriaEconomica() {
     };
     const estadoProyecto = getProyectoEstado();
     const usarEstimados = ["estudio", "captacion"].includes(estadoProyecto);
-    const ingresosBaseDash = usarEstimados ? totalIngresosEstimados : totalIngresosReales;
-    const gastosBaseDash = usarEstimados ? totalEstimado : totalReal;
+    const dashIngresosEstimados = usarEstimados ? (totalIngresosEstimados + totalIngresosReales) : totalIngresosEstimados;
+    const dashIngresosReales = usarEstimados ? 0 : totalIngresosReales;
+    const dashGastosEstimados = usarEstimados ? (totalEstimado + totalReal) : totalEstimado;
+    const dashGastosReales = usarEstimados ? 0 : totalReal;
+    const dashGastosAdqEstimado = usarEstimados ? (gastosAdqEstimado + gastosAdqReal) : gastosAdqEstimado;
+    const dashGastosAdqReal = usarEstimados ? 0 : gastosAdqReal;
+    const dashGastosVentaEstimado = usarEstimados ? (gastosVentaEstimado + gastosVentaReal) : gastosVentaEstimado;
+    const dashGastosVentaReal = usarEstimados ? 0 : gastosVentaReal;
+    const dashVentaEstimado = usarEstimados ? (ventaEstimado + ventaReal) : ventaEstimado;
+    const dashVentaReal = usarEstimados ? 0 : ventaReal;
+    const ingresosBaseDash = usarEstimados ? dashIngresosEstimados : totalIngresosReales;
+    const gastosBaseDash = usarEstimados ? dashGastosEstimados : totalReal;
 
     const dash = {
-      ingresosEstimados: totalIngresosEstimados,
-      ingresosReales: totalIngresosReales,
-      gastosEstimados: totalEstimado,
-      gastosReales: totalReal,
-      beneficioEstimado: totalIngresosEstimados - totalEstimado,
-      beneficioReal: totalIngresosReales - totalReal,
+      ingresosEstimados: dashIngresosEstimados,
+      ingresosReales: dashIngresosReales,
+      gastosEstimados: dashGastosEstimados,
+      gastosReales: dashGastosReales,
+      beneficioEstimado: dashIngresosEstimados - dashGastosEstimados,
+      beneficioReal: dashIngresosReales - dashGastosReales,
       roiEstimado: null,
       roiReal: null,
     };
 
-    const baseEst = valAdqEstimado || 0;
+    const baseEst = usarEstimados
+      ? ((precioCompraBase || 0) + dashGastosAdqEstimado)
+      : (valAdqEstimado || 0);
     const baseReal = valAdqReal || 0;
     dash.roiEstimado = baseEst > 0 ? (dash.beneficioEstimado / baseEst) * 100 : null;
-    dash.roiReal = baseReal > 0 ? (dash.beneficioReal / baseReal) * 100 : null;
+    dash.roiReal = usarEstimados ? null : (baseReal > 0 ? (dash.beneficioReal / baseReal) * 100 : null);
 
     const setDash = (id, value, isPct = false) => {
       const el = document.getElementById(id);
@@ -1460,11 +1481,11 @@ function bindMemoriaEconomica() {
     setDash("dash_roi_real", dash.roiReal, true);
 
     updateDashboardVisuals({
-      ingresosReales: totalIngresosReales,
-      gastosReales: totalReal,
+      ingresosReales: dash.ingresosReales,
+      gastosReales: dash.gastosReales,
       beneficioReal: dash.beneficioReal,
-      ingresosEstimados: totalIngresosEstimados,
-      gastosEstimados: totalEstimado,
+      ingresosEstimados: dash.ingresosEstimados,
+      gastosEstimados: dash.gastosEstimados,
       ingresosBase: ingresosBaseDash,
       gastosBase: gastosBaseDash,
       beneficioBase: ingresosBaseDash - gastosBaseDash,
@@ -1472,16 +1493,16 @@ function bindMemoriaEconomica() {
     });
 
     updateInvestmentAnalysis({
-      ingresosEstimados: totalIngresosEstimados,
-      ingresosReales: totalIngresosReales,
-      gastosEstimados: totalEstimado,
-      gastosReales: totalReal,
-      gastosAdqEstimado,
-      gastosAdqReal,
-      gastosVentaEstimado,
-      gastosVentaReal,
-      ventaEstimado,
-      ventaReal,
+      ingresosEstimados: dash.ingresosEstimados,
+      ingresosReales: dash.ingresosReales,
+      gastosEstimados: dash.gastosEstimados,
+      gastosReales: dash.gastosReales,
+      gastosAdqEstimado: dashGastosAdqEstimado,
+      gastosAdqReal: dashGastosAdqReal,
+      gastosVentaEstimado: dashGastosVentaEstimado,
+      gastosVentaReal: dashGastosVentaReal,
+      ventaEstimado: dashVentaEstimado,
+      ventaReal: dashVentaReal,
     });
 
     const objetivoCaptacion = calcCaptacionObjectiveFromInputs();
@@ -1492,7 +1513,9 @@ function bindMemoriaEconomica() {
     });
 
     const beneficioBase = ingresosBaseDash - gastosBaseDash;
-    const valorAdqBase = (valAdqReal > 0 ? valAdqReal : valAdqEstimado);
+    const valorAdqBase = usarEstimados
+      ? ((precioCompraBase || 0) + dashGastosAdqEstimado)
+      : (valAdqReal > 0 ? valAdqReal : valAdqEstimado);
     updateComisionInversureMetrics({
       beneficioBase,
       valorAdqBase,
