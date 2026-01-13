@@ -104,7 +104,10 @@
         <h1>Inversores</h1>
         <div class="muted small">Resumen operativo de clientes inversores y acceso a sus fichas.</div>
       </div>
-      <span class="inv-tag">Portal privado</span>
+      <div class="d-flex gap-2 align-items-center">
+        <a href="{% url 'core:clientes_form' %}" class="btn btn-portal btn-sm">Añadir inversor</a>
+        <span class="inv-tag">Portal privado</span>
+      </div>
     </div>
   </div>
 
