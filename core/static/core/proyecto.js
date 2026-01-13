@@ -748,7 +748,7 @@ function buildOverlayPayloadFromDOM() {
     }
 
     // Campos económicos que deben quedar en economico (trazabilidad)
-    const economicoKeys = new Set([
+  const economicoKeys = new Set([
       "precio_propiedad",
       "precio_escritura",
       "venta_estimada",
@@ -814,6 +814,21 @@ function buildOverlayPayloadFromDOM() {
       if (name === "precio_venta_estimado") {
         payload.economico.valor_transmision = value;
       }
+      return;
+    }
+
+    const inversorKeys = new Set([
+      "comision_inversure_pct",
+      "comision_inversure_eur",
+      "comision_pct",
+      "comision_eur",
+      "beneficio_neto_inversor",
+      "roi_neto_inversor",
+      "beneficio_neto",
+      "roi_neto",
+    ]);
+    if (inversorKeys.has(name)) {
+      payload.inversor[name] = value;
       return;
     }
 
