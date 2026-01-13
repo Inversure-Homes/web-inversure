@@ -51,6 +51,7 @@ urlpatterns = [
     path("clientes/importar/", views.clientes_import, name="clientes_import"),
     path("clientes/<int:cliente_id>/inversor/", views.cliente_inversor_link, name="cliente_inversor_link"),
     path("inversores/", views.inversores_list, name="inversores_list"),
+    path("inversores/<int:perfil_id>/documentos/", views.inversor_documento_upload, name="inversor_documento_upload"),
 
     # Portal inversor (token)
     path("inversor/<str:token>/", views.inversor_portal, name="inversor_portal"),

@@ -360,6 +360,38 @@
   </div>
 
   <div class="portal-card mt-3">
+    <h5 class="mb-3">Documentación personal</h5>
+    {% if documentos_personales %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Título</th>
+              <th>Categoría</th>
+              <th>Fecha</th>
+              <th class="text-end">Archivo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in documentos_personales %}
+              <tr>
+                <td>{{ d.titulo }}</td>
+                <td>{{ d.get_categoria_display }}</td>
+                <td>{{ d.creado|date:"d/m/Y" }}</td>
+                <td class="text-end">
+                  <a class="btn btn-sm btn-outline-primary" href="{{ d.signed_url|default:d.archivo.url }}" target="_blank" rel="noopener">Descargar</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-muted">No hay documentación personal todavía.</div>
+    {% endif %}
+  </div>
+
+  <div class="portal-card mt-3">
     <h5 class="mb-3">Proyectos disponibles</h5>
     {% if proyectos_abiertos %}
       <div class="row g-3">

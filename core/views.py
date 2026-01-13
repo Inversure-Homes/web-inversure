@@ -23,7 +23,7 @@ from datetime import date, datetime
 from .models import Estudio, Proyecto
 from .models import EstudioSnapshot, ProyectoSnapshot
 from .models import GastoProyecto, IngresoProyecto, ChecklistItem
-from .models import Cliente, Participacion, InversorPerfil, SolicitudParticipacion, ComunicacionInversor, DocumentoProyecto
+from .models import Cliente, Participacion, InversorPerfil, SolicitudParticipacion, ComunicacionInversor, DocumentoProyecto, DocumentoInversor
 
 # --- SafeAccessDict helper and _safe_template_obj ---
 class SafeAccessDict(dict):
@@ -1168,6 +1168,13 @@ def inversores_list(request):
         )
     }
 
+    docs_por_inversor = {}
+    if perfiles_ids:
+        for d in DocumentoInversor.objects.filter(inversor_id__in=perfiles_ids).order_by("-creado"):
+            signed = _s3_presigned_url(d.archivo.name)
+            setattr(d, "signed_url", signed or "")
+            docs_por_inversor.setdefault(d.inversor_id, []).append(d)
+
     inversores = []
     total_invertido = 0
     total_participaciones = 0
@@ -1202,6 +1209,7 @@ def inversores_list(request):
                 "ultima_comunicacion": ultima_com,
                 "total_comunicaciones": total_com,
                 "participaciones_preview": preview,
+                "documentos": docs_por_inversor.get(perfil.id, []),
             }
         )
 
@@ -1409,6 +1417,12 @@ def inversor_portal(request, token: str):
             docs_map.setdefault(d.proyecto_id, {"proyecto": d.proyecto, "docs": []})["docs"].append(d)
         documentos_por_proyecto = list(docs_map.values())
 
+    documentos_personales = []
+    for d in DocumentoInversor.objects.filter(inversor=perfil).order_by("-creado"):
+        signed = _s3_presigned_url(d.archivo.name)
+        setattr(d, "signed_url", signed or "")
+        documentos_personales.append(d)
+
     ctx = {
         "perfil": perfil,
         "participaciones": participaciones,
@@ -1422,8 +1436,29 @@ def inversor_portal(request, token: str):
         "total_neto_cobrar": total_beneficio - total_retencion,
         "beneficio_chart": beneficio_chart,
         "documentos_por_proyecto": documentos_por_proyecto,
+        "documentos_personales": documentos_personales,
     }
     return render(request, "core/inversor_portal.html", ctx)
+
+
+def inversor_documento_upload(request, perfil_id: int):
+    if request.method != "POST":
+        return redirect("core:inversores_list")
+    perfil = get_object_or_404(InversorPerfil, id=perfil_id)
+    titulo = (request.POST.get("doc_titulo") or "").strip()
+    categoria = (request.POST.get("doc_categoria") or "otros").strip()
+    archivo = request.FILES.get("doc_archivo")
+    if not titulo or not archivo:
+        messages.error(request, "Faltan datos para subir el documento.")
+        return redirect("core:inversores_list")
+    DocumentoInversor.objects.create(
+        inversor=perfil,
+        titulo=titulo,
+        categoria=categoria,
+        archivo=archivo,
+    )
+    messages.success(request, "Documento del inversor subido correctamente.")
+    return redirect("core:inversores_list")
 
 
 def inversor_beneficio_update(request, token: str, participacion_id: int):

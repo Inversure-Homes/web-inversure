@@ -1106,6 +1106,34 @@ class DocumentoProyecto(models.Model):
 
 
 # =========================
+# DOCUMENTOS PERSONALES INVERSOR
+# =========================
+class DocumentoInversor(models.Model):
+    CATEGORIAS = [
+        ("contrato", "Contrato"),
+        ("retenciones", "Certificado retenciones"),
+        ("comunicaciones", "Comunicaciones"),
+        ("otros", "Otros"),
+    ]
+
+    inversor = models.ForeignKey(
+        InversorPerfil,
+        on_delete=models.CASCADE,
+        related_name="documentos"
+    )
+    categoria = models.CharField(max_length=20, choices=CATEGORIAS, default="otros")
+    titulo = models.CharField(max_length=255)
+    archivo = models.FileField(upload_to="inversores/documentos/%Y/%m/")
+    creado = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-creado", "-id"]
+
+    def __str__(self):
+        return f"{self.inversor} · {self.titulo}"
+
+
+# =========================
 # MODELO SIMULACIÓN
 # =========================
 class Simulacion(models.Model):
