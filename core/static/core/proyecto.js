@@ -861,6 +861,20 @@ function buildOverlayPayloadFromDOM() {
     // Silencioso
   }
 
+  // Duplicar comisión en métricas para asegurar persistencia/lectura en cálculos
+  try {
+    const inv = payload.inversor || {};
+    const m = payload.kpis && payload.kpis.metricas ? payload.kpis.metricas : {};
+    if (Number.isFinite(inv.comision_inversure_pct)) {
+      m.comision_inversure_pct = inv.comision_inversure_pct;
+      m.comision_pct = inv.comision_inversure_pct;
+    }
+    if (Number.isFinite(inv.comision_inversure_eur)) {
+      m.comision_inversure_eur = inv.comision_inversure_eur;
+      m.comision_eur = inv.comision_inversure_eur;
+    }
+  } catch (e) {}
+
   return payload;
 }
 
