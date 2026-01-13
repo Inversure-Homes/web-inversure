@@ -1511,6 +1511,11 @@ def proyecto(request, proyecto_id: int):
                         doc.signed_url = signed
                 except Exception:
                     pass
+        categorias_map = {}
+        for doc in documentos:
+            cat = getattr(doc, "categoria", "otros") or "otros"
+            categorias_map.setdefault(cat, []).append(doc)
+        ctx["documentos_por_categoria"] = categorias_map
         ctx["documentos"] = documentos
     except Exception:
         ctx["documentos"] = []
