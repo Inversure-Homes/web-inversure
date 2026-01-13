@@ -59,10 +59,18 @@ function calcCaptacionObjectiveFromInputs() {
   const baseInput = parseEuro(_getElText(document.querySelector("[name='precio_compra_inmueble']")));
   const baseRealText = parseEuro(_getElText(document.getElementById("valor_adq_real")));
   const baseEstText = parseEuro(_getElText(document.getElementById("valor_adq_estimado")));
+  const gastosDashText = parseEuro(_getElText(document.getElementById("dash_gastos_reales")));
+  const gastosRealText = parseEuro(_getElText(document.getElementById("eco_total_real")));
   const base =
-    (Number.isFinite(baseInput) && baseInput > 0)
-      ? baseInput
-      : ((Number.isFinite(baseRealText) && baseRealText > 0) ? baseRealText : (Number.isFinite(baseEstText) && baseEstText > 0 ? baseEstText : 0));
+    (Number.isFinite(gastosDashText) && gastosDashText > 0)
+      ? gastosDashText
+      : ((Number.isFinite(gastosRealText) && gastosRealText > 0)
+        ? gastosRealText
+        : ((Number.isFinite(baseInput) && baseInput > 0)
+          ? baseInput
+          : ((Number.isFinite(baseRealText) && baseRealText > 0)
+            ? baseRealText
+            : (Number.isFinite(baseEstText) && baseEstText > 0 ? baseEstText : 0))));
 
   const objetivo = base;
   return Number.isFinite(objetivo) ? Math.max(0, objetivo) : 0;
