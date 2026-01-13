@@ -38,6 +38,15 @@ function formatEuro(value) {
   }) + " €";
 }
 
+function getAppBase() {
+  try {
+    const base = (window.APP_BASE || (document.body && document.body.dataset && document.body.dataset.appBase) || "/");
+    return base.endsWith("/") ? base : base + "/";
+  } catch (e) {
+    return "/";
+  }
+}
+
 // Helpers para soportar INPUTs y también elementos tipo <span>/<div> en la vista de Proyecto
 function _isValueElement(el) {
   if (!el || !el.tagName) return false;
@@ -1527,7 +1536,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const url = (formEstudio && (formEstudio.dataset.guardarUrl || formEstudio.getAttribute("action"))) || "/guardar-estudio/";
+    const url = (formEstudio && (formEstudio.dataset.guardarUrl || formEstudio.getAttribute("action"))) || (getAppBase() + "guardar-estudio/");
     const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || "";
 
     const resp = await fetch(url, {
@@ -1546,7 +1555,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    window.location.href = "/estudios/";
+    window.location.href = getAppBase() + "estudios/";
   });
 
   // Fallback de convertir (si no existe en el resto del archivo)
@@ -1579,7 +1588,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    window.location.href = data.redirect_url || "/proyectos/";
+    window.location.href = data.redirect_url || (getAppBase() + "proyectos/");
   });
 
   // 1) Bind por data-action / ids / name

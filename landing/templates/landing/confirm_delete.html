@@ -1,0 +1,16 @@
+{% extends "core/base.html" %}
+{% block content %}
+<div class="container mt-5">
+  <div class="card border-0 shadow-sm">
+    <div class="card-body">
+      <h4 class="mb-3">{{ titulo|default:"Confirmar borrado" }}</h4>
+      <p>¿Seguro que quieres borrar {{ obj }}?</p>
+      <form method="post">
+        {% csrf_token %}
+        <button class="btn btn-danger">Borrar</button>
+        <a href="{% url 'landing:marketing_dashboard' %}" class="btn btn-outline-secondary">Cancelar</a>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

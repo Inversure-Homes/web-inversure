@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 # =========================
 # BASE
@@ -13,7 +14,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-cambia-esto-en-produccion'
 
-DEBUG = True
+DEBUG = os.environ.get("DEBUG", "1") == "1"
 
 ALLOWED_HOSTS = ["*"]
 
@@ -23,6 +24,8 @@ ALLOWED_HOSTS = ["*"]
 
 CSRF_TRUSTED_ORIGINS = [
     "https://web-inversure-1.onrender.com",
+    "https://www.inversurehomes.es",
+    "https://app.inversurehomes.es",
 ]
 
 
@@ -39,6 +42,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.humanize',
     'core',
+    'landing',
+    'accounts',
     'storages',
 ]
 
@@ -89,11 +94,12 @@ TEMPLATES = [
 ]
 
 
+LOGIN_URL = "/app/login/"
+LOGOUT_REDIRECT_URL = "/app/login/"
+
 # =========================
 # BASE DE DATOS (ÚNICA FUENTE)
 # =========================
-
-import os
 import dj_database_url
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -192,3 +198,20 @@ else:
 # =========================
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# =========================
+# SEGURIDAD (PRODUCCIÓN)
+# =========================
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_SSL_REDIRECT = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
+SECURE_HSTS_PRELOAD = not DEBUG
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
+X_FRAME_OPTIONS = "DENY"

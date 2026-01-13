@@ -541,6 +541,15 @@ function getCsrfToken() {
   }
 }
 
+function getAppBase() {
+  try {
+    const base = (window.APP_BASE || (document.body && document.body.dataset && document.body.dataset.appBase) || "/");
+    return base.endsWith("/") ? base : base + "/";
+  } catch (e) {
+    return "/";
+  }
+}
+
 function getProyectoIdFromPath() {
   try {
     const p = (window.location && window.location.pathname) ? window.location.pathname : "";
@@ -575,8 +584,9 @@ try {
 
   const candidates = [];
   if (id) {
-    candidates.push(`/proyectos/${id}/guardar/`);
-    candidates.push(`/proyectos/guardar/${id}/`);
+    const base = getAppBase();
+    candidates.push(`${base}proyectos/${id}/guardar/`);
+    candidates.push(`${base}proyectos/guardar/${id}/`);
   }
   // Por si la vista detalle es /proyectos/<id>/
   candidates.push(normalized + "guardar/");

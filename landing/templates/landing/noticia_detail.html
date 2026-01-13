@@ -1,0 +1,19 @@
+{% extends "landing/base.html" %}
+
+{% block content %}
+  <section class="section">
+    <div class="container">
+      <article class="news-detail">
+        <header>
+          <p class="news-detail__meta">
+            {{ noticia.fecha_publicacion|date:"d M Y" }} · {{ noticia.autor|default:"Equipo Inversure" }}
+          </p>
+          <h1>{{ noticia.titulo }}</h1>
+        </header>
+        <div class="news-detail__body">
+          {{ noticia.cuerpo|linebreaks }}
+        </div>
+      </article>
+    </div>
+  </section>
+{% endblock %}
