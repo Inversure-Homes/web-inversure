@@ -55,6 +55,25 @@ function parseEuro(value) {
   return n === null ? null : n;
 }
 
+function calcCaptacionObjectiveFromInputs() {
+  const baseInput = parseEuro(_getElText(document.querySelector("[name='precio_compra_inmueble']")));
+  const baseRealText = parseEuro(_getElText(document.getElementById("valor_adq_real")));
+  const baseEstText = parseEuro(_getElText(document.getElementById("valor_adq_estimado")));
+  const base =
+    (Number.isFinite(baseInput) && baseInput > 0)
+      ? baseInput
+      : ((Number.isFinite(baseRealText) && baseRealText > 0) ? baseRealText : (Number.isFinite(baseEstText) && baseEstText > 0 ? baseEstText : 0));
+
+  const pctFinRaw =
+    parseEuro(_getElText(document.querySelector("[name='financiacion_pct']"))) ??
+    parseEuro(_getElText(document.querySelector("[name='porcentaje_financiacion']"))) ??
+    0;
+  const pctFin = Math.min(100, Math.max(0, Number(pctFinRaw) || 0));
+
+  const objetivo = base * (1 - pctFin / 100);
+  return Number.isFinite(objetivo) ? Math.max(0, objetivo) : 0;
+}
+
 function formatNumberEs(num, decimals = 0) {
   if (!Number.isFinite(num)) return "";
   return new Intl.NumberFormat("es-ES", {
@@ -1400,16 +1419,7 @@ function bindMemoriaEconomica() {
       ventaReal,
     });
 
-    const pctFinRaw =
-      parseEuro(_getElText(document.querySelector("[name='financiacion_pct']"))) ??
-      parseEuro(_getElText(document.querySelector("[name='porcentaje_financiacion']"))) ??
-      0;
-    const pctFin = Math.min(100, Math.max(0, Number(pctFinRaw) || 0));
-    const valorAdqInput = parseEuro(_getElText(document.querySelector("[name='precio_compra_inmueble']")));
-    const objetivoBase = (Number.isFinite(valorAdqInput) && valorAdqInput > 0)
-      ? valorAdqInput
-      : (valAdqReal > 0 ? valAdqReal : valAdqEstimado);
-    const objetivoCaptacion = objetivoBase * (1 - pctFin / 100);
+    const objetivoCaptacion = calcCaptacionObjectiveFromInputs();
     window.__captacionObjetivo = Number.isFinite(objetivoCaptacion) ? objetivoCaptacion : 0;
     updateCaptacionDashboard({
       capitalObjetivo: window.__captacionObjetivo,
@@ -1753,6 +1763,13 @@ function bindMemoriaEconomica() {
     el.addEventListener("input", renderTotals);
     el.addEventListener("blur", renderTotals);
   });
+  window.__captacionObjetivo = calcCaptacionObjectiveFromInputs();
+  if (typeof window.__updateCaptacionDashboard === "function") {
+    window.__updateCaptacionDashboard({
+      capitalObjetivo: window.__captacionObjetivo,
+      capitalCaptado: Number.isFinite(window.__captacionCaptado) ? window.__captacionCaptado : 0,
+    });
+  }
 
   function clearForm() {
     if (elFecha) elFecha.value = "";
@@ -2078,6 +2095,9 @@ function bindParticipaciones() {
       if (!rows.length) {
         tabla.innerHTML = "<tr><td colspan=\"7\" class=\"text-muted\">No hay participaciones todavía.</td></tr>";
         window.__captacionCaptado = 0;
+        if (!Number.isFinite(window.__captacionObjetivo) || window.__captacionObjetivo <= 0) {
+          window.__captacionObjetivo = calcCaptacionObjectiveFromInputs();
+        }
         if (typeof window.__updateCaptacionDashboard === "function") {
           window.__updateCaptacionDashboard({
             capitalObjetivo: Number.isFinite(window.__captacionObjetivo) ? window.__captacionObjetivo : 0,
@@ -2093,6 +2113,9 @@ function bindParticipaciones() {
         return acc;
       }, 0);
       window.__captacionCaptado = captado;
+      if (!Number.isFinite(window.__captacionObjetivo) || window.__captacionObjetivo <= 0) {
+        window.__captacionObjetivo = calcCaptacionObjectiveFromInputs();
+      }
       if (typeof window.__updateCaptacionDashboard === "function") {
         window.__updateCaptacionDashboard({
           capitalObjetivo: Number.isFinite(window.__captacionObjetivo) ? window.__captacionObjetivo : 0,
