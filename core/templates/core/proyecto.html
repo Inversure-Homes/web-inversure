@@ -684,6 +684,54 @@
             <div class="card mb-4 shadow-sm border-0">
                 <div class="card-body">
                     <h5 class="mb-2 inversure-form-header">Inversores</h5>
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-body">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-3">
+                                    <label class="form-label">Comisión Inversure (%)</label>
+                                    <input type="text"
+                                           class="form-control"
+                                           id="inv_comision_pct"
+                                           name="inversor.comision_inversure_pct"
+                                           data-number="true"
+                                           data-decimals="2"
+                                           value="{{ inv.comision_inversure_pct|default:inv.comision_pct|default:'' }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Comisión Inversure (€)</label>
+                                    <input type="text"
+                                           class="form-control"
+                                           id="inv_comision_eur"
+                                           name="inversor.comision_inversure_eur"
+                                           data-euro="true"
+                                           readonly
+                                           value="{{ inv.comision_inversure_eur|default:inv.comision_eur|default:'' }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Beneficio neto inversor (€)</label>
+                                    <input type="text"
+                                           class="form-control"
+                                           id="inv_beneficio_neto"
+                                           data-euro="true"
+                                           readonly
+                                           value="{{ inv.beneficio_neto_inversor|default:inv.beneficio_neto|default:'' }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">ROI neto inversor (%)</label>
+                                    <input type="text"
+                                           class="form-control"
+                                           id="inv_roi_neto"
+                                           data-number="true"
+                                           data-decimals="2"
+                                           readonly
+                                           value="{{ inv.roi_neto_inversor|default:inv.roi_neto|default:'' }}">
+                                </div>
+                            </div>
+                            <div class="form-text mt-2">
+                                La comisión se calcula sobre el beneficio bruto y se descuenta del beneficio del inversor.
+                            </div>
+                        </div>
+                    </div>
                     <div class="row g-3 align-items-end">
                         <div class="col-md-5">
                             <label class="form-label">Cliente</label>

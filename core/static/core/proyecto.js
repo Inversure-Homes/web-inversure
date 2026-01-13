@@ -854,6 +854,25 @@ function buildOverlayPayloadFromDOM() {
   return payload;
 }
 
+function updateComisionInversureMetrics({ beneficioBase = 0, valorAdqBase = 0 } = {}) {
+  const pctInput = document.getElementById("inv_comision_pct");
+  const eurInput = document.getElementById("inv_comision_eur");
+  const netoInput = document.getElementById("inv_beneficio_neto");
+  const roiInput = document.getElementById("inv_roi_neto");
+
+  if (!pctInput || !eurInput || !netoInput || !roiInput) return;
+
+  const pct = parseNumberEs(_getElText(pctInput)) || 0;
+  const bruto = Number.isFinite(beneficioBase) ? beneficioBase : 0;
+  const comision = bruto > 0 ? (bruto * (pct / 100)) : 0;
+  const neto = bruto - comision;
+  const roi = valorAdqBase > 0 ? (neto / valorAdqBase) * 100 : 0;
+
+  _setElText(eurInput, formatEuro(comision));
+  _setElText(netoInput, formatEuro(neto));
+  _setElText(roiInput, formatNumberEs(roi, 2));
+}
+
 async function postJson(url, data, { keepalive = false } = {}) {
   const csrf = getCsrfToken();
   const resp = await fetch(url, {
@@ -1452,6 +1471,15 @@ function bindMemoriaEconomica() {
       capitalObjetivo: window.__captacionObjetivo,
       capitalCaptado: Number.isFinite(window.__captacionCaptado) ? window.__captacionCaptado : 0,
     });
+
+    const beneficioBase = (totalIngresosReales > 0 || totalReal > 0)
+      ? (totalIngresosReales - totalReal)
+      : (totalIngresosEstimados - totalEstimado);
+    const valorAdqBase = (valAdqReal > 0 ? valAdqReal : valAdqEstimado);
+    updateComisionInversureMetrics({
+      beneficioBase,
+      valorAdqBase,
+    });
   }
 
   function updateInvestmentAnalysis(data) {
@@ -1790,6 +1818,12 @@ function bindMemoriaEconomica() {
     el.addEventListener("input", renderTotals);
     el.addEventListener("blur", renderTotals);
   });
+
+  const comisionInput = document.getElementById("inv_comision_pct");
+  if (comisionInput) {
+    comisionInput.addEventListener("input", () => renderTotals());
+    comisionInput.addEventListener("blur", () => renderTotals());
+  }
   window.__captacionObjetivo = calcCaptacionObjectiveFromInputs();
   if (typeof window.__updateCaptacionDashboard === "function") {
     window.__updateCaptacionDashboard({
