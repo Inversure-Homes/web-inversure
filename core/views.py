@@ -969,6 +969,7 @@ def lista_estudio(request):
 
 def lista_proyectos(request):
     proyectos = Proyecto.objects.all().order_by("-id")
+    proyectos_ids = list(proyectos.values_list("id", flat=True))
 
     def _as_float(val, default=0.0):
         try:
@@ -995,6 +996,15 @@ def lista_proyectos(request):
                 return datos
         return {}
 
+    gastos_reales_map = {}
+    if proyectos_ids:
+        for row in (
+            GastoProyecto.objects.filter(proyecto_id__in=proyectos_ids, estado="confirmado")
+            .values("proyecto_id")
+            .annotate(total=Sum("importe"))
+        ):
+            gastos_reales_map[row["proyecto_id"]] = _as_float(row.get("total"), 0.0)
+
     # Enriquecer cada proyecto con métricas heredadas (sin exigir cambios en el template)
     for p in proyectos:
         snap = _get_snapshot(p)
@@ -1003,7 +1013,7 @@ def lista_proyectos(request):
         kpis = snap.get("kpis") if isinstance(snap.get("kpis"), dict) else {}
         metricas = kpis.get("metricas") if isinstance(kpis.get("metricas"), dict) else {}
 
-        # Capital objetivo (lo que realmente se invierte) – heredado del estudio
+        # Capital objetivo (lo que realmente se invierte)
         capital_objetivo = (
             inversor.get("inversion_total")
             or metricas.get("inversion_total")
@@ -1015,6 +1025,9 @@ def lista_proyectos(request):
             or 0
         )
         capital_objetivo = _as_float(capital_objetivo, 0.0)
+        gastos_reales = gastos_reales_map.get(p.id, 0.0)
+        if gastos_reales > 0:
+            capital_objetivo = gastos_reales
 
         # Capital captado: suma de participaciones reales del proyecto
         capital_captado = Participacion.objects.filter(
