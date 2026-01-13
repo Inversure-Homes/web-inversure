@@ -1303,6 +1303,91 @@ def inversor_portal(request, token: str):
     total_invertido = participaciones.filter(estado="confirmada").aggregate(total=Sum("importe_invertido")).get("total") or 0
     total_invertido = float(total_invertido or 0)
 
+    participaciones_conf = participaciones.filter(estado="confirmada")
+    proyectos_ids = list(participaciones_conf.values_list("proyecto_id", flat=True))
+
+    def _get_snapshot(p: Proyecto) -> dict:
+        snap = getattr(p, "snapshot_datos", None)
+        if isinstance(snap, dict) and snap:
+            return snap
+        osnap = getattr(p, "origen_snapshot", None)
+        if osnap is not None:
+            datos = getattr(osnap, "datos", None)
+            if isinstance(datos, dict) and datos:
+                return datos
+        oest = getattr(p, "origen_estudio", None)
+        if oest is not None:
+            datos = getattr(oest, "datos", None)
+            if isinstance(datos, dict) and datos:
+                return datos
+        return {}
+
+    totales_proyecto = {}
+    if proyectos_ids:
+        for row in (
+            Participacion.objects.filter(proyecto_id__in=proyectos_ids, estado="confirmada")
+            .values("proyecto_id")
+            .annotate(total=Sum("importe_invertido"))
+        ):
+            totales_proyecto[row["proyecto_id"]] = float(row.get("total") or 0)
+
+    beneficios_por_proyecto = []
+    total_beneficio = 0.0
+    for p in participaciones_conf:
+        proyecto = p.proyecto
+        if not proyecto:
+            continue
+        total_proj = totales_proyecto.get(proyecto.id, 0.0)
+        if total_proj <= 0:
+            continue
+        snap = _get_snapshot(proyecto)
+        resultado = _resultado_desde_memoria(proyecto, snap)
+        beneficio_bruto = float(resultado.get("beneficio_neto") or 0.0)
+
+        inv_sec = snap.get("inversor") if isinstance(snap.get("inversor"), dict) else {}
+        comision_pct = _safe_float(
+            inv_sec.get("comision_inversure_pct")
+            or inv_sec.get("inversure_comision_pct")
+            or inv_sec.get("comision_pct")
+            or snap.get("comision_inversure_pct")
+            or snap.get("inversure_comision_pct")
+            or snap.get("comision_pct")
+            or 0.0,
+            0.0,
+        )
+        if comision_pct < 0:
+            comision_pct = 0.0
+        if comision_pct > 100:
+            comision_pct = 100.0
+
+        comision_eur = beneficio_bruto * (comision_pct / 100.0) if beneficio_bruto else 0.0
+        beneficio_neto_inversor_total = beneficio_bruto - comision_eur
+        ratio_part = float(p.importe_invertido or 0) / total_proj if total_proj > 0 else 0.0
+        beneficio_inversor = beneficio_neto_inversor_total * ratio_part
+        total_beneficio += beneficio_inversor
+
+        beneficios_por_proyecto.append(
+            {
+                "proyecto": proyecto,
+                "beneficio_bruto": beneficio_bruto,
+                "comision_eur": comision_eur,
+                "beneficio_neto_total": beneficio_neto_inversor_total,
+                "beneficio_inversor": beneficio_inversor,
+                "participacion_pct": ratio_part * 100.0,
+            }
+        )
+
+    documentos_por_proyecto = []
+    if proyectos_ids:
+        docs = DocumentoProyecto.objects.filter(proyecto_id__in=proyectos_ids).exclude(categoria="fotografias")
+        docs = docs.select_related("proyecto").order_by("-creado")
+        docs_map = {}
+        for d in docs:
+            signed = _s3_presigned_url(d.archivo.name)
+            setattr(d, "signed_url", signed or "")
+            docs_map.setdefault(d.proyecto_id, {"proyecto": d.proyecto, "docs": []})["docs"].append(d)
+        documentos_por_proyecto = list(docs_map.values())
+
     ctx = {
         "perfil": perfil,
         "participaciones": participaciones,
@@ -1310,6 +1395,9 @@ def inversor_portal(request, token: str):
         "proyectos_abiertos": proyectos_abiertos,
         "solicitudes": solicitudes,
         "total_invertido": total_invertido,
+        "beneficios_por_proyecto": beneficios_por_proyecto,
+        "total_beneficio": total_beneficio,
+        "documentos_por_proyecto": documentos_por_proyecto,
     }
     return render(request, "core/inversor_portal.html", ctx)
 

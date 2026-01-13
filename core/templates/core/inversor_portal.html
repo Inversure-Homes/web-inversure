@@ -55,19 +55,19 @@
   </div>
 
   <div class="row g-3">
-    <div class="col-md-4">
+    <div class="col-md-3">
       <div class="portal-card">
         <div class="portal-label">Total invertido (confirmado)</div>
         <div class="portal-kpi">{{ total_invertido|floatformat:2|intcomma }} €</div>
       </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
       <div class="portal-card">
         <div class="portal-label">Proyectos activos</div>
         <div class="portal-kpi">{{ participaciones|length }}</div>
       </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
       <div class="portal-card">
         <div class="portal-label">Solicitudes pendientes</div>
         <div class="portal-kpi">
@@ -75,10 +75,16 @@
         </div>
       </div>
     </div>
+    <div class="col-md-3">
+      <div class="portal-card">
+        <div class="portal-label">Beneficio total estimado</div>
+        <div class="portal-kpi">{{ total_beneficio|floatformat:2|intcomma }} €</div>
+      </div>
+    </div>
   </div>
 
   <div class="row g-3 mt-1">
-    <div class="col-md-7">
+    <div class="col-lg-7">
       <div class="portal-card">
         <h5 class="mb-3">Mis participaciones</h5>
         {% if participaciones %}
@@ -107,7 +113,7 @@
       </div>
     </div>
 
-    <div class="col-md-5">
+    <div class="col-lg-5">
       <div class="portal-card">
         <h5 class="mb-3">Comunicaciones</h5>
         {% if comunicaciones %}
@@ -124,6 +130,85 @@
         {% endif %}
       </div>
     </div>
+  </div>
+
+  <div class="portal-card mt-3">
+    <h5 class="mb-3">Beneficio por operación</h5>
+    {% if beneficios_por_proyecto %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Proyecto</th>
+              <th class="text-end">Beneficio bruto</th>
+              <th class="text-end">Comisión Inversure</th>
+              <th class="text-end">Beneficio neto</th>
+              <th class="text-end">Mi beneficio</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in beneficios_por_proyecto %}
+              <tr>
+                <td>{{ b.proyecto.nombre }}</td>
+                <td class="text-end">{{ b.beneficio_bruto|floatformat:2|intcomma }} €</td>
+                <td class="text-end">{{ b.comision_eur|floatformat:2|intcomma }} €</td>
+                <td class="text-end">{{ b.beneficio_neto_total|floatformat:2|intcomma }} €</td>
+                <td class="text-end">{{ b.beneficio_inversor|floatformat:2|intcomma }} €</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-muted">No hay beneficios disponibles todavía.</div>
+    {% endif %}
+  </div>
+
+  <div class="portal-card mt-3">
+    <h5 class="mb-3">Documentación disponible</h5>
+    {% if documentos_por_proyecto %}
+      <div class="accordion" id="docsPortal">
+        {% for group in documentos_por_proyecto %}
+          <div class="accordion-item">
+            <h2 class="accordion-header" id="docHead-{{ group.proyecto.id }}">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#docBody-{{ group.proyecto.id }}">
+                {{ group.proyecto.nombre }} ({{ group.docs|length }})
+              </button>
+            </h2>
+            <div id="docBody-{{ group.proyecto.id }}" class="accordion-collapse collapse" data-bs-parent="#docsPortal">
+              <div class="accordion-body">
+                <div class="table-responsive">
+                  <table class="table table-sm align-middle">
+                    <thead>
+                      <tr>
+                        <th>Título</th>
+                        <th>Categoría</th>
+                        <th>Fecha</th>
+                        <th class="text-end">Archivo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for d in group.docs %}
+                        <tr>
+                          <td>{{ d.titulo }}</td>
+                          <td>{{ d.get_categoria_display }}</td>
+                          <td>{{ d.creado|date:"d/m/Y" }}</td>
+                          <td class="text-end">
+                            <a class="btn btn-sm btn-outline-primary" href="{{ d.signed_url|default:d.archivo.url }}" target="_blank" rel="noopener">Descargar</a>
+                          </td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-muted">No hay documentación disponible.</div>
+    {% endif %}
   </div>
 
   <div class="portal-card mt-3">
