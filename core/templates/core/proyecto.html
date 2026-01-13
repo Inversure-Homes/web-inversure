@@ -698,7 +698,7 @@
                                            name="inversor.comision_inversure_pct"
                                            data-number="true"
                                            data-decimals="2"
-                                           value="{{ inv.comision_inversure_pct|default:inv.comision_pct|default:'' }}">
+                                           value="{{ inv.comision_inversure_pct|default:inv.comision_pct|default:metricas.comision_inversure_pct|default:metricas.comision_pct|default:'' }}">
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label">Comisión Inversure (€)</label>
@@ -708,7 +708,7 @@
                                            name="inversor.comision_inversure_eur"
                                            data-euro="true"
                                            readonly
-                                           value="{{ inv.comision_inversure_eur|default:inv.comision_eur|default:'' }}">
+                                           value="{{ inv.comision_inversure_eur|default:inv.comision_eur|default:metricas.comision_inversure_eur|default:metricas.comision_eur|default:'' }}">
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label">Beneficio neto inversor (€)</label>
