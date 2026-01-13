@@ -634,6 +634,7 @@ function buildOverlayPayloadFromDOM() {
     if (!el || !name) return false;
     // En proyecto.html el selector de estado del proyecto tiene id="estado_proyecto"
     if (name === "estado" && el.id === "estado_proyecto") return true;
+    if (name === "fecha" || name === "responsable") return true;
     // Resultado del cierre: id="resultado_cierre" (solo visible si estado=cerrado)
     if (name === "resultado_cierre" && el.id === "resultado_cierre") return true;
     return false;
@@ -1393,6 +1394,8 @@ function bindMemoriaEconomica() {
       gastosReales: totalReal,
       gastosAdqEstimado,
       gastosAdqReal,
+      gastosVentaEstimado,
+      gastosVentaReal,
       ventaEstimado,
       ventaReal,
     });
@@ -1431,27 +1434,33 @@ function bindMemoriaEconomica() {
     const valorAdq = (basePrecio || 0) + (gastosAdqBase || 0);
 
     const ventaBaseMem = data.ventaReal > 0 ? data.ventaReal : data.ventaEstimado;
+    const gastosVentaBase = data.gastosVentaReal > 0 ? data.gastosVentaReal : data.gastosVentaEstimado;
     const ventaInput =
       parseEuro(_getElText(document.querySelector("[name='venta_estimada']"))) ??
       parseEuro(_getElText(document.querySelector("[name='valor_transmision']"))) ??
       parseEuro(_getElText(document.querySelector("[name='precio_venta_estimado']"))) ??
       0;
-    const valorTrans = ventaBaseMem > 0 ? ventaBaseMem : (ventaInput || 0);
+    const ventaBruta = ventaBaseMem > 0 ? ventaBaseMem : (ventaInput || 0);
+    const valorTrans = ventaBruta > 0 ? (ventaBruta - (gastosVentaBase || 0)) : 0;
 
-    const roi = valorAdq > 0 ? (beneficio / valorAdq) * 100 : 0;
-    const ratio = valorAdq > 0 ? (beneficio / valorAdq) : 0;
-    const margen = valorTrans > 0 ? (beneficio / valorTrans) * 100 : 0;
+    const beneficioBruto = valorTrans - valorAdq;
+    const roi = valorAdq > 0 ? (beneficioBruto / valorAdq) * 100 : 0;
+    const ratio = valorAdq > 0 ? (beneficioBruto / valorAdq) : 0;
+    const margen = valorTrans > 0 ? (beneficioBruto / valorTrans) * 100 : 0;
 
     const beneficioObj = 30000;
-    const minVenta = Math.max(valorAdq * 1.15, valorAdq + beneficioObj);
-    const ajusteVenta = valorTrans > 0 ? Math.max(minVenta - valorTrans, 0) : minVenta;
+    const objetivoRoi = valorAdq * 0.15;
+    const objetivoBenef = Math.max(beneficioObj, objetivoRoi);
+    const minValorTrans = valorAdq + objetivoBenef;
+    const minVenta = minValorTrans + (gastosVentaBase || 0);
+    const ajusteVenta = valorTrans > 0 ? Math.max(minValorTrans - valorTrans, 0) : minValorTrans;
 
     const costoReqRoi = valorTrans > 0 ? (valorTrans / 1.15) : 0;
     const costoReqBenef = valorTrans > 0 ? (valorTrans - beneficioObj) : 0;
     const costoReq = Math.min(costoReqRoi, costoReqBenef);
     const ajusteGastos = valorTrans > 0 ? Math.max(valorAdq - Math.max(costoReq, 0), 0) : valorAdq;
 
-    const colchon = valorTrans > 0 ? (valorTrans - valorAdq - beneficioObj) : 0;
+    const colchon = valorTrans > 0 ? (valorTrans - valorAdq - objetivoBenef) : 0;
 
     const viable = roi >= 15 && beneficio >= 30000;
     const ajustada = roi >= 15 && beneficio > 0 && beneficio < 30000;
@@ -2274,6 +2283,32 @@ function bindDocumentos() {
         window.location.reload();
       } catch (e) {
         alert("No se pudo borrar el documento.");
+      }
+    });
+  });
+
+  document.querySelectorAll(".doc-principal-btn").forEach(btnPrincipal => {
+    if (btnPrincipal.dataset.bindDocPrincipal === "1") return;
+    btnPrincipal.dataset.bindDocPrincipal = "1";
+    btnPrincipal.addEventListener("click", async () => {
+      const setUrl = btnPrincipal.getAttribute("data-url") || "";
+      if (!setUrl) return;
+      const csrf = getCsrfToken();
+      try {
+        const resp = await fetch(setUrl, {
+          method: "POST",
+          headers: {
+            ...(csrf ? { "X-CSRFToken": csrf } : {}),
+          },
+        });
+        if (!resp.ok) {
+          alert("No se pudo marcar como principal.");
+          return;
+        }
+        window.location.hash = "vista-documentacion";
+        window.location.reload();
+      } catch (e) {
+        alert("No se pudo marcar como principal.");
       }
     });
   });

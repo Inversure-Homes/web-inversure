@@ -260,6 +260,9 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
     has_real = ingresos_real > 0 or gastos_real > 0
     ingresos_base = ingresos_real if ingresos_real > 0 else ingresos_est
     venta_base = venta_real if venta_real > 0 else venta_est
+    gastos_venta_est = _sum_importes([g.importe for g in gastos if g.estado == "estimado" and g.categoria == "venta"])
+    gastos_venta_real = _sum_importes([g.importe for g in gastos if g.estado == "confirmado" and g.categoria == "venta"])
+    gastos_venta_base = gastos_venta_real if gastos_venta_real > 0 else gastos_venta_est
     gastos_base = gastos_real if gastos_real > 0 else gastos_est
     beneficio = ingresos_base - gastos_base
 
@@ -288,18 +291,22 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
         or snap_met.get("valor_transmision")
         or ""
     ) or Decimal("0")
-    valor_transmision = venta_base if venta_base > 0 else venta_snapshot
+    if venta_base > 0:
+        valor_transmision = venta_base - gastos_venta_base
+    else:
+        valor_transmision = venta_snapshot
 
     roi = float(beneficio / valor_adquisicion * 100) if valor_adquisicion > 0 else 0.0
     ratio_euro = float(beneficio / valor_adquisicion) if valor_adquisicion > 0 else 0.0
     margen_pct = float(beneficio / valor_transmision * 100) if valor_transmision > 0 else 0.0
 
     beneficio_objetivo = Decimal("30000")
-    min_venta_roi = valor_adquisicion * Decimal("1.15")
-    min_venta_benef = valor_adquisicion + beneficio_objetivo
-    min_venta = max(min_venta_roi, min_venta_benef)
+    objetivo_roi = valor_adquisicion * Decimal("0.15")
+    objetivo_beneficio = beneficio_objetivo if beneficio_objetivo > objetivo_roi else objetivo_roi
+    min_valor_transmision = valor_adquisicion + objetivo_beneficio
+    min_venta = min_valor_transmision + gastos_venta_base
 
-    ajuste_precio_venta = float(max(min_venta - valor_transmision, Decimal("0"))) if valor_transmision > 0 else float(min_venta)
+    ajuste_precio_venta = float(max(min_valor_transmision - valor_transmision, Decimal("0"))) if valor_transmision > 0 else float(min_valor_transmision)
 
     costo_requerido_roi = valor_transmision / Decimal("1.15") if valor_transmision > 0 else Decimal("0")
     costo_requerido_benef = valor_transmision - beneficio_objetivo
@@ -308,7 +315,7 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
         costo_requerido = Decimal("0")
     ajuste_gastos = float(max(valor_adquisicion - costo_requerido, Decimal("0"))) if valor_transmision > 0 else float(valor_adquisicion)
 
-    colchon_seguridad = float(valor_transmision - valor_adquisicion - beneficio_objetivo) if valor_transmision > 0 else 0.0
+    colchon_seguridad = float(valor_transmision - valor_adquisicion - objetivo_beneficio) if valor_transmision > 0 else 0.0
 
     return {
         "beneficio_neto": float(beneficio),
@@ -1523,6 +1530,15 @@ def proyecto(request, proyecto_id: int):
             categorias_map.setdefault(cat, []).append(doc)
         ctx["documentos_por_categoria"] = categorias_map
         ctx["documentos"] = documentos
+        principal = next((d for d in documentos if d.categoria == "fotografias" and d.es_principal), None)
+        if principal is None:
+            principal = next((d for d in documentos if d.categoria == "fotografias"), None)
+        if principal:
+            try:
+                ctx["foto_principal_url"] = principal.signed_url if hasattr(principal, "signed_url") and principal.signed_url else principal.archivo.url
+                ctx["foto_principal_titulo"] = principal.titulo
+            except Exception:
+                pass
     except Exception:
         ctx["documentos"] = []
 
@@ -1851,11 +1867,21 @@ def guardar_proyecto(request, proyecto_id: int):
 
     if not isinstance(payload, dict):
         payload = {}
+    if isinstance(payload.get("payload"), dict):
+        payload = payload.get("payload") or {}
 
     update_fields = []
 
+    payload_proyecto = payload.get("proyecto") if isinstance(payload.get("proyecto"), dict) else {}
+
     # Permitir que el payload incluya un nombre editable (si se quiere persistir)
-    nombre = (payload.get("nombre") or payload.get("nombre_proyecto") or "").strip()
+    nombre = (
+        payload.get("nombre")
+        or payload.get("nombre_proyecto")
+        or payload_proyecto.get("nombre")
+        or payload_proyecto.get("nombre_proyecto")
+        or ""
+    ).strip()
     if nombre:
         try:
             proyecto_obj.nombre = nombre
@@ -1865,7 +1891,7 @@ def guardar_proyecto(request, proyecto_id: int):
             pass
 
     # Estado, fecha y responsable (cabecera de proyecto)
-    estado = (payload.get("estado") or "").strip()
+    estado = (payload.get("estado") or payload_proyecto.get("estado") or "").strip()
     if estado:
         try:
             proyecto_obj.estado = estado
@@ -1873,7 +1899,7 @@ def guardar_proyecto(request, proyecto_id: int):
         except Exception:
             pass
 
-    fecha_raw = payload.get("fecha")
+    fecha_raw = payload.get("fecha") or payload_proyecto.get("fecha")
     if fecha_raw not in (None, ""):
         try:
             proyecto_obj.fecha = _parse_date(fecha_raw)
@@ -1881,7 +1907,7 @@ def guardar_proyecto(request, proyecto_id: int):
         except Exception:
             pass
 
-    responsable = (payload.get("responsable") or "").strip()
+    responsable = (payload.get("responsable") or payload_proyecto.get("responsable") or "").strip()
     if responsable:
         try:
             setattr(proyecto_obj, "responsable", responsable)
@@ -2555,6 +2581,25 @@ def proyecto_documento_borrar(request, proyecto_id: int, documento_id: int):
         proyecto_id=proyecto_id,
     )
     documento.delete()
+    return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-documentacion")
+
+
+def proyecto_documento_principal(request, proyecto_id: int, documento_id: int):
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+    documento = get_object_or_404(
+        DocumentoProyecto,
+        id=documento_id,
+        proyecto_id=proyecto_id,
+    )
+    if documento.categoria != "fotografias":
+        return JsonResponse({"ok": False, "error": "Solo válido para fotografías"}, status=400)
+    DocumentoProyecto.objects.filter(
+        proyecto_id=proyecto_id,
+        categoria="fotografias",
+    ).update(es_principal=False)
+    documento.es_principal = True
+    documento.save(update_fields=["es_principal"])
     return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-documentacion")
 
 
