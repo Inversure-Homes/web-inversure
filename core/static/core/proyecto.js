@@ -1405,7 +1405,10 @@ function bindMemoriaEconomica() {
       parseEuro(_getElText(document.querySelector("[name='porcentaje_financiacion']"))) ??
       0;
     const pctFin = Math.min(100, Math.max(0, Number(pctFinRaw) || 0));
-    const objetivoBase = valAdqReal > 0 ? valAdqReal : valAdqEstimado;
+    const valorAdqInput = parseEuro(_getElText(document.querySelector("[name='precio_compra_inmueble']")));
+    const objetivoBase = (Number.isFinite(valorAdqInput) && valorAdqInput > 0)
+      ? valorAdqInput
+      : (valAdqReal > 0 ? valAdqReal : valAdqEstimado);
     const objetivoCaptacion = objetivoBase * (1 - pctFin / 100);
     window.__captacionObjetivo = Number.isFinite(objetivoCaptacion) ? objetivoCaptacion : 0;
     updateCaptacionDashboard({
