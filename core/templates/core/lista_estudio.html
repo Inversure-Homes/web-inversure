@@ -195,7 +195,8 @@
 
     if (!confirm('¿Seguro que quieres borrar este estudio?')) return;
 
-    fetch(`/estudios/borrar/${estudioId}/`, {
+    const base = window.APP_BASE || "/";
+    fetch(`${base}estudios/borrar/${estudioId}/`, {
       method: 'POST',
       headers: {
         'X-CSRFToken': csrftoken,
