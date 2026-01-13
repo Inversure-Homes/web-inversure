@@ -38,6 +38,7 @@ urlpatterns = [
     path("proyectos/<int:proyecto_id>/ingresos/<int:ingreso_id>/", views.proyecto_ingreso_detalle, name="proyecto_ingreso_detalle"),
     path("proyectos/<int:proyecto_id>/documentos/", views.proyecto_documentos, name="proyecto_documentos"),
     path("proyectos/<int:proyecto_id>/documentos/<int:documento_id>/borrar/", views.proyecto_documento_borrar, name="proyecto_documento_borrar"),
+    path("proyectos/<int:proyecto_id>/documentos/<int:documento_id>/principal/", views.proyecto_documento_principal, name="proyecto_documento_principal"),
     path("proyectos/<int:proyecto_id>/checklist/", views.proyecto_checklist, name="proyecto_checklist"),
     path("proyectos/<int:proyecto_id>/checklist/<int:item_id>/", views.proyecto_checklist_detalle, name="proyecto_checklist_detalle"),
     path("proyectos/<int:proyecto_id>/participaciones/", views.proyecto_participaciones, name="proyecto_participaciones"),

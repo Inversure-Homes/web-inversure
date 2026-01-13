@@ -1087,6 +1087,7 @@ class DocumentoProyecto(models.Model):
     categoria = models.CharField(max_length=20, choices=CATEGORIAS, default="otros")
     titulo = models.CharField(max_length=255)
     archivo = models.FileField(upload_to="proyectos/documentos/%Y/%m/")
+    es_principal = models.BooleanField(default=False)
     creado = models.DateTimeField(auto_now_add=True)
 
     class Meta:
