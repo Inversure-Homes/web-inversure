@@ -874,11 +874,26 @@ function updateComisionInversureMetrics({ beneficioBase = 0, valorAdqBase = 0 } 
 
   if (!pctInput || !eurInput || !netoInput || !roiInput) return;
 
+  const estadoEl = document.getElementById("estado_proyecto");
+  const estado = estadoEl ? String(_getElText(estadoEl)).toLowerCase() : "";
+  const usarEstimados = ["estudio", "captacion"].includes(estado);
+  const valAdqEst = parseEuro(_getElText(document.getElementById("valor_adq_estimado")));
+  const valAdqReal = parseEuro(_getElText(document.getElementById("valor_adq_real")));
+  const valTransEst = parseEuro(_getElText(document.getElementById("valor_trans_estimado")));
+  const valTransReal = parseEuro(_getElText(document.getElementById("valor_trans_real")));
+  let beneficioFallback = 0;
+  const adqFallback = usarEstimados ? valAdqEst : valAdqReal;
+  const transFallback = usarEstimados ? valTransEst : valTransReal;
+  if (Number.isFinite(adqFallback) && Number.isFinite(transFallback)) {
+    beneficioFallback = transFallback - adqFallback;
+  }
+
   const pct = parseNumberEs(_getElText(pctInput)) || 0;
-  const bruto = Number.isFinite(beneficioBase) ? beneficioBase : 0;
+  const bruto = Number.isFinite(beneficioBase) && beneficioBase !== 0 ? beneficioBase : beneficioFallback;
   const comision = bruto > 0 ? (bruto * (pct / 100)) : 0;
   const neto = bruto - comision;
-  const roi = valorAdqBase > 0 ? (neto / valorAdqBase) * 100 : 0;
+  const valorAdqCalc = Number.isFinite(valorAdqBase) && valorAdqBase > 0 ? valorAdqBase : (Number.isFinite(adqFallback) ? adqFallback : 0);
+  const roi = valorAdqCalc > 0 ? (neto / valorAdqCalc) * 100 : 0;
 
   _setElText(eurInput, formatEuro(comision));
   _setElText(netoInput, formatEuro(neto));
