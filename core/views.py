@@ -1240,6 +1240,7 @@ def proyecto(request, proyecto_id: int):
         "valor_referencia",
         "meses",
         "financiacion_pct",
+        "responsable",
     ]
     for _f in _tpl_expected_fields:
         if not hasattr(proyecto_obj, _f):
@@ -1307,6 +1308,11 @@ def proyecto(request, proyecto_id: int):
         merged_snapshot = deepcopy(snapshot) if isinstance(snapshot, dict) else {}
         merged_snapshot = _deep_merge_dict(merged_snapshot, overlay)
         snapshot = merged_snapshot
+        try:
+            if not getattr(proyecto_obj, "responsable", "") and overlay.get("responsable"):
+                setattr(proyecto_obj, "responsable", overlay.get("responsable"))
+        except Exception:
+            pass
     # --- Forzar nombre persistido del PROYECTO en el snapshot renderizado ---
     # Evita que al recargar se muestre el nombre heredado del estudio.
     try:
@@ -1846,14 +1852,48 @@ def guardar_proyecto(request, proyecto_id: int):
     if not isinstance(payload, dict):
         payload = {}
 
+    update_fields = []
+
     # Permitir que el payload incluya un nombre editable (si se quiere persistir)
     nombre = (payload.get("nombre") or payload.get("nombre_proyecto") or "").strip()
     if nombre:
         try:
             proyecto_obj.nombre = nombre
-            proyecto_obj.save(update_fields=["nombre"])
+            update_fields.append("nombre")
         except Exception:
             # si el campo no existe en el modelo, ignoramos
+            pass
+
+    # Estado, fecha y responsable (cabecera de proyecto)
+    estado = (payload.get("estado") or "").strip()
+    if estado:
+        try:
+            proyecto_obj.estado = estado
+            update_fields.append("estado")
+        except Exception:
+            pass
+
+    fecha_raw = payload.get("fecha")
+    if fecha_raw not in (None, ""):
+        try:
+            proyecto_obj.fecha = _parse_date(fecha_raw)
+            update_fields.append("fecha")
+        except Exception:
+            pass
+
+    responsable = (payload.get("responsable") or "").strip()
+    if responsable:
+        try:
+            setattr(proyecto_obj, "responsable", responsable)
+            update_fields.append("responsable")
+        except Exception:
+            # si el campo no existe en el modelo, lo guardamos en extra
+            pass
+
+    if update_fields:
+        try:
+            proyecto_obj.save(update_fields=list(set(update_fields)))
+        except Exception:
             pass
 
     # Guardar overlay en `extra`
@@ -1866,6 +1906,12 @@ def guardar_proyecto(request, proyecto_id: int):
             "ts": timezone.now().isoformat(),
             "payload": _sanitize_for_json(payload),
         }
+        if responsable:
+            extra["responsable"] = responsable
+        if estado:
+            extra["estado"] = estado
+        if fecha_raw not in (None, ""):
+            extra["fecha"] = fecha_raw
 
         # Guardar también dentro de snapshot_datos como fallback si existe
         try:
