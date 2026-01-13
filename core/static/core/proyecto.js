@@ -1334,6 +1334,8 @@ function bindMemoriaEconomica() {
     return formatEuro(n);
   }
 
+  const normLower = (val) => (val || "").toString().trim().toLowerCase();
+
   function renderTotals() {
     let totalEstimado = 0;
     let totalReal = 0;
@@ -1358,7 +1360,6 @@ function bindMemoriaEconomica() {
       "otros",
     ]);
 
-    const normLower = (val) => (val || "").toString().trim().toLowerCase();
     const isCompraRow = (row) => {
       if (row.tipo !== "gasto") return false;
       if (normLower(row.categoria) !== "adquisicion") return false;
