@@ -889,6 +889,21 @@ function updateComisionInversureMetrics({ beneficioBase = 0, valorAdqBase = 0 } 
   if (dashRoi) dashRoi.textContent = formatNumberEs(roi, 2) + " %";
 }
 
+function bindComisionInversureInputs() {
+  const pctInput = document.getElementById("inv_comision_pct");
+  if (!pctInput) return;
+  const recalc = () => {
+    const base = window.__dashEconomico || {};
+    updateComisionInversureMetrics({
+      beneficioBase: Number.isFinite(base.beneficioBase) ? base.beneficioBase : 0,
+      valorAdqBase: Number.isFinite(base.valorAdqBase) ? base.valorAdqBase : 0,
+    });
+  };
+  pctInput.addEventListener("input", recalc);
+  pctInput.addEventListener("blur", recalc);
+  recalc();
+}
+
 async function postJson(url, data, { keepalive = false } = {}) {
   const csrf = getCsrfToken();
   const resp = await fetch(url, {
@@ -1549,6 +1564,7 @@ function bindMemoriaEconomica() {
     const valorAdqBase = usarEstimados
       ? (dashGastosEstimados || 0)
       : (valAdqReal > 0 ? valAdqReal : valAdqEstimado);
+    window.__dashEconomico = { beneficioBase, valorAdqBase };
     updateComisionInversureMetrics({
       beneficioBase,
       valorAdqBase,
@@ -2635,5 +2651,6 @@ document.addEventListener("DOMContentLoaded", () => {
   bindParticipaciones();
   bindSolicitudes();
   bindComunicaciones();
+  bindComisionInversureInputs();
   bindDocumentos();
 });
