@@ -1463,6 +1463,37 @@ function bindMemoriaEconomica() {
     dash.roiEstimado = baseEst > 0 ? (dash.beneficioEstimado / baseEst) * 100 : null;
     dash.roiReal = usarEstimados ? null : (baseReal > 0 ? (dash.beneficioReal / baseReal) * 100 : null);
 
+    const beneficioRealRaw = totalIngresosReales - totalReal;
+    const roiRealRaw = baseReal > 0 ? (beneficioRealRaw / baseReal) * 100 : null;
+
+    const labelIngresos = document.getElementById("dash_label_ingresos");
+    const labelGastos = document.getElementById("dash_label_gastos");
+    const labelBeneficio = document.getElementById("dash_label_beneficio");
+    const labelRoi = document.getElementById("dash_label_roi");
+    const subIngresosLabel = document.getElementById("dash_sub_ingresos_label");
+    const subGastosLabel = document.getElementById("dash_sub_gastos_label");
+    const subBeneficioLabel = document.getElementById("dash_sub_beneficio_label");
+    const subRoiLabel = document.getElementById("dash_sub_roi_label");
+    if (labelIngresos) labelIngresos.textContent = usarEstimados ? "Ingresos estimados" : "Ingresos reales";
+    if (labelGastos) labelGastos.textContent = usarEstimados ? "Gastos estimados" : "Gastos reales";
+    if (labelBeneficio) labelBeneficio.textContent = usarEstimados ? "Beneficio neto estimado" : "Beneficio neto real";
+    if (labelRoi) labelRoi.textContent = usarEstimados ? "ROI estimado" : "ROI real";
+    if (subIngresosLabel) subIngresosLabel.textContent = usarEstimados ? "Real:" : "Estimado:";
+    if (subGastosLabel) subGastosLabel.textContent = usarEstimados ? "Real:" : "Estimado:";
+    if (subBeneficioLabel) subBeneficioLabel.textContent = usarEstimados ? "Real:" : "Estimado:";
+    if (subRoiLabel) subRoiLabel.textContent = usarEstimados ? "Real:" : "Estimado:";
+
+    const display = {
+      ingresosMain: usarEstimados ? dash.ingresosEstimados : dash.ingresosReales,
+      ingresosSub: usarEstimados ? totalIngresosReales : totalIngresosEstimados,
+      gastosMain: usarEstimados ? dash.gastosEstimados : dash.gastosReales,
+      gastosSub: usarEstimados ? totalReal : totalEstimado,
+      beneficioMain: usarEstimados ? dash.beneficioEstimado : dash.beneficioReal,
+      beneficioSub: usarEstimados ? beneficioRealRaw : dash.beneficioEstimado,
+      roiMain: usarEstimados ? dash.roiEstimado : dash.roiReal,
+      roiSub: usarEstimados ? roiRealRaw : dash.roiEstimado,
+    };
+
     const setDash = (id, value, isPct = false) => {
       const el = document.getElementById(id);
       if (!el) return;
@@ -1473,14 +1504,14 @@ function bindMemoriaEconomica() {
       el.textContent = isPct ? (formatNumberEs(value, 2) + " %") : fmtEuroLocal(value);
     };
 
-    setDash("dash_ingresos_estimados", dash.ingresosEstimados);
-    setDash("dash_ingresos_reales", dash.ingresosReales);
-    setDash("dash_gastos_estimados", dash.gastosEstimados);
-    setDash("dash_gastos_reales", dash.gastosReales);
-    setDash("dash_beneficio_estimado", dash.beneficioEstimado);
-    setDash("dash_beneficio_real", dash.beneficioReal);
-    setDash("dash_roi_estimado", dash.roiEstimado, true);
-    setDash("dash_roi_real", dash.roiReal, true);
+    setDash("dash_ingresos_reales", display.ingresosMain);
+    setDash("dash_ingresos_estimados", display.ingresosSub);
+    setDash("dash_gastos_reales", display.gastosMain);
+    setDash("dash_gastos_estimados", display.gastosSub);
+    setDash("dash_beneficio_real", display.beneficioMain);
+    setDash("dash_beneficio_estimado", display.beneficioSub);
+    setDash("dash_roi_real", display.roiMain, true);
+    setDash("dash_roi_estimado", display.roiSub, true);
 
     updateDashboardVisuals({
       ingresosReales: dash.ingresosReales,
