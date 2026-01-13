@@ -2930,7 +2930,7 @@ def proyecto_participaciones(request, proyecto_id: int):
             cliente=cliente,
             importe_invertido=importe,
             porcentaje_participacion=porcentaje,
-            estado="pendiente",
+            estado="confirmada",
         )
         return JsonResponse({"ok": True})
     except Exception as e:
