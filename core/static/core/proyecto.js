@@ -2221,14 +2221,14 @@ function bindDocumentos() {
   if (!url) return;
 
   btn.addEventListener("click", async () => {
-    const file = elArchivo.files && elArchivo.files[0];
-    if (!file) {
+    const files = elArchivo.files ? Array.from(elArchivo.files) : [];
+    if (!files.length) {
       if (status) status.textContent = "Selecciona un archivo para subir.";
       return;
     }
     if (status) status.textContent = "Subiendo documento...";
     const fd = new FormData();
-    fd.append("archivo", file);
+    files.forEach(file => fd.append("archivo", file));
     fd.append("titulo", (elTitulo && elTitulo.value || "").trim());
     fd.append("categoria", (elCategoria && elCategoria.value || "otros").trim());
     const csrf = getCsrfToken();

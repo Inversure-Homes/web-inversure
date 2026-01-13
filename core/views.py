@@ -2471,26 +2471,30 @@ def proyecto_documentos(request, proyecto_id: int):
     if request.method != "POST":
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
-    archivo = request.FILES.get("archivo")
-    if not archivo:
+    archivos = request.FILES.getlist("archivo")
+    if not archivos:
         return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-documentacion")
 
     titulo = (request.POST.get("titulo") or "").strip()
-    if not titulo:
-        titulo = os.path.splitext(archivo.name or "")[0] or "Documento"
 
     categoria = (request.POST.get("categoria") or "otros").strip()
     categorias_validas = {c[0] for c in DocumentoProyecto.CATEGORIAS}
     if categoria not in categorias_validas:
         categoria = "otros"
 
-    DocumentoProyecto.objects.create(
-        proyecto=proyecto,
-        tipo=categoria,
-        categoria=categoria,
-        titulo=titulo,
-        archivo=archivo,
-    )
+    for idx, archivo in enumerate(archivos, start=1):
+        nombre_base = os.path.splitext(archivo.name or "")[0] or "Documento"
+        if titulo:
+            doc_titulo = f"{titulo} ({idx})" if len(archivos) > 1 else titulo
+        else:
+            doc_titulo = nombre_base
+        DocumentoProyecto.objects.create(
+            proyecto=proyecto,
+            tipo=categoria,
+            categoria=categoria,
+            titulo=doc_titulo,
+            archivo=archivo,
+        )
 
     return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-documentacion")
 
