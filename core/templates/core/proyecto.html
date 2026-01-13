@@ -987,18 +987,18 @@
                         <div class="col-md-6">
                             <div class="dash-kpi">
                                 <div class="label">Captación de inversión</div>
-                                <div class="value">{{ captacion.capital_captado_fmt }}</div>
-                                <div class="dash-sub">Objetivo: {{ captacion.capital_objetivo_fmt }}</div>
-                                <div class="dash-bar good mt-2"><span style="width: {{ captacion.pct_captado|floatformat:0 }}%;"></span></div>
-                                <div class="dash-sub mt-2">Captado: {{ captacion.pct_captado_fmt }}</div>
+                                <div class="value" id="dash_captado_val">{{ captacion.capital_captado_fmt }}</div>
+                                <div class="dash-sub">Objetivo: <span id="dash_captado_obj">{{ captacion.capital_objetivo_fmt }}</span></div>
+                                <div class="dash-bar good mt-2"><span id="dash_captado_bar" style="width: {{ captacion.pct_captado|floatformat:0 }}%;"></span></div>
+                                <div class="dash-sub mt-2">Captado: <span id="dash_captado_pct">{{ captacion.pct_captado_fmt }}</span></div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="dash-kpi">
                                 <div class="label">Pendiente de captar</div>
-                                <div class="value">{{ captacion.restante_fmt }}</div>
-                                <div class="dash-sub">Falta: {{ captacion.pct_restante_fmt }}</div>
-                                <div class="dash-bar warn mt-2"><span style="width: {{ captacion.pct_restante|floatformat:0 }}%;"></span></div>
+                                <div class="value" id="dash_restante_val">{{ captacion.restante_fmt }}</div>
+                                <div class="dash-sub">Falta: <span id="dash_restante_pct">{{ captacion.pct_restante_fmt }}</span></div>
+                                <div class="dash-bar warn mt-2"><span id="dash_restante_bar" style="width: {{ captacion.pct_restante|floatformat:0 }}%;"></span></div>
                             </div>
                         </div>
                     </div>

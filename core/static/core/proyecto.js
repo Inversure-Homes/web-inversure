@@ -1399,6 +1399,13 @@ function bindMemoriaEconomica() {
       ventaEstimado,
       ventaReal,
     });
+
+    const objetivoCaptacion = valAdqReal > 0 ? valAdqReal : valAdqEstimado;
+    window.__captacionObjetivo = Number.isFinite(objetivoCaptacion) ? objetivoCaptacion : 0;
+    updateCaptacionDashboard({
+      capitalObjetivo: window.__captacionObjetivo,
+      capitalCaptado: Number.isFinite(window.__captacionCaptado) ? window.__captacionCaptado : 0,
+    });
   }
 
   function updateInvestmentAnalysis(data) {
@@ -1600,6 +1607,37 @@ function bindMemoriaEconomica() {
     }).join("");
   }
 
+  function updateCaptacionDashboard(data) {
+    const captadoEl = document.getElementById("dash_captado_val");
+    const objetivoEl = document.getElementById("dash_captado_obj");
+    const captadoPctEl = document.getElementById("dash_captado_pct");
+    const captadoBar = document.getElementById("dash_captado_bar");
+    const restanteEl = document.getElementById("dash_restante_val");
+    const restantePctEl = document.getElementById("dash_restante_pct");
+    const restanteBar = document.getElementById("dash_restante_bar");
+
+    if (!captadoEl || !objetivoEl || !captadoPctEl || !captadoBar || !restanteEl || !restantePctEl || !restanteBar) {
+      return;
+    }
+
+    const capitalObjetivo = Number.isFinite(data.capitalObjetivo) ? data.capitalObjetivo : 0;
+    const capitalCaptado = Number.isFinite(data.capitalCaptado) ? data.capitalCaptado : 0;
+    const pctCaptado = capitalObjetivo > 0 ? Math.min(100, Math.max(0, (capitalCaptado / capitalObjetivo) * 100)) : 0;
+    const restante = Math.max(capitalObjetivo - capitalCaptado, 0);
+    const pctRestante = Math.max(0, 100 - pctCaptado);
+
+    captadoEl.textContent = formatEuro(capitalCaptado);
+    objetivoEl.textContent = formatEuro(capitalObjetivo);
+    captadoPctEl.textContent = formatNumberEs(pctCaptado, 0) + " %";
+    captadoBar.style.width = `${Math.round(pctCaptado)}%`;
+
+    restanteEl.textContent = formatEuro(restante);
+    restantePctEl.textContent = formatNumberEs(pctRestante, 0) + " %";
+    restanteBar.style.width = `${Math.round(pctRestante)}%`;
+  }
+
+  window.__updateCaptacionDashboard = updateCaptacionDashboard;
+
   function renderTable() {
     if (!tabla) return;
     if (!rows.length) {
@@ -1689,6 +1727,21 @@ function bindMemoriaEconomica() {
     } catch (e) {}
     renderTable();
   }
+
+  const dashRecalcInputs = [
+    "[name='precio_propiedad']",
+    "[name='precio_escritura']",
+    "[name='precio_compra_inmueble']",
+    "[name='venta_estimada']",
+    "[name='valor_transmision']",
+    "[name='precio_venta_estimado']",
+  ];
+  dashRecalcInputs.forEach((sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return;
+    el.addEventListener("input", renderTotals);
+    el.addEventListener("blur", renderTotals);
+  });
 
   function clearForm() {
     if (elFecha) elFecha.value = "";
@@ -2013,7 +2066,27 @@ function bindParticipaciones() {
       const rows = data.participaciones || [];
       if (!rows.length) {
         tabla.innerHTML = "<tr><td colspan=\"7\" class=\"text-muted\">No hay participaciones todavía.</td></tr>";
+        window.__captacionCaptado = 0;
+        if (typeof window.__updateCaptacionDashboard === "function") {
+          window.__updateCaptacionDashboard({
+            capitalObjetivo: Number.isFinite(window.__captacionObjetivo) ? window.__captacionObjetivo : 0,
+            capitalCaptado: 0,
+          });
+        }
         return;
+      }
+      const captado = rows.reduce((acc, r) => {
+        if (r.estado === "confirmada") {
+          return acc + (Number(r.importe_invertido) || 0);
+        }
+        return acc;
+      }, 0);
+      window.__captacionCaptado = captado;
+      if (typeof window.__updateCaptacionDashboard === "function") {
+        window.__updateCaptacionDashboard({
+          capitalObjetivo: Number.isFinite(window.__captacionObjetivo) ? window.__captacionObjetivo : 0,
+          capitalCaptado: captado,
+        });
       }
       tabla.innerHTML = rows.map(r => {
         const pct = r.porcentaje_participacion !== null ? (formatNumberEs(r.porcentaje_participacion, 2) + " %") : "—";
