@@ -332,10 +332,14 @@
                 </div>
 
                 <div class="col-md-6 mb-3">
-                    <label class="form-label">Valor de transmisión</label>
+                    <label class="form-label">
+                        Valor de transmisión
+                        <span class="ms-1 text-muted" title="Calculado desde la memoria económica">ℹ️</span>
+                    </label>
                     <input type="text" name="precio_venta_estimado"
                            class="form-control form-control-lg"
                            data-euro="true"
+                           readonly
                            value="{{ eco.valor_transmision|default:met.valor_transmision|default:met.precio_transmision|default:proyecto.precio_venta_estimado|default:'' }}" {% if not editable %}disabled{% endif %}>
                     <div class="form-text">
                       Estimado: <span id="valor_trans_estimado">—</span> · Real: <span id="valor_trans_real">—</span>

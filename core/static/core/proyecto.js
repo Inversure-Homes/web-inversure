@@ -1326,9 +1326,10 @@ function bindMemoriaEconomica() {
       "otros",
     ]);
 
+    const normLower = (val) => (val || "").toString().trim().toLowerCase();
     const isCompraRow = (row) => {
       if (row.tipo !== "gasto") return false;
-      if ((row.categoria || "").toLowerCase() !== "adquisicion") return false;
+      if (normLower(row.categoria) !== "adquisicion") return false;
       const concepto = (row.concepto || "").toLowerCase();
       const normalized = concepto.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       return (
@@ -1342,6 +1343,7 @@ function bindMemoriaEconomica() {
 
     rows.forEach(r => {
       const isCompra = isCompraRow(r);
+      const categoria = normLower(r.categoria);
       if (r.tipo === "gasto") {
         if (r.estado === "estimado") totalEstimado += r.importe;
         if (r.estado === "confirmado") totalReal += r.importe;
@@ -1350,18 +1352,18 @@ function bindMemoriaEconomica() {
           if (r.estado === "confirmado") compraReal += r.importe;
           return;
         }
-        if (catsAdq.has(r.categoria)) {
+        if (catsAdq.has(categoria)) {
           if (r.estado === "estimado") gastosAdqEstimado += r.importe;
           if (r.estado === "confirmado") gastosAdqReal += r.importe;
         }
-        if (r.categoria === "venta") {
+        if (categoria === "venta") {
           if (r.estado === "estimado") gastosVentaEstimado += r.importe;
           if (r.estado === "confirmado") gastosVentaReal += r.importe;
         }
       } else if (r.tipo === "ingreso") {
         if (r.estado === "confirmado") totalIngresosReales += r.importe;
         else totalIngresosEstimados += r.importe;
-        const ingresoTipo = r.categoria || r.tipo_ingreso || "";
+        const ingresoTipo = normLower(r.categoria || r.tipo_ingreso || "");
         if (ingresoTipo === "venta") {
           if (r.estado === "confirmado") ventaReal += r.importe;
           else ventaEstimado += r.importe;
@@ -1669,7 +1671,7 @@ function bindMemoriaEconomica() {
     const totals = {};
     data.rows.forEach(r => {
       if (r.tipo !== "gasto") return;
-      const key = r.categoria || "otros";
+      const key = normLower(r.categoria) || "otros";
       if (!totals[key]) totals[key] = { real: 0, estimado: 0 };
       if (r.estado === "confirmado") totals[key].real += r.importe;
       else totals[key].estimado += r.importe;
