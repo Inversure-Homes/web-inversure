@@ -1482,12 +1482,13 @@ function bindMemoriaEconomica() {
       const chosen = gastosAdqReal > 0 ? valAdqReal : valAdqEstimado;
       _setElText(valAdqInput, formatEuro(chosen));
     }
+    const usarTransReal = (totalIngresosReales > 0) || (gastosVentaReal > 0);
     if (valTransInput) {
-      const chosen = gastosVentaReal > 0 ? valTransReal : valTransEstimado;
+      const chosen = usarTransReal ? valTransReal : valTransEstimado;
       _setElText(valTransInput, formatEuro(chosen));
     }
     if (valTransInputAlt) {
-      const chosen = gastosVentaReal > 0 ? valTransReal : valTransEstimado;
+      const chosen = usarTransReal ? valTransReal : valTransEstimado;
       _setElText(valTransInputAlt, formatEuro(chosen));
     }
 
