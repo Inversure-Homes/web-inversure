@@ -968,7 +968,8 @@ def lista_estudio(request):
 
 
 def lista_proyectos(request):
-    proyectos = Proyecto.objects.all().order_by("-id")
+    estados_cerrados = {"cerrado", "descartado"}
+    proyectos = Proyecto.objects.exclude(estado__in=estados_cerrados).order_by("-id")
     proyectos_ids = list(proyectos.values_list("id", flat=True))
 
     def _as_float(val, default=0.0):
@@ -1055,7 +1056,106 @@ def lista_proyectos(request):
     return render(
         request,
         "core/lista_proyectos.html",
-        {"proyectos": proyectos},
+        {
+            "proyectos": proyectos,
+            "titulo": "Proyectos",
+            "subtitulo": "Operaciones activas en fase de ejecución y seguimiento",
+            "cerrados_url": reverse("core:lista_proyectos_cerrados"),
+            "cerrados_label": "Ver proyectos cerrados",
+        },
+    )
+
+
+def lista_proyectos_cerrados(request):
+    estados_cerrados = {"cerrado", "descartado"}
+    proyectos = Proyecto.objects.filter(estado__in=estados_cerrados).order_by("-id")
+    proyectos_ids = list(proyectos.values_list("id", flat=True))
+
+    def _as_float(val, default=0.0):
+        try:
+            if val is None or val == "":
+                return float(default)
+            return float(val)
+        except Exception:
+            return float(default)
+
+    def _get_snapshot(p: Proyecto) -> dict:
+        snap = getattr(p, "snapshot_datos", None)
+        if isinstance(snap, dict) and snap:
+            return snap
+        osnap = getattr(p, "origen_snapshot", None)
+        if osnap is not None:
+            datos = getattr(osnap, "datos", None)
+            if isinstance(datos, dict) and datos:
+                return datos
+        oest = getattr(p, "origen_estudio", None)
+        if oest is not None:
+            datos = getattr(oest, "datos", None)
+            if isinstance(datos, dict) and datos:
+                return datos
+        return {}
+
+    gastos_reales_map = {}
+    if proyectos_ids:
+        for row in (
+            GastoProyecto.objects.filter(proyecto_id__in=proyectos_ids, estado="confirmado")
+            .values("proyecto_id")
+            .annotate(total=Sum("importe"))
+        ):
+            gastos_reales_map[row["proyecto_id"]] = _as_float(row.get("total"), 0.0)
+
+    for p in proyectos:
+        snap = _get_snapshot(p)
+        economico = snap.get("economico") if isinstance(snap.get("economico"), dict) else {}
+        inversor = snap.get("inversor") if isinstance(snap.get("inversor"), dict) else {}
+        kpis = snap.get("kpis") if isinstance(snap.get("kpis"), dict) else {}
+        metricas = kpis.get("metricas") if isinstance(kpis.get("metricas"), dict) else {}
+
+        capital_objetivo = (
+            inversor.get("inversion_total")
+            or metricas.get("inversion_total")
+            or metricas.get("valor_adquisicion_total")
+            or metricas.get("valor_adquisicion")
+            or economico.get("valor_adquisicion")
+            or metricas.get("precio_adquisicion")
+            or metricas.get("precio_compra")
+            or 0
+        )
+        capital_objetivo = _as_float(capital_objetivo, 0.0)
+        gastos_reales = gastos_reales_map.get(p.id, 0.0)
+        if gastos_reales > 0:
+            capital_objetivo = gastos_reales
+
+        capital_captado = Participacion.objects.filter(
+            proyecto=p, estado="confirmada"
+        ).aggregate(total=Sum("importe_invertido")).get("total") or 0
+        capital_captado = _as_float(capital_captado, 0.0)
+
+        roi = (
+            inversor.get("roi_neto")
+            or metricas.get("roi_neto")
+            or metricas.get("roi")
+            or economico.get("roi_estimado")
+            or economico.get("roi")
+            or 0
+        )
+        roi = _as_float(roi, 0.0)
+
+        p.capital_objetivo = capital_objetivo
+        p.capital_captado = capital_captado
+        p.roi = roi
+        p._snapshot = snap
+
+    return render(
+        request,
+        "core/lista_proyectos.html",
+        {
+            "proyectos": proyectos,
+            "titulo": "Proyectos cerrados",
+            "subtitulo": "Operaciones finalizadas o descartadas",
+            "cerrados_url": reverse("core:lista_proyectos"),
+            "cerrados_label": "Ver proyectos activos",
+        },
     )
 
 
@@ -2361,9 +2461,12 @@ def guardar_proyecto(request, proyecto_id: int):
             pass
 
     # Estado, fecha y responsable (cabecera de proyecto)
+    estado_prev = (getattr(proyecto_obj, "estado", "") or "").strip().lower()
     estado = (payload.get("estado") or payload_proyecto.get("estado") or "").strip()
+    estado_changed = False
     if estado:
         try:
+            estado_changed = estado_prev != estado.lower()
             proyecto_obj.estado = estado
             update_fields.append("estado")
         except Exception:
@@ -2435,6 +2538,28 @@ def guardar_proyecto(request, proyecto_id: int):
                 proyecto_obj.snapshot_datos = sd
                 proyecto_obj.save(update_fields=["snapshot_datos"])
 
+        if estado_changed:
+            try:
+                estado_label = {
+                    "captacion": "Captación",
+                    "comprado": "Comprado",
+                    "comercializacion": "Comercialización",
+                    "reservado": "Reservado",
+                    "vendido": "Vendido",
+                    "cerrado": "Cerrado",
+                    "descartado": "Descartado",
+                }.get(estado.lower(), estado)
+                clientes = Cliente.objects.filter(participaciones__proyecto=proyecto_obj).distinct()
+                for cliente in clientes:
+                    perfil, _ = InversorPerfil.objects.get_or_create(cliente=cliente)
+                    ComunicacionInversor.objects.create(
+                        inversor=perfil,
+                        proyecto=proyecto_obj,
+                        titulo="Actualización del estado del proyecto",
+                        mensaje=f"El proyecto {proyecto_obj.nombre} ha cambiado a estado: {estado_label}.",
+                    )
+            except Exception:
+                pass
         return JsonResponse({"ok": True})
 
     except Exception as e:

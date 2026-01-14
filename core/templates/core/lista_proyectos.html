@@ -12,11 +12,18 @@
         <div class="inversure-section-icon mb-2">
           <i class="bi bi-folder2-open"></i>
         </div>
-        <h1 class="inversure-section-title">Proyectos</h1>
+        <h1 class="inversure-section-title">{{ titulo|default:"Proyectos" }}</h1>
         <div class="inversure-divider mx-auto"></div>
         <p class="inversure-section-subtitle mx-auto">
-          Operaciones activas en fase de ejecución y seguimiento
+          {{ subtitulo|default:"Operaciones activas en fase de ejecución y seguimiento" }}
         </p>
+        {% if cerrados_url %}
+          <div class="mt-3">
+            <a href="{{ cerrados_url }}" class="btn btn-outline-secondary btn-sm">
+              {{ cerrados_label|default:"Ver proyectos cerrados" }}
+            </a>
+          </div>
+        {% endif %}
       </section>
 
       <!-- PROYECTOS GUARDADOS -->
@@ -48,16 +55,22 @@
 
                   <!-- ESTADO -->
                   <div class="mb-3">
-                    {% if p.estado == "activo" %}
-                      <span class="badge bg-success">Activo</span>
-                    {% elif p.estado == "captacion" %}
+                    {% if p.estado == "captacion" %}
                       <span class="badge bg-warning text-dark">Captación</span>
+                    {% elif p.estado == "comprado" %}
+                      <span class="badge bg-info text-dark">Comprado</span>
+                    {% elif p.estado == "comercializacion" %}
+                      <span class="badge bg-primary">Comercialización</span>
+                    {% elif p.estado == "reservado" %}
+                      <span class="badge bg-secondary">Reservado</span>
+                    {% elif p.estado == "vendido" %}
+                      <span class="badge bg-success">Vendido</span>
                     {% elif p.estado == "cerrado" %}
-                      <span class="badge bg-secondary">Cerrado</span>
-                    {% elif p.estado == "cancelado" %}
-                      <span class="badge bg-danger">Cancelado</span>
+                      <span class="badge bg-dark">Cerrado</span>
+                    {% elif p.estado == "descartado" %}
+                      <span class="badge bg-danger">Descartado</span>
                     {% else %}
-                      <span class="badge bg-primary">Estudio</span>
+                      <span class="badge bg-primary">Captación</span>
                     {% endif %}
                   </div>
 

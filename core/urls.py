@@ -25,6 +25,7 @@ urlpatterns = [
 
     # Proyectos
     path("proyectos/", views.lista_proyectos, name="lista_proyectos"),
+    path("proyectos/cerrados/", views.lista_proyectos_cerrados, name="lista_proyectos_cerrados"),
     # Detalle de proyecto (si existe en views)
     path("proyectos/<int:proyecto_id>/", views.proyecto, name="proyecto"),
 
