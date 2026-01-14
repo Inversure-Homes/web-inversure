@@ -1321,19 +1321,37 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
 
     def _get_snapshot(p: Proyecto) -> dict:
         snap = getattr(p, "snapshot_datos", None)
-        if isinstance(snap, dict) and snap:
-            return snap
+        if not isinstance(snap, dict):
+            snap = {}
+        if snap:
+            base = dict(snap)
+        else:
+            base = {}
+
+        extra = getattr(p, "extra", None)
+        overlay = {}
+        if isinstance(extra, dict):
+            ultimo = extra.get("ultimo_guardado")
+            if isinstance(ultimo, dict) and isinstance(ultimo.get("payload"), dict):
+                overlay = ultimo.get("payload") or {}
+            elif isinstance(extra.get("payload"), dict):
+                overlay = extra.get("payload") or {}
+
+        if overlay:
+            base = _deep_merge_dict(base, overlay)
+        if base:
+            return base
         osnap = getattr(p, "origen_snapshot", None)
         if osnap is not None:
             datos = getattr(osnap, "datos", None)
             if isinstance(datos, dict) and datos:
-                return datos
+                return _deep_merge_dict(dict(datos), overlay)
         oest = getattr(p, "origen_estudio", None)
         if oest is not None:
             datos = getattr(oest, "datos", None)
             if isinstance(datos, dict) and datos:
-                return datos
-        return {}
+                return _deep_merge_dict(dict(datos), overlay)
+        return overlay or {}
 
     totales_proyecto = {}
     if proyectos_ids:
