@@ -41,6 +41,20 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
+    'wagtail.contrib.forms',
+    'wagtail.contrib.redirects',
+    'wagtail.embeds',
+    'wagtail.sites',
+    'wagtail.users',
+    'wagtail.snippets',
+    'wagtail.documents',
+    'wagtail.images',
+    'wagtail.search',
+    'wagtail.admin',
+    'wagtail',
+    'modelcluster',
+    'taggit',
+    'cms',
     'core',
     'landing',
     'accounts',
@@ -61,6 +75,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'wagtail.contrib.redirects.middleware.RedirectMiddleware',
 ]
 
 
@@ -198,6 +213,7 @@ else:
 # =========================
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+WAGTAIL_SITE_NAME = "Inversure Homes"
 
 # =========================
 # SEGURIDAD (PRODUCCIÓN)

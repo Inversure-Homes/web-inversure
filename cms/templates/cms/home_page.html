@@ -1,0 +1,183 @@
+{% extends "landing/base.html" %}
+{% load static wagtailimages_tags %}
+
+{% block content %}
+  <main>
+    {% if page.hero_bg_image %}
+      {% image page.hero_bg_image original as hero_bg %}
+      <section class="hero hero--has-bg" style="background-image: linear-gradient(120deg, rgba(11, 19, 36, 0.92), rgba(11, 19, 36, 0.6)), url('{{ hero_bg.url }}');">
+    {% elif page.hero_bg_color %}
+      <section class="hero" style="background: {{ page.hero_bg_color }};">
+    {% else %}
+      <section class="hero">
+    {% endif %}
+      <div class="container hero__inner">
+        <div class="hero__content">
+          <span class="hero__tag">{{ page.hero_tag|default:"Inversión inmobiliaria con control total" }}</span>
+          <h1>{{ page.hero_title|default:"Trazabilidad real para cada operación" }}</h1>
+          <p>{{ page.hero_subtitle|default:"Tecnología y metodología para que inversores y equipo vean en todo momento el estado económico y operativo." }}</p>
+          <div class="hero__actions">
+            <a class="btn-solid" href="{{ page.hero_cta_url|default:'/app/login/' }}">{{ page.hero_cta_text|default:"Entrar en la plataforma" }}</a>
+            <a class="btn-outline" href="#noticias">Últimas noticias</a>
+          </div>
+          <div class="hero__meta">
+            <div>
+              <strong>{{ page.meta_1_value|default:"+120" }}</strong>
+              <span>{{ page.meta_1_label|default:"operaciones analizadas" }}</span>
+            </div>
+            <div>
+              <strong>{{ page.meta_2_value|default:"100%" }}</strong>
+              <span>{{ page.meta_2_label|default:"trazabilidad documental" }}</span>
+            </div>
+            <div>
+              <strong>{{ page.meta_3_value|default:"24h" }}</strong>
+              <span>{{ page.meta_3_label|default:"tiempo de respuesta medio" }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="hero__visual">
+          <div class="hero__panel">
+            {% if page.hero_panel_image %}
+              {% image page.hero_panel_image fill-640x360 as panel_img %}
+              <img class="hero__panel-image" src="{{ panel_img.url }}" alt="{{ page.hero_title|default:'Inversure' }}">
+            {% else %}
+              <img class="hero__panel-logo" src="{% static 'core/logo_inversure.png' %}" alt="Inversure">
+            {% endif %}
+            <div class="hero__panel-card">
+              <h4>{{ page.hero_panel_title|default:"Estado del proyecto" }}</h4>
+              <p>{{ page.hero_panel_text|default:"Documento, gastos y retornos alineados para comité." }}</p>
+              <div class="hero__bar"><span></span></div>
+              <small>{{ page.hero_panel_footer|default:"Progreso operativo actualizado" }}</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="solucion">
+      <div class="container">
+        <div class="section__header">
+          <h2>Una plataforma, toda la operación</h2>
+          <p>Centraliza inversión, documentación y métricas sin perder velocidad.</p>
+        </div>
+        <div class="grid">
+          {% if page.sections %}
+            {% for block in page.sections %}
+              {% if block.block_type == "seccion" %}
+                <article class="card">
+                  <div class="card__icon">
+                    <i class="bi {{ block.value.icono|default:'bi-clipboard-data' }}"></i>
+                  </div>
+                  <h3>{{ block.value.titulo }}</h3>
+                  <p>{{ block.value.texto }}</p>
+                </article>
+              {% endif %}
+            {% endfor %}
+          {% else %}
+            <article class="card">
+              <div class="card__icon"><i class="bi bi-shield-check"></i></div>
+              <h3>Control de inversión</h3>
+              <p>Seguimiento total del capital, desde captación hasta liquidación.</p>
+            </article>
+            <article class="card">
+              <div class="card__icon"><i class="bi bi-journal-bookmark"></i></div>
+              <h3>Memoria económica</h3>
+              <p>Registro de gastos e ingresos con estimados y reales.</p>
+            </article>
+            <article class="card">
+              <div class="card__icon"><i class="bi bi-graph-up-arrow"></i></div>
+              <h3>Rentabilidad transparente</h3>
+              <p>KPIs claros y documentos verificables en cada etapa.</p>
+            </article>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="quienes-somos">
+      <div class="container">
+        <div class="section__split">
+          <div>
+            <h2>Quienes somos</h2>
+            <p>Inversure Homes nace para profesionalizar la inversion inmobiliaria con una plataforma que combina analisis, ejecucion y trazabilidad documental.</p>
+            <p>Trabajamos con un enfoque operativo claro: identificar oportunidades, proteger el capital y mantener una comunicacion transparente con el inversor.</p>
+          </div>
+          <div class="stat-card">
+            <div>
+              <span>Equipo</span>
+              <strong>Operativo + Inversion</strong>
+            </div>
+            <div>
+              <span>Foco</span>
+              <strong>Transparencia total</strong>
+            </div>
+            <div>
+              <span>Metodo</span>
+              <strong>Datos + control</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--dark" id="trazabilidad">
+      <div class="container">
+        <div class="section__split">
+          <div>
+            <h2>Transparencia que genera confianza</h2>
+            <p>Subidas de documentación, informes de comité y comunicaciones a inversores desde un único sistema.</p>
+            <ul class="feature-list">
+              <li>Checklist operativo por fases</li>
+              <li>Informes PDF para comité e inversores</li>
+              <li>Histórico completo de movimientos</li>
+            </ul>
+          </div>
+          <div class="stat-card">
+            <div>
+              <span>ROI medio</span>
+              <strong>18,4%</strong>
+            </div>
+            <div>
+              <span>Operaciones activas</span>
+              <strong>32</strong>
+            </div>
+            <div>
+              <span>Documentos gestionados</span>
+              <strong>1.820</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="noticias">
+      <div class="container">
+        <div class="section__header">
+          <h2>Noticias y novedades</h2>
+          <p>Actualizaciones del mercado, inversiones y operaciones relevantes.</p>
+        </div>
+        <div class="news-grid">
+          {% for noticia in noticias %}
+            <article class="news-card">
+              <div class="news-card__header">
+                <span>{{ noticia.fecha_publicacion|date:"d M Y" }}</span>
+                <span>{{ noticia.autor|default:"Equipo Inversure" }}</span>
+              </div>
+              {% if noticia.slug %}
+                <h3><a href="{% url 'landing:noticia_detail' noticia.slug %}">{{ noticia.titulo }}</a></h3>
+              {% else %}
+                <h3>{{ noticia.titulo }}</h3>
+              {% endif %}
+              <p>{{ noticia.extracto|default:noticia.cuerpo|truncatewords:26 }}</p>
+            </article>
+          {% empty %}
+            <div class="news-card">
+              <h3>Próximamente</h3>
+              <p>Estamos preparando nuevas publicaciones para mejorar el contenido SEO.</p>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+  </main>
+{% endblock %}
