@@ -245,16 +245,27 @@
         </div>
 
         <div class="mt-3">
-          <div class="inv-meta fw-semibold mb-2">Documentación personal</div>
+          <div class="inv-meta fw-semibold mb-2">
+            Documentación personal ({{ inv.documentos|length|default:0 }})
+          </div>
           {% if inv.documentos %}
-            <ul class="inv-list">
-              {% for d in inv.documentos|slice:":3" %}
+            <ul class="inv-list" data-doc-list data-page-size="10">
+              {% for d in inv.documentos %}
                 <li>
                   {{ d.get_categoria_display }} · {{ d.titulo }}
                   <a class="ms-2" href="{{ d.signed_url|default:d.archivo.url }}" target="_blank" rel="noopener">Descargar</a>
+                  <form method="post" action="{% url 'core:inversor_documento_borrar' inv.perfil.id d.id %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger ms-2">Borrar</button>
+                  </form>
                 </li>
               {% endfor %}
             </ul>
+            <div class="inv-meta d-flex align-items-center gap-2 mt-2" data-doc-controls>
+              <button type="button" class="btn btn-sm btn-outline-secondary" data-doc-prev>Anterior</button>
+              <span data-doc-page>1</span>
+              <button type="button" class="btn btn-sm btn-outline-secondary" data-doc-next>Siguiente</button>
+            </div>
           {% else %}
             <div class="inv-meta">Sin documentos subidos.</div>
           {% endif %}
@@ -380,6 +391,57 @@
 
     proyectoEl.addEventListener("change", loadRows);
     loadRows();
+  })();
+</script>
+
+<script>
+  (function () {
+    const lists = document.querySelectorAll("[data-doc-list]");
+    lists.forEach((list) => {
+      const items = Array.from(list.querySelectorAll("li"));
+      const pageSize = parseInt(list.dataset.pageSize || "10", 10);
+      const controls = list.parentElement.querySelector("[data-doc-controls]");
+      const btnPrev = controls ? controls.querySelector("[data-doc-prev]") : null;
+      const btnNext = controls ? controls.querySelector("[data-doc-next]") : null;
+      const pageLabel = controls ? controls.querySelector("[data-doc-page]") : null;
+      if (!controls || items.length <= pageSize) {
+        if (controls) {
+          controls.style.display = "none";
+        }
+        return;
+      }
+
+      let page = 1;
+      const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+
+      const render = () => {
+        const start = (page - 1) * pageSize;
+        const end = start + pageSize;
+        items.forEach((item, idx) => {
+          item.style.display = idx >= start && idx < end ? "" : "none";
+        });
+        if (pageLabel) {
+          pageLabel.textContent = `${page} / ${totalPages}`;
+        }
+        if (btnPrev) btnPrev.disabled = page <= 1;
+        if (btnNext) btnNext.disabled = page >= totalPages;
+      };
+
+      if (btnPrev) {
+        btnPrev.addEventListener("click", () => {
+          page = Math.max(1, page - 1);
+          render();
+        });
+      }
+      if (btnNext) {
+        btnNext.addEventListener("click", () => {
+          page = Math.min(totalPages, page + 1);
+          render();
+        });
+      }
+
+      render();
+    });
   })();
 </script>
 {% endblock %}

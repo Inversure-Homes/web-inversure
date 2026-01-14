@@ -1528,6 +1528,16 @@ def inversor_documento_upload(request, perfil_id: int):
     return redirect("core:inversores_list")
 
 
+def inversor_documento_borrar(request, perfil_id: int, doc_id: int):
+    if request.method != "POST":
+        return redirect("core:inversores_list")
+    perfil = get_object_or_404(InversorPerfil, id=perfil_id)
+    documento = get_object_or_404(DocumentoInversor, id=doc_id, inversor=perfil)
+    documento.delete()
+    messages.success(request, "Documento del inversor eliminado correctamente.")
+    return redirect("core:inversores_list")
+
+
 def inversor_beneficio_update(request, token: str, participacion_id: int):
     perfil = get_object_or_404(InversorPerfil, token=token, activo=True)
     if request.method != "POST":
