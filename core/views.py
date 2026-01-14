@@ -2492,6 +2492,12 @@ def convertir_a_proyecto(request, estudio_id: int):
         proyecto_kwargs = {}
         if _has_field(Proyecto, "nombre"):
             proyecto_kwargs["nombre"] = estudio.nombre or ""
+        if _has_field(Proyecto, "direccion"):
+            proyecto_kwargs["direccion"] = estudio.direccion or ""
+        if _has_field(Proyecto, "ref_catastral"):
+            proyecto_kwargs["ref_catastral"] = estudio.ref_catastral or ""
+        if _has_field(Proyecto, "valor_referencia"):
+            proyecto_kwargs["valor_referencia"] = estudio.valor_referencia
         if _has_field(Proyecto, "origen_estudio"):
             proyecto_kwargs["origen_estudio"] = estudio
         if _has_field(Proyecto, "origen_snapshot"):
