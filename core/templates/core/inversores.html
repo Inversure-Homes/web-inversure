@@ -239,7 +239,8 @@
         </div>
 
         <div class="mt-3 d-flex flex-wrap gap-2">
-          <a href="{% url 'core:inversor_portal' inv.perfil.token %}" class="btn btn-sm btn-portal">Abrir portal</a>
+          <a href="{% url 'core:inversor_portal' inv.perfil.token %}" class="btn btn-sm btn-portal">Portal inversor</a>
+          <a href="{% url 'core:inversor_portal_admin' inv.perfil.id %}" class="btn btn-sm btn-outline-primary">Editar portal</a>
           <a href="{% url 'core:cliente_inversor_link' inv.cliente.id %}" class="btn btn-sm btn-outline-secondary">Acceso inversor</a>
         </div>
 

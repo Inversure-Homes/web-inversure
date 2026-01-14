@@ -1307,8 +1307,7 @@ def cliente_inversor_link(request, cliente_id: int):
     return render(request, "core/inversor_link.html", {"cliente": cliente, "perfil": perfil})
 
 
-def inversor_portal(request, token: str):
-    perfil = get_object_or_404(InversorPerfil, token=token, activo=True)
+def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) -> dict:
     participaciones = Participacion.objects.filter(cliente=perfil.cliente).select_related("proyecto").order_by("-creado")
     comunicaciones = ComunicacionInversor.objects.filter(inversor=perfil)
     proyectos_abiertos = Proyecto.objects.filter(estado__in=["activo", "captacion"]).order_by("-id")
@@ -1435,7 +1434,7 @@ def inversor_portal(request, token: str):
         setattr(d, "signed_url", signed or "")
         documentos_personales.append(d)
 
-    ctx = {
+    return {
         "perfil": perfil,
         "participaciones": participaciones,
         "comunicaciones": comunicaciones,
@@ -1450,8 +1449,19 @@ def inversor_portal(request, token: str):
         "documentos_por_proyecto": documentos_por_proyecto,
         "documentos_personales": documentos_personales,
         "logo_url": reverse("core:inversores_list"),
-        "internal_view": False,
+        "internal_view": internal_view,
     }
+
+
+def inversor_portal(request, token: str):
+    perfil = get_object_or_404(InversorPerfil, token=token, activo=True)
+    ctx = _build_inversor_portal_context(perfil, internal_view=False)
+    return render(request, "core/inversor_portal.html", ctx)
+
+
+def inversor_portal_admin(request, perfil_id: int):
+    perfil = get_object_or_404(InversorPerfil, id=perfil_id)
+    ctx = _build_inversor_portal_context(perfil, internal_view=True)
     return render(request, "core/inversor_portal.html", ctx)
 
 
