@@ -8,6 +8,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.urls import reverse
 from django.db import transaction
 from django.db.models import Sum, Count, Max, Prefetch
+from django.core.paginator import Paginator
 from django.utils import timezone
 from django.conf import settings
 from django.core.mail import send_mail
@@ -1444,9 +1445,31 @@ def inversores_list(request):
             }
         )
 
+    q = (request.GET.get("q") or "").strip().lower()
+    inversores_filtrados = inversores
+    if q:
+        def _hay_match(inv):
+            cliente = inv.get("cliente")
+            if not cliente:
+                return False
+            campos = [
+                getattr(cliente, "nombre", ""),
+                getattr(cliente, "dni_cif", ""),
+                getattr(cliente, "email", ""),
+                getattr(cliente, "telefono", ""),
+            ]
+            return any(q in (str(c) or "").lower() for c in campos)
+        inversores_filtrados = [inv for inv in inversores if _hay_match(inv)]
+
+    paginator = Paginator(inversores_filtrados, 8)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
     ctx = {
-        "inversores": inversores,
+        "inversores": page_obj.object_list,
+        "page_obj": page_obj,
+        "q": q,
         "total_inversores": len(inversores),
+        "total_inversores_filtrados": len(inversores_filtrados),
         "total_invertido": total_invertido,
         "total_participaciones": total_participaciones,
         "total_pendientes": total_pendientes,

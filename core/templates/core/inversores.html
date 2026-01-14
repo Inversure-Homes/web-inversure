@@ -139,6 +139,23 @@
   </div>
 
   <div class="inv-card mt-4">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-md-6">
+        <label class="form-label">Buscar inversor</label>
+        <input type="text" name="q" class="form-control" placeholder="Nombre, DNI, email o teléfono" value="{{ q|default:'' }}">
+      </div>
+      <div class="col-md-3">
+        <button type="submit" class="btn btn-portal btn-sm w-100">Buscar</button>
+      </div>
+      <div class="col-md-3 text-md-end">
+        <div class="inv-meta mt-2 mt-md-4">
+          Mostrando {{ total_inversores_filtrados|default:0 }} de {{ total_inversores|default:0 }}
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="inv-card mt-4">
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
       <div>
         <h3>Comunicaciones a inversores</h3>
@@ -316,6 +333,28 @@
     </div>
     {% endfor %}
   </div>
+
+  {% if page_obj and page_obj.paginator.num_pages > 1 %}
+    <div class="d-flex justify-content-center mt-4">
+      <nav aria-label="Paginación inversores">
+        <ul class="pagination pagination-sm mb-0">
+          <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+            <a class="page-link" href="?q={{ q|urlencode }}&page={{ page_obj.previous_page_number }}">Anterior</a>
+          </li>
+          {% for num in page_obj.paginator.page_range %}
+            {% if num == page_obj.number %}
+              <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% else %}
+              <li class="page-item"><a class="page-link" href="?q={{ q|urlencode }}&page={{ num }}">{{ num }}</a></li>
+            {% endif %}
+          {% endfor %}
+          <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+            <a class="page-link" href="?q={{ q|urlencode }}&page={{ page_obj.next_page_number }}">Siguiente</a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  {% endif %}
 </div>
 
 <script>
