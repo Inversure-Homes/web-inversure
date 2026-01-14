@@ -10,6 +10,7 @@ from django.db import transaction
 from django.db.models import Sum, Count, Max, Prefetch
 from django.utils import timezone
 from django.conf import settings
+from django.core.mail import send_mail
 
 from copy import deepcopy
 
@@ -75,6 +76,39 @@ def _safe_template_obj(obj):
     if isinstance(obj, (list, tuple)):
         return [_safe_template_obj(v) for v in obj]
     return obj
+
+
+def _send_inversor_email(request, perfil: InversorPerfil, titulo: str, mensaje: str) -> bool:
+    to_email = getattr(perfil.cliente, "email", "") or ""
+    if not to_email:
+        return False
+    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "") or getattr(settings, "EMAIL_HOST_USER", "") or ""
+    portal_url = ""
+    try:
+        if request is not None:
+            portal_url = request.build_absolute_uri(reverse("core:inversor_portal", args=[perfil.token]))
+    except Exception:
+        portal_url = ""
+    if portal_url:
+        cuerpo = f"{mensaje}\n\nAcceso al portal del inversor:\n{portal_url}"
+    else:
+        cuerpo = mensaje
+    try:
+        send_mail(titulo, cuerpo, from_email, [to_email], fail_silently=True)
+        return True
+    except Exception:
+        return False
+
+
+def _crear_comunicacion(request, perfil: InversorPerfil, proyecto: Proyecto | None, titulo: str, mensaje: str):
+    comunicacion = ComunicacionInversor.objects.create(
+        inversor=perfil,
+        proyecto=proyecto,
+        titulo=titulo,
+        mensaje=mensaje,
+    )
+    _send_inversor_email(request, perfil, titulo, mensaje)
+    return comunicacion
 
 
 # --- Helper para sanear datos para JSONField (Decimal, fechas, etc.) ---
@@ -2552,11 +2586,12 @@ def guardar_proyecto(request, proyecto_id: int):
                 clientes = Cliente.objects.filter(participaciones__proyecto=proyecto_obj).distinct()
                 for cliente in clientes:
                     perfil, _ = InversorPerfil.objects.get_or_create(cliente=cliente)
-                    ComunicacionInversor.objects.create(
-                        inversor=perfil,
-                        proyecto=proyecto_obj,
-                        titulo="Actualización del estado del proyecto",
-                        mensaje=f"El proyecto {proyecto_obj.nombre} ha cambiado a estado: {estado_label}.",
+                    _crear_comunicacion(
+                        request,
+                        perfil,
+                        proyecto_obj,
+                        "Actualización del estado del proyecto",
+                        f"El proyecto {proyecto_obj.nombre} ha cambiado a estado: {estado_label}.",
                     )
             except Exception:
                 pass
@@ -3301,12 +3336,7 @@ def proyecto_participacion_detalle(request, proyecto_id: int, participacion_id: 
                         if perfil:
                             titulo = "Actualización de tu inversión"
                             mensaje = f"Tu participación en {part.proyecto.nombre} ha cambiado a estado: {nuevo_estado}."
-                            ComunicacionInversor.objects.create(
-                                inversor=perfil,
-                                proyecto=part.proyecto,
-                                titulo=titulo,
-                                mensaje=mensaje,
-                            )
+                            _crear_comunicacion(request, perfil, part.proyecto, titulo, mensaje)
                     except Exception:
                         pass
             part.save()
@@ -3375,12 +3405,7 @@ def proyecto_solicitud_detalle(request, proyecto_id: int, solicitud_id: int):
         try:
             titulo = "Estado de tu solicitud"
             mensaje = f"Tu solicitud en {solicitud.proyecto.nombre} ha sido {estado}."
-            ComunicacionInversor.objects.create(
-                inversor=solicitud.inversor,
-                proyecto=solicitud.proyecto,
-                titulo=titulo,
-                mensaje=mensaje,
-            )
+            _crear_comunicacion(request, solicitud.inversor, solicitud.proyecto, titulo, mensaje)
         except Exception:
             pass
         return JsonResponse({"ok": True})
@@ -3421,12 +3446,7 @@ def proyecto_comunicaciones(request, proyecto_id: int):
         count = 0
         for cliente in clientes:
             perfil, _ = InversorPerfil.objects.get_or_create(cliente=cliente)
-            ComunicacionInversor.objects.create(
-                inversor=perfil,
-                proyecto=proyecto,
-                titulo=titulo,
-                mensaje=mensaje,
-            )
+            _crear_comunicacion(request, perfil, proyecto, titulo, mensaje)
             count += 1
         return JsonResponse({"ok": True, "enviadas": count})
     except Exception as e:
