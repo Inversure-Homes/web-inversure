@@ -53,6 +53,11 @@ urlpatterns = [
     path("clientes/<int:cliente_id>/inversor/", views.cliente_inversor_link, name="cliente_inversor_link"),
     path("inversores/", views.inversores_list, name="inversores_list"),
     path("inversores/<int:perfil_id>/portal/", views.inversor_portal_admin, name="inversor_portal_admin"),
+    path(
+        "inversores/<int:perfil_id>/portal/config/",
+        views.inversor_portal_config,
+        name="inversor_portal_config",
+    ),
     path("inversores/<int:perfil_id>/documentos/", views.inversor_documento_upload, name="inversor_documento_upload"),
     path(
         "inversores/<int:perfil_id>/documentos/<int:doc_id>/borrar/",

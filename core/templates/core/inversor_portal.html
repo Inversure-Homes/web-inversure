@@ -381,6 +381,31 @@
     {% endif %}
   </div>
 
+  {% if internal_view %}
+  <div class="portal-card mt-3">
+    <h5 class="mb-3">Visibilidad del portal</h5>
+    <form method="post" action="{% url 'core:inversor_portal_config' perfil.id %}">
+      {% csrf_token %}
+      <div class="row g-2">
+        {% for p in proyectos_candidatos %}
+          <div class="col-md-6">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="proyectos_visibles" value="{{ p.id }}"
+                     id="proyecto_visible_{{ p.id }}" {% if p.id in proyectos_visibles %}checked{% endif %}>
+              <label class="form-check-label" for="proyecto_visible_{{ p.id }}">
+                {{ p.nombre }} · {{ p.estado|capfirst }}
+              </label>
+            </div>
+          </div>
+        {% empty %}
+          <div class="text-muted">No hay proyectos disponibles para mostrar.</div>
+        {% endfor %}
+      </div>
+      <button type="submit" class="btn btn-portal btn-sm mt-3">Guardar visibilidad</button>
+    </form>
+  </div>
+  {% endif %}
+
   <div class="portal-card mt-3">
     <h5 class="mb-3">Proyectos disponibles</h5>
     {% if proyectos_abiertos %}
@@ -392,6 +417,12 @@
               <div>
                 <strong>{{ p.nombre }}</strong>
                 <div class="small text-muted">Estado: {{ p.estado|default:"activo" }}</div>
+                {% if p.capital_objetivo and p.capital_objetivo > 0 %}
+                  <div class="small text-muted">
+                    Captado: {{ p.capital_captado|floatformat:2|intcomma }} € /
+                    {{ p.capital_objetivo|floatformat:2|intcomma }} €
+                  </div>
+                {% endif %}
               </div>
             </div>
             <form method="post" action="{% url 'core:inversor_solicitar' perfil.token p.id %}" class="mt-2">
@@ -401,7 +432,11 @@
                   <input type="number" step="0.01" name="importe" class="form-control form-control-sm" placeholder="Importe €" required>
                 </div>
                 <div class="col-6">
-                  <button type="submit" class="btn btn-portal btn-sm w-100">Solicitar</button>
+                  {% if p.puede_solicitar %}
+                    <button type="submit" class="btn btn-portal btn-sm w-100">Solicitar</button>
+                  {% else %}
+                    <button type="button" class="btn btn-outline-secondary btn-sm w-100" disabled>Completo</button>
+                  {% endif %}
                 </div>
                 <div class="col-12">
                   <input type="text" name="comentario" class="form-control form-control-sm" placeholder="Comentario (opcional)">

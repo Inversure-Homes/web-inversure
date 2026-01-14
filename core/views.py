@@ -1559,7 +1559,7 @@ def cliente_inversor_link(request, cliente_id: int):
 def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) -> dict:
     participaciones = Participacion.objects.filter(cliente=perfil.cliente).select_related("proyecto").order_by("-creado")
     comunicaciones = ComunicacionInversor.objects.filter(inversor=perfil)
-    proyectos_abiertos = Proyecto.objects.filter(
+    proyectos_candidatos = Proyecto.objects.filter(
         estado__in=["captacion", "comprado", "comercializacion", "reservado"]
     ).order_by("-id")
     solicitudes = SolicitudParticipacion.objects.filter(inversor=perfil).select_related("proyecto")
@@ -1728,11 +1728,79 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
         setattr(d, "signed_url", signed or "")
         documentos_personales.append(d)
 
+    # --- Proyectos visibles en portal ---
+    visible_ids = []
+    try:
+        if isinstance(perfil.proyectos_visibles, list):
+            visible_ids = [int(v) for v in perfil.proyectos_visibles if str(v).isdigit()]
+    except Exception:
+        visible_ids = []
+
+    candidatos_ids = list(proyectos_candidatos.values_list("id", flat=True))
+    gastos_reales_map = {}
+    if candidatos_ids:
+        for row in (
+            GastoProyecto.objects.filter(proyecto_id__in=candidatos_ids, estado="confirmado")
+            .values("proyecto_id")
+            .annotate(total=Sum("importe"))
+        ):
+            gastos_reales_map[row["proyecto_id"]] = float(row.get("total") or 0.0)
+
+    captado_map = {}
+    if candidatos_ids:
+        for row in (
+            Participacion.objects.filter(proyecto_id__in=candidatos_ids, estado="confirmada")
+            .values("proyecto_id")
+            .annotate(total=Sum("importe_invertido"))
+        ):
+            captado_map[row["proyecto_id"]] = float(row.get("total") or 0.0)
+
+    proyectos_abiertos = []
+    for p in proyectos_candidatos:
+        snap = _get_snapshot(p)
+        economico = snap.get("economico") if isinstance(snap.get("economico"), dict) else {}
+        inversor = snap.get("inversor") if isinstance(snap.get("inversor"), dict) else {}
+        kpis = snap.get("kpis") if isinstance(snap.get("kpis"), dict) else {}
+        metricas = kpis.get("metricas") if isinstance(kpis.get("metricas"), dict) else {}
+
+        capital_objetivo = (
+            inversor.get("inversion_total")
+            or metricas.get("inversion_total")
+            or metricas.get("valor_adquisicion_total")
+            or metricas.get("valor_adquisicion")
+            or economico.get("valor_adquisicion")
+            or metricas.get("precio_adquisicion")
+            or metricas.get("precio_compra")
+            or 0
+        )
+        try:
+            capital_objetivo = float(capital_objetivo or 0.0)
+        except Exception:
+            capital_objetivo = 0.0
+        gastos_reales = gastos_reales_map.get(p.id, 0.0)
+        if gastos_reales > 0:
+            capital_objetivo = gastos_reales
+
+        capital_captado = captado_map.get(p.id, 0.0)
+
+        p.capital_objetivo = capital_objetivo
+        p.capital_captado = capital_captado
+        p.puede_solicitar = (capital_objetivo <= 0) or (capital_captado < capital_objetivo)
+
+        if visible_ids:
+            if p.id in visible_ids:
+                proyectos_abiertos.append(p)
+        else:
+            if internal_view:
+                proyectos_abiertos.append(p)
+
     return {
         "perfil": perfil,
         "participaciones": participaciones,
         "comunicaciones": comunicaciones,
         "proyectos_abiertos": proyectos_abiertos,
+        "proyectos_candidatos": proyectos_candidatos,
+        "proyectos_visibles": visible_ids,
         "solicitudes": solicitudes,
         "total_invertido": total_invertido,
         "beneficios_por_proyecto": beneficios_por_proyecto,
@@ -1757,6 +1825,23 @@ def inversor_portal_admin(request, perfil_id: int):
     perfil = get_object_or_404(InversorPerfil, id=perfil_id)
     ctx = _build_inversor_portal_context(perfil, internal_view=True)
     return render(request, "core/inversor_portal.html", ctx)
+
+
+def inversor_portal_config(request, perfil_id: int):
+    if request.method != "POST":
+        return redirect("core:inversor_portal_admin", perfil_id=perfil_id)
+    perfil = get_object_or_404(InversorPerfil, id=perfil_id)
+    ids = request.POST.getlist("proyectos_visibles")
+    proyectos_ids = []
+    for raw in ids:
+        try:
+            proyectos_ids.append(int(raw))
+        except Exception:
+            continue
+    perfil.proyectos_visibles = proyectos_ids
+    perfil.save(update_fields=["proyectos_visibles"])
+    messages.success(request, "Visibilidad del portal actualizada.")
+    return redirect("core:inversor_portal_admin", perfil_id=perfil_id)
 
 
 def inversor_documento_upload(request, perfil_id: int):
@@ -1881,6 +1966,51 @@ def inversor_solicitar(request, token: str, proyecto_id: int):
     proyecto = get_object_or_404(Proyecto, id=proyecto_id)
     if request.method != "POST":
         return redirect("core:inversor_portal", token=token)
+
+    # Validar visibilidad del proyecto en el portal
+    visibles = []
+    try:
+        if isinstance(perfil.proyectos_visibles, list):
+            visibles = [int(v) for v in perfil.proyectos_visibles if str(v).isdigit()]
+    except Exception:
+        visibles = []
+    if visibles and proyecto.id not in visibles:
+        messages.error(request, "Este proyecto no está disponible para inversión.")
+        return redirect("core:inversor_portal", token=token)
+
+    # Bloquear si la inversión ya está completa
+    try:
+        snap = {}
+        sd = getattr(proyecto, "snapshot_datos", None)
+        if isinstance(sd, dict):
+            snap = sd
+        inv_sec = snap.get("inversor") if isinstance(snap.get("inversor"), dict) else {}
+        eco_sec = snap.get("economico") if isinstance(snap.get("economico"), dict) else {}
+        kpis_sec = snap.get("kpis") if isinstance(snap.get("kpis"), dict) else {}
+        met_sec = kpis_sec.get("metricas") if isinstance(kpis_sec.get("metricas"), dict) else {}
+
+        capital_objetivo = (
+            inv_sec.get("inversion_total")
+            or met_sec.get("inversion_total")
+            or met_sec.get("valor_adquisicion_total")
+            or met_sec.get("valor_adquisicion")
+            or eco_sec.get("valor_adquisicion")
+            or met_sec.get("precio_adquisicion")
+            or met_sec.get("precio_compra")
+            or 0
+        )
+        capital_objetivo = _safe_float(capital_objetivo, 0.0)
+
+        captado = Participacion.objects.filter(
+            proyecto=proyecto, estado="confirmada"
+        ).aggregate(total=Sum("importe_invertido")).get("total") or 0
+        captado = _safe_float(captado, 0.0)
+
+        if capital_objetivo > 0 and captado >= capital_objetivo:
+            messages.error(request, "La inversión de este proyecto está completa.")
+            return redirect("core:inversor_portal", token=token)
+    except Exception:
+        pass
 
     importe = _parse_decimal(request.POST.get("importe"))
     comentario = (request.POST.get("comentario") or "").strip()

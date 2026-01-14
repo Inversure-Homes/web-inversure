@@ -1015,6 +1015,12 @@ class InversorPerfil(models.Model):
     )
     token = models.CharField(max_length=64, unique=True)
     activo = models.BooleanField(default=True)
+    proyectos_visibles = models.JSONField(
+        null=True,
+        blank=True,
+        default=list,
+        help_text="IDs de proyectos visibles en el portal del inversor",
+    )
     creado = models.DateTimeField(auto_now_add=True)
     actualizado = models.DateTimeField(auto_now=True)
 
