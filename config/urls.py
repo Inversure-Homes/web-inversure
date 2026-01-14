@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from wagtail import urls as wagtail_urls
 from wagtail.admin import urls as wagtailadmin_urls
 from wagtail.documents import urls as wagtaildocs_urls
@@ -13,6 +13,6 @@ urlpatterns = [
     path('app/', include(('core.urls', 'core'), namespace='core')),
     path('cms/', include(wagtailadmin_urls)),
     path('documents/', include(wagtaildocs_urls)),
-    path('', cms_views.root_or_app),
+    re_path(r'^$', cms_views.root_or_app),
     path('', include(wagtail_urls)),
 ]
