@@ -11,6 +11,7 @@ from django.db.models import Sum, Count, Max, Prefetch
 from django.utils import timezone
 from django.conf import settings
 from django.core.mail import send_mail
+from django.templatetags.static import static
 
 from copy import deepcopy
 
@@ -84,17 +85,108 @@ def _send_inversor_email(request, perfil: InversorPerfil, titulo: str, mensaje: 
         return False
     from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "") or getattr(settings, "EMAIL_HOST_USER", "") or ""
     portal_url = ""
+    logo_url = ""
+    web_url = "https://inversurehomes.es"
+    instagram_url = "https://www.instagram.com/inversure_homes/"
+    facebook_url = "https://www.facebook.com/profile.php?id=61570884605730"
+    linkedin_url = "https://www.linkedin.com/company/106364434"
+    instagram_icon_url = ""
+    facebook_icon_url = ""
+    linkedin_icon_url = ""
     try:
         if request is not None:
             portal_url = request.build_absolute_uri(reverse("core:inversor_portal", args=[perfil.token]))
+            logo_url = request.build_absolute_uri(static("core/logo_inversure.png"))
+            instagram_icon_url = request.build_absolute_uri(static("core/logo_instagram.jpg.avif"))
+            facebook_icon_url = request.build_absolute_uri(static("core/logo_facebook.jpg.avif"))
+            linkedin_icon_url = request.build_absolute_uri(static("core/logo_linkedn.png"))
     except Exception:
         portal_url = ""
+        logo_url = ""
     if portal_url:
         cuerpo = f"{mensaje}\n\nAcceso al portal del inversor:\n{portal_url}"
     else:
         cuerpo = mensaje
+    firma_txt = (
+        "\n\nMiguel Ángel Pérez Rodríguez\n"
+        "comunicacion@inversurehomes.es\n\n"
+        "Aviso legal: Este mensaje y los archivos adjuntos son confidenciales y están dirigidos exclusivamente a su destinatario. "
+        "Si usted no es el destinatario, por favor notifíquelo al remitente y elimine el mensaje. Queda prohibida su reproducción "
+        "o distribución sin autorización expresa.\n\n"
+        "Protección de datos (RGPD): Los datos personales incluidos en esta comunicación se tratarán conforme al Reglamento (UE) 2016/679 "
+        "(RGPD) y la normativa europea y nacional vigente en materia de protección de datos. Puede ejercer sus derechos de acceso, rectificación, "
+        "supresión y otros dirigiéndose a mximenez@inversurehomes.es."
+    )
+    cuerpo = f"{cuerpo}{firma_txt}"
+    logo_html = f'<img src="{logo_url}" alt="Inversure" style="height:40px;">' if logo_url else "<strong>Inversure</strong>"
+    portal_html = (
+        f'<p style="margin:12px 0 0;">Acceso al portal del inversor: '
+        f'<a href="{portal_url}" style="color:#0b3a67;">{portal_url}</a></p>'
+        if portal_url
+        else ""
+    )
+    if instagram_icon_url or facebook_icon_url or linkedin_icon_url:
+        social_html = '<div style="margin-top:12px;display:flex;gap:12px;align-items:center;">'
+        if instagram_icon_url:
+            social_html += (
+                f'<a href="{instagram_url}" style="display:inline-block;"><img src="{instagram_icon_url}" alt="Instagram" '
+                f'style="height:20px;width:auto;"></a>'
+            )
+        if facebook_icon_url:
+            social_html += (
+                f'<a href="{facebook_url}" style="display:inline-block;"><img src="{facebook_icon_url}" alt="Facebook" '
+                f'style="height:20px;width:auto;"></a>'
+            )
+        if linkedin_icon_url:
+            social_html += (
+                f'<a href="{linkedin_url}" style="display:inline-block;"><img src="{linkedin_icon_url}" alt="LinkedIn" '
+                f'style="height:20px;width:auto;"></a>'
+            )
+        social_html += "</div>"
+    else:
+        social_html = (
+            f'<div style="margin-top:12px;display:flex;gap:12px;align-items:center;">'
+            f'<a href="{instagram_url}" style="text-decoration:none;color:#0b3a67;">Instagram</a>'
+            f'<a href="{facebook_url}" style="text-decoration:none;color:#0b3a67;">Facebook</a>'
+            f'<a href="{linkedin_url}" style="text-decoration:none;color:#0b3a67;">LinkedIn</a>'
+            f'<a href="{web_url}" style="text-decoration:none;color:#0b3a67;">Web</a>'
+            f'</div>'
+        )
+
+    html_message = f"""
+    <div style="font-family:Arial, sans-serif; color:#0f172a; line-height:1.5;">
+      <p>{mensaje}</p>
+      {portal_html}
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0;">
+      <div style="display:flex;align-items:center;gap:14px;">
+        {logo_html}
+        <div>
+          <div style="font-weight:600;">Miguel Ángel Pérez Rodríguez</div>
+          <div><a href="mailto:comunicacion@inversurehomes.es" style="color:#0b3a67;">comunicacion@inversurehomes.es</a></div>
+        </div>
+      </div>
+      {social_html}
+      <p style="font-size:12px;color:#64748b;margin-top:16px;">
+        Aviso legal: Este mensaje y los archivos adjuntos son confidenciales y están dirigidos exclusivamente a su destinatario.
+        Si usted no es el destinatario, por favor notifíquelo al remitente y elimine el mensaje. Queda prohibida su reproducción
+        o distribución sin autorización expresa.
+      </p>
+      <p style="font-size:12px;color:#64748b;">
+        Protección de datos (RGPD): Los datos personales incluidos en esta comunicación se tratarán conforme al Reglamento (UE) 2016/679 (RGPD)
+        y la normativa europea y nacional vigente en materia de protección de datos. Puede ejercer sus derechos de acceso, rectificación,
+        supresión y otros dirigiéndose a mximenez@inversurehomes.es.
+      </p>
+    </div>
+    """
     try:
-        send_mail(titulo, cuerpo, from_email, [to_email], fail_silently=True)
+        send_mail(
+            titulo,
+            cuerpo,
+            from_email,
+            [to_email],
+            html_message=html_message,
+            fail_silently=True,
+        )
         return True
     except Exception:
         return False
