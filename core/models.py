@@ -980,6 +980,12 @@ class Participacion(models.Model):
         blank=True,
         help_text="Beneficio neto del inversor para operaciones históricas (override manual)"
     )
+    beneficio_override_data = models.JSONField(
+        null=True,
+        blank=True,
+        default=dict,
+        help_text="Overrides detallados del beneficio (bruto, comisión, neto, retención, etc.)"
+    )
 
     def __str__(self):
         return f"{self.cliente} → {self.proyecto} ({self.importe_invertido} €)"

@@ -1395,13 +1395,36 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
 
         comision_eur = beneficio_bruto * (comision_pct / 100.0) if beneficio_bruto else 0.0
         beneficio_neto_inversor_total = beneficio_bruto - comision_eur
+
+        proj_extra = proyecto.extra if isinstance(proyecto.extra, dict) else {}
+        proj_override = proj_extra.get("beneficio_operacion_override")
+        if isinstance(proj_override, dict):
+            override_bruto = proj_override.get("beneficio_bruto")
+            override_comision = proj_override.get("comision_eur")
+            override_neto = proj_override.get("beneficio_neto_total")
+            if override_bruto not in (None, ""):
+                beneficio_bruto = _safe_float(override_bruto, beneficio_bruto)
+            if override_comision not in (None, ""):
+                comision_eur = _safe_float(override_comision, comision_eur)
+            if override_neto not in (None, ""):
+                beneficio_neto_inversor_total = _safe_float(override_neto, beneficio_neto_inversor_total)
+            elif override_bruto not in (None, "") or override_comision not in (None, ""):
+                beneficio_neto_inversor_total = beneficio_bruto - comision_eur
+
         ratio_part = float(p.importe_invertido or 0) / total_proj if total_proj > 0 else 0.0
         beneficio_inversor = beneficio_neto_inversor_total * ratio_part
         override_val = float(p.beneficio_neto_override) if p.beneficio_neto_override is not None else None
-        if override_val is not None:
+        override_data = p.beneficio_override_data if isinstance(p.beneficio_override_data, dict) else {}
+        if override_data.get("beneficio_inversor") not in (None, ""):
+            beneficio_inversor = _safe_float(override_data.get("beneficio_inversor"), beneficio_inversor)
+        elif override_val is not None:
             beneficio_inversor = override_val
         retencion = beneficio_inversor * 0.19
+        if override_data.get("retencion") not in (None, ""):
+            retencion = _safe_float(override_data.get("retencion"), retencion)
         neto_cobrar = beneficio_inversor - retencion
+        if override_data.get("neto_cobrar") not in (None, ""):
+            neto_cobrar = _safe_float(override_data.get("neto_cobrar"), neto_cobrar)
         total_beneficio += beneficio_inversor
         total_retencion += retencion
 
@@ -1412,7 +1435,7 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
                 "comision_eur": comision_eur,
                 "beneficio_neto_total": beneficio_neto_inversor_total,
                 "beneficio_inversor": beneficio_inversor,
-                "beneficio_override": override_val,
+                "beneficio_override": override_data.get("beneficio_inversor") if override_data.get("beneficio_inversor") not in (None, "") else override_val,
                 "retencion": retencion,
                 "neto_cobrar": neto_cobrar,
                 "participacion_pct": ratio_part * 100.0,
@@ -1511,23 +1534,83 @@ def inversor_beneficio_update(request, token: str, participacion_id: int):
         return redirect("core:inversor_portal", token=token)
 
     participacion = get_object_or_404(Participacion, id=participacion_id, cliente=perfil.cliente)
-    raw = (request.POST.get("beneficio_neto") or "").strip()
-    if raw == "":
-        participacion.beneficio_neto_override = None
+    proyecto = participacion.proyecto
+
+    def _get_decimal(name: str):
+        if name not in request.POST:
+            return None, False
+        raw = (request.POST.get(name) or "").strip()
+        if raw == "":
+            return None, True
+        try:
+            return _parse_decimal(raw), True
+        except Exception:
+            return None, True
+
+    # Compatibilidad: formulario antiguo
+    legacy_val, legacy_present = _get_decimal("beneficio_neto")
+    if legacy_present and set(request.POST.keys()).issubset({"csrfmiddlewaretoken", "beneficio_neto"}):
+        if legacy_val is None and (request.POST.get("beneficio_neto") or "").strip() == "":
+            participacion.beneficio_neto_override = None
+            participacion.save(update_fields=["beneficio_neto_override"])
+            messages.success(request, "Beneficio actualizado correctamente.")
+            return redirect("core:inversor_portal", token=token)
+        if legacy_val is None:
+            messages.error(request, "El beneficio indicado no es válido.")
+            return redirect("core:inversor_portal", token=token)
+        participacion.beneficio_neto_override = legacy_val
         participacion.save(update_fields=["beneficio_neto_override"])
         messages.success(request, "Beneficio actualizado correctamente.")
         return redirect("core:inversor_portal", token=token)
 
-    try:
-        value = _parse_decimal(raw)
-    except Exception:
-        value = None
-    if value is None:
-        messages.error(request, "El beneficio indicado no es válido.")
-        return redirect("core:inversor_portal", token=token)
+    proj_keys = ("beneficio_bruto", "comision_eur", "beneficio_neto_total")
+    inv_keys = ("beneficio_inversor", "retencion", "neto_cobrar")
 
-    participacion.beneficio_neto_override = value
-    participacion.save(update_fields=["beneficio_neto_override"])
+    extra = proyecto.extra if isinstance(proyecto.extra, dict) else {}
+    proj_override = extra.get("beneficio_operacion_override")
+    if not isinstance(proj_override, dict):
+        proj_override = {}
+
+    updated_proj = False
+    for key in proj_keys:
+        value, present = _get_decimal(key)
+        if not present:
+            continue
+        if value is None:
+            proj_override.pop(key, None)
+        else:
+            proj_override[key] = float(value)
+        updated_proj = True
+
+    if updated_proj:
+        if proj_override:
+            extra["beneficio_operacion_override"] = proj_override
+        else:
+            extra.pop("beneficio_operacion_override", None)
+        proyecto.extra = extra
+        proyecto.save(update_fields=["extra"])
+
+    override_data = participacion.beneficio_override_data if isinstance(participacion.beneficio_override_data, dict) else {}
+    updated_inv = False
+    for key in inv_keys:
+        value, present = _get_decimal(key)
+        if not present:
+            continue
+        if value is None:
+            override_data.pop(key, None)
+        else:
+            override_data[key] = float(value)
+        updated_inv = True
+
+    if updated_inv:
+        participacion.beneficio_override_data = override_data
+        beneficio_override_val = override_data.get("beneficio_inversor")
+        if beneficio_override_val is None and "beneficio_inversor" not in override_data:
+            participacion.beneficio_neto_override = None
+        elif beneficio_override_val is not None:
+            participacion.beneficio_neto_override = beneficio_override_val
+        participacion.save(update_fields=["beneficio_override_data", "beneficio_neto_override"])
+
     messages.success(request, "Beneficio actualizado correctamente.")
     return redirect("core:inversor_portal", token=token)
 

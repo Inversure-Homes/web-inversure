@@ -220,22 +220,52 @@
             {% for b in beneficios_por_proyecto %}
               <tr>
                 <td>{{ b.proyecto.nombre }}</td>
-                <td class="text-end">{{ b.beneficio_bruto|floatformat:2|intcomma }} €</td>
-                <td class="text-end">{{ b.comision_eur|floatformat:2|intcomma }} €</td>
-                <td class="text-end">{{ b.beneficio_neto_total|floatformat:2|intcomma }} €</td>
-                <td class="text-end">{{ b.beneficio_inversor|floatformat:2|intcomma }} €</td>
-                <td class="text-end">{{ b.retencion|floatformat:2|intcomma }} €</td>
-                <td class="text-end">{{ b.neto_cobrar|floatformat:2|intcomma }} €</td>
                 <td class="text-end">
                   {% if internal_view %}
-                    <form method="post" action="{% url 'core:inversor_beneficio_update' perfil.token b.participacion_id %}" class="d-flex gap-2 justify-content-end">
+                    <input type="text" name="beneficio_bruto" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.beneficio_bruto|floatformat:2 }}">
+                  {% else %}
+                    {{ b.beneficio_bruto|floatformat:2|intcomma }} €
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  {% if internal_view %}
+                    <input type="text" name="comision_eur" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.comision_eur|floatformat:2 }}">
+                  {% else %}
+                    {{ b.comision_eur|floatformat:2|intcomma }} €
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  {% if internal_view %}
+                    <input type="text" name="beneficio_neto_total" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.beneficio_neto_total|floatformat:2 }}">
+                  {% else %}
+                    {{ b.beneficio_neto_total|floatformat:2|intcomma }} €
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  {% if internal_view %}
+                    <input type="text" name="beneficio_inversor" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.beneficio_inversor|floatformat:2 }}">
+                  {% else %}
+                    {{ b.beneficio_inversor|floatformat:2|intcomma }} €
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  {% if internal_view %}
+                    <input type="text" name="retencion" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.retencion|floatformat:2 }}">
+                  {% else %}
+                    {{ b.retencion|floatformat:2|intcomma }} €
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  {% if internal_view %}
+                    <input type="text" name="neto_cobrar" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.neto_cobrar|floatformat:2 }}">
+                  {% else %}
+                    {{ b.neto_cobrar|floatformat:2|intcomma }} €
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  {% if internal_view %}
+                    <form id="beneficio-form-{{ b.participacion_id }}" method="post" action="{% url 'core:inversor_beneficio_update' perfil.token b.participacion_id %}">
                       {% csrf_token %}
-                      <input type="text"
-                             name="beneficio_neto"
-                             class="form-control form-control-sm"
-                             style="max-width: 120px;"
-                             value="{% if b.beneficio_override is not None %}{{ b.beneficio_override|floatformat:2 }}{% else %}{{ b.beneficio_inversor|floatformat:2 }}{% endif %}"
-                             placeholder="Editar €">
                       <button type="submit" class="btn btn-sm btn-outline-secondary">Guardar</button>
                     </form>
                   {% endif %}
