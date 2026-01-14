@@ -4,11 +4,27 @@ from django.utils.timezone import now
 
 
 class Hero(models.Model):
+    etiqueta = models.CharField(max_length=120, blank=True)
     titulo = models.CharField(max_length=200)
     subtitulo = models.CharField(max_length=300, blank=True)
     cta_texto = models.CharField(max_length=80, default="Acceder a la plataforma")
     cta_url = models.CharField(max_length=200, default="/app/")
+    fondo_color = models.CharField(
+        max_length=20,
+        blank=True,
+        help_text="Color de fondo en formato HEX. Ej: #0b1324",
+    )
+    fondo_imagen = models.ImageField(upload_to="landing/hero/fondos/", blank=True, null=True)
     imagen = models.ImageField(upload_to="landing/hero/", blank=True, null=True)
+    panel_titulo = models.CharField(max_length=120, blank=True)
+    panel_texto = models.CharField(max_length=200, blank=True)
+    panel_footer = models.CharField(max_length=120, blank=True)
+    meta_1_valor = models.CharField(max_length=40, blank=True)
+    meta_1_texto = models.CharField(max_length=80, blank=True)
+    meta_2_valor = models.CharField(max_length=40, blank=True)
+    meta_2_texto = models.CharField(max_length=80, blank=True)
+    meta_3_valor = models.CharField(max_length=40, blank=True)
+    meta_3_texto = models.CharField(max_length=80, blank=True)
     activo = models.BooleanField(default=True)
     actualizado = models.DateTimeField(auto_now=True)
 

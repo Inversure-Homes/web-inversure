@@ -71,6 +71,11 @@ body.landing-body {
   padding: 72px 0 60px;
 }
 
+.hero--has-bg {
+  background-size: cover;
+  background-position: center;
+}
+
 .hero__inner {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));

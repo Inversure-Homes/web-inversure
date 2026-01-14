@@ -6,7 +6,26 @@ from .models import Hero, Seccion, Noticia, MediaAsset
 class HeroForm(forms.ModelForm):
     class Meta:
         model = Hero
-        fields = ["titulo", "subtitulo", "cta_texto", "cta_url", "imagen", "activo"]
+        fields = [
+            "etiqueta",
+            "titulo",
+            "subtitulo",
+            "cta_texto",
+            "cta_url",
+            "fondo_color",
+            "fondo_imagen",
+            "imagen",
+            "panel_titulo",
+            "panel_texto",
+            "panel_footer",
+            "meta_1_valor",
+            "meta_1_texto",
+            "meta_2_valor",
+            "meta_2_texto",
+            "meta_3_valor",
+            "meta_3_texto",
+            "activo",
+        ]
 
 
 class SeccionForm(forms.ModelForm):

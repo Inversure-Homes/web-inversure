@@ -3,10 +3,20 @@
 
 {% block content %}
   <main>
-    <section class="hero">
+    {% if hero and hero.fondo_imagen %}
+      <section class="hero hero--has-bg" style="background-image: linear-gradient(120deg, rgba(11, 19, 36, 0.92), rgba(11, 19, 36, 0.6)), url('{{ hero.fondo_imagen.url }}');">
+    {% elif hero and hero.fondo_color %}
+      <section class="hero" style="background: {{ hero.fondo_color }};">
+    {% else %}
+      <section class="hero">
+    {% endif %}
       <div class="container hero__inner">
         <div class="hero__content">
-          <span class="hero__tag">Inversión inmobiliaria con control total</span>
+          {% if hero and hero.etiqueta %}
+            <span class="hero__tag">{{ hero.etiqueta }}</span>
+          {% else %}
+            <span class="hero__tag">Inversión inmobiliaria con control total</span>
+          {% endif %}
           <h1>{{ hero.titulo|default:"Trazabilidad real para cada operación" }}</h1>
           <p>{{ hero.subtitulo|default:"Tecnología y metodología para que inversores y equipo vean en todo momento el estado económico y operativo." }}</p>
           <div class="hero__actions">
@@ -15,16 +25,16 @@
           </div>
           <div class="hero__meta">
             <div>
-              <strong>+120</strong>
-              <span>operaciones analizadas</span>
+              <strong>{{ hero.meta_1_valor|default:"+120" }}</strong>
+              <span>{{ hero.meta_1_texto|default:"operaciones analizadas" }}</span>
             </div>
             <div>
-              <strong>100%</strong>
-              <span>trazabilidad documental</span>
+              <strong>{{ hero.meta_2_valor|default:"100%" }}</strong>
+              <span>{{ hero.meta_2_texto|default:"trazabilidad documental" }}</span>
             </div>
             <div>
-              <strong>24h</strong>
-              <span>tiempo de respuesta medio</span>
+              <strong>{{ hero.meta_3_valor|default:"24h" }}</strong>
+              <span>{{ hero.meta_3_texto|default:"tiempo de respuesta medio" }}</span>
             </div>
           </div>
         </div>
@@ -36,10 +46,10 @@
               <img class="hero__panel-logo" src="{% static 'core/logo_inversure.png' %}" alt="Inversure">
             {% endif %}
             <div class="hero__panel-card">
-              <h4>Estado del proyecto</h4>
-              <p>Documento, gastos y retornos alineados para comité.</p>
+              <h4>{{ hero.panel_titulo|default:"Estado del proyecto" }}</h4>
+              <p>{{ hero.panel_texto|default:"Documento, gastos y retornos alineados para comité." }}</p>
               <div class="hero__bar"><span></span></div>
-              <small>Progreso operativo actualizado</small>
+              <small>{{ hero.panel_footer|default:"Progreso operativo actualizado" }}</small>
             </div>
           </div>
         </div>
