@@ -1310,7 +1310,9 @@ def cliente_inversor_link(request, cliente_id: int):
 def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) -> dict:
     participaciones = Participacion.objects.filter(cliente=perfil.cliente).select_related("proyecto").order_by("-creado")
     comunicaciones = ComunicacionInversor.objects.filter(inversor=perfil)
-    proyectos_abiertos = Proyecto.objects.filter(estado__in=["activo", "captacion"]).order_by("-id")
+    proyectos_abiertos = Proyecto.objects.filter(
+        estado__in=["captacion", "comprado", "comercializacion", "reservado"]
+    ).order_by("-id")
     solicitudes = SolicitudParticipacion.objects.filter(inversor=perfil).select_related("proyecto")
 
     total_invertido = participaciones.filter(estado="confirmada").aggregate(total=Sum("importe_invertido")).get("total") or 0
@@ -2549,7 +2551,7 @@ def convertir_a_proyecto(request, estudio_id: int):
             proyecto_kwargs["snapshot_datos"] = datos_snapshot
         if _has_field(Proyecto, "estado"):
             # estado inicial del proyecto
-            proyecto_kwargs["estado"] = "Estudio"
+            proyecto_kwargs["estado"] = "captacion"
 
         proyecto = Proyecto.objects.create(**proyecto_kwargs)
 

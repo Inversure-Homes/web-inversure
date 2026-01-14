@@ -424,18 +424,19 @@ class Proyecto(models.Model):
     # ESTADO DEL PROYECTO
     # =========================
     ESTADO_CHOICES = (
-        ("estudio", "En estudio"),
-        ("reservado", "Reservado"),
+        ("captacion", "Captación"),
         ("comprado", "Comprado"),
-        ("operacion", "En operación"),
+        ("comercializacion", "Comercialización"),
+        ("reservado", "Reservado"),
         ("vendido", "Vendido"),
+        ("cerrado", "Cerrado"),
         ("descartado", "Descartado"),
     )
 
     estado = models.CharField(
         max_length=20,
         choices=ESTADO_CHOICES,
-        default="estudio"
+        default="captacion"
     )
 
     # =========================
@@ -495,10 +496,10 @@ class Proyecto(models.Model):
         super().save(*args, **kwargs)
 
     def es_estudio(self):
-        return self.estado == "estudio"
+        return self.estado in {"captacion", "estudio"}
 
     def es_operacion(self):
-        return self.estado == "operacion"
+        return self.estado in {"comprado", "comercializacion", "reservado", "vendido", "cerrado"}
 
     def __str__(self):
         return f"{self.nombre} ({self.fecha})"

@@ -146,17 +146,13 @@
                 <div class="col-md-3 mb-3">
                     <label class="form-label text-muted">Estado</label>
                     <select name="estado" id="estado_proyecto" class="form-select form-select-lg" {% if not editable %}disabled{% endif %}>
-                        <option value="estudio" {% if proyecto.estado == "estudio" or not proyecto.estado %}selected{% endif %}>Estudio (captación)</option>
+                        <option value="captacion" {% if proyecto.estado == "captacion" or proyecto.estado == "estudio" or not proyecto.estado %}selected{% endif %}>Captación</option>
                         <option value="comprado" {% if proyecto.estado == "comprado" %}selected{% endif %}>Comprado</option>
                         <option value="comercializacion" {% if proyecto.estado == "comercializacion" %}selected{% endif %}>Comercialización</option>
+                        <option value="reservado" {% if proyecto.estado == "reservado" %}selected{% endif %}>Reservado</option>
                         <option value="vendido" {% if proyecto.estado == "vendido" %}selected{% endif %}>Vendido</option>
                         <option value="cerrado" {% if proyecto.estado == "cerrado" %}selected{% endif %}>Cerrado</option>
-
-                        <optgroup label="(Legacy)">
-                          <option value="reservado" {% if proyecto.estado == "reservado" %}selected{% endif %}>(Legacy) Reservado</option>
-                          <option value="operacion" {% if proyecto.estado == "operacion" %}selected{% endif %}>(Legacy) En operación</option>
-                          <option value="descartado" {% if proyecto.estado == "descartado" %}selected{% endif %}>(Legacy) Descartado</option>
-                        </optgroup>
+                        <option value="descartado" {% if proyecto.estado == "descartado" %}selected{% endif %}>Descartado</option>
                     </select>
 
                     <!-- Resultado de cierre: solo aplica cuando estado = 'cerrado' -->
