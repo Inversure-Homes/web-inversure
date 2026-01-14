@@ -40,7 +40,7 @@
               </div>
 
               <span class="badge bg-light text-dark small align-self-start">
-                EST-{{ estudio.id|stringformat:"06d" }}
+                EST-{{ estudio.codigo_estudio|default:estudio.id|stringformat:"06d" }}
               </span>
             </div>
 
@@ -110,7 +110,7 @@
 
             <div class="card-footer text-center small text-muted py-2">
               <div>
-                ID interno: {{ estudio.id }} · Creado: {{ estudio.fecha|date:"d/m/Y" }}
+                ID interno: {{ estudio.codigo_estudio|default:estudio.id }} · Creado: {{ estudio.fecha|date:"d/m/Y" }}
               </div>
               <div class="mt-1">
                 Estado:

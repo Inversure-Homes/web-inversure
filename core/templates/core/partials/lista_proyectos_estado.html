@@ -4,7 +4,10 @@
         <div class="col-md-4 mb-4">
             <div class="card h-100 shadow-sm">
                 <div class="card-body">
-                    <h5 class="card-title">{{ proyecto.nombre }}</h5>
+                    <h5 class="card-title d-flex justify-content-between align-items-start">
+                        <span>{{ proyecto.nombre }}</span>
+                        <span class="badge bg-light text-dark">PR-{{ proyecto.codigo_proyecto|default:proyecto.id|stringformat:"06d" }}</span>
+                    </h5>
                     <p class="card-text text-muted">
                         Estado: {{ proyecto.get_estado_display }}
                     </p>

@@ -131,10 +131,16 @@
         </div>
         <div class="card-body">
             <div class="row">
-                <div class="col-md-6 mb-3">
+                <div class="col-md-5 mb-3">
                     <label class="form-label text-muted">Nombre del proyecto</label>
                     <input type="text" name="nombre" class="form-control form-control-lg"
                            value="{{ proyecto.nombre|default:inm.nombre_proyecto|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+
+                <div class="col-md-2 mb-3">
+                    <label class="form-label text-muted">Código</label>
+                    <input type="text" name="codigo_proyecto" class="form-control form-control-lg"
+                           value="{{ proyecto.codigo_proyecto|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
 
                 <div class="col-md-3 mb-3">
@@ -165,7 +171,7 @@
                     </div>
                 </div>
 
-                <div class="col-md-3 mb-3">
+                <div class="col-md-2 mb-3">
                     <label class="form-label text-muted">Fecha</label>
                     <input type="date" name="fecha" class="form-control form-control-lg"
                            value="{{ proyecto.fecha|date:'Y-m-d'|default:'' }}" {% if not editable %}disabled{% endif %}>

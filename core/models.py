@@ -164,6 +164,12 @@ class Proyecto(models.Model):
     # =========================
     nombre = models.CharField(max_length=255)
     fecha = models.DateField(null=True, blank=True)
+    codigo_proyecto = models.PositiveIntegerField(
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="Código interno visible del proyecto (contador propio)"
+    )
 
     # =========================
     # DATOS DEL INMUEBLE
@@ -481,6 +487,12 @@ class Proyecto(models.Model):
     # Toda la lógica económica y de rentabilidad
     # se resuelve exclusivamente en views.py
     # y/o en el frontend (simulador).
+
+    def save(self, *args, **kwargs):
+        if self.codigo_proyecto is None:
+            ultimo = Proyecto.objects.aggregate(models.Max("codigo_proyecto"))["codigo_proyecto__max"]
+            self.codigo_proyecto = 0 if ultimo is None else int(ultimo) + 1
+        super().save(*args, **kwargs)
 
     def es_estudio(self):
         return self.estado == "estudio"

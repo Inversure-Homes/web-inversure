@@ -4,7 +4,8 @@
             {% if proyecto.estado == estado %}
                 <li class="list-group-item d-flex justify-content-between align-items-center">
                     <div>
-                        <strong>{{ proyecto.nombre }}</strong><br>
+                        <strong>{{ proyecto.nombre }}</strong>
+                        <span class="badge bg-light text-dark ms-2">PR-{{ proyecto.codigo_proyecto|default:proyecto.id|stringformat:"06d" }}</span><br>
                         <small class="text-muted">
                             {{ proyecto.fecha|date:"d/m/Y" }}
                         </small>

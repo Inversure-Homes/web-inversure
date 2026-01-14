@@ -2374,6 +2374,18 @@ def guardar_proyecto(request, proyecto_id: int):
             # si el campo no existe en el modelo, lo guardamos en extra
             pass
 
+    codigo_raw = payload.get("codigo_proyecto") or payload_proyecto.get("codigo_proyecto")
+    if codigo_raw not in (None, ""):
+        try:
+            if isinstance(codigo_raw, str):
+                codigo_raw = codigo_raw.strip()
+            codigo_val = int(float(codigo_raw))
+            if codigo_val >= 0:
+                proyecto_obj.codigo_proyecto = codigo_val
+                update_fields.append("codigo_proyecto")
+        except Exception:
+            pass
+
     if update_fields:
         try:
             proyecto_obj.save(update_fields=list(set(update_fields)))
@@ -2396,6 +2408,8 @@ def guardar_proyecto(request, proyecto_id: int):
             extra["estado"] = estado
         if fecha_raw not in (None, ""):
             extra["fecha"] = fecha_raw
+        if codigo_raw not in (None, ""):
+            extra["codigo_proyecto"] = codigo_raw
 
         # Guardar también dentro de snapshot_datos como fallback si existe
         try:
