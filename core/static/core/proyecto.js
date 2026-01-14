@@ -1433,6 +1433,12 @@ function bindMemoriaEconomica() {
       }
     });
 
+    const ventaEstimadaInput = parseEuro(_getElText(document.querySelector("[name='venta_estimada']")));
+    if ((totalIngresosEstimados + totalIngresosReales) <= 0 && Number.isFinite(ventaEstimadaInput) && ventaEstimadaInput > 0) {
+      totalIngresosEstimados = ventaEstimadaInput;
+      ventaEstimado = ventaEstimadaInput;
+    }
+
     if (totalEstimadoEl) totalEstimadoEl.textContent = fmtEuroLocal(totalEstimado);
     if (totalRealEl) totalRealEl.textContent = fmtEuroLocal(totalReal);
     if (totalIngresosEl) {
@@ -1454,8 +1460,6 @@ function bindMemoriaEconomica() {
     const precioCompraBase = (Number.isFinite(precioCompraInput) && precioCompraInput > 0)
       ? precioCompraInput
       : ((compraReal > 0) ? compraReal : compraEstimada);
-    const ventaEstimada = parseEuro(_getElText(document.querySelector("[name='venta_estimada']")));
-
     const valAdqEstimado = totalEstimado;
     const valAdqReal = totalReal;
     const valTransEstimado = totalIngresosEstimados - gastosVentaEstimado;
