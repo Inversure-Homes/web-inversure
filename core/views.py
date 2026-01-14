@@ -1432,6 +1432,8 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
                 "label": proyecto.nombre,
                 "fecha": fecha_ref or "",
                 "beneficio": beneficio_inversor,
+                "inversion": float(p.importe_invertido or 0),
+                "pct": (beneficio_inversor / float(p.importe_invertido or 0) * 100.0) if float(p.importe_invertido or 0) > 0 else 0.0,
             }
         )
 

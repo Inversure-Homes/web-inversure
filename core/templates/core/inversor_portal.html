@@ -270,12 +270,17 @@
       const date = d.fecha ? new Date(d.fecha).toLocaleDateString("es-ES") : "";
       const label = d.label || "Proyecto";
       const val = Number(d.beneficio) || 0;
+      const inv = Number(d.inversion) || 0;
+      const pctInv = inv > 0 ? (val / inv) * 100 : (Number(d.pct) || 0);
       const pct = Math.min(100, Math.max(0, (val / maxVal) * 100));
       return `
         <div class="bar-row">
           <div class="bar-label">${label}<br><span class="text-muted">${date}</span></div>
           <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
-          <div class="bar-value">${new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(val)}</div>
+          <div class="bar-value">
+            ${new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(val)}
+            <br><span class="text-muted">${pctInv.toFixed(2)}%</span>
+          </div>
         </div>
       `;
     }).join("");
