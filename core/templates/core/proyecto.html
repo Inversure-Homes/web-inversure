@@ -615,62 +615,6 @@
     </div>
 
     <!-- ===============================
-         DATOS PRINCIPALES
-    ================================ -->
-    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
-        <div class="card-body">
-            <h5 class="mb-3 inversure-form-header">
-                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">2</span>
-                Datos principales
-            </h5>
-
-            <div class="row">
-                <div class="col-md-3 mb-3">
-                    <label class="form-label">Precio de escritura</label>
-                    <input type="text" name="precio_propiedad"
-                           class="form-control form-control-lg"
-                           data-euro="true"
-                           value="{{ eco.precio_propiedad|default:eco.precio_escritura|default:met.precio_propiedad|default:met.precio_escritura|default:proyecto.precio_propiedad|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-
-                <div class="col-md-3 mb-3">
-                    <label class="form-label">Venta estimada</label>
-                    <input type="text" name="venta_estimada"
-                           class="form-control form-control-lg"
-                           data-euro="true"
-                           value="{{ eco.venta_estimada|default:eco.valor_transmision|default:met.venta_estimada|default:met.valor_transmision|default:met.precio_transmision|default:proyecto.venta_estimada|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-
-                <div class="col-md-3 mb-3">
-                    <label class="form-label">Valor de transmisión</label>
-                    <input type="text" name="valor_transmision"
-                           class="form-control form-control-lg"
-                           data-euro="true"
-                           readonly
-                           value="{{ eco.valor_transmision|default:met.valor_transmision|default:met.precio_transmision|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-
-                <div class="col-md-3 mb-3">
-                    <label class="form-label">Tiempo estimado de operación (meses)</label>
-                    <input type="text" name="meses"
-                           class="form-control"
-                           data-number="true"
-                           value="{{ eco.meses|default:met.meses|default:proyecto.meses|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">% Financiación</label>
-                    <input type="text" name="financiacion_pct"
-                           class="form-control"
-                           data-number="true"
-                           value="{{ eco.financiacion_pct|default:eco.porcentaje_financiacion|default:met.financiacion_pct|default:met.porcentaje_financiacion|default:proyecto.financiacion_pct|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-            </div>
-        </div>
-    </div>
-    <!-- ===============================
          ACCIONES
     ================================ -->
     {% if not editable %}
