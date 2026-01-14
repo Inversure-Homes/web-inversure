@@ -121,47 +121,6 @@
 
 {{ beneficio_chart|json_script:"beneficioChartData" }}
 
-<script>
-  (function() {
-    const dataEl = document.getElementById("beneficioChartData");
-    const chartEl = document.getElementById("beneficioChart");
-    if (!dataEl || !chartEl) return;
-    let data = [];
-    try {
-      data = JSON.parse(dataEl.textContent || "[]");
-    } catch (e) {
-      data = [];
-    }
-    if (!Array.isArray(data) || !data.length) {
-      chartEl.innerHTML = "<div class='text-muted small'>Sin datos de beneficios.</div>";
-      return;
-    }
-    const maxVal = Math.max(...data.map(d => Number(d.beneficio) || 0), 1);
-    chartEl.innerHTML = data.map(d => {
-      const date = d.fecha ? new Date(d.fecha).toLocaleDateString("es-ES") : "";
-      const label = d.label || "Proyecto";
-      const val = Number(d.beneficio) || 0;
-      const pct = Math.min(100, Math.max(0, (val / maxVal) * 100));
-      return `
-        <div class="bar-row">
-          <div class="bar-label">${label}<br><span class="text-muted">${date}</span></div>
-          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
-          <div class="bar-value">${new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(val)}</div>
-        </div>
-      `;
-    }).join("");
-
-    const donut = document.getElementById("beneficioDonut");
-    if (donut) {
-      const total = Number(donut.getAttribute("data-total") || 0);
-      const ret = Number(donut.getAttribute("data-retencion") || 0);
-      const neto = Math.max(total - ret, 0);
-      const pct = total > 0 ? Math.min(100, Math.max(0, (neto / total) * 100)) : 0;
-      donut.style.background = `conic-gradient(#16a34a 0 ${pct}%, #e2e8f0 ${pct}% 100%)`;
-    }
-  })();
-</script>
-
   <div class="row g-3">
     <div class="col-md-3">
       <div class="portal-card">
@@ -275,7 +234,7 @@
                              name="beneficio_neto"
                              class="form-control form-control-sm"
                              style="max-width: 120px;"
-                             value="{% if b.beneficio_override is not None %}{{ b.beneficio_override|floatformat:2 }}{% endif %}"
+                             value="{% if b.beneficio_override is not None %}{{ b.beneficio_override|floatformat:2 }}{% else %}{{ b.beneficio_inversor|floatformat:2 }}{% endif %}"
                              placeholder="Editar €">
                       <button type="submit" class="btn btn-sm btn-outline-secondary">Guardar</button>
                     </form>
@@ -290,6 +249,47 @@
       <div class="text-muted">No hay beneficios disponibles todavía.</div>
     {% endif %}
   </div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const dataEl = document.getElementById("beneficioChartData");
+    const chartEl = document.getElementById("beneficioChart");
+    if (!dataEl || !chartEl) return;
+    let data = [];
+    try {
+      data = JSON.parse(dataEl.textContent || "[]");
+    } catch (e) {
+      data = [];
+    }
+    if (!Array.isArray(data) || !data.length) {
+      chartEl.innerHTML = "<div class='text-muted small'>Sin datos de beneficios.</div>";
+      return;
+    }
+    const maxVal = Math.max(...data.map(d => Number(d.beneficio) || 0), 1);
+    chartEl.innerHTML = data.map(d => {
+      const date = d.fecha ? new Date(d.fecha).toLocaleDateString("es-ES") : "";
+      const label = d.label || "Proyecto";
+      const val = Number(d.beneficio) || 0;
+      const pct = Math.min(100, Math.max(0, (val / maxVal) * 100));
+      return `
+        <div class="bar-row">
+          <div class="bar-label">${label}<br><span class="text-muted">${date}</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
+          <div class="bar-value">${new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(val)}</div>
+        </div>
+      `;
+    }).join("");
+
+    const donut = document.getElementById("beneficioDonut");
+    if (donut) {
+      const total = Number(donut.getAttribute("data-total") || 0);
+      const ret = Number(donut.getAttribute("data-retencion") || 0);
+      const neto = Math.max(total - ret, 0);
+      const pct = total > 0 ? Math.min(100, Math.max(0, (neto / total) * 100)) : 0;
+      donut.style.background = `conic-gradient(#16a34a 0 ${pct}%, #e2e8f0 ${pct}% 100%)`;
+    }
+  });
+</script>
 
   <div class="row g-3 mt-3">
     <div class="col-lg-7">
