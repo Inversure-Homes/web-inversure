@@ -2484,6 +2484,11 @@ def convertir_a_proyecto(request, estudio_id: int):
     with transaction.atomic():
         # 1) Snapshot del estudio
         datos_snapshot = _sanitize_for_json(estudio.datos or {})
+        datos_raw = estudio.datos or {}
+        if not isinstance(datos_raw, dict):
+            datos_raw = {}
+        inmueble_raw = datos_raw.get("inmueble") if isinstance(datos_raw.get("inmueble"), dict) else {}
+        proyecto_raw = datos_raw.get("proyecto") if isinstance(datos_raw.get("proyecto"), dict) else {}
 
         # versionado si existe
         snap_kwargs = {"estudio": estudio, "datos": datos_snapshot}
@@ -2500,14 +2505,42 @@ def convertir_a_proyecto(request, estudio_id: int):
 
         # 2) Crear proyecto heredando
         proyecto_kwargs = {}
+        nombre_estudio = (
+            estudio.nombre
+            or datos_raw.get("nombre_proyecto")
+            or datos_raw.get("nombre")
+            or proyecto_raw.get("nombre")
+            or proyecto_raw.get("nombre_proyecto")
+            or ""
+        )
+        direccion_estudio = (
+            estudio.direccion
+            or datos_raw.get("direccion")
+            or inmueble_raw.get("direccion")
+            or inmueble_raw.get("direccion_inmueble")
+            or ""
+        )
+        ref_catastral_estudio = (
+            estudio.ref_catastral
+            or datos_raw.get("ref_catastral")
+            or inmueble_raw.get("ref_catastral")
+            or ""
+        )
+        valor_referencia_estudio = (
+            estudio.valor_referencia
+            if estudio.valor_referencia is not None
+            else inmueble_raw.get("valor_referencia")
+            or datos_raw.get("valor_referencia")
+        )
+
         if _has_field(Proyecto, "nombre"):
-            proyecto_kwargs["nombre"] = estudio.nombre or ""
+            proyecto_kwargs["nombre"] = nombre_estudio
         if _has_field(Proyecto, "direccion"):
-            proyecto_kwargs["direccion"] = estudio.direccion or ""
+            proyecto_kwargs["direccion"] = direccion_estudio
         if _has_field(Proyecto, "ref_catastral"):
-            proyecto_kwargs["ref_catastral"] = estudio.ref_catastral or ""
+            proyecto_kwargs["ref_catastral"] = ref_catastral_estudio
         if _has_field(Proyecto, "valor_referencia"):
-            proyecto_kwargs["valor_referencia"] = estudio.valor_referencia
+            proyecto_kwargs["valor_referencia"] = valor_referencia_estudio
         if _has_field(Proyecto, "origen_estudio"):
             proyecto_kwargs["origen_estudio"] = estudio
         if _has_field(Proyecto, "origen_snapshot"):
