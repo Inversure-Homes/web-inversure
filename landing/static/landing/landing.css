@@ -151,8 +151,16 @@ body.landing-body {
   width: min(380px, 100%);
 }
 
-.hero__panel img {
+.hero__panel-logo {
   height: 38px;
+}
+
+.hero__panel-image {
+  width: 100%;
+  height: auto;
+  border-radius: 14px;
+  display: block;
+  margin-bottom: 16px;
 }
 
 .hero__panel-card {

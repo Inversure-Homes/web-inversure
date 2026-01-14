@@ -30,7 +30,11 @@
         </div>
         <div class="hero__visual">
           <div class="hero__panel">
-            <img src="{% static 'core/logo_inversure.png' %}" alt="Inversure">
+            {% if hero and hero.imagen %}
+              <img class="hero__panel-image" src="{{ hero.imagen.url }}" alt="{{ hero.titulo|default:'Inversure' }}">
+            {% else %}
+              <img class="hero__panel-logo" src="{% static 'core/logo_inversure.png' %}" alt="Inversure">
+            {% endif %}
             <div class="hero__panel-card">
               <h4>Estado del proyecto</h4>
               <p>Documento, gastos y retornos alineados para comité.</p>
