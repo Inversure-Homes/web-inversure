@@ -59,7 +59,7 @@
   .inv-meta { color: var(--slate); font-size: 13px; }
   .inv-stats {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 10px;
   }
   .inv-stat {
@@ -225,6 +225,10 @@
           <div class="inv-stat">
             <div class="label">Total invertido</div>
             <div class="value">{{ inv.total_invertido|floatformat:2|intcomma }} €</div>
+          </div>
+          <div class="inv-stat">
+            <div class="label">Aportación inicial</div>
+            <div class="value">{{ inv.aportacion_inicial|floatformat:2|intcomma }} €</div>
           </div>
           <div class="inv-stat">
             <div class="label">Proyectos activos</div>
