@@ -529,6 +529,7 @@ def _build_carta_pdf_with_error(
             "core/pdf_carta_inversor.html",
             {
                 "titulo": titulo,
+                "mensaje": mensaje,
                 "mensaje_html": mensaje_html,
                 "cliente": perfil.cliente,
                 "proyecto": proyecto,
