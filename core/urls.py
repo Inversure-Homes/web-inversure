@@ -64,6 +64,11 @@ urlpatterns = [
         views.inversor_documento_borrar,
         name="inversor_documento_borrar",
     ),
+    path(
+        "inversores/<int:perfil_id>/comunicaciones/preview/",
+        views.inversor_comunicacion_preview,
+        name="inversor_comunicacion_preview",
+    ),
 
     # Portal inversor (token)
     path("inversor/<str:token>/", views.inversor_portal, name="inversor_portal"),

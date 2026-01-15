@@ -4,10 +4,11 @@ from django.contrib.auth.models import Group, User
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import UserCreateForm, UserEditForm
+from .utils import is_admin_user
 
 
 def _is_admin(user):
-    return user.is_authenticated and (user.is_superuser or user.is_staff)
+    return is_admin_user(user)
 
 
 def login_view(request):

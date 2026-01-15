@@ -196,6 +196,10 @@
           <div class="form-text" id="com_destinatarios">Se enviará solo a inversores con participación confirmada.</div>
         </div>
       </div>
+      <div class="mt-3" id="com_anexos">
+        <div class="fw-semibold mb-2">Anexos PDF (documentacion inmueble)</div>
+        <div class="text-muted">No hay documentos disponibles para anexar.</div>
+      </div>
       <div class="table-responsive mt-3">
         <table class="table table-sm align-middle">
           <thead>
@@ -391,6 +395,7 @@
     const elTitulo = document.getElementById("com_titulo");
     const elMensaje = document.getElementById("com_mensaje");
     const elDest = document.getElementById("com_destinatarios");
+    const anexosWrap = document.getElementById("com_anexos");
     if (!proyectoEl || !tabla || !btnSend) return;
 
     const baseUrl = "{% url 'core:proyecto_comunicaciones' 0 %}";
@@ -419,6 +424,27 @@
           ];
           templateEl.innerHTML = options.join("");
           if (current) templateEl.value = current;
+        }
+        if (anexosWrap) {
+          const docs = Array.isArray(data.documentos) ? data.documentos : [];
+          if (!docs.length) {
+            anexosWrap.innerHTML = `
+              <div class="fw-semibold mb-2">Anexos PDF (documentacion inmueble)</div>
+              <div class="text-muted">No hay documentos disponibles para anexar.</div>
+            `;
+          } else {
+            anexosWrap.innerHTML = `
+              <div class="fw-semibold mb-2">Anexos PDF (documentacion inmueble)</div>
+              <div class="d-flex flex-wrap gap-3">
+                ${docs.map(doc => `
+                  <label class="form-check form-check-inline m-0">
+                    <input class="form-check-input" type="checkbox" name="com_doc" value="${doc.id}">
+                    <span class="form-check-label">${doc.titulo || "Documento"}</span>
+                  </label>
+                `).join("")}
+              </div>
+            `;
+          }
         }
         const rows = data.comunicaciones || [];
         if (!rows.length) {
@@ -473,12 +499,18 @@
       const titulo = (elTitulo && elTitulo.value || "").trim();
       const mensaje = (elMensaje && elMensaje.value || "").trim();
       const templateKey = (templateEl && templateEl.value || "").trim();
+      const docIds = Array.from(document.querySelectorAll("input[name='com_doc']:checked"))
+        .map(el => el.value)
+        .filter(Boolean);
       if (!templateKey && (!titulo || !mensaje)) {
         alert("Título y mensaje son obligatorios.");
         return;
       }
       const url = getUrl();
       const payload = templateKey ? { template_key: templateKey } : { titulo, mensaje };
+      if (docIds.length) {
+        payload.doc_ids = docIds;
+      }
       const resp = await fetch(url, {
         method: "POST",
         headers: {

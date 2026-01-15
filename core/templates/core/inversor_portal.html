@@ -394,6 +394,51 @@
   </div>
 
   {% if internal_view %}
+  <div class="portal-card mt-3" id="com_preview_card">
+    <h5 class="mb-3">Comunicaciones (vista previa)</h5>
+    {% if proyectos_participados %}
+      <div class="row g-3 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label">Proyecto</label>
+          <select class="form-select" id="inv_com_proyecto">
+            {% for p in proyectos_participados %}
+              <option value="{{ p.id }}">{{ p.nombre|default:"Proyecto" }} · ID {{ p.id }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Plantilla</label>
+          <select class="form-select" id="inv_com_template">
+            <option value="">— Manual —</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm w-100 text-nowrap" id="inv_com_generate_btn">Generar</button>
+        </div>
+        <div class="col-md-2">
+          <button type="button" class="btn btn-portal btn-sm w-100 text-nowrap" id="inv_com_preview_btn">Vista previa PDF</button>
+        </div>
+      </div>
+      <div class="row g-3 mt-2">
+        <div class="col-md-4">
+          <label class="form-label">Título</label>
+          <input type="text" class="form-control" id="inv_com_titulo" placeholder="Actualización de proyecto">
+        </div>
+        <div class="col-md-8">
+          <label class="form-label">Mensaje</label>
+          <textarea class="form-control" id="inv_com_mensaje" rows="2" placeholder="Resumen breve para inversores"></textarea>
+          <div class="form-text" id="inv_com_destinatarios">Vista previa individual para este inversor.</div>
+        </div>
+      </div>
+      <div class="mt-3" id="inv_com_anexos">
+        <div class="fw-semibold mb-2">Anexos PDF (documentacion inmueble)</div>
+        <div class="text-muted">No hay documentos disponibles para anexar.</div>
+      </div>
+    {% else %}
+      <div class="text-muted">Este inversor aún no tiene proyectos confirmados.</div>
+    {% endif %}
+  </div>
+
   <div class="portal-card mt-3">
     <h5 class="mb-3">Ajuste de aportación inicial</h5>
     <form method="post" action="{% url 'core:inversor_portal_config' perfil.id %}">
@@ -486,5 +531,150 @@
     {% endif %}
   </div>
 </div>
+
+{% if internal_view %}
+<script>
+  (function () {
+    const proyectoEl = document.getElementById("inv_com_proyecto");
+    const templateEl = document.getElementById("inv_com_template");
+    const btnGenerate = document.getElementById("inv_com_generate_btn");
+    const btnPreview = document.getElementById("inv_com_preview_btn");
+    const elTitulo = document.getElementById("inv_com_titulo");
+    const elMensaje = document.getElementById("inv_com_mensaje");
+    const anexosWrap = document.getElementById("inv_com_anexos");
+    if (!proyectoEl || !btnPreview) return;
+
+    const baseUrl = "{% url 'core:proyecto_comunicaciones' 0 %}";
+    const previewUrl = "{% url 'core:inversor_comunicacion_preview' perfil.id %}";
+
+    function getCsrfToken() {
+      const match = document.cookie.match(/csrftoken=([^;]+)/);
+      return match ? match[1] : "";
+    }
+
+    function getProjectUrl() {
+      return baseUrl.replace("/0/", "/" + proyectoEl.value + "/");
+    }
+
+    async function loadTemplatesDocs() {
+      try {
+        const resp = await fetch(getProjectUrl(), { headers: { "X-Requested-With": "XMLHttpRequest" } });
+        const data = await resp.json();
+        if (!data || !data.ok) return;
+        if (templateEl && Array.isArray(data.templates)) {
+          const current = templateEl.value;
+          const options = [
+            `<option value="">— Manual —</option>`,
+            ...data.templates.map(t => `<option value="${t.key}">${t.label}</option>`)
+          ];
+          templateEl.innerHTML = options.join("");
+          if (current) templateEl.value = current;
+        }
+        if (anexosWrap) {
+          const docs = Array.isArray(data.documentos) ? data.documentos : [];
+          if (!docs.length) {
+            anexosWrap.innerHTML = `
+              <div class="fw-semibold mb-2">Anexos PDF (documentacion inmueble)</div>
+              <div class="text-muted">No hay documentos disponibles para anexar.</div>
+            `;
+          } else {
+            anexosWrap.innerHTML = `
+              <div class="fw-semibold mb-2">Anexos PDF (documentacion inmueble)</div>
+              <div class="d-flex flex-wrap gap-3">
+                ${docs.map(doc => `
+                  <label class="form-check form-check-inline m-0">
+                    <input class="form-check-input" type="checkbox" name="inv_com_doc" value="${doc.id}">
+                    <span class="form-check-label">${doc.titulo || "Documento"}</span>
+                  </label>
+                `).join("")}
+              </div>
+            `;
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (btnGenerate) {
+      btnGenerate.addEventListener("click", async () => {
+        const templateKey = (templateEl && templateEl.value || "").trim();
+        if (!templateKey) {
+          alert("Selecciona una plantilla para generar el borrador.");
+          return;
+        }
+        const resp = await fetch(previewUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}),
+          },
+          body: JSON.stringify({
+            proyecto_id: proyectoEl.value,
+            template_key: templateKey,
+            preview_only: true,
+          }),
+        });
+        if (!resp.ok) {
+          alert("No se pudo generar la comunicación.");
+          return;
+        }
+        const data = await resp.json();
+        if (elTitulo) elTitulo.value = data.titulo || "";
+        if (elMensaje) elMensaje.value = data.mensaje || "";
+      });
+    }
+
+    btnPreview.addEventListener("click", async () => {
+      const templateKey = (templateEl && templateEl.value || "").trim();
+      const titulo = (elTitulo && elTitulo.value || "").trim();
+      const mensaje = (elMensaje && elMensaje.value || "").trim();
+      const docIds = Array.from(document.querySelectorAll("input[name='inv_com_doc']:checked"))
+        .map(el => el.value)
+        .filter(Boolean);
+
+      if (!templateKey && (!titulo || !mensaje)) {
+        alert("Título y mensaje son obligatorios.");
+        return;
+      }
+      const payload = { proyecto_id: proyectoEl.value };
+      if (templateKey) {
+        payload.template_key = templateKey;
+      } else {
+        payload.titulo = titulo;
+        payload.mensaje = mensaje;
+      }
+      if (docIds.length) payload.doc_ids = docIds;
+
+      const resp = await fetch(previewUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!resp.ok) {
+        let err = "No se pudo generar la vista previa.";
+        try {
+          const data = await resp.json();
+          if (data && data.error) err = data.error;
+        } catch (e) {}
+        alert(err);
+        return;
+      }
+      const contentType = resp.headers.get("Content-Type") || "";
+      if (!contentType.includes("application/pdf")) {
+        alert("No se pudo generar el PDF.");
+        return;
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener");
+    });
+
+    proyectoEl.addEventListener("change", loadTemplatesDocs);
+    loadTemplatesDocs();
+  })();
+</script>
+{% endif %}
 
 {% endblock %}
