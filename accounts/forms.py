@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.models import Group, User
 
+from .models import UserAccess
 
 class UserCreateForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput, required=True)
@@ -10,6 +11,14 @@ class UserCreateForm(forms.ModelForm):
         required=False,
         widget=forms.CheckboxSelectMultiple,
     )
+    use_custom_perms = forms.BooleanField(required=False, label="Usar permisos individuales")
+    can_simulador = forms.BooleanField(required=False, label="Acceso a Simulador")
+    can_estudios = forms.BooleanField(required=False, label="Acceso a Estudios")
+    can_proyectos = forms.BooleanField(required=False, label="Acceso a Proyectos")
+    can_clientes = forms.BooleanField(required=False, label="Acceso a Clientes")
+    can_inversores = forms.BooleanField(required=False, label="Acceso a Inversores")
+    can_usuarios = forms.BooleanField(required=False, label="Acceso a Usuarios")
+    can_cms = forms.BooleanField(required=False, label="Acceso a CMS")
 
     class Meta:
         model = User
@@ -22,6 +31,22 @@ class UserCreateForm(forms.ModelForm):
             "is_staff",
             "groups",
         ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Usar checkbox simples para permisos individuales
+        for name in (
+            "use_custom_perms",
+            "can_simulador",
+            "can_estudios",
+            "can_proyectos",
+            "can_clientes",
+            "can_inversores",
+            "can_usuarios",
+            "can_cms",
+        ):
+            if name in self.fields:
+                self.fields[name].widget = forms.CheckboxInput()
 
     def clean(self):
         cleaned = super().clean()
@@ -37,6 +62,16 @@ class UserCreateForm(forms.ModelForm):
         if commit:
             user.save()
             self.save_m2m()
+            access, _ = UserAccess.objects.get_or_create(user=user)
+            access.use_custom_perms = bool(self.cleaned_data.get("use_custom_perms"))
+            access.can_simulador = bool(self.cleaned_data.get("can_simulador"))
+            access.can_estudios = bool(self.cleaned_data.get("can_estudios"))
+            access.can_proyectos = bool(self.cleaned_data.get("can_proyectos"))
+            access.can_clientes = bool(self.cleaned_data.get("can_clientes"))
+            access.can_inversores = bool(self.cleaned_data.get("can_inversores"))
+            access.can_usuarios = bool(self.cleaned_data.get("can_usuarios"))
+            access.can_cms = bool(self.cleaned_data.get("can_cms"))
+            access.save()
         return user
 
 
@@ -48,6 +83,14 @@ class UserEditForm(forms.ModelForm):
         required=False,
         widget=forms.CheckboxSelectMultiple,
     )
+    use_custom_perms = forms.BooleanField(required=False, label="Usar permisos individuales")
+    can_simulador = forms.BooleanField(required=False, label="Acceso a Simulador")
+    can_estudios = forms.BooleanField(required=False, label="Acceso a Estudios")
+    can_proyectos = forms.BooleanField(required=False, label="Acceso a Proyectos")
+    can_clientes = forms.BooleanField(required=False, label="Acceso a Clientes")
+    can_inversores = forms.BooleanField(required=False, label="Acceso a Inversores")
+    can_usuarios = forms.BooleanField(required=False, label="Acceso a Usuarios")
+    can_cms = forms.BooleanField(required=False, label="Acceso a CMS")
 
     class Meta:
         model = User
@@ -61,6 +104,33 @@ class UserEditForm(forms.ModelForm):
             "groups",
         ]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        user = kwargs.get("instance")
+        for name in (
+            "use_custom_perms",
+            "can_simulador",
+            "can_estudios",
+            "can_proyectos",
+            "can_clientes",
+            "can_inversores",
+            "can_usuarios",
+            "can_cms",
+        ):
+            if name in self.fields:
+                self.fields[name].widget = forms.CheckboxInput()
+        if not user:
+            return
+        access = getattr(user, "user_access", None)
+        if access:
+            self.fields["use_custom_perms"].initial = access.use_custom_perms
+            self.fields["can_simulador"].initial = access.can_simulador
+            self.fields["can_estudios"].initial = access.can_estudios
+            self.fields["can_proyectos"].initial = access.can_proyectos
+            self.fields["can_clientes"].initial = access.can_clientes
+            self.fields["can_inversores"].initial = access.can_inversores
+            self.fields["can_usuarios"].initial = access.can_usuarios
+            self.fields["can_cms"].initial = access.can_cms
     def clean(self):
         cleaned = super().clean()
         pw1 = cleaned.get("password")
@@ -78,4 +148,14 @@ class UserEditForm(forms.ModelForm):
         if commit:
             user.save()
             self.save_m2m()
+            access, _ = UserAccess.objects.get_or_create(user=user)
+            access.use_custom_perms = bool(self.cleaned_data.get("use_custom_perms"))
+            access.can_simulador = bool(self.cleaned_data.get("can_simulador"))
+            access.can_estudios = bool(self.cleaned_data.get("can_estudios"))
+            access.can_proyectos = bool(self.cleaned_data.get("can_proyectos"))
+            access.can_clientes = bool(self.cleaned_data.get("can_clientes"))
+            access.can_inversores = bool(self.cleaned_data.get("can_inversores"))
+            access.can_usuarios = bool(self.cleaned_data.get("can_usuarios"))
+            access.can_cms = bool(self.cleaned_data.get("can_cms"))
+            access.save()
         return user

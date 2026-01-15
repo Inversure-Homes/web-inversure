@@ -12,6 +12,7 @@
 
     <div class="row g-4">
 
+        {% if can_simulador %}
         <div class="col-md-4">
             <a href="{% url 'core:nuevo_estudio' %}" class="text-decoration-none text-dark">
                 <div class="card h-100 shadow-sm border-0 hover-card">
@@ -32,7 +33,9 @@
                 </div>
             </a>
         </div>
+        {% endif %}
 
+        {% if can_estudios %}
         <div class="col-md-4">
             <a href="{% url 'core:lista_estudio' %}" class="text-decoration-none text-dark">
                 <div class="card h-100 shadow-sm border-0 hover-card">
@@ -53,7 +56,9 @@
                 </div>
             </a>
         </div>
+        {% endif %}
 
+        {% if can_proyectos %}
         <div class="col-md-4">
             <a href="{% url 'core:lista_proyectos' %}" class="text-decoration-none text-dark">
                 <div class="card h-100 shadow-sm border-0 hover-card">
@@ -74,7 +79,9 @@
                 </div>
             </a>
         </div>
+        {% endif %}
 
+        {% if can_clientes %}
         <div class="col-md-4">
             <a href="{% url 'core:clientes_form' %}" class="text-decoration-none text-dark">
                 <div class="card h-100 shadow-sm border-0 hover-card">
@@ -95,7 +102,9 @@
                 </div>
             </a>
         </div>
+        {% endif %}
 
+        {% if can_inversores %}
         <div class="col-md-4">
             <a href="{% url 'core:inversores_list' %}" class="text-decoration-none text-dark">
                 <div class="card h-100 shadow-sm border-0 hover-card">
@@ -116,7 +125,9 @@
                 </div>
             </a>
         </div>
+        {% endif %}
 
+        {% if can_proyectos %}
         <div class="col-md-4">
             <a href="#" class="text-decoration-none text-dark">
                 <div class="card h-100 shadow-sm border-0 hover-card">
@@ -137,7 +148,9 @@
                 </div>
             </a>
         </div>
+        {% endif %}
 
+        {% if can_usuarios %}
         <div class="col-md-4">
             <a href="{% url 'accounts:users_list' %}" class="text-decoration-none text-dark">
                 <div class="card h-100 shadow-sm border-0 hover-card">
@@ -158,7 +171,9 @@
                 </div>
             </a>
         </div>
+        {% endif %}
 
+        {% if can_cms %}
         <div class="col-md-4">
             <a href="/cms/" class="text-decoration-none text-dark">
                 <div class="card h-100 shadow-sm border-0 hover-card">
@@ -179,6 +194,7 @@
                 </div>
             </a>
         </div>
+        {% endif %}
 
     </div>
     </div>

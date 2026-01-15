@@ -666,6 +666,7 @@ function buildOverlayPayloadFromDOM() {
     // En proyecto.html el selector de estado del proyecto tiene id="estado_proyecto"
     if (name === "estado" && el.id === "estado_proyecto") return true;
     if (name === "fecha" || name === "responsable" || name === "codigo_proyecto") return true;
+    if (name === "notificar_inversores" || name === "acceso_comercial") return true;
     // Resultado del cierre: id="resultado_cierre" (solo visible si estado=cerrado)
     if (name === "resultado_cierre" && el.id === "resultado_cierre") return true;
     return false;
@@ -691,6 +692,20 @@ function buildOverlayPayloadFromDOM() {
 
     // No persistimos CSRF hidden ni cosas vacías sin intención
     if (name.toLowerCase() === "csrfmiddlewaretoken") return;
+
+    if (el.type === "checkbox") {
+      const value = !!el.checked;
+      if (name.includes(".")) {
+        _deepSet(payload, name.split("."), value);
+      } else if (_isProyectoLifecycleField(el, name)) {
+        payload.proyecto[name] = value;
+      } else if (inmuebleKeys.has(name)) {
+        payload.inmueble[name] = value;
+      } else {
+        payload.kpis.metricas[name] = value;
+      }
+      return;
+    }
 
     const raw = _getElText(el);
     if (!_shouldFormatRaw(raw)) return;

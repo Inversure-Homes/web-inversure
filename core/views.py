@@ -27,6 +27,7 @@ from .models import Estudio, Proyecto
 from .models import EstudioSnapshot, ProyectoSnapshot
 from .models import GastoProyecto, IngresoProyecto, ChecklistItem
 from .models import Cliente, Participacion, InversorPerfil, SolicitudParticipacion, ComunicacionInversor, DocumentoProyecto, DocumentoInversor
+from accounts.utils import is_admin_user, is_comercial_user, is_marketing_user, resolve_permissions, use_custom_permissions
 
 # --- SafeAccessDict helper and _safe_template_obj ---
 class SafeAccessDict(dict):
@@ -951,7 +952,19 @@ def _datos_inmueble_desde_estudio(estudio: Estudio) -> dict:
 
 
 def home(request):
-    return render(request, "core/home.html")
+    user = request.user
+    perms = resolve_permissions(user)
+    ctx = {
+        "is_admin": is_admin_user(user),
+        "can_simulador": perms.get("can_simulador"),
+        "can_estudios": perms.get("can_estudios"),
+        "can_proyectos": perms.get("can_proyectos"),
+        "can_clientes": perms.get("can_clientes"),
+        "can_inversores": perms.get("can_inversores"),
+        "can_usuarios": perms.get("can_usuarios"),
+        "can_cms": perms.get("can_cms"),
+    }
+    return render(request, "core/home.html", ctx)
 
 
 def nuevo_estudio(request):
@@ -1114,6 +1127,8 @@ def lista_estudio(request):
 def lista_proyectos(request):
     estados_cerrados = {"cerrado", "descartado"}
     proyectos = Proyecto.objects.exclude(estado__in=estados_cerrados).order_by("-id")
+    if is_comercial_user(request.user) and not is_admin_user(request.user) and not use_custom_permissions(request.user):
+        proyectos = proyectos.filter(acceso_comercial=True)
     proyectos_ids = list(proyectos.values_list("id", flat=True))
 
     def _as_float(val, default=0.0):
@@ -1222,6 +1237,8 @@ def lista_proyectos(request):
 def lista_proyectos_cerrados(request):
     estados_cerrados = {"cerrado", "descartado"}
     proyectos = Proyecto.objects.filter(estado__in=estados_cerrados).order_by("-id")
+    if is_comercial_user(request.user) and not is_admin_user(request.user) and not use_custom_permissions(request.user):
+        proyectos = proyectos.filter(acceso_comercial=True)
     proyectos_ids = list(proyectos.values_list("id", flat=True))
 
     def _as_float(val, default=0.0):
@@ -2120,6 +2137,10 @@ def inversor_solicitar(request, token: str, proyecto_id: int):
 def proyecto(request, proyecto_id: int):
     """Vista única del Proyecto (pestañas), heredando el snapshot del estudio convertido."""
     proyecto_obj = get_object_or_404(Proyecto, id=proyecto_id)
+    if is_comercial_user(request.user) and not is_admin_user(request.user) and not use_custom_permissions(request.user):
+        if not getattr(proyecto_obj, "acceso_comercial", False):
+            messages.error(request, "Este proyecto no está habilitado para el equipo comercial.")
+            return redirect("core:lista_proyectos")
 
     # --- Compatibilidad de plantilla: algunos campos pueden no existir en el modelo Proyecto ---
     # Django templates fallan con VariableDoesNotExist si se accede a un atributo inexistente.
@@ -2420,6 +2441,8 @@ def proyecto(request, proyecto_id: int):
         "PROYECTO_ID": str(proyecto_obj.id),
         "ESTADO_INICIAL_JSON": json.dumps(estado_inicial, ensure_ascii=False),
         "editable": editable,
+        "is_admin": is_admin_user(request.user),
+        "acceso_comercial": bool(getattr(proyecto_obj, "acceso_comercial", False)),
         "proyecto": proyecto_obj,
         "notificar_inversores": notify_flag,
         "snapshot": _safe_template_obj(snapshot),
@@ -2881,6 +2904,13 @@ def guardar_proyecto(request, proyecto_id: int):
         except Exception:
             pass
 
+    acceso_raw = payload_proyecto.get("acceso_comercial", payload.get("acceso_comercial"))
+    if acceso_raw is not None and is_admin_user(request.user):
+        if isinstance(acceso_raw, str):
+            acceso_raw = acceso_raw.strip().lower() in {"1", "true", "si", "sí", "on"}
+        proyecto_obj.acceso_comercial = bool(acceso_raw)
+        update_fields.append("acceso_comercial")
+
     if update_fields:
         try:
             proyecto_obj.save(update_fields=list(set(update_fields)))
@@ -2977,6 +3007,8 @@ def convertir_a_proyecto(request, estudio_id: int):
 
     if request.method not in ("POST", "GET"):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+    if not is_admin_user(request.user):
+        return JsonResponse({"ok": False, "error": "No tienes permisos para convertir estudios."}, status=403)
 
     estudio = get_object_or_404(Estudio, id=estudio_id)
 

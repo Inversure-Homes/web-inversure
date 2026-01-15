@@ -170,6 +170,10 @@ class Proyecto(models.Model):
         blank=True,
         help_text="Código interno visible del proyecto (contador propio)"
     )
+    acceso_comercial = models.BooleanField(
+        default=False,
+        help_text="Permite acceso del equipo comercial a este proyecto",
+    )
 
     # =========================
     # DATOS DEL INMUEBLE

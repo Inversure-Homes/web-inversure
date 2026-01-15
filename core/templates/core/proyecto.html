@@ -165,6 +165,24 @@
                       </select>
                       <div class="form-text">Solo se utiliza si el estado es <strong>Cerrado</strong>.</div>
                     </div>
+                    <div class="form-check mt-2">
+                      <input class="form-check-input" type="checkbox" id="notificar_inversores"
+                             name="notificar_inversores" {% if notificar_inversores %}checked{% endif %}
+                             {% if not editable %}disabled{% endif %}>
+                      <label class="form-check-label small text-muted" for="notificar_inversores">
+                        Notificar automáticamente a inversores
+                      </label>
+                    </div>
+                    {% if is_admin %}
+                    <div class="form-check mt-2">
+                      <input class="form-check-input" type="checkbox" id="acceso_comercial"
+                             name="acceso_comercial" {% if proyecto.acceso_comercial or acceso_comercial %}checked{% endif %}
+                             {% if not editable %}disabled{% endif %}>
+                      <label class="form-check-label small text-muted" for="acceso_comercial">
+                        Acceso comercial habilitado
+                      </label>
+                    </div>
+                    {% endif %}
                 </div>
 
                 <div class="col-md-2 mb-3">
