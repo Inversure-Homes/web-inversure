@@ -72,6 +72,11 @@
                     {% else %}
                       <span class="badge bg-primary">Captación</span>
                     {% endif %}
+                    {% if p.notificar_inversores %}
+                      <span class="badge bg-success ms-2">Avisos ON</span>
+                    {% else %}
+                      <span class="badge bg-secondary ms-2">Avisos OFF</span>
+                    {% endif %}
                   </div>
 
                   <!-- MÉTRICAS -->

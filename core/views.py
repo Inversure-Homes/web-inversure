@@ -80,6 +80,23 @@ def _safe_template_obj(obj):
     return obj
 
 
+def _notificar_inversores_habilitado(proyecto: Proyecto, snapshot: dict | None = None) -> bool:
+    try:
+        extra = getattr(proyecto, "extra", None)
+        if isinstance(extra, dict) and "notificar_inversores" in extra:
+            return bool(extra.get("notificar_inversores"))
+    except Exception:
+        pass
+    try:
+        if isinstance(snapshot, dict):
+            sec = snapshot.get("proyecto") if isinstance(snapshot.get("proyecto"), dict) else {}
+            if "notificar_inversores" in sec:
+                return bool(sec.get("notificar_inversores"))
+    except Exception:
+        pass
+    return True
+
+
 def _send_inversor_email(request, perfil: InversorPerfil, titulo: str, mensaje: str) -> bool:
     to_email = getattr(perfil.cliente, "email", "") or ""
     if not to_email:
@@ -1179,6 +1196,15 @@ def lista_proyectos(request):
         p.capital_captado = capital_captado
         p.roi = roi
         p._snapshot = snap
+        try:
+            extra = getattr(p, "extra", None)
+            if isinstance(extra, dict) and "notificar_inversores" in extra:
+                p.notificar_inversores = bool(extra.get("notificar_inversores"))
+            else:
+                sec = snap.get("proyecto") if isinstance(snap.get("proyecto"), dict) else {}
+                p.notificar_inversores = bool(sec.get("notificar_inversores")) if "notificar_inversores" in sec else True
+        except Exception:
+            p.notificar_inversores = True
 
     return render(
         request,
@@ -1272,6 +1298,15 @@ def lista_proyectos_cerrados(request):
         p.capital_captado = capital_captado
         p.roi = roi
         p._snapshot = snap
+        try:
+            extra = getattr(p, "extra", None)
+            if isinstance(extra, dict) and "notificar_inversores" in extra:
+                p.notificar_inversores = bool(extra.get("notificar_inversores"))
+            else:
+                sec = snap.get("proyecto") if isinstance(snap.get("proyecto"), dict) else {}
+                p.notificar_inversores = bool(sec.get("notificar_inversores")) if "notificar_inversores" in sec else True
+        except Exception:
+            p.notificar_inversores = True
 
     return render(
         request,
@@ -1786,6 +1821,13 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
         p.capital_objetivo = capital_objetivo
         p.capital_captado = capital_captado
         p.puede_solicitar = (capital_objetivo <= 0) or (capital_captado < capital_objetivo)
+        if capital_objetivo > 0:
+            faltante = max(capital_objetivo - capital_captado, 0.0)
+            p.falta_eur = faltante
+            p.falta_pct = max(0.0, min(100.0, (faltante / capital_objetivo) * 100.0))
+        else:
+            p.falta_eur = 0.0
+            p.falta_pct = 0.0
 
         if visible_ids:
             if p.id in visible_ids:
@@ -2316,11 +2358,24 @@ def proyecto(request, proyecto_id: int):
             "pct_restante_fmt": _fmt_pct(0.0),
         })
 
+    notify_flag = True
+    try:
+        extra = getattr(proyecto_obj, "extra", None)
+        if isinstance(extra, dict) and "notificar_inversores" in extra:
+            notify_flag = bool(extra.get("notificar_inversores"))
+        elif isinstance(snapshot, dict):
+            sec = snapshot.get("proyecto") if isinstance(snapshot.get("proyecto"), dict) else {}
+            if "notificar_inversores" in sec:
+                notify_flag = bool(sec.get("notificar_inversores"))
+    except Exception:
+        notify_flag = True
+
     ctx = {
         "PROYECTO_ID": str(proyecto_obj.id),
         "ESTADO_INICIAL_JSON": json.dumps(estado_inicial, ensure_ascii=False),
         "editable": editable,
         "proyecto": proyecto_obj,
+        "notificar_inversores": notify_flag,
         "snapshot": _safe_template_obj(snapshot),
         # Atajos por si `proyecto.html` los usa como en el PDF/estudio
         "inmueble": _safe_template_obj(snapshot.get("inmueble", {})) if isinstance(snapshot.get("inmueble"), dict) else SafeAccessDict(),
@@ -2804,6 +2859,11 @@ def guardar_proyecto(request, proyecto_id: int):
             extra["fecha"] = fecha_raw
         if codigo_raw not in (None, ""):
             extra["codigo_proyecto"] = codigo_raw
+        if "notificar_inversores" in payload_proyecto or "notificar_inversores" in payload:
+            notif_val = payload_proyecto.get("notificar_inversores", payload.get("notificar_inversores"))
+            if isinstance(notif_val, str):
+                notif_val = notif_val.strip().lower() in {"1", "true", "si", "sí", "on"}
+            extra["notificar_inversores"] = bool(notif_val)
 
         # Guardar también dentro de snapshot_datos como fallback si existe
         try:
@@ -2817,7 +2877,7 @@ def guardar_proyecto(request, proyecto_id: int):
                 proyecto_obj.snapshot_datos = sd
                 proyecto_obj.save(update_fields=["snapshot_datos"])
 
-        if estado_changed:
+        if estado_changed and _notificar_inversores_habilitado(proyecto_obj, snapshot=payload):
             try:
                 estado_label = {
                     "captacion": "Captación",
@@ -3578,7 +3638,7 @@ def proyecto_participacion_detalle(request, proyecto_id: int, participacion_id: 
                     # Comunicación automática al inversor
                     try:
                         perfil = getattr(part.cliente, "perfil_inversor", None)
-                        if perfil:
+                        if perfil and _notificar_inversores_habilitado(part.proyecto):
                             titulo = "Actualización de tu inversión"
                             mensaje = f"Tu participación en {part.proyecto.nombre} ha cambiado a estado: {nuevo_estado}."
                             _crear_comunicacion(request, perfil, part.proyecto, titulo, mensaje)
@@ -3650,7 +3710,8 @@ def proyecto_solicitud_detalle(request, proyecto_id: int, solicitud_id: int):
         try:
             titulo = "Estado de tu solicitud"
             mensaje = f"Tu solicitud en {solicitud.proyecto.nombre} ha sido {estado}."
-            _crear_comunicacion(request, solicitud.inversor, solicitud.proyecto, titulo, mensaje)
+            if _notificar_inversores_habilitado(solicitud.proyecto):
+                _crear_comunicacion(request, solicitud.inversor, solicitud.proyecto, titulo, mensaje)
         except Exception:
             pass
         return JsonResponse({"ok": True})
