@@ -222,6 +222,92 @@ def _crear_comunicacion(request, perfil: InversorPerfil, proyecto: Proyecto | No
     return comunicacion
 
 
+def _estado_label(estado: str) -> str:
+    return {
+        "captacion": "Captación",
+        "comprado": "Comprado",
+        "comercializacion": "Comercialización",
+        "reservado": "Reservado",
+        "vendido": "Vendido",
+        "cerrado": "Cerrado",
+        "descartado": "Descartado",
+    }.get((estado or "").lower(), estado or "")
+
+
+def _comunicacion_templates() -> dict:
+    return {
+        "bienvenida": {
+            "label": "Carta de bienvenida",
+            "titulo": "Bienvenido a Inversure",
+            "mensaje": (
+                "Hola {inversor_nombre},\n\n"
+                "Gracias por confiar en Inversure Homes. Te damos la bienvenida al proyecto {proyecto_nombre}.\n"
+                "Desde tu portal podrás seguir el estado de la operación y recibir comunicaciones clave.\n\n"
+                "Un saludo,\nEquipo Inversure"
+            ),
+        },
+        "estado": {
+            "label": "Estado del proyecto",
+            "titulo": "Actualización del estado del proyecto",
+            "mensaje": (
+                "Hola {inversor_nombre},\n\n"
+                "El proyecto {proyecto_nombre} ha pasado al estado: {proyecto_estado}.\n"
+                "Estado del inmueble: {inmueble_estado}.\n\n"
+                "Gracias por tu confianza,\nEquipo Inversure"
+            ),
+        },
+        "adquisicion": {
+            "label": "Carta de adquisición",
+            "titulo": "Adquisición completada",
+            "mensaje": (
+                "Hola {inversor_nombre},\n\n"
+                "Te informamos de que se ha completado la adquisición del proyecto {proyecto_nombre}.\n"
+                "Fecha de adquisición: {fecha_compra}.\n"
+                "Valor de adquisición: {valor_adquisicion}.\n\n"
+                "Seguiremos informando de los siguientes hitos.\nEquipo Inversure"
+            ),
+        },
+        "transmision": {
+            "label": "Carta de transmisión",
+            "titulo": "Transmisión completada",
+            "mensaje": (
+                "Hola {inversor_nombre},\n\n"
+                "Te informamos de que se ha completado la transmisión del proyecto {proyecto_nombre}.\n"
+                "Fecha de transmisión: {fecha_transmision}.\n"
+                "Valor de transmisión: {valor_transmision}.\n\n"
+                "En breve recibirás el cierre con el detalle económico.\nEquipo Inversure"
+            ),
+        },
+        "cierre": {
+            "label": "Carta de cierre con beneficio",
+            "titulo": "Cierre de la operación y beneficio",
+            "mensaje": (
+                "Hola {inversor_nombre},\n\n"
+                "El proyecto {proyecto_nombre} ha finalizado. Este es el resumen económico de tu inversión:\n"
+                "Beneficio neto: {beneficio_neto_inversor}\n"
+                "Retención (19%): {retencion}\n"
+                "Neto a cobrar: {neto_cobrar}\n\n"
+                "Gracias por tu confianza,\nEquipo Inversure"
+            ),
+        },
+    }
+
+
+class _SafeFormatDict(dict):
+    def __missing__(self, key):
+        return ""
+
+
+def _render_comunicacion_template(key: str, context: dict) -> tuple[str, str] | tuple[None, None]:
+    tmpl = _comunicacion_templates().get(key)
+    if not tmpl:
+        return None, None
+    safe_ctx = _SafeFormatDict(context)
+    titulo = (tmpl.get("titulo") or "").format_map(safe_ctx)
+    mensaje = (tmpl.get("mensaje") or "").format_map(safe_ctx)
+    return titulo, mensaje
+
+
 # --- Helper para sanear datos para JSONField (Decimal, fechas, etc.) ---
 def _sanitize_for_json(value):
     """Convierte objetos no serializables (Decimal, fechas) a tipos JSON-safe."""
@@ -3814,22 +3900,169 @@ def proyecto_comunicaciones(request, proyecto_id: int):
                 "mensaje": c.mensaje,
                 "fecha": c.creado.isoformat(),
             })
-        return JsonResponse({"ok": True, "comunicaciones": comunicaciones})
+        templates = [
+            {"key": k, "label": v.get("label", k)}
+            for k, v in _comunicacion_templates().items()
+        ]
+        return JsonResponse({"ok": True, "comunicaciones": comunicaciones, "templates": templates})
 
     if request.method != "POST":
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
     try:
         data = json.loads(request.body or "{}")
+        template_key = (data.get("template_key") or "").strip()
+        preview_only = bool(data.get("preview_only"))
+
+        participaciones = (
+            Participacion.objects.filter(proyecto=proyecto, estado="confirmada")
+            .select_related("cliente")
+            .order_by("creado", "id")
+        )
+        total_destinatarios = participaciones.count()
+
+        def _get_snapshot() -> dict:
+            snap = getattr(proyecto, "snapshot_datos", None)
+            if isinstance(snap, dict) and snap:
+                return snap
+            osnap = getattr(proyecto, "origen_snapshot", None)
+            if osnap is not None:
+                datos = getattr(osnap, "datos", None)
+                if isinstance(datos, dict) and datos:
+                    return datos
+            oest = getattr(proyecto, "origen_estudio", None)
+            if oest is not None:
+                datos = getattr(oest, "datos", None)
+                if isinstance(datos, dict) and datos:
+                    return datos
+            return {}
+
+        snapshot = _get_snapshot()
+        resultado_mem = _resultado_desde_memoria(proyecto, snapshot) if isinstance(snapshot, dict) else {}
+
+        def _calc_beneficio(part: Participacion, total_proj: float) -> dict:
+            beneficio_bruto = float(resultado_mem.get("beneficio_neto") or 0.0)
+            inv_sec = snapshot.get("inversor") if isinstance(snapshot.get("inversor"), dict) else {}
+            comision_pct = _safe_float(
+                inv_sec.get("comision_inversure_pct")
+                or inv_sec.get("inversure_comision_pct")
+                or inv_sec.get("comision_pct")
+                or 0.0,
+                0.0,
+            )
+            comision_pct = max(0.0, min(100.0, comision_pct))
+            comision_eur = beneficio_bruto * (comision_pct / 100.0) if beneficio_bruto else 0.0
+            beneficio_neto_total = beneficio_bruto - comision_eur
+
+            proj_extra = proyecto.extra if isinstance(proyecto.extra, dict) else {}
+            proj_override = proj_extra.get("beneficio_operacion_override")
+            if isinstance(proj_override, dict):
+                override_bruto = proj_override.get("beneficio_bruto")
+                override_comision = proj_override.get("comision_eur")
+                override_neto = proj_override.get("beneficio_neto_total")
+                if override_bruto not in (None, ""):
+                    beneficio_bruto = _safe_float(override_bruto, beneficio_bruto)
+                if override_comision not in (None, ""):
+                    comision_eur = _safe_float(override_comision, comision_eur)
+                if override_neto not in (None, ""):
+                    beneficio_neto_total = _safe_float(override_neto, beneficio_neto_total)
+                elif override_bruto not in (None, "") or override_comision not in (None, ""):
+                    beneficio_neto_total = beneficio_bruto - comision_eur
+
+            ratio = float(part.importe_invertido or 0) / total_proj if total_proj > 0 else 0.0
+            beneficio_inversor = beneficio_neto_total * ratio
+            override_val = float(part.beneficio_neto_override) if part.beneficio_neto_override is not None else None
+            override_data = part.beneficio_override_data if isinstance(part.beneficio_override_data, dict) else {}
+            if override_data.get("beneficio_inversor") not in (None, ""):
+                beneficio_inversor = _safe_float(override_data.get("beneficio_inversor"), beneficio_inversor)
+            elif override_val is not None:
+                beneficio_inversor = override_val
+            retencion = beneficio_inversor * 0.19
+            if override_data.get("retencion") not in (None, ""):
+                retencion = _safe_float(override_data.get("retencion"), retencion)
+            neto_cobrar = beneficio_inversor - retencion
+            if override_data.get("neto_cobrar") not in (None, ""):
+                neto_cobrar = _safe_float(override_data.get("neto_cobrar"), neto_cobrar)
+            return {
+                "beneficio_neto_inversor": beneficio_inversor,
+                "retencion": retencion,
+                "neto_cobrar": neto_cobrar,
+            }
+
+        total_proj = (
+            Participacion.objects.filter(proyecto=proyecto, estado="confirmada")
+            .aggregate(total=Sum("importe_invertido"))
+            .get("total")
+            or 0
+        )
+        total_proj = float(total_proj or 0)
+
+        def _build_context(part: Participacion) -> dict:
+            inv = part.cliente
+            ctx = {
+                "inversor_nombre": getattr(inv, "nombre", "") or "",
+                "proyecto_nombre": proyecto.nombre or "",
+                "proyecto_estado": _estado_label(proyecto.estado),
+                "inmueble_estado": (snapshot.get("inmueble") or {}).get("estado") if isinstance(snapshot.get("inmueble"), dict) else "",
+                "fecha_hoy": timezone.now().date().strftime("%d/%m/%Y"),
+                "fecha_compra": getattr(proyecto, "fecha_compra", None) or getattr(proyecto, "fecha", None),
+                "fecha_transmision": getattr(proyecto, "fecha", None),
+                "valor_adquisicion": _fmt_eur(float(resultado_mem.get("valor_adquisicion") or 0.0)),
+                "valor_transmision": _fmt_eur(float(resultado_mem.get("valor_transmision") or 0.0)),
+            }
+            fecha_compra = ctx.get("fecha_compra")
+            if isinstance(fecha_compra, date):
+                ctx["fecha_compra"] = fecha_compra.strftime("%d/%m/%Y")
+            elif fecha_compra is None:
+                ctx["fecha_compra"] = ""
+            fecha_trans = ctx.get("fecha_transmision")
+            if isinstance(fecha_trans, date):
+                ctx["fecha_transmision"] = fecha_trans.strftime("%d/%m/%Y")
+            elif fecha_trans is None:
+                ctx["fecha_transmision"] = ""
+
+            benefit = _calc_beneficio(part, total_proj)
+            ctx["beneficio_neto_inversor"] = _fmt_eur(float(benefit.get("beneficio_neto_inversor") or 0.0))
+            ctx["retencion"] = _fmt_eur(float(benefit.get("retencion") or 0.0))
+            ctx["neto_cobrar"] = _fmt_eur(float(benefit.get("neto_cobrar") or 0.0))
+            return ctx
+
+        if template_key:
+            if not total_destinatarios:
+                return JsonResponse({"ok": False, "error": "No hay inversores confirmados en el proyecto."}, status=400)
+
+            if preview_only:
+                part = participaciones.first()
+                ctx = _build_context(part)
+                titulo, mensaje = _render_comunicacion_template(template_key, ctx)
+                return JsonResponse(
+                    {
+                        "ok": True,
+                        "titulo": titulo,
+                        "mensaje": mensaje,
+                        "destinatarios": total_destinatarios,
+                    }
+                )
+
+            count = 0
+            for part in participaciones:
+                perfil, _ = InversorPerfil.objects.get_or_create(cliente=part.cliente)
+                ctx = _build_context(part)
+                titulo, mensaje = _render_comunicacion_template(template_key, ctx)
+                if not titulo or not mensaje:
+                    continue
+                _crear_comunicacion(request, perfil, proyecto, titulo, mensaje)
+                count += 1
+            return JsonResponse({"ok": True, "enviadas": count})
+
         titulo = (data.get("titulo") or "").strip()
         mensaje = (data.get("mensaje") or "").strip()
         if not titulo or not mensaje:
             return JsonResponse({"ok": False, "error": "Título y mensaje son obligatorios"}, status=400)
 
-        clientes = Cliente.objects.filter(participaciones__proyecto=proyecto).distinct()
         count = 0
-        for cliente in clientes:
-            perfil, _ = InversorPerfil.objects.get_or_create(cliente=cliente)
+        for part in participaciones:
+            perfil, _ = InversorPerfil.objects.get_or_create(cliente=part.cliente)
             _crear_comunicacion(request, perfil, proyecto, titulo, mensaje)
             count += 1
         return JsonResponse({"ok": True, "enviadas": count})

@@ -164,7 +164,7 @@
     </div>
     {% if proyectos %}
       <div class="row g-3 align-items-end mt-1">
-        <div class="col-md-3">
+        <div class="col-md-4">
           <label class="form-label">Proyecto</label>
           <select class="form-select" id="com_proyecto">
             {% for p in proyectos %}
@@ -172,16 +172,28 @@
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-3">
-          <label class="form-label">Título</label>
-          <input type="text" class="form-control" id="com_titulo" placeholder="Actualización de proyecto">
-        </div>
         <div class="col-md-4">
-          <label class="form-label">Mensaje</label>
-          <input type="text" class="form-control" id="com_mensaje" placeholder="Resumen breve para inversores">
+          <label class="form-label">Plantilla</label>
+          <select class="form-select" id="com_template">
+            <option value="">— Manual —</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm w-100 text-nowrap" id="com_generate_btn">Generar</button>
         </div>
         <div class="col-md-2">
           <button type="button" class="btn btn-portal btn-sm w-100 text-nowrap" id="com_send_btn">Enviar</button>
+        </div>
+      </div>
+      <div class="row g-3 mt-2">
+        <div class="col-md-4">
+          <label class="form-label">Título</label>
+          <input type="text" class="form-control" id="com_titulo" placeholder="Actualización de proyecto">
+        </div>
+        <div class="col-md-8">
+          <label class="form-label">Mensaje</label>
+          <textarea class="form-control" id="com_mensaje" rows="2" placeholder="Resumen breve para inversores"></textarea>
+          <div class="form-text" id="com_destinatarios">Se enviará solo a inversores con participación confirmada.</div>
         </div>
       </div>
       <div class="table-responsive mt-3">
@@ -374,8 +386,11 @@
     const proyectoEl = document.getElementById("com_proyecto");
     const tabla = document.getElementById("inv_comunicaciones_rows");
     const btnSend = document.getElementById("com_send_btn");
+    const btnGenerate = document.getElementById("com_generate_btn");
+    const templateEl = document.getElementById("com_template");
     const elTitulo = document.getElementById("com_titulo");
     const elMensaje = document.getElementById("com_mensaje");
+    const elDest = document.getElementById("com_destinatarios");
     if (!proyectoEl || !tabla || !btnSend) return;
 
     const baseUrl = "{% url 'core:proyecto_comunicaciones' 0 %}";
@@ -396,6 +411,15 @@
         const resp = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
         const data = await resp.json();
         if (!data || !data.ok) return;
+        if (templateEl && Array.isArray(data.templates)) {
+          const current = templateEl.value;
+          const options = [
+            `<option value="">— Manual —</option>`,
+            ...data.templates.map(t => `<option value="${t.key}">${t.label}</option>`)
+          ];
+          templateEl.innerHTML = options.join("");
+          if (current) templateEl.value = current;
+        }
         const rows = data.comunicaciones || [];
         if (!rows.length) {
           tabla.innerHTML = "<tr><td colspan=\"4\" class=\"text-muted\">Sin comunicaciones todavía.</td></tr>";
@@ -415,21 +439,53 @@
       } catch (e) {}
     }
 
+    if (btnGenerate) {
+      btnGenerate.addEventListener("click", async () => {
+        const templateKey = (templateEl && templateEl.value || "").trim();
+        if (!templateKey) {
+          alert("Selecciona una plantilla para generar el borrador.");
+          return;
+        }
+        const url = getUrl();
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}),
+          },
+          body: JSON.stringify({ template_key: templateKey, preview_only: true }),
+        });
+        if (!resp.ok) {
+          alert("No se pudo generar la comunicación.");
+          return;
+        }
+        const data = await resp.json();
+        if (elTitulo) elTitulo.value = data.titulo || "";
+        if (elMensaje) elMensaje.value = data.mensaje || "";
+        if (elDest) {
+          const total = data.destinatarios || 0;
+          elDest.textContent = `Se enviará a ${total} inversores confirmados. El envío se personaliza por inversor.`;
+        }
+      });
+    }
+
     btnSend.addEventListener("click", async () => {
       const titulo = (elTitulo && elTitulo.value || "").trim();
       const mensaje = (elMensaje && elMensaje.value || "").trim();
-      if (!titulo || !mensaje) {
+      const templateKey = (templateEl && templateEl.value || "").trim();
+      if (!templateKey && (!titulo || !mensaje)) {
         alert("Título y mensaje son obligatorios.");
         return;
       }
       const url = getUrl();
+      const payload = templateKey ? { template_key: templateKey } : { titulo, mensaje };
       const resp = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}),
         },
-        body: JSON.stringify({ titulo, mensaje }),
+        body: JSON.stringify(payload),
       });
       if (!resp.ok) {
         alert("No se pudo enviar la comunicación.");
@@ -437,6 +493,9 @@
       }
       if (elTitulo) elTitulo.value = "";
       if (elMensaje) elMensaje.value = "";
+      if (elDest) {
+        elDest.textContent = "Se enviará solo a inversores con participación confirmada.";
+      }
       await loadRows();
     });
 
