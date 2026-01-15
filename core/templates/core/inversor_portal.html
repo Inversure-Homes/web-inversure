@@ -383,9 +383,28 @@
 
   {% if internal_view %}
   <div class="portal-card mt-3">
+    <h5 class="mb-3">Ajuste de aportación inicial</h5>
+    <form method="post" action="{% url 'core:inversor_portal_config' perfil.id %}">
+      {% csrf_token %}
+      <input type="hidden" name="aportacion_submit" value="1">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label">Aportación inicial</label>
+          <input type="text" name="aportacion_inicial_override" class="form-control" value="{{ aportacion_inicial_override|default:aportacion_inicial|floatformat:2 }}">
+          <div class="form-text">Deja en blanco para usar la primera aportación confirmada.</div>
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-portal btn-sm">Guardar</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="portal-card mt-3">
     <h5 class="mb-3">Visibilidad del portal</h5>
     <form method="post" action="{% url 'core:inversor_portal_config' perfil.id %}">
       {% csrf_token %}
+      <input type="hidden" name="visibilidad_submit" value="1">
       <div class="row g-2">
         {% for p in proyectos_candidatos %}
           <div class="col-md-6">
@@ -421,6 +440,9 @@
                   <div class="small text-muted">
                     Captado: {{ p.capital_captado|floatformat:2|intcomma }} € /
                     {{ p.capital_objetivo|floatformat:2|intcomma }} €
+                  </div>
+                  <div class="small text-muted">
+                    Falta: {{ p.falta_pct|floatformat:2 }} % · {{ p.falta_eur|floatformat:2|intcomma }} €
                   </div>
                 {% endif %}
               </div>

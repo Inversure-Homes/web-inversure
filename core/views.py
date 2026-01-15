@@ -7,7 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.urls import reverse
 from django.db import transaction
-from django.db.models import Sum, Count, Max, Prefetch
+from django.db.models import Sum, Count, Max, Prefetch, Min, OuterRef, Subquery
 from django.core.paginator import Paginator
 from django.utils import timezone
 from django.conf import settings
@@ -1403,6 +1403,19 @@ def inversores_list(request):
             .annotate(total=Sum("importe_invertido"), num=Count("id"))
         )
     }
+    first_part_qs = (
+        Participacion.objects.filter(cliente_id=OuterRef("cliente_id"), estado="confirmada")
+        .order_by("creado", "id")
+        .values("importe_invertido")[:1]
+    )
+    aportacion_inicial = {
+        row["cliente_id"]: row["first_importe"]
+        for row in (
+            Participacion.objects.filter(cliente_id__in=cliente_ids, estado="confirmada")
+            .values("cliente_id")
+            .annotate(first_importe=Subquery(first_part_qs))
+        )
+    }
 
     estados_cerrados = {"cerrado", "cerrado_positivo", "cerrado_negativo", "finalizado", "descartado", "vendido"}
     activos = {
@@ -1465,11 +1478,15 @@ def inversores_list(request):
         participaciones = getattr(cliente, "participaciones_confirmadas", []) or []
         preview = participaciones[:3]
 
+        override_inicial = perfil.aportacion_inicial_override
+        inicial_val = float(override_inicial) if override_inicial is not None else float(aportacion_inicial.get(cliente.id) or 0)
+
         inversores.append(
             {
                 "perfil": perfil,
                 "cliente": cliente,
                 "total_invertido": total_cli,
+                "aportacion_inicial": inicial_val,
                 "num_participaciones": num_part,
                 "proyectos_activos": int(activos.get(cliente.id, 0)),
                 "solicitudes_pendientes": pend,
@@ -1604,6 +1621,15 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
 
     participaciones_conf = participaciones.filter(estado="confirmada")
     proyectos_ids = list(participaciones_conf.values_list("proyecto_id", flat=True))
+
+    aportacion_inicial_calc = 0.0
+    first_part = participaciones_conf.order_by("creado", "id").first()
+    if first_part and first_part.importe_invertido is not None:
+        aportacion_inicial_calc = float(first_part.importe_invertido)
+    if perfil.aportacion_inicial_override is not None:
+        aportacion_inicial = float(perfil.aportacion_inicial_override)
+    else:
+        aportacion_inicial = aportacion_inicial_calc
 
     def _get_snapshot(p: Proyecto) -> dict:
         snap = getattr(p, "snapshot_datos", None)
@@ -1845,6 +1871,8 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
         "proyectos_visibles": visible_ids,
         "solicitudes": solicitudes,
         "total_invertido": total_invertido,
+        "aportacion_inicial": aportacion_inicial,
+        "aportacion_inicial_override": perfil.aportacion_inicial_override,
         "beneficios_por_proyecto": beneficios_por_proyecto,
         "total_beneficio": total_beneficio,
         "total_retencion": total_retencion,
@@ -1873,16 +1901,34 @@ def inversor_portal_config(request, perfil_id: int):
     if request.method != "POST":
         return redirect("core:inversor_portal_admin", perfil_id=perfil_id)
     perfil = get_object_or_404(InversorPerfil, id=perfil_id)
-    ids = request.POST.getlist("proyectos_visibles")
-    proyectos_ids = []
-    for raw in ids:
-        try:
-            proyectos_ids.append(int(raw))
-        except Exception:
-            continue
-    perfil.proyectos_visibles = proyectos_ids
-    perfil.save(update_fields=["proyectos_visibles"])
-    messages.success(request, "Visibilidad del portal actualizada.")
+    updated_fields = []
+
+    if request.POST.get("visibilidad_submit"):
+        ids = request.POST.getlist("proyectos_visibles")
+        proyectos_ids = []
+        for raw in ids:
+            try:
+                proyectos_ids.append(int(raw))
+            except Exception:
+                continue
+        perfil.proyectos_visibles = proyectos_ids
+        updated_fields.append("proyectos_visibles")
+
+    if request.POST.get("aportacion_submit"):
+        raw = (request.POST.get("aportacion_inicial_override") or "").strip()
+        if raw == "":
+            perfil.aportacion_inicial_override = None
+        else:
+            try:
+                perfil.aportacion_inicial_override = _parse_decimal(raw)
+            except Exception:
+                messages.error(request, "No se pudo guardar la aportación inicial. Revisa el formato.")
+                return redirect("core:inversor_portal_admin", perfil_id=perfil_id)
+        updated_fields.append("aportacion_inicial_override")
+
+    if updated_fields:
+        perfil.save(update_fields=updated_fields)
+        messages.success(request, "Ajustes del portal actualizados.")
     return redirect("core:inversor_portal_admin", perfil_id=perfil_id)
 
 
