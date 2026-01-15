@@ -513,7 +513,13 @@ def _build_comunicacion_context(
     return ctx
 
 
-def _build_carta_pdf(request, titulo: str, mensaje: str, perfil: InversorPerfil, proyecto: Proyecto | None) -> bytes | None:
+def _build_carta_pdf_with_error(
+    request,
+    titulo: str,
+    mensaje: str,
+    perfil: InversorPerfil,
+    proyecto: Proyecto | None,
+) -> tuple[bytes | None, str | None]:
     try:
         logo_url = ""
         if request is not None:
@@ -531,9 +537,15 @@ def _build_carta_pdf(request, titulo: str, mensaje: str, perfil: InversorPerfil,
             },
         )
         from weasyprint import HTML  # defer import
-        return HTML(string=html, base_url=request.build_absolute_uri("/") if request else None).write_pdf()
-    except Exception:
-        return None
+        pdf = HTML(string=html, base_url=request.build_absolute_uri("/") if request else None).write_pdf()
+        return pdf, None
+    except Exception as e:
+        return None, str(e)
+
+
+def _build_carta_pdf(request, titulo: str, mensaje: str, perfil: InversorPerfil, proyecto: Proyecto | None) -> bytes | None:
+    pdf, _ = _build_carta_pdf_with_error(request, titulo, mensaje, perfil, proyecto)
+    return pdf
 
 
 def _build_anexos_cover_pdf(request) -> bytes | None:
@@ -4390,10 +4402,11 @@ def inversor_comunicacion_preview(request, perfil_id: int):
             )
         )
 
-        carta_pdf = _build_carta_pdf(request, titulo, mensaje, perfil, proyecto)
+        carta_pdf, carta_error = _build_carta_pdf_with_error(request, titulo, mensaje, perfil, proyecto)
         merged_pdf = _merge_pdf_with_anexos(carta_pdf, anexos, request=request) if carta_pdf else None
         if not merged_pdf:
-            return JsonResponse({"ok": False, "error": "No se pudo generar el PDF"}, status=400)
+            detalle = f": {carta_error}" if carta_error else ""
+            return JsonResponse({"ok": False, "error": f"No se pudo generar el PDF{detalle}"}, status=400)
 
         filename = f"carta_inversor_{perfil.id}_{proyecto.id}.pdf"
         response = HttpResponse(merged_pdf, content_type="application/pdf")
