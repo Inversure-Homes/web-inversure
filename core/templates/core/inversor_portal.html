@@ -29,6 +29,10 @@
     padding:16px;
     box-shadow: 0 12px 30px rgba(15,23,42,.08);
   }
+  .portal-card--highlight {
+    border: 1px solid rgba(212,163,79,.35);
+    box-shadow: 0 12px 30px rgba(212,163,79,.15);
+  }
   .portal-kpi { font-size:20px; font-weight:800; color: var(--ink); }
   .portal-label { color:#64748b; font-size:12px; }
   .badge-soft { background:#f8fafc; border:1px solid #e2e8f0; color:#475569; }
@@ -161,7 +165,10 @@
                 <div class="d-flex justify-content-between">
                   <div>
                     <strong>{{ p.proyecto.nombre }}</strong>
-                    <div class="small text-muted">Aportación: {{ p.importe_invertido|floatformat:2|intcomma }} €</div>
+                    <div class="small text-muted">
+                      Aportación: {{ p.importe_invertido|floatformat:2|intcomma }} €
+                      · Participación: {{ p.porcentaje_participacion|default:0|floatformat:2 }} %
+                    </div>
                   </div>
                   {% if p.estado == "confirmada" %}
                     <span class="tag ok">Confirmada</span>
@@ -181,8 +188,11 @@
     </div>
 
     <div class="col-lg-5">
-      <div class="portal-card">
-        <h5 class="mb-3">Comunicaciones</h5>
+      <div class="portal-card portal-card--highlight">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <h5 class="mb-0">Comunicaciones</h5>
+          <span class="tag ok">Actualizaciones</span>
+        </div>
         {% if comunicaciones %}
           <ul class="list-clean">
             {% for c in comunicaciones %}
@@ -207,6 +217,7 @@
           <thead>
             <tr>
               <th>Proyecto</th>
+              <th class="text-end">% participación</th>
               <th class="text-end">Beneficio bruto</th>
               <th class="text-end">Comisión Inversure</th>
               <th class="text-end">Beneficio neto</th>
@@ -220,6 +231,7 @@
             {% for b in beneficios_por_proyecto %}
               <tr>
                 <td>{{ b.proyecto.nombre }}</td>
+                <td class="text-end">{{ b.participacion_pct|floatformat:2 }} %</td>
                 <td class="text-end">
                   {% if internal_view %}
                     <input type="text" name="beneficio_bruto" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.beneficio_bruto|floatformat:2 }}">
