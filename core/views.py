@@ -14,12 +14,16 @@ from django.conf import settings
 from django.core.mail import send_mail, EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.templatetags.static import static
+from django.utils.safestring import mark_safe
+from django.contrib.staticfiles import finders
 
 from copy import deepcopy
 
 import json
 import os
 import boto3
+import base64
+import mimetypes
 from decimal import Decimal
 from datetime import date, datetime
 
@@ -522,9 +526,20 @@ def _build_carta_pdf_with_error(
 ) -> tuple[bytes | None, str | None]:
     try:
         logo_url = ""
+        logo_data_uri = ""
         if request is not None:
             logo_url = request.build_absolute_uri(static("core/logo_inversure.png"))
-        mensaje_html = (mensaje or "").replace("**INVERSURE**", "<strong>INVERSURE</strong>")
+        try:
+            logo_path = finders.find("core/logo_inversure.png")
+            if logo_path:
+                with open(logo_path, "rb") as logo_file:
+                    logo_bytes = logo_file.read()
+                mime, _ = mimetypes.guess_type(logo_path)
+                mime = mime or "image/png"
+                logo_data_uri = f"data:{mime};base64,{base64.b64encode(logo_bytes).decode('ascii')}"
+        except Exception:
+            logo_data_uri = ""
+        mensaje_html = mark_safe((mensaje or "").replace("**INVERSURE**", "<strong>INVERSURE</strong>"))
         html = render_to_string(
             "core/pdf_carta_inversor.html",
             {
@@ -535,6 +550,7 @@ def _build_carta_pdf_with_error(
                 "proyecto": proyecto,
                 "fecha": timezone.now().date(),
                 "logo_url": logo_url,
+                "logo_data_uri": logo_data_uri,
             },
         )
         from weasyprint import HTML  # defer import

@@ -19,23 +19,22 @@
       .logo { height: 34px; }
       .title { font-size: 20px; font-weight: 700; margin: 0 0 6px; color: var(--brand-blue); }
       .meta { color: var(--muted); font-size: 11px; margin: 0; }
-      .card { border: 1px solid #e2e8f0; border-left: 4px solid var(--brand-blue); border-radius: 10px; padding: 16px 18px; margin-top: 16px; background: #f8fafc; }
+      .card { margin-top: 16px; }
       .signature { margin-top: 18px; font-size: 11px; color: var(--muted); }
       .footer { margin-top: 22px; font-size: 10px; color: #64748b; }
       .legal { margin-top: 12px; font-size: 9.5px; color: #94a3b8; line-height: 1.4; }
       .side-meta {
         position: fixed;
-        top: 32mm;
-        left: -18mm;
-        width: 30mm;
-        padding: 6mm 4mm;
-        background: var(--side-bg);
-        border-left: 3px solid var(--brand-blue);
+        top: 35mm;
+        left: 6mm;
         font-size: 9px;
-        color: #475569;
+        color: #64748b;
         line-height: 1.4;
+        transform: rotate(-90deg);
+        transform-origin: top left;
+        letter-spacing: 0.02em;
       }
-      .side-meta strong { color: var(--brand-blue); display: block; font-size: 9.5px; margin-bottom: 6px; }
+      .side-meta strong { color: var(--brand-blue); font-weight: 700; }
       .descriptor { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--brand-gold); }
     </style>
   </head>
@@ -56,7 +55,9 @@
           <p class="meta">Proyecto: {{ proyecto.nombre|default:"Proyecto" }}</p>
         {% endif %}
       </div>
-      {% if logo_url %}
+      {% if logo_data_uri %}
+        <img class="logo" src="{{ logo_data_uri }}" alt="Inversure">
+      {% elif logo_url %}
         <img class="logo" src="{{ logo_url }}" alt="Inversure">
       {% endif %}
     </div>
