@@ -173,9 +173,10 @@ def _send_inversor_email(request, perfil: InversorPerfil, titulo: str, mensaje: 
             f'</div>'
         )
 
+    mensaje_html = (mensaje or "").replace("**INVERSURE**", "<strong>INVERSURE</strong>")
     html_message = f"""
     <div style="font-family:Arial, sans-serif; color:#0f172a; line-height:1.5;">
-      <p>{mensaje}</p>
+      <p>{mensaje_html}</p>
       {portal_html}
       <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0;">
       <div style="display:flex;align-items:center;gap:14px;">
@@ -257,12 +258,16 @@ def _comunicacion_templates() -> dict:
             "titulo": "Bienvenido a INVERSURE",
             "mensaje": (
                 "Estimado/a {inversor_nombre},\n\n"
-                "Bienvenido/a a INVERSURE. Somos una firma especializada en inversión inmobiliaria que combina análisis "
-                "riguroso, control operativo y trazabilidad documental para proteger el capital y maximizar el retorno.\n\n"
-                "Desde tu portal inversor podrás acceder al estado de tus operaciones, documentación disponible, evolución "
-                "económica y comunicaciones oficiales de cada proyecto, en un entorno claro y seguro.\n\n"
-                "Gracias por confiar en nosotros.\n\n"
-                "Atentamente,\nEquipo INVERSURE"
+                "Bienvenido/a a **INVERSURE**. Somos una firma especializada en inversión inmobiliaria que "
+                "combina análisis riguroso, control operativo y trazabilidad documental para proteger el "
+                "capital y maximizar el retorno en un plazo mínimo de tiempo.\n\n"
+                "Le damos acceso a su espacio virtual, donde podrá seguir el estado de sus inversiones, "
+                "recibir comunicaciones y visualizar documentación (memoria económica, certificado de retención, "
+                "contrato o cualquier comunicación).\n\n"
+                "Le agradecemos la confianza depositada en nosotros y esperamos que la información recibida "
+                "sea de su agrado. A continuación le facilitamos el enlace a su espacio.\n\n"
+                "{portal_link}\n\n"
+                "El equipo de INVERSURE"
             ),
         },
         "presentacion": {
@@ -272,6 +277,8 @@ def _comunicacion_templates() -> dict:
                 "Estimado/a {inversor_nombre},\n\n"
                 "Te presentamos el proyecto {proyecto_nombre}. A continuación encontrarás la descripción del inmueble y "
                 "los principales datos de referencia.\n\n"
+                "Recuerda que en tu espacio inversor podrás consultar la documentación asociada, la evolución económica "
+                "y las comunicaciones oficiales del proyecto en todo momento.\n\n"
                 "Descripción del inmueble:\n"
                 "- Dirección: {inmueble_direccion}\n"
                 "- Tipología: {inmueble_tipologia}\n"
@@ -511,11 +518,12 @@ def _build_carta_pdf(request, titulo: str, mensaje: str, perfil: InversorPerfil,
         logo_url = ""
         if request is not None:
             logo_url = request.build_absolute_uri(static("core/logo_inversure.png"))
+        mensaje_html = (mensaje or "").replace("**INVERSURE**", "<strong>INVERSURE</strong>")
         html = render_to_string(
             "core/pdf_carta_inversor.html",
             {
                 "titulo": titulo,
-                "mensaje": mensaje,
+                "mensaje_html": mensaje_html,
                 "cliente": perfil.cliente,
                 "proyecto": proyecto,
                 "fecha": timezone.now().date(),
@@ -4245,8 +4253,17 @@ def proyecto_comunicaciones(request, proyecto_id: int):
         snapshot = _get_snapshot_comunicacion(proyecto)
         resultado_mem = _resultado_desde_memoria(proyecto, snapshot) if isinstance(snapshot, dict) else {}
 
-        def _build_context(part: Participacion) -> dict:
-            return _build_comunicacion_context(proyecto, part, snapshot, resultado_mem, total_proj)
+        def _build_context(part: Participacion, perfil: InversorPerfil | None = None) -> dict:
+            ctx = _build_comunicacion_context(proyecto, part, snapshot, resultado_mem, total_proj)
+            if perfil and request is not None:
+                try:
+                    portal_url = request.build_absolute_uri(reverse("core:inversor_portal", args=[perfil.token]))
+                    ctx["portal_link"] = portal_url
+                except Exception:
+                    ctx["portal_link"] = ""
+            else:
+                ctx["portal_link"] = ""
+            return ctx
 
         if template_key:
             if not total_destinatarios:
@@ -4254,7 +4271,8 @@ def proyecto_comunicaciones(request, proyecto_id: int):
 
             if preview_only:
                 part = participaciones.first()
-                ctx = _build_context(part)
+                perfil = InversorPerfil.objects.filter(cliente=part.cliente).first()
+                ctx = _build_context(part, perfil=perfil)
                 titulo, mensaje = _render_comunicacion_template(template_key, ctx)
                 return JsonResponse(
                     {
@@ -4268,7 +4286,7 @@ def proyecto_comunicaciones(request, proyecto_id: int):
             count = 0
             for part in participaciones:
                 perfil, _ = InversorPerfil.objects.get_or_create(cliente=part.cliente)
-                ctx = _build_context(part)
+                ctx = _build_context(part, perfil=perfil)
                 titulo, mensaje = _render_comunicacion_template(template_key, ctx)
                 if not titulo or not mensaje:
                     continue
@@ -4344,6 +4362,14 @@ def inversor_comunicacion_preview(request, perfil_id: int):
         )
         total_proj = float(total_proj or 0)
         ctx = _build_comunicacion_context(proyecto, part, snapshot, resultado_mem, total_proj)
+        if request is not None:
+            try:
+                portal_url = request.build_absolute_uri(reverse("core:inversor_portal", args=[perfil.token]))
+                ctx["portal_link"] = portal_url
+            except Exception:
+                ctx["portal_link"] = ""
+        else:
+            ctx["portal_link"] = ""
 
         if template_key:
             titulo, mensaje = _render_comunicacion_template(template_key, ctx)

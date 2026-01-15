@@ -10,6 +10,7 @@
         --brand-gold: #C8BB89;
         --ink: #0f172a;
         --muted: #475569;
+        --side-bg: #f3f4f6;
       }
       @font-face {
         font-family: "IBM Plex Sans";
@@ -39,12 +40,32 @@
       .card { border: 1px solid #e2e8f0; border-left: 4px solid var(--brand-blue); border-radius: 10px; padding: 16px 18px; margin-top: 16px; background: #f8fafc; }
       .signature { margin-top: 18px; font-size: 11px; color: var(--muted); }
       .footer { margin-top: 22px; font-size: 10px; color: #64748b; }
-      .legal { margin-top: 14px; font-size: 9.5px; color: #94a3b8; line-height: 1.4; }
+      .legal { margin-top: 12px; font-size: 9.5px; color: #94a3b8; line-height: 1.4; }
+      .side-meta {
+        position: fixed;
+        top: 32mm;
+        left: -18mm;
+        width: 30mm;
+        padding: 6mm 4mm;
+        background: var(--side-bg);
+        border-left: 3px solid var(--brand-blue);
+        font-size: 9px;
+        color: #475569;
+        line-height: 1.4;
+      }
+      .side-meta strong { color: var(--brand-blue); display: block; font-size: 9.5px; margin-bottom: 6px; }
       .descriptor { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--brand-gold); }
     </style>
   </head>
   <body>
     <div class="brand-bar"></div>
+    <div class="side-meta">
+      <strong>INVERSURE</strong>
+      Inversure Homes &amp; investment<br>
+      B72265843<br>
+      Antonio Chacon 5, 29004<br>
+      www.inversurehomes.es
+    </div>
     <div class="header">
       <div>
         <div class="title">{{ titulo }}</div>
@@ -60,7 +81,7 @@
     <div class="descriptor">Secure · Invest · Grow</div>
 
     <div class="card">
-      <p>{{ mensaje|linebreaksbr }}</p>
+      <p>{{ mensaje_html|default:mensaje|linebreaksbr|safe }}</p>
       <div class="signature">
         Equipo INVERSURE<br>
         comunicacion@inversurehomes.es
@@ -70,7 +91,6 @@
     <div class="footer">
       Inversure Homes · Comunicación a inversores
       <div class="legal">
-        Inversure Homes &amp; investment · B72265843 · Antonio Chacon 5, 29004 · www.inversurehomes.es<br>
         Aviso legal: Este mensaje y los archivos adjuntos son confidenciales y están dirigidos exclusivamente a su destinatario.
         Si usted no es el destinatario, por favor notifíquelo al remitente y elimine el mensaje. Queda prohibida su reproducción o distribución sin autorización expresa.<br>
         Protección de datos (RGPD): Los datos personales incluidos en esta comunicación se tratarán conforme al Reglamento (UE) 2016/679 (RGPD) y la normativa europea y nacional vigente.
