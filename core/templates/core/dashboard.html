@@ -88,9 +88,14 @@
       <div class="dashboard-chart mt-3">
         {% for item in beneficios_chart %}
           <div class="chart-row">
-            <span class="chart-label">{{ item.nombre }}</span>
+            <span class="chart-label">
+              {{ item.nombre }}
+              {% if item.estado_label %}
+                <span class="chart-state">· {{ item.estado_label }}</span>
+              {% endif %}
+            </span>
             <div class="chart-bar">
-              <span style="width: {{ item.pct|floatformat:0 }}%;"></span>
+              <span style="width: {{ item.pct|floatformat:0 }}%; background-color: {{ item.color }};"></span>
             </div>
             <span class="chart-value">{{ item.valor_fmt }}</span>
             <span class="chart-pct">{{ item.pct_fmt }}</span>
@@ -98,29 +103,6 @@
         {% empty %}
           <div class="text-muted">Sin datos de beneficios todavía.</div>
         {% endfor %}
-      </div>
-
-      <div class="mt-4">
-        <h6 class="text-uppercase text-muted mb-2">Proyectos y estado</h6>
-        <div class="table-responsive">
-          <table class="table table-sm align-middle mb-2">
-            <thead>
-              <tr>
-                <th>Proyecto</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for p in proyectos_estado %}
-                <tr>
-                  <td>{{ p.nombre }}</td>
-                  <td>{{ p.estado_label }}</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        <small class="text-muted">Leyenda: Captación, Comprado, Comercialización, Reservado, Vendido, Cerrado o Descartado.</small>
       </div>
     </div>
   </div>

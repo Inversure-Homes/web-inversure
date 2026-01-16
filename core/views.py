@@ -1402,6 +1402,15 @@ def _build_dashboard_context(user):
             aportacion_por_cliente[part.cliente_id] = Decimal(part.importe_invertido or 0)
     capital_en_vigor = sum(aportacion_por_cliente.values(), Decimal("0"))
 
+    estado_colores = {
+        "captacion": "#f59e0b",
+        "comprado": "#0ea5e9",
+        "comercializacion": "#6366f1",
+        "reservado": "#22c55e",
+        "vendido": "#10b981",
+        "cerrado": "#14b8a6",
+        "descartado": "#94a3b8",
+    }
     beneficios = []
     total_beneficio = 0.0
     for proyecto in proyectos:
@@ -1411,11 +1420,15 @@ def _build_dashboard_context(user):
         valor_adq = float(resultado.get("valor_adquisicion") or 0.0)
         pct_beneficio = (beneficio / valor_adq * 100.0) if valor_adq else 0.0
         total_beneficio += beneficio
+        estado = proyecto.estado or ""
+        estado_label = proyecto.get_estado_display() if hasattr(proyecto, "get_estado_display") else estado
         beneficios.append(
             {
                 "nombre": proyecto.nombre or f"Proyecto {proyecto.id}",
                 "valor": beneficio,
                 "pct_beneficio": pct_beneficio,
+                "estado": estado,
+                "estado_label": estado_label,
             }
         )
 
@@ -1425,7 +1438,7 @@ def _build_dashboard_context(user):
     )
     max_beneficio = max([b["valor"] for b in beneficios_validos], default=0.0)
     beneficios_chart = []
-    for b in sorted(beneficios_validos, key=lambda x: x["valor"], reverse=True)[:5]:
+    for b in sorted(beneficios_validos, key=lambda x: x["valor"], reverse=True):
         pct = (b["valor"] / max_beneficio * 100.0) if max_beneficio else 0.0
         beneficios_chart.append(
             {
@@ -1433,6 +1446,9 @@ def _build_dashboard_context(user):
                 "valor": b["valor"],
                 "valor_fmt": _fmt_eur(b["valor"]),
                 "pct_fmt": _fmt_pct(b.get("pct_beneficio") or 0.0),
+                "estado": b.get("estado") or "",
+                "estado_label": b.get("estado_label") or "",
+                "color": estado_colores.get(b.get("estado"), "#f2b53b"),
                 "pct": pct,
             }
         )

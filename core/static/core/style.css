@@ -251,6 +251,8 @@ body {
   margin-bottom: 12px;
   margin-top: 16px;
   text-align: left;
+  max-height: 320px;
+  overflow-y: auto;
 }
 
 .dashboard-chart .chart-row {
@@ -287,6 +289,13 @@ body {
   font-size: 11px;
   color: #64748b;
   font-weight: 600;
+  white-space: nowrap;
+}
+
+.dashboard-chart .chart-state {
+  font-size: 10px;
+  color: #94a3b8;
+  margin-left: 4px;
   white-space: nowrap;
 }
 
