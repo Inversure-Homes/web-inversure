@@ -1,4 +1,4 @@
-{% load static %}
+{% load static wagtailcore_tags %}
 <!DOCTYPE html>
 <html lang="es">
   <head>
@@ -19,6 +19,14 @@
           <img src="{% static 'core/logo_inversure_blanco.png' %}" alt="Inversure Homes">
         </a>
         <nav class="landing-nav__links">
+          {% slugurl 'proyectos' as proyectos_url %}
+          {% if proyectos_url %}
+            <a href="{{ proyectos_url }}">Proyectos</a>
+          {% endif %}
+          {% slugurl 'quienes-somos' as quienes_url %}
+          {% if quienes_url %}
+            <a href="{{ quienes_url }}">Quiénes somos</a>
+          {% endif %}
           <a href="{% url 'landing:noticias_list' %}">Noticias</a>
           <a href="#solucion">Solución</a>
           <a href="#trazabilidad">Transparencia</a>

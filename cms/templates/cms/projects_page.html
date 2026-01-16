@@ -1,0 +1,37 @@
+{% extends "landing/base.html" %}
+{% load static %}
+{% block content %}
+  <main>
+    <section class="section" style="padding-top: 120px;">
+      <div class="container">
+        <div class="section__header">
+          <h2>{{ page.title }}</h2>
+          <p>{{ page.intro|default:"Proyectos ejecutados y operaciones representativas de Inversure." }}</p>
+        </div>
+        <div class="grid">
+          {% if page.projects %}
+            {% for block in page.projects %}
+              {% if block.block_type == "proyecto" %}
+                <article class="card">
+                  <div class="card__icon">
+                    <i class="bi bi-buildings"></i>
+                  </div>
+                  <h3>{{ block.value.titulo }}</h3>
+                  <p class="text-muted mb-2">
+                    {{ block.value.ubicacion }}{% if block.value.anio %} · {{ block.value.anio }}{% endif %}
+                  </p>
+                  <p>{{ block.value.descripcion }}</p>
+                  {% if block.value.estado %}
+                    <span class="tag mute">{{ block.value.estado }}</span>
+                  {% endif %}
+                </article>
+              {% endif %}
+            {% endfor %}
+          {% else %}
+            <div class="text-muted">Todavía no hay proyectos publicados.</div>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+  </main>
+{% endblock %}

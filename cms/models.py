@@ -175,3 +175,54 @@ class HomePage(Page):
             "-id",
         )[:3]
         return context
+
+
+class ProjectsPage(Page):
+    template = "cms/projects_page.html"
+
+    intro = models.TextField(blank=True)
+    projects = StreamField(
+        [
+            (
+                "proyecto",
+                blocks.StructBlock(
+                    [
+                        ("titulo", blocks.CharBlock(required=True, max_length=140)),
+                        ("ubicacion", blocks.CharBlock(required=False, max_length=140)),
+                        ("estado", blocks.CharBlock(required=False, max_length=80)),
+                        ("anio", blocks.CharBlock(required=False, max_length=10)),
+                        ("descripcion", blocks.TextBlock(required=False)),
+                    ]
+                ),
+            )
+        ],
+        blank=True,
+        use_json_field=True,
+    )
+
+    content_panels = Page.content_panels + [
+        FieldPanel("intro"),
+        FieldPanel("projects"),
+    ]
+
+    parent_page_types = ["wagtailcore.Page", "cms.HomePage"]
+    subpage_types = []
+
+
+class AboutPage(Page):
+    template = "cms/about_page.html"
+
+    intro = models.TextField(blank=True)
+    historia = models.TextField(blank=True)
+    equipo = models.TextField(blank=True)
+    valores = models.TextField(blank=True)
+
+    content_panels = Page.content_panels + [
+        FieldPanel("intro"),
+        FieldPanel("historia"),
+        FieldPanel("equipo"),
+        FieldPanel("valores"),
+    ]
+
+    parent_page_types = ["wagtailcore.Page", "cms.HomePage"]
+    subpage_types = []

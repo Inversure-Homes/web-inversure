@@ -1,0 +1,38 @@
+{% extends "landing/base.html" %}
+{% load static %}
+{% block content %}
+  <main>
+    <section class="section" style="padding-top: 120px;">
+      <div class="container">
+        <div class="section__header">
+          <h2>{{ page.title }}</h2>
+          <p>{{ page.intro|default:"Quiénes somos y cómo trabajamos en Inversure." }}</p>
+        </div>
+        <div class="section__split">
+          <div>
+            <h3>Historia</h3>
+            <p>{{ page.historia|default:"Añade aquí la historia de la compañía y su evolución." }}</p>
+            <h3 class="mt-4">Equipo</h3>
+            <p>{{ page.equipo|default:"Describe el equipo y el expertise que aporta valor a cada operación." }}</p>
+            <h3 class="mt-4">Valores</h3>
+            <p>{{ page.valores|default:"Control, transparencia y foco en el inversor." }}</p>
+          </div>
+          <div class="stat-card">
+            <div>
+              <span>Foco</span>
+              <strong>Inversión inmobiliaria</strong>
+            </div>
+            <div>
+              <span>Modelo</span>
+              <strong>Transparencia total</strong>
+            </div>
+            <div>
+              <span>Compromiso</span>
+              <strong>Protección del capital</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+{% endblock %}
