@@ -16,6 +16,7 @@ class MaintenanceModeMiddleware:
                 "/admin/",
                 "/cms/",
                 "/documents/",
+                "/app/",
                 "/static/",
             )
             if request.path.startswith(allowed_prefixes):
