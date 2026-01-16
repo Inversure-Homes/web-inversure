@@ -1408,9 +1408,15 @@ def _build_dashboard_context(user):
         snap = _get_snapshot_comunicacion(proyecto)
         resultado = _resultado_desde_memoria(proyecto, snap)
         beneficio = float(resultado.get("beneficio_neto") or 0.0)
+        valor_adq = float(resultado.get("valor_adquisicion") or 0.0)
+        pct_beneficio = (beneficio / valor_adq * 100.0) if valor_adq else 0.0
         total_beneficio += beneficio
         beneficios.append(
-            {"nombre": proyecto.nombre or f"Proyecto {proyecto.id}", "valor": beneficio}
+            {
+                "nombre": proyecto.nombre or f"Proyecto {proyecto.id}",
+                "valor": beneficio,
+                "pct_beneficio": pct_beneficio,
+            }
         )
 
     beneficios_validos = [b for b in beneficios if b["valor"] is not None]
@@ -1426,6 +1432,7 @@ def _build_dashboard_context(user):
                 "nombre": b["nombre"],
                 "valor": b["valor"],
                 "valor_fmt": _fmt_eur(b["valor"]),
+                "pct_fmt": _fmt_pct(b.get("pct_beneficio") or 0.0),
                 "pct": pct,
             }
         )

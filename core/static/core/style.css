@@ -249,12 +249,13 @@ body {
   display: grid;
   gap: 6px;
   margin-bottom: 12px;
+  margin-top: 16px;
   text-align: left;
 }
 
 .dashboard-chart .chart-row {
   display: grid;
-  grid-template-columns: 1fr 2fr auto;
+  grid-template-columns: 1fr 2fr auto auto;
   gap: 8px;
   align-items: center;
   font-size: 11px;
@@ -278,6 +279,13 @@ body {
 .dashboard-chart .chart-value {
   font-size: 11px;
   color: #0f172a;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dashboard-chart .chart-pct {
+  font-size: 11px;
+  color: #64748b;
   font-weight: 600;
   white-space: nowrap;
 }

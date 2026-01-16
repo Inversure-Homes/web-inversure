@@ -85,7 +85,7 @@
         </div>
       </div>
 
-      <div class="dashboard-chart">
+      <div class="dashboard-chart mt-3">
         {% for item in beneficios_chart %}
           <div class="chart-row">
             <span class="chart-label">{{ item.nombre }}</span>
@@ -93,6 +93,7 @@
               <span style="width: {{ item.pct|floatformat:0 }}%;"></span>
             </div>
             <span class="chart-value">{{ item.valor_fmt }}</span>
+            <span class="chart-pct">{{ item.pct_fmt }}</span>
           </div>
         {% empty %}
           <div class="text-muted">Sin datos de beneficios todavía.</div>
