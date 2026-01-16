@@ -209,10 +209,45 @@ body.landing-body {
   color: var(--muted);
 }
 
+.section--stats {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.04), rgba(255, 255, 255, 0.95));
+}
+
 .grid {
   display: grid;
   gap: 24px;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.stats-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.stat-tile {
+  background: #fff;
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+}
+
+.stat-tile__label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #8b95a7;
+  margin: 0 0 8px;
+}
+
+.stat-tile h3 {
+  margin: 0 0 6px;
+  font-size: 28px;
+}
+
+.stat-tile__detail {
+  font-size: 13px;
+  color: #64748b;
 }
 
 .project-grid {
@@ -255,6 +290,7 @@ body.landing-body {
   height: 100%;
   background-size: cover;
   background-position: center;
+  background-repeat: no-repeat;
 }
 
 .project-card__media-bg--solid {
@@ -332,6 +368,68 @@ body.landing-body {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+.reviews-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.review-card {
+  background: #fff;
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+}
+
+.review-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.review-card__name {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.review-card__stars {
+  color: #f2b53b;
+  letter-spacing: 0.08em;
+}
+
+.review-cta {
+  margin-top: 20px;
+}
+
+.section--sponsors {
+  background: #f8fafc;
+}
+
+.sponsor-grid {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  align-items: center;
+}
+
+.sponsor-logo {
+  background: #fff;
+  border-radius: 16px;
+  padding: 18px;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+}
+
+.sponsor-logo img {
+  max-width: 140px;
+  max-height: 80px;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
 }
 
 .card__icon {

@@ -3,7 +3,7 @@
 
 {% block content %}
   <main>
-    <section class="hero">
+    <section class="hero hero--has-bg" style="background-image: linear-gradient(120deg, rgba(11, 19, 36, 0.92), rgba(11, 19, 36, 0.6)), url('{% static hero.bg_image %}');">
       <div class="container hero__inner">
         <div class="hero__content">
           <span class="hero__tag">{{ hero.tag }}</span>
@@ -24,7 +24,7 @@
         </div>
         <div class="hero__visual">
           <div class="hero__panel">
-            <img class="hero__panel-logo" src="{% static 'core/logo_inversure.png' %}" alt="Inversure">
+            <img class="hero__panel-image" src="{% static hero.panel_image %}" alt="Proyecto">
             <div class="hero__panel-card">
               <h4>{{ hero.panel_title }}</h4>
               <p>{{ hero.panel_text }}</p>
@@ -32,6 +32,24 @@
               <small>{{ hero.panel_footer }}</small>
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--stats" id="estadisticas">
+      <div class="container">
+        <div class="section__header">
+          <h2>Indicadores de confianza</h2>
+          <p>Datos clave que resumen la trazabilidad y el control operativo del portfolio.</p>
+        </div>
+        <div class="stats-grid">
+          {% for item in estadisticas %}
+            <article class="stat-tile">
+              <p class="stat-tile__label">{{ item.label }}</p>
+              <h3>{{ item.value }}</h3>
+              <span class="stat-tile__detail">{{ item.detail }}</span>
+            </article>
+          {% endfor %}
         </div>
       </div>
     </section>
@@ -66,7 +84,7 @@
           {% for proyecto in proyectos %}
             <article class="project-card">
               <div class="project-card__media">
-                <div class="project-card__media-bg project-card__media-bg--solid"></div>
+                <div class="project-card__media-bg" style="background-image: linear-gradient(160deg, rgba(13, 22, 40, 0.65), rgba(13, 22, 40, 0.25)), url('{% static proyecto.imagen %}');"></div>
                 <div class="project-card__badge">{{ proyecto.anio }}</div>
               </div>
               <div class="project-card__body">
@@ -151,6 +169,45 @@
               </div>
             {% endfor %}
           </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="reseñas">
+      <div class="container">
+        <div class="section__header">
+          <h2>Google Business & opiniones</h2>
+          <p>Historias reales de inversores que confían en nuestro método.</p>
+        </div>
+        <div class="reviews-grid">
+          {% for review in reseñas %}
+            <article class="review-card">
+              <div class="review-card__header">
+                <span class="review-card__name">{{ review.nombre }}</span>
+                <span class="review-card__stars">★★★★★</span>
+              </div>
+              <p>{{ review.texto }}</p>
+            </article>
+          {% endfor %}
+        </div>
+        <div class="review-cta">
+          <a class="btn-outline" href="#" aria-disabled="true">Ver reseñas en Google (próximamente)</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--sponsors" id="patrocinadores">
+      <div class="container">
+        <div class="section__header">
+          <h2>Patrocinadores y colaboradores</h2>
+          <p>Alianzas estratégicas que fortalecen nuestra operación.</p>
+        </div>
+        <div class="sponsor-grid">
+          {% for item in patrocinadores %}
+            <div class="sponsor-logo">
+              <img src="{% static item.src %}" alt="{{ item.alt }}">
+            </div>
+          {% endfor %}
         </div>
       </div>
     </section>

@@ -12,6 +12,8 @@ def landing_home(request):
         "cta_primary_url": "/app/login/",
         "cta_secondary_text": "Últimas noticias",
         "cta_secondary_url": "#noticias",
+        "bg_image": "landing/assets/hero_growth.jpg",
+        "panel_image": "landing/assets/hero_model.jpg",
         "meta": [
             {"value": "+120", "label": "operaciones analizadas"},
             {"value": "100", "label": "trazabilidad documental"},
@@ -49,6 +51,7 @@ def landing_home(request):
             "inversion_total": "148.000 €",
             "beneficio_estimado": "17.200 €",
             "estado": "En curso",
+            "imagen": "landing/assets/hero_family.jpg",
         },
         {
             "titulo": "Sotogrande",
@@ -60,6 +63,7 @@ def landing_home(request):
             "inversion_total": "240.000 €",
             "beneficio_estimado": "9.980 €",
             "estado": "Finalizado",
+            "imagen": "landing/assets/hero_investor.jpg",
         },
         {
             "titulo": "Torremolinos",
@@ -71,6 +75,41 @@ def landing_home(request):
             "inversion_total": "162.000 €",
             "beneficio_estimado": "13.300 €",
             "estado": "Finalizado",
+            "imagen": "landing/assets/hero_model.jpg",
+        },
+        {
+            "titulo": "Mijas",
+            "ubicacion": "Málaga",
+            "anio": "2025",
+            "plazo": "4 meses",
+            "rentabilidad": "16,64 %",
+            "acceso_minimo": "10.000 €",
+            "inversion_total": "210.000 €",
+            "beneficio_estimado": "34.900 €",
+            "estado": "En curso",
+            "imagen": "landing/assets/hero_growth.jpg",
+        },
+    ]
+    estadisticas = [
+        {
+            "label": "Capital gestionado",
+            "value": "6,4 M€",
+            "detail": "operaciones activas y finalizadas",
+        },
+        {
+            "label": "Rentabilidad media",
+            "value": "18,4 %",
+            "detail": "en operaciones finalizadas",
+        },
+        {
+            "label": "Tiempo medio",
+            "value": "3,2 meses",
+            "detail": "desde compra a venta",
+        },
+        {
+            "label": "Documentos",
+            "value": "1.820",
+            "detail": "trazados y auditables",
         },
     ]
     quienes_somos = {
@@ -105,6 +144,31 @@ def landing_home(request):
             {"label": "Documentos gestionados", "value": "1.820"},
         ],
     }
+    reseñas = [
+        {
+            "nombre": "María G.",
+            "texto": "Información clara y seguimiento constante. Me dio mucha tranquilidad como inversora.",
+            "rating": 5,
+        },
+        {
+            "nombre": "Javier R.",
+            "texto": "Comunicación profesional y datos detallados en cada fase. Muy recomendable.",
+            "rating": 5,
+        },
+        {
+            "nombre": "Elena M.",
+            "texto": "Transparencia total y soporte cercano. Un antes y un después en inversión.",
+            "rating": 5,
+        },
+    ]
+    patrocinadores = [
+        {"src": "landing/assets/sponsor_benagalbon.png", "alt": "C.D. Benagalbón"},
+        {"src": "landing/assets/sponsor_modernia.jpg", "alt": "Grupo Modernia"},
+        {"src": "landing/assets/sponsor_logo_1.jpg", "alt": "Fincas Velázquez"},
+        {"src": "landing/assets/sponsor_logo_2.jpg", "alt": "Radio Marca"},
+        {"src": "landing/assets/sponsor_logo_3.jpg", "alt": "Portero y Palma"},
+        {"src": "landing/assets/sponsor_verifika2.png", "alt": "Verifika2"},
+    ]
     noticias = Noticia.objects.filter(estado="publicado").order_by("-fecha_publicacion", "-id")[:3]
     return render(
         request,
@@ -113,8 +177,11 @@ def landing_home(request):
             "hero": hero,
             "secciones": secciones,
             "proyectos": proyectos,
+            "estadisticas": estadisticas,
             "quienes_somos": quienes_somos,
             "transparencia": transparencia,
+            "reseñas": reseñas,
+            "patrocinadores": patrocinadores,
             "noticias": noticias,
         },
     )
