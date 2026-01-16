@@ -1,0 +1,77 @@
+{% extends "core/base.html" %}
+
+{% block page_header %}
+  <h1 class="mb-2">Checklist operativo</h1>
+  <p class="text-muted">Vista completa de tareas pendientes, en curso o vencidas.</p>
+{% endblock %}
+
+{% block content %}
+  <div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+      <form class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label">Estado</label>
+          <select class="form-select" name="estado">
+            <option value="pendiente" {% if estado == "pendiente" %}selected{% endif %}>Pendientes</option>
+            <option value="en_curso" {% if estado == "en_curso" %}selected{% endif %}>En curso</option>
+            <option value="vencidas" {% if estado == "vencidas" %}selected{% endif %}>Vencidas</option>
+            <option value="hecho" {% if estado == "hecho" %}selected{% endif %}>Hechas</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Fase</label>
+          <select class="form-select" name="fase">
+            <option value="">Todas</option>
+            {% for f in fases %}
+              <option value="{{ f }}" {% if fase == f %}selected{% endif %}>{{ f|capfirst }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Proyecto</label>
+          <input class="form-control" name="proyecto" value="{{ proyecto_q }}" placeholder="Buscar proyecto">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Responsable</label>
+          <input class="form-control" name="responsable" value="{{ responsable_q }}" placeholder="Buscar responsable">
+        </div>
+        <div class="col-12 d-flex justify-content-end">
+          <button class="btn btn-primary" type="submit">Filtrar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card shadow-sm border-0">
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Proyecto</th>
+              <th>Fase</th>
+              <th>Tarea</th>
+              <th>Responsable</th>
+              <th>Fecha objetivo</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for it in items %}
+              <tr>
+                <td>{{ it.proyecto.nombre }}</td>
+                <td>{{ it.get_fase_display }}</td>
+                <td>{{ it.titulo }}</td>
+                <td>{{ it.responsable|default:"—" }}</td>
+                <td>{{ it.fecha_objetivo|date:"d/m/Y" }}</td>
+                <td>{{ it.get_estado_display }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="6" class="text-muted">Sin tareas.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+{% endblock %}

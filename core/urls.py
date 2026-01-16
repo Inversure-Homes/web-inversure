@@ -7,6 +7,7 @@ urlpatterns = [
     # Home
     path("", views.home, name="home"),
     path("dashboard/", views.dashboard, name="dashboard"),
+    path("checklist/pendientes/", views.checklist_pendientes, name="checklist_pendientes"),
 
     # Simulador / Estudios
     path("simulador/", views.simulador, name="simulador"),

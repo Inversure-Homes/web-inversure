@@ -161,6 +161,7 @@
           <div class="alerts-badges">
             <span class="chip chip--info">Pendientes {{ checklist_alerts.pendientes }}</span>
             <span class="chip chip--warn">Vencidas {{ checklist_alerts.vencidas }}</span>
+            <a class="btn btn-sm btn-outline-secondary" href="{% url 'core:checklist_pendientes' %}">Ver todas</a>
           </div>
         </div>
 

@@ -1630,6 +1630,42 @@ def dashboard(request):
     return render(request, "core/dashboard.html", ctx)
 
 
+def checklist_pendientes(request):
+    estado = (request.GET.get("estado") or "pendiente").strip().lower()
+    fase = (request.GET.get("fase") or "").strip().lower()
+    proyecto_q = (request.GET.get("proyecto") or "").strip()
+    responsable_q = (request.GET.get("responsable") or "").strip()
+    estado_filter = estado if estado in {"pendiente", "en_curso", "hecho", "vencidas"} else "pendiente"
+
+    qs = ChecklistItem.objects.select_related("proyecto")
+    if estado_filter == "vencidas":
+        qs = qs.exclude(estado="hecho")
+        qs = qs.filter(fecha_objetivo__lt=timezone.now().date())
+    else:
+        qs = qs.filter(estado=estado_filter)
+
+    if fase:
+        qs = qs.filter(fase=fase)
+    if proyecto_q:
+        qs = qs.filter(proyecto__nombre__icontains=proyecto_q)
+    if responsable_q:
+        qs = qs.filter(responsable__icontains=responsable_q)
+
+    qs = qs.order_by("fecha_objetivo", "id")
+
+    fases = [f for f, _ in ChecklistItem.FASES]
+
+    ctx = {
+        "items": qs,
+        "estado": estado_filter,
+        "fase": fase,
+        "proyecto_q": proyecto_q,
+        "responsable_q": responsable_q,
+        "fases": fases,
+    }
+    return render(request, "core/checklist_pendientes.html", ctx)
+
+
 def nuevo_estudio(request):
     """Crea un estudio nuevo, limpia la sesión del estudio anterior y redirige al simulador."""
     # Crear un estudio vacío como BORRADOR (no debe aparecer en lista hasta que se guarde)
