@@ -6,6 +6,7 @@ app_name = "core"
 urlpatterns = [
     # Home
     path("", views.home, name="home"),
+    path("dashboard/", views.dashboard, name="dashboard"),
 
     # Simulador / Estudios
     path("simulador/", views.simulador, name="simulador"),

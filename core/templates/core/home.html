@@ -129,7 +129,7 @@
 
         {% if can_proyectos %}
         <div class="col-md-4">
-            <a href="#" class="text-decoration-none text-dark">
+            <a href="{% url 'core:dashboard' %}" class="text-decoration-none text-dark">
                 <div class="card h-100 shadow-sm border-0 hover-card">
                     <div class="card-body text-center d-flex flex-column">
                         <div class="card-icon-wrapper mb-3">
@@ -141,6 +141,43 @@
                         <p class="text-muted mb-4">
                             Visión global del negocio.
                         </p>
+                        <div class="dashboard-metrics">
+                            <div class="metric">
+                                <span>Inversores activos</span>
+                                <strong>{{ dashboard_stats.inversores_activos }}</strong>
+                            </div>
+                            <div class="metric">
+                                <span>Capital invertido</span>
+                                <strong>{{ dashboard_stats_fmt.capital_actual }}</strong>
+                            </div>
+                            <div class="metric">
+                                <span>Capital acumulado</span>
+                                <strong>{{ dashboard_stats_fmt.capital_acumulado }}</strong>
+                            </div>
+                            <div class="metric">
+                                <span>Operaciones</span>
+                                <strong>{{ dashboard_stats.operaciones }}</strong>
+                            </div>
+                            <div class="metric">
+                                <span>Beneficio generado</span>
+                                <strong>{{ dashboard_stats_fmt.beneficio_total }}</strong>
+                            </div>
+                            <div class="metric">
+                                <span>Beneficio medio</span>
+                                <strong>{{ dashboard_stats_fmt.beneficio_medio }}</strong>
+                            </div>
+                        </div>
+                        <div class="dashboard-chart">
+                            {% for item in beneficios_chart %}
+                                <div class="chart-row">
+                                    <span class="chart-label">{{ item.nombre }}</span>
+                                    <div class="chart-bar">
+                                        <span style="width: {{ item.pct|floatformat:0 }}%;"></span>
+                                    </div>
+                                    <span class="chart-value">{{ item.valor_fmt }}</span>
+                                </div>
+                            {% endfor %}
+                        </div>
                         <span class="btn btn-inversure mt-auto">
                             Abrir dashboard
                         </span>

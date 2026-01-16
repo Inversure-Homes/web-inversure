@@ -1352,10 +1352,64 @@ def _datos_inmueble_desde_estudio(estudio: Estudio) -> dict:
     }
 
 
-def home(request):
-    user = request.user
+def _build_dashboard_context(user):
     perms = resolve_permissions(user)
-    ctx = {
+    estados_cerrados = {"cerrado", "descartado"}
+    proyectos = Proyecto.objects.all()
+    proyectos_activos = proyectos.exclude(estado__in=estados_cerrados)
+    activos_ids = list(proyectos_activos.values_list("id", flat=True))
+    capital_acumulado = (
+        Participacion.objects.filter(estado="confirmada")
+        .aggregate(total=Sum("importe_invertido"))
+        .get("total")
+        or Decimal("0")
+    )
+    capital_actual = (
+        Participacion.objects.filter(estado="confirmada", proyecto_id__in=activos_ids)
+        .aggregate(total=Sum("importe_invertido"))
+        .get("total")
+        or Decimal("0")
+    )
+    inversores_activos = (
+        Participacion.objects.filter(estado="confirmada", proyecto_id__in=activos_ids)
+        .values_list("cliente_id", flat=True)
+        .distinct()
+        .count()
+    )
+    total_operaciones = proyectos.count()
+
+    beneficios = []
+    total_beneficio = 0.0
+    for proyecto in proyectos:
+        snap = _get_snapshot_comunicacion(proyecto)
+        resultado = _resultado_desde_memoria(proyecto, snap)
+        beneficio = float(resultado.get("beneficio_neto") or 0.0)
+        total_beneficio += beneficio
+        beneficios.append(
+            {"nombre": proyecto.nombre or f"Proyecto {proyecto.id}", "valor": beneficio}
+        )
+
+    beneficios_validos = [b for b in beneficios if b["valor"] is not None]
+    avg_beneficio = (
+        (total_beneficio / len(beneficios_validos)) if beneficios_validos else 0.0
+    )
+    max_beneficio = max([b["valor"] for b in beneficios_validos], default=0.0)
+    beneficios_chart = []
+    for b in sorted(beneficios_validos, key=lambda x: x["valor"], reverse=True)[:5]:
+        pct = (b["valor"] / max_beneficio * 100.0) if max_beneficio else 0.0
+        beneficios_chart.append(
+            {
+                "nombre": b["nombre"],
+                "valor": b["valor"],
+                "valor_fmt": _fmt_eur(b["valor"]),
+                "pct": pct,
+            }
+        )
+
+    def _fmt_money(value):
+        return _fmt_eur(float(value or 0.0))
+
+    return {
         "is_admin": is_admin_user(user),
         "can_simulador": perms.get("can_simulador"),
         "can_estudios": perms.get("can_estudios"),
@@ -1364,8 +1418,32 @@ def home(request):
         "can_inversores": perms.get("can_inversores"),
         "can_usuarios": perms.get("can_usuarios"),
         "can_cms": perms.get("can_cms"),
+        "dashboard_stats": {
+            "inversores_activos": inversores_activos,
+            "capital_actual": capital_actual,
+            "capital_acumulado": capital_acumulado,
+            "operaciones": total_operaciones,
+            "beneficio_total": total_beneficio,
+            "beneficio_medio": avg_beneficio,
+        },
+        "dashboard_stats_fmt": {
+            "capital_actual": _fmt_money(capital_actual),
+            "capital_acumulado": _fmt_money(capital_acumulado),
+            "beneficio_total": _fmt_money(total_beneficio),
+            "beneficio_medio": _fmt_money(avg_beneficio),
+        },
+        "beneficios_chart": beneficios_chart,
     }
+
+
+def home(request):
+    ctx = _build_dashboard_context(request.user)
     return render(request, "core/home.html", ctx)
+
+
+def dashboard(request):
+    ctx = _build_dashboard_context(request.user)
+    return render(request, "core/dashboard.html", ctx)
 
 
 def nuevo_estudio(request):

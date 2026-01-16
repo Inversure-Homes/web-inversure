@@ -222,6 +222,67 @@ body {
 }
 
 /* ======================================================
+   DASHBOARD HOME METRICS
+   ====================================================== */
+
+.dashboard-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 14px;
+  margin-bottom: 12px;
+  text-align: left;
+}
+
+.dashboard-metrics .metric span {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.dashboard-metrics .metric strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.dashboard-chart {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+  text-align: left;
+}
+
+.dashboard-chart .chart-row {
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.dashboard-chart .chart-bar {
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.dashboard-chart .chart-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #f2b53b, #f8d27c);
+  border-radius: 999px;
+}
+
+.dashboard-chart .chart-value {
+  font-size: 11px;
+  color: #0f172a;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ======================================================
    BOTÓN CARD (CTA)
    ====================================================== */
 
