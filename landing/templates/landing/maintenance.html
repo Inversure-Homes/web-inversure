@@ -1,0 +1,13 @@
+{% extends "landing/base.html" %}
+{% load static %}
+
+{% block content %}
+  <main class="maintenance">
+    <section class="maintenance__panel">
+      <img src="{% static 'core/logo_inversure_blanco.png' %}" alt="Inversure Homes">
+      <h1>Estamos preparando algo especial</h1>
+      <p>La web está en mantenimiento temporal para aplicar mejoras. Vuelve pronto o contacta con nuestro equipo.</p>
+      <a class="btn-solid" href="mailto:comunicacion@inversurehomes.es">Contactar</a>
+    </section>
+  </main>
+{% endblock %}

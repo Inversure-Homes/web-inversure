@@ -207,3 +207,7 @@ def cookies(request):
 
 def terminos(request):
     return render(request, "landing/terminos.html")
+
+
+def maintenance(request):
+    return render(request, "landing/maintenance.html")
