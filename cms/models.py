@@ -193,6 +193,11 @@ class ProjectsPage(Page):
                         ("ubicacion", blocks.CharBlock(required=False, max_length=140)),
                         ("estado", blocks.CharBlock(required=False, max_length=80)),
                         ("anio", blocks.CharBlock(required=False, max_length=10)),
+                        ("plazo", blocks.CharBlock(required=False, max_length=40)),
+                        ("rentabilidad", blocks.CharBlock(required=False, max_length=40)),
+                        ("acceso_minimo", blocks.CharBlock(required=False, max_length=40)),
+                        ("inversion_total", blocks.CharBlock(required=False, max_length=40)),
+                        ("beneficio_estimado", blocks.CharBlock(required=False, max_length=40)),
                         ("descripcion", blocks.TextBlock(required=False)),
                     ]
                 ),

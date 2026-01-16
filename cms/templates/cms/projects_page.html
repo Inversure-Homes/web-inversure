@@ -8,27 +8,57 @@
           <h2>{{ page.title }}</h2>
           <p>{{ page.intro|default:"Proyectos ejecutados y operaciones representativas de Inversure." }}</p>
         </div>
-        <div class="grid">
+        <div class="project-grid">
           {% if page.projects %}
             {% for block in page.projects %}
               {% if block.block_type == "proyecto" %}
-                <article class="card">
-                  {% if block.value.imagen %}
-                    {% image block.value.imagen fill-600x360 as project_img %}
-                    <img class="card__image" src="{{ project_img.url }}" alt="{{ block.value.titulo }}">
-                  {% else %}
-                    <div class="card__icon">
-                      <i class="bi bi-buildings"></i>
+                <article class="project-card">
+                  <div class="project-card__media">
+                    {% if block.value.imagen %}
+                      {% image block.value.imagen fill-1200x800 as project_img %}
+                      <div class="project-card__media-bg" style="background-image: linear-gradient(160deg, rgba(13, 22, 40, 0.88), rgba(13, 22, 40, 0.35)), url('{{ project_img.url }}');"></div>
+                    {% else %}
+                      <div class="project-card__media-bg project-card__media-bg--solid"></div>
+                    {% endif %}
+                    <div class="project-card__badge">
+                      {% if block.value.anio %}{{ block.value.anio }}{% else %}2025{% endif %}
                     </div>
-                  {% endif %}
-                  <h3>{{ block.value.titulo }}</h3>
-                  <p class="text-muted mb-2">
-                    {{ block.value.ubicacion }}{% if block.value.anio %} · {{ block.value.anio }}{% endif %}
-                  </p>
-                  <p>{{ block.value.descripcion }}</p>
-                  {% if block.value.estado %}
-                    <span class="tag mute">{{ block.value.estado }}</span>
-                  {% endif %}
+                  </div>
+                  <div class="project-card__body">
+                    <p class="project-card__eyebrow">Nuevo proyecto de inversión</p>
+                    <h3>{{ block.value.titulo }}</h3>
+                    {% if block.value.ubicacion %}
+                      <p class="project-card__location">{{ block.value.ubicacion }}</p>
+                    {% endif %}
+                    <div class="project-card__metrics">
+                      <div>
+                        <span>Operación</span>
+                        <strong>{{ block.value.plazo|default:"3 meses" }}</strong>
+                      </div>
+                      <div>
+                        <span>Rentabilidad estimada</span>
+                        <strong>{{ block.value.rentabilidad|default:"—" }}</strong>
+                      </div>
+                      <div>
+                        <span>Accede a partir de</span>
+                        <strong>{{ block.value.acceso_minimo|default:"—" }}</strong>
+                      </div>
+                      <div>
+                        <span>Inversión total</span>
+                        <strong>{{ block.value.inversion_total|default:"—" }}</strong>
+                      </div>
+                      <div>
+                        <span>Beneficio estimado</span>
+                        <strong>{{ block.value.beneficio_estimado|default:"—" }}</strong>
+                      </div>
+                    </div>
+                    {% if block.value.descripcion %}
+                      <p class="project-card__desc">{{ block.value.descripcion }}</p>
+                    {% endif %}
+                    {% if block.value.estado %}
+                      <span class="project-card__tag">{{ block.value.estado }}</span>
+                    {% endif %}
+                  </div>
                 </article>
               {% endif %}
             {% endfor %}
