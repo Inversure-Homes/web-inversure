@@ -3629,6 +3629,27 @@ def pdf_memoria_economica(request, proyecto_id: int):
     beneficio_estimado = ingresos_estimados - gastos_estimados
     beneficio_real = ingresos_reales - gastos_reales
 
+    snapshot = _get_snapshot_comunicacion(proyecto)
+    inv_sec = snapshot.get("inversor") if isinstance(snapshot.get("inversor"), dict) else {}
+    comision_pct = _safe_float(
+        inv_sec.get("comision_inversure_pct")
+        or inv_sec.get("comision_pct")
+        or snapshot.get("comision_inversure_pct")
+        or snapshot.get("comision_pct")
+        or 0.0,
+        0.0,
+    )
+    if comision_pct < 0:
+        comision_pct = 0.0
+    if comision_pct > 100:
+        comision_pct = 100.0
+
+    pct_decimal = Decimal(str(comision_pct)) / Decimal("100")
+    comision_estimada = beneficio_estimado * pct_decimal if beneficio_estimado else Decimal("0")
+    comision_real = beneficio_real * pct_decimal if beneficio_real else Decimal("0")
+    beneficio_neto_estimado = beneficio_estimado - comision_estimada
+    beneficio_neto_real = beneficio_real - comision_real
+
     base_precio = proyecto.precio_compra_inmueble or proyecto.precio_propiedad or Decimal("0")
     cats_adq = {"adquisicion", "reforma", "seguridad", "operativos", "financieros", "legales", "otros"}
     gastos_adq_estimado = _sum_importes(
@@ -3656,6 +3677,11 @@ def pdf_memoria_economica(request, proyecto_id: int):
         "gastos_reales": gastos_reales,
         "beneficio_estimado": beneficio_estimado,
         "beneficio_real": beneficio_real,
+        "comision_inversure_pct": comision_pct,
+        "comision_inversure_estimada": comision_estimada,
+        "comision_inversure_real": comision_real,
+        "beneficio_neto_estimado": beneficio_neto_estimado,
+        "beneficio_neto_real": beneficio_neto_real,
         "roi_estimado": roi_estimado,
         "roi_real": roi_real,
         "categorias": categorias,

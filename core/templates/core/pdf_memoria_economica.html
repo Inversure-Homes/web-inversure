@@ -136,6 +136,18 @@
             </div>
           </div>
         </div>
+        <div class="grid grid-2" style="margin-top:12px;">
+          <div class="kpi">
+            <div class="label">Comisión Inversure{% if resumen.comision_inversure_pct %} ({{ resumen.comision_inversure_pct|floatformat:2 }} %){% endif %}</div>
+            <div class="value">{{ resumen.comision_inversure_real|floatformat:2|intcomma }} €</div>
+            <div class="sub">Estimado: {{ resumen.comision_inversure_estimada|floatformat:2|intcomma }} €</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Beneficio neto inversor</div>
+            <div class="value">{{ resumen.beneficio_neto_real|floatformat:2|intcomma }} €</div>
+            <div class="sub">Estimado: {{ resumen.beneficio_neto_estimado|floatformat:2|intcomma }} €</div>
+          </div>
+        </div>
       </div>
     </div>
 
