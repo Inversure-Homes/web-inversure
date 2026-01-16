@@ -6,79 +6,110 @@
 {% endblock %}
 
 {% block content %}
-  <div class="card shadow-sm border-0">
+  <div class="card shadow-sm border-0 dashboard-wrap">
     <div class="card-body">
-      <div class="dashboard-metrics">
-        <div class="metric">
-          <span>Inversores activos</span>
-          <strong>{{ dashboard_stats.inversores_activos }}</strong>
+      <div class="dashboard-header">
+        <div>
+          <h2 class="dashboard-title">Resumen ejecutivo</h2>
+          <p class="dashboard-subtitle">KPIs actualizados de inversión y rendimiento.</p>
         </div>
-        <div class="metric">
-          <span>Inversores con cuota paga</span>
-          <strong>{{ dashboard_stats.inversores_cuota }}</strong>
+        <div class="dashboard-meta">
+          <span class="badge text-bg-light">Actualizado</span>
         </div>
-        <div class="metric">
-          <span>Capital en vigor</span>
-          <strong>{{ dashboard_stats_fmt.capital_en_vigor }}</strong>
+      </div>
+
+      <div class="dashboard-kpis">
+        <div class="kpi-card">
+          <div class="kpi-icon"><i class="bi bi-people"></i></div>
+          <div>
+            <span>Inversores activos</span>
+            <strong>{{ dashboard_stats.inversores_activos }}</strong>
+          </div>
         </div>
-        <div class="metric">
-          <span>Capital acumulado</span>
-          <strong>{{ dashboard_stats_fmt.capital_acumulado }}</strong>
+        <div class="kpi-card">
+          <div class="kpi-icon"><i class="bi bi-person-check"></i></div>
+          <div>
+            <span>Con cuota pagada</span>
+            <strong>{{ dashboard_stats.inversores_cuota }}</strong>
+          </div>
         </div>
-        <div class="metric">
-          <span>Operaciones</span>
-          <strong>{{ dashboard_stats.operaciones }}</strong>
+        <div class="kpi-card">
+          <div class="kpi-icon"><i class="bi bi-cash-coin"></i></div>
+          <div>
+            <span>Capital en vigor</span>
+            <strong>{{ dashboard_stats_fmt.capital_en_vigor }}</strong>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon"><i class="bi bi-piggy-bank"></i></div>
+          <div>
+            <span>Capital acumulado</span>
+            <strong>{{ dashboard_stats_fmt.capital_acumulado }}</strong>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon"><i class="bi bi-layers"></i></div>
+          <div>
+            <span>Operaciones</span>
+            <strong>{{ dashboard_stats.operaciones }}</strong>
+          </div>
         </div>
       </div>
 
       <div class="row g-3 mt-2">
         <div class="col-md-6">
-          <div class="border rounded-3 p-3 h-100">
-            <h6 class="text-uppercase text-muted mb-2">Operaciones cerradas</h6>
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <span class="text-muted">Beneficio bruto (total)</span>
+          <div class="border rounded-3 p-3 h-100 dashboard-block">
+            <div class="block-header">
+              <h6 class="text-uppercase text-muted mb-0">Operaciones cerradas</h6>
+              <span class="chip chip--success">Histórico</span>
+            </div>
+            <div class="metric-line">
+              <span>Beneficio bruto (total)</span>
               <strong>{{ dashboard_stats_fmt.beneficio_cerrado_bruto }}</strong>
             </div>
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <span class="text-muted">Beneficio neto (total)</span>
+            <div class="metric-line">
+              <span>Beneficio neto (total)</span>
               <strong>{{ dashboard_stats_fmt.beneficio_cerrado_neto }}</strong>
             </div>
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <span class="text-muted">Beneficio bruto medio</span>
+            <div class="metric-line">
+              <span>Beneficio bruto medio</span>
               <strong>{{ dashboard_stats_fmt.beneficio_cerrado_bruto_medio }}</strong>
             </div>
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <span class="text-muted">Beneficio neto medio</span>
+            <div class="metric-line">
+              <span>Beneficio neto medio</span>
               <strong>{{ dashboard_stats_fmt.beneficio_cerrado_neto_medio }}</strong>
             </div>
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <span class="text-muted">% bruto total</span>
+            <div class="metric-line">
+              <span>% bruto total</span>
               <strong>{{ dashboard_stats_fmt.beneficio_cerrado_roi_bruto_total }}</strong>
             </div>
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <span class="text-muted">% neto total</span>
+            <div class="metric-line">
+              <span>% neto total</span>
               <strong>{{ dashboard_stats_fmt.beneficio_cerrado_roi_neto_total }}</strong>
             </div>
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <span class="text-muted">% bruto medio</span>
+            <div class="metric-line">
+              <span>% bruto medio</span>
               <strong>{{ dashboard_stats_fmt.beneficio_cerrado_roi_bruto_medio }}</strong>
             </div>
-            <div class="d-flex justify-content-between align-items-center">
-              <span class="text-muted">% neto medio</span>
+            <div class="metric-line">
+              <span>% neto medio</span>
               <strong>{{ dashboard_stats_fmt.beneficio_cerrado_roi_neto_medio }}</strong>
             </div>
           </div>
         </div>
 
         <div class="col-md-6">
-          <div class="border rounded-3 p-3 h-100">
-            <h6 class="text-uppercase text-muted mb-2">Operaciones abiertas</h6>
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <span class="text-muted">Beneficio estimado bruto</span>
+          <div class="border rounded-3 p-3 h-100 dashboard-block">
+            <div class="block-header">
+              <h6 class="text-uppercase text-muted mb-0">Operaciones abiertas</h6>
+              <span class="chip chip--info">En curso</span>
+            </div>
+            <div class="metric-line">
+              <span>Beneficio estimado bruto</span>
               <strong>{{ dashboard_stats_fmt.beneficio_abierto_bruto }}</strong>
             </div>
-            <div class="d-flex justify-content-between align-items-center">
-              <span class="text-muted">Beneficio estimado neto</span>
+            <div class="metric-line">
+              <span>Beneficio estimado neto</span>
               <strong>{{ dashboard_stats_fmt.beneficio_abierto_neto }}</strong>
             </div>
           </div>
@@ -86,6 +117,15 @@
       </div>
 
       <div class="dashboard-chart mt-3">
+        <div class="chart-legend">
+          <span class="legend-item"><span class="legend-dot legend-captacion"></span>Captación</span>
+          <span class="legend-item"><span class="legend-dot legend-comprado"></span>Comprado</span>
+          <span class="legend-item"><span class="legend-dot legend-comercializacion"></span>Comercialización</span>
+          <span class="legend-item"><span class="legend-dot legend-reservado"></span>Reservado</span>
+          <span class="legend-item"><span class="legend-dot legend-vendido"></span>Vendido</span>
+          <span class="legend-item"><span class="legend-dot legend-cerrado"></span>Cerrado</span>
+          <span class="legend-item"><span class="legend-dot legend-descartado"></span>Descartado</span>
+        </div>
         {% for item in beneficios_chart %}
           <div class="chart-row">
             <span class="chart-label">

@@ -233,6 +233,154 @@ body {
   text-align: left;
 }
 
+/* ======================================================
+   DASHBOARD (PRO)
+   ====================================================== */
+
+.dashboard-wrap {
+  border-radius: 18px;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.dashboard-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.dashboard-subtitle {
+  color: #64748b;
+  margin-bottom: 0;
+  font-size: 13px;
+}
+
+.dashboard-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.kpi-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+}
+
+.kpi-card span {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.kpi-card strong {
+  font-size: 18px;
+  color: #0f172a;
+}
+
+.kpi-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: #e2e8f0;
+  color: #0f172a;
+  font-size: 16px;
+}
+
+.dashboard-block {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+.block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.chip {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.chip--success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.chip--info {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.metric-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px dashed #e2e8f0;
+  font-size: 13px;
+}
+
+.metric-line span {
+  color: #64748b;
+}
+
+.metric-line strong {
+  color: #0f172a;
+}
+
+.metric-line:last-child {
+  border-bottom: none;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 10px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.legend-captacion { background: #f59e0b; }
+.legend-comprado { background: #0ea5e9; }
+.legend-comercializacion { background: #6366f1; }
+.legend-reservado { background: #22c55e; }
+.legend-vendido { background: #10b981; }
+.legend-cerrado { background: #14b8a6; }
+.legend-descartado { background: #94a3b8; }
+
 .dashboard-metrics .metric span {
   display: block;
   font-size: 12px;
