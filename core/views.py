@@ -768,15 +768,19 @@ def _resultado_desde_metricas(metricas: dict) -> dict:
 
 def _checklist_defaults():
     return [
-        ("compra", "Pagar notaría"),
-        ("compra", "Pagar registro"),
-        ("compra", "Liquidar ITP"),
-        ("post_compra", "Pagar deudas retenidas (IBI, comunidad)"),
-        ("post_compra", "Cambiar contratos de suministros"),
-        ("post_compra", "Cambiar cerradura"),
-        ("post_compra", "Instalar alarma"),
-        ("venta", "Tramitar plusvalía"),
-        ("post_venta", "Baja o cambio de suministros"),
+        ("compra", "Tramitación de escrituras · Recogida notaría/registro"),
+        ("compra", "Tramitación de escrituras · Liquidación de impuestos"),
+        ("compra", "Tramitación de escrituras · Tramitación de plusvalía"),
+        ("post_compra", "Pagos · Impuestos"),
+        ("post_compra", "Pagos · Deudas retenidas"),
+        ("post_compra", "Pagos · Facturas"),
+        ("post_compra", "Cambio suministros · Alarma"),
+        ("post_compra", "Cambio suministros · Cerradura"),
+        ("post_compra", "Cambio suministros · Luz"),
+        ("post_compra", "Cambio suministros · Agua"),
+        ("operacion", "Reforma · Solicitud de presupuestos"),
+        ("operacion", "Reforma · Validación"),
+        ("operacion", "Reforma · Control de ejecución"),
     ]
 
 
