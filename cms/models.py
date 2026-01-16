@@ -2,6 +2,7 @@ from django.db import models
 from wagtail import blocks
 from wagtail.admin.panels import FieldPanel, MultiFieldPanel
 from wagtail.fields import StreamField
+from wagtail.images.blocks import ImageChooserBlock
 from wagtail.images import get_image_model_string
 from wagtail.models import Page
 
@@ -187,6 +188,7 @@ class ProjectsPage(Page):
                 "proyecto",
                 blocks.StructBlock(
                     [
+                        ("imagen", ImageChooserBlock(required=False)),
                         ("titulo", blocks.CharBlock(required=True, max_length=140)),
                         ("ubicacion", blocks.CharBlock(required=False, max_length=140)),
                         ("estado", blocks.CharBlock(required=False, max_length=80)),

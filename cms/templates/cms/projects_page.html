@@ -1,5 +1,5 @@
 {% extends "landing/base.html" %}
-{% load static %}
+{% load static wagtailimages_tags %}
 {% block content %}
   <main>
     <section class="section" style="padding-top: 120px;">
@@ -13,9 +13,14 @@
             {% for block in page.projects %}
               {% if block.block_type == "proyecto" %}
                 <article class="card">
-                  <div class="card__icon">
-                    <i class="bi bi-buildings"></i>
-                  </div>
+                  {% if block.value.imagen %}
+                    {% image block.value.imagen fill-600x360 as project_img %}
+                    <img class="card__image" src="{{ project_img.url }}" alt="{{ block.value.titulo }}">
+                  {% else %}
+                    <div class="card__icon">
+                      <i class="bi bi-buildings"></i>
+                    </div>
+                  {% endif %}
                   <h3>{{ block.value.titulo }}</h3>
                   <p class="text-muted mb-2">
                     {{ block.value.ubicacion }}{% if block.value.anio %} · {{ block.value.anio }}{% endif %}
