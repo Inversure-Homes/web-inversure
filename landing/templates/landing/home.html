@@ -9,14 +9,6 @@
           <span class="hero__tag">{{ hero.tag }}</span>
           <h1>{{ hero.title }}</h1>
           <p>{{ hero.subtitle }}</p>
-          <div class="hero__meta">
-            {% for item in hero.meta %}
-              <div>
-                <strong>{{ item.value }}</strong>
-                <span>{{ item.label }}</span>
-              </div>
-            {% endfor %}
-          </div>
           <div class="stats-grid stats-grid--hero">
             {% for item in estadisticas %}
               <article class="stat-tile">
