@@ -149,6 +149,46 @@
           <div class="text-muted">Sin datos de beneficios todavía.</div>
         {% endfor %}
       </div>
+
+      <div class="dashboard-alerts mt-4">
+        <div class="alerts-header">
+          <div>
+            <h6 class="text-uppercase text-muted mb-0">Alertas operativas</h6>
+            <p class="text-muted mb-0">Tareas pendientes del checklist operativo.</p>
+          </div>
+          <div class="alerts-badges">
+            <span class="chip chip--info">Pendientes {{ checklist_alerts.pendientes }}</span>
+            <span class="chip chip--warn">Vencidas {{ checklist_alerts.vencidas }}</span>
+          </div>
+        </div>
+
+        <div class="alerts-list">
+          {% for it in checklist_alerts.items %}
+            <div class="alert-item {% if it.overdue %}alert-overdue{% endif %}">
+              <div>
+                <div class="alert-title">{{ it.titulo }}</div>
+                <div class="alert-meta">
+                  <span>{{ it.proyecto }}</span>
+                  <span>· {{ it.fase }}</span>
+                  {% if it.responsable %}<span>· {{ it.responsable }}</span>{% endif %}
+                </div>
+              </div>
+              <div class="alert-date">
+                {% if it.fecha_objetivo %}
+                  {{ it.fecha_objetivo|date:"d/m/Y" }}
+                  {% if it.overdue %}
+                    <span class="alert-delay">+{{ it.dias_retraso }}d</span>
+                  {% endif %}
+                {% else %}
+                  <span class="text-muted">Sin fecha</span>
+                {% endif %}
+              </div>
+            </div>
+          {% empty %}
+            <div class="text-muted">Sin tareas pendientes.</div>
+          {% endfor %}
+        </div>
+      </div>
     </div>
   </div>
 {% endblock %}

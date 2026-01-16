@@ -329,6 +329,11 @@ body {
   color: #1e3a8a;
 }
 
+.chip--warn {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
 .metric-line {
   display: flex;
   justify-content: space-between;
@@ -385,6 +390,75 @@ body {
 .legend-vendido { background: #10b981; }
 .legend-cerrado { background: #14b8a6; }
 .legend-descartado { background: #94a3b8; }
+
+.dashboard-alerts {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px;
+  background: #f8fafc;
+}
+
+.alerts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.alerts-badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.alerts-list {
+  display: grid;
+  gap: 10px;
+}
+
+.alert-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.alert-item.alert-overdue {
+  border-color: #fecaca;
+  background: #fff5f5;
+}
+
+.alert-title {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.alert-meta {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.alert-date {
+  font-size: 12px;
+  color: #0f172a;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.alert-delay {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-weight: 600;
+}
 
 .dashboard-metrics .metric span {
   display: block;

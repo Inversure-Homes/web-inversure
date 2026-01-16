@@ -1545,6 +1545,25 @@ def _build_dashboard_context(user):
     cerrado_bruto_medio = (cerrado_bruto / len(cerrado_roi_bruto)) if cerrado_roi_bruto else 0.0
     cerrado_neto_medio = (cerrado_neto / len(cerrado_roi_neto)) if cerrado_roi_neto else 0.0
 
+    today = timezone.now().date()
+    checklist_qs = ChecklistItem.objects.select_related("proyecto").exclude(estado="hecho")
+    checklist_overdue_qs = checklist_qs.filter(fecha_objetivo__lt=today)
+    checklist_items = []
+    for it in checklist_qs.order_by("fecha_objetivo", "id")[:6]:
+        overdue = bool(it.fecha_objetivo and it.fecha_objetivo < today)
+        dias_retraso = (today - it.fecha_objetivo).days if overdue else 0
+        checklist_items.append(
+            {
+                "proyecto": it.proyecto.nombre if it.proyecto else "",
+                "fase": it.get_fase_display(),
+                "titulo": it.titulo,
+                "responsable": it.responsable or "",
+                "fecha_objetivo": it.fecha_objetivo,
+                "overdue": overdue,
+                "dias_retraso": dias_retraso,
+            }
+        )
+
     return {
         "is_admin": is_admin_user(user),
         "can_simulador": perms.get("can_simulador"),
@@ -1593,6 +1612,11 @@ def _build_dashboard_context(user):
         },
         "beneficios_chart": beneficios_chart,
         "proyectos_estado": proyectos_estado,
+        "checklist_alerts": {
+            "pendientes": checklist_qs.count(),
+            "vencidas": checklist_overdue_qs.count(),
+            "items": checklist_items,
+        },
     }
 
 
