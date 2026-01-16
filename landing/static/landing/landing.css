@@ -225,6 +225,26 @@ body.landing-body {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.stats-grid--hero {
+  margin-top: 22px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.stats-grid--hero .stat-tile {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  box-shadow: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.stats-grid--hero .stat-tile__label {
+  color: rgba(248, 250, 252, 0.6);
+}
+
+.stats-grid--hero .stat-tile__detail {
+  color: rgba(248, 250, 252, 0.6);
+}
+
 .stat-tile {
   background: #fff;
   border-radius: 18px;

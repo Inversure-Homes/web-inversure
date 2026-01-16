@@ -9,16 +9,21 @@
           <span class="hero__tag">{{ hero.tag }}</span>
           <h1>{{ hero.title }}</h1>
           <p>{{ hero.subtitle }}</p>
-          <div class="hero__actions">
-            <a class="btn-solid" href="{{ hero.cta_primary_url }}">{{ hero.cta_primary_text }}</a>
-            <a class="btn-outline" href="{{ hero.cta_secondary_url }}">{{ hero.cta_secondary_text }}</a>
-          </div>
           <div class="hero__meta">
             {% for item in hero.meta %}
               <div>
                 <strong>{{ item.value }}</strong>
                 <span>{{ item.label }}</span>
               </div>
+            {% endfor %}
+          </div>
+          <div class="stats-grid stats-grid--hero">
+            {% for item in estadisticas %}
+              <article class="stat-tile">
+                <p class="stat-tile__label">{{ item.label }}</p>
+                <h3>{{ item.value }}</h3>
+                <span class="stat-tile__detail">{{ item.detail }}</span>
+              </article>
             {% endfor %}
           </div>
         </div>

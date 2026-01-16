@@ -1,9 +1,28 @@
+from django.db.models import Sum
 from django.shortcuts import get_object_or_404, render
 
+from core.models import Proyecto, Participacion
+from core.views import _get_snapshot_comunicacion, _resultado_desde_memoria
 from .models import Noticia
 
 
 def landing_home(request):
+    def _fmt_eur(value):
+        if value is None:
+            return "—"
+        return f"{value:,.0f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    def _fmt_pct(value):
+        if value is None:
+            return "—"
+        return f"{value:.2f} %".replace(".", ",")
+
+    def _as_float(value, default=None):
+        try:
+            return float(value)
+        except Exception:
+            return default
+
     hero = {
         "tag": "Inversión inmobiliaria con trazabilidad real",
         "title": "Control total de cada operación",
@@ -90,26 +109,73 @@ def landing_home(request):
             "imagen": "landing/assets/hero_growth.jpg",
         },
     ]
+    proyectos_qs = Proyecto.objects.all()
+    total_proyectos = proyectos_qs.count()
+    capital_gestionado = (
+        Participacion.objects.filter(estado="confirmada")
+        .aggregate(total=Sum("importe_invertido"))
+        .get("total")
+        or 0
+    )
+    inversores_count = (
+        Participacion.objects.filter(estado="confirmada")
+        .values_list("cliente_id", flat=True)
+        .distinct()
+        .count()
+    )
+
+    total_beneficio = 0.0
+    total_inversion = 0.0
+    roi_vals = []
+    meses_vals = []
+    for proyecto in proyectos_qs:
+        snapshot = _get_snapshot_comunicacion(proyecto)
+        resultado = _resultado_desde_memoria(proyecto, snapshot)
+        beneficio = _as_float(resultado.get("beneficio_neto"), 0.0) or 0.0
+        inversion = _as_float(resultado.get("valor_adquisicion"), 0.0) or 0.0
+        total_beneficio += beneficio
+        total_inversion += inversion
+        if inversion > 0:
+            roi_vals.append((beneficio / inversion) * 100.0)
+        snap_econ = snapshot.get("economico") if isinstance(snapshot.get("economico"), dict) else {}
+        meses = _as_float(snap_econ.get("meses"), None)
+        if meses:
+            meses_vals.append(meses)
+
+    rentabilidad_media = sum(roi_vals) / len(roi_vals) if roi_vals else None
+    rentabilidad_total = (total_beneficio / total_inversion) * 100.0 if total_inversion > 0 else None
+    plazo_medio = sum(meses_vals) / len(meses_vals) if meses_vals else None
+
     estadisticas = [
         {
             "label": "Capital gestionado",
-            "value": "6,4 M€",
+            "value": _fmt_eur(capital_gestionado),
             "detail": "operaciones activas y finalizadas",
         },
         {
-            "label": "Rentabilidad media",
-            "value": "18,4 %",
-            "detail": "en operaciones finalizadas",
+            "label": "Rentabilidad total",
+            "value": _fmt_pct(rentabilidad_total),
+            "detail": "sobre inversión agregada",
         },
         {
-            "label": "Tiempo medio",
-            "value": "3,2 meses",
+            "label": "Rentabilidad media",
+            "value": _fmt_pct(rentabilidad_media),
+            "detail": "promedio por operación",
+        },
+        {
+            "label": "Plazo medio",
+            "value": f"{plazo_medio:.1f} meses".replace(".", ",") if plazo_medio else "—",
             "detail": "desde compra a venta",
         },
         {
-            "label": "Documentos",
-            "value": "1.820",
-            "detail": "trazados y auditables",
+            "label": "Inversores",
+            "value": f"{inversores_count}",
+            "detail": "con participación confirmada",
+        },
+        {
+            "label": "Operaciones",
+            "value": f"{total_proyectos}",
+            "detail": "proyectos registrados",
         },
     ]
     quienes_somos = {
