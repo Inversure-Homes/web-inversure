@@ -3,53 +3,33 @@
 
 {% block content %}
   <main>
-    {% if hero and hero.fondo_imagen %}
-      <section class="hero hero--has-bg" style="background-image: linear-gradient(120deg, rgba(11, 19, 36, 0.92), rgba(11, 19, 36, 0.6)), url('{{ hero.fondo_imagen.url }}');">
-    {% elif hero and hero.fondo_color %}
-      <section class="hero" style="background: {{ hero.fondo_color }};">
-    {% else %}
-      <section class="hero">
-    {% endif %}
+    <section class="hero">
       <div class="container hero__inner">
         <div class="hero__content">
-          {% if hero and hero.etiqueta %}
-            <span class="hero__tag">{{ hero.etiqueta }}</span>
-          {% else %}
-            <span class="hero__tag">Inversión inmobiliaria con control total</span>
-          {% endif %}
-          <h1>{{ hero.titulo|default:"Trazabilidad real para cada operación" }}</h1>
-          <p>{{ hero.subtitulo|default:"Tecnología y metodología para que inversores y equipo vean en todo momento el estado económico y operativo." }}</p>
+          <span class="hero__tag">{{ hero.tag }}</span>
+          <h1>{{ hero.title }}</h1>
+          <p>{{ hero.subtitle }}</p>
           <div class="hero__actions">
-            <a class="btn-solid" href="{{ hero.cta_url|default:'/app/login/' }}">{{ hero.cta_texto|default:"Entrar en la plataforma" }}</a>
-            <a class="btn-outline" href="#noticias">Últimas noticias</a>
+            <a class="btn-solid" href="{{ hero.cta_primary_url }}">{{ hero.cta_primary_text }}</a>
+            <a class="btn-outline" href="{{ hero.cta_secondary_url }}">{{ hero.cta_secondary_text }}</a>
           </div>
           <div class="hero__meta">
-            <div>
-              <strong>{{ hero.meta_1_valor|default:"+120" }}</strong>
-              <span>{{ hero.meta_1_texto|default:"operaciones analizadas" }}</span>
-            </div>
-            <div>
-              <strong>{{ hero.meta_2_valor|default:"100%" }}</strong>
-              <span>{{ hero.meta_2_texto|default:"trazabilidad documental" }}</span>
-            </div>
-            <div>
-              <strong>{{ hero.meta_3_valor|default:"24h" }}</strong>
-              <span>{{ hero.meta_3_texto|default:"tiempo de respuesta medio" }}</span>
-            </div>
+            {% for item in hero.meta %}
+              <div>
+                <strong>{{ item.value }}</strong>
+                <span>{{ item.label }}</span>
+              </div>
+            {% endfor %}
           </div>
         </div>
         <div class="hero__visual">
           <div class="hero__panel">
-            {% if hero and hero.imagen %}
-              <img class="hero__panel-image" src="{{ hero.imagen.url }}" alt="{{ hero.titulo|default:'Inversure' }}">
-            {% else %}
-              <img class="hero__panel-logo" src="{% static 'core/logo_inversure.png' %}" alt="Inversure">
-            {% endif %}
+            <img class="hero__panel-logo" src="{% static 'core/logo_inversure.png' %}" alt="Inversure">
             <div class="hero__panel-card">
-              <h4>{{ hero.panel_titulo|default:"Estado del proyecto" }}</h4>
-              <p>{{ hero.panel_texto|default:"Documento, gastos y retornos alineados para comité." }}</p>
+              <h4>{{ hero.panel_title }}</h4>
+              <p>{{ hero.panel_text }}</p>
               <div class="hero__bar"><span></span></div>
-              <small>{{ hero.panel_footer|default:"Progreso operativo actualizado" }}</small>
+              <small>{{ hero.panel_footer }}</small>
             </div>
           </div>
         </div>
@@ -63,33 +43,62 @@
           <p>Centraliza inversión, documentación y métricas sin perder velocidad.</p>
         </div>
         <div class="grid">
-          {% if secciones %}
-            {% for seccion in secciones %}
-              <article class="card">
-                <div class="card__icon">
-                  <i class="bi {{ seccion.icono|default:'bi-clipboard-data' }}"></i>
+          {% for seccion in secciones %}
+            <article class="card">
+              <div class="card__icon">
+                <i class="bi {{ seccion.icon }}"></i>
+              </div>
+              <h3>{{ seccion.title }}</h3>
+              <p>{{ seccion.text }}</p>
+            </article>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="proyectos">
+      <div class="container">
+        <div class="section__header">
+          <h2>Proyectos</h2>
+          <p>Presentación de operaciones con resultados económicos destacados.</p>
+        </div>
+        <div class="project-grid">
+          {% for proyecto in proyectos %}
+            <article class="project-card">
+              <div class="project-card__media">
+                <div class="project-card__media-bg project-card__media-bg--solid"></div>
+                <div class="project-card__badge">{{ proyecto.anio }}</div>
+              </div>
+              <div class="project-card__body">
+                <p class="project-card__eyebrow">Nuevo proyecto de inversión</p>
+                <h3>{{ proyecto.titulo }}</h3>
+                <p class="project-card__location">{{ proyecto.ubicacion }}</p>
+                <div class="project-card__metrics">
+                  <div>
+                    <span>Operación</span>
+                    <strong>{{ proyecto.plazo }}</strong>
+                  </div>
+                  <div>
+                    <span>Rentabilidad estimada</span>
+                    <strong>{{ proyecto.rentabilidad }}</strong>
+                  </div>
+                  <div>
+                    <span>Accede a partir de</span>
+                    <strong>{{ proyecto.acceso_minimo }}</strong>
+                  </div>
+                  <div>
+                    <span>Inversión total</span>
+                    <strong>{{ proyecto.inversion_total }}</strong>
+                  </div>
+                  <div>
+                    <span>Beneficio estimado</span>
+                    <strong>{{ proyecto.beneficio_estimado }}</strong>
+                  </div>
                 </div>
-                <h3>{{ seccion.titulo }}</h3>
-                <p>{{ seccion.texto }}</p>
-              </article>
-            {% endfor %}
-          {% else %}
-            <article class="card">
-              <div class="card__icon"><i class="bi bi-shield-check"></i></div>
-              <h3>Control de inversión</h3>
-              <p>Seguimiento total del capital, desde captación hasta liquidación.</p>
+                <span class="project-card__tag">{{ proyecto.estado }}</span>
+              </div>
             </article>
-            <article class="card">
-              <div class="card__icon"><i class="bi bi-journal-bookmark"></i></div>
-              <h3>Memoria económica</h3>
-              <p>Registro de gastos e ingresos con estimados y reales.</p>
-            </article>
-            <article class="card">
-              <div class="card__icon"><i class="bi bi-graph-up-arrow"></i></div>
-              <h3>Rentabilidad transparente</h3>
-              <p>KPIs claros y documentos verificables en cada etapa.</p>
-            </article>
-          {% endif %}
+          {% endfor %}
         </div>
       </div>
     </section>
@@ -99,13 +108,15 @@
         <div class="section__split">
           <div>
             <h2>Quienes somos</h2>
-            <p>Inversure Homes nace para profesionalizar la inversion inmobiliaria con una plataforma que combina analisis, ejecucion y trazabilidad documental.</p>
-            <p>Trabajamos con un enfoque operativo claro: identificar oportunidades, proteger el capital y mantener una comunicacion transparente con el inversor.</p>
+            <p>{{ quienes_somos.intro }}</p>
+            <p>{{ quienes_somos.historia }}</p>
+            <p>{{ quienes_somos.equipo }}</p>
+            <p>{{ quienes_somos.valores }}</p>
           </div>
           <div class="stat-card">
             <div>
               <span>Equipo</span>
-              <strong>Operativo + Inversion</strong>
+              <strong>Operativo + Inversión</strong>
             </div>
             <div>
               <span>Foco</span>
@@ -124,27 +135,21 @@
       <div class="container">
         <div class="section__split">
           <div>
-            <h2>Transparencia que genera confianza</h2>
-            <p>Subidas de documentación, informes de comité y comunicaciones a inversores desde un único sistema.</p>
+            <h2>{{ transparencia.titulo }}</h2>
+            <p>{{ transparencia.texto }}</p>
             <ul class="feature-list">
-              <li>Checklist operativo por fases</li>
-              <li>Informes PDF para comité e inversores</li>
-              <li>Histórico completo de movimientos</li>
+              {% for item in transparencia.features %}
+                <li>{{ item }}</li>
+              {% endfor %}
             </ul>
           </div>
           <div class="stat-card">
-            <div>
-              <span>ROI medio</span>
-              <strong>18,4%</strong>
-            </div>
-            <div>
-              <span>Operaciones activas</span>
-              <strong>32</strong>
-            </div>
-            <div>
-              <span>Documentos gestionados</span>
-              <strong>1.820</strong>
-            </div>
+            {% for stat in transparencia.stats %}
+              <div>
+                <span>{{ stat.label }}</span>
+                <strong>{{ stat.value }}</strong>
+              </div>
+            {% endfor %}
           </div>
         </div>
       </div>
