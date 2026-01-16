@@ -1364,6 +1364,11 @@ def _build_dashboard_context(user):
         .get("total")
         or Decimal("0")
     )
+    inversores_con_cuota = (
+        Cliente.objects.filter(participaciones__estado="confirmada", cuota_abonada=True)
+        .distinct()
+        .count()
+    )
     capital_actual = (
         Participacion.objects.filter(estado="confirmada", proyecto_id__in=activos_ids)
         .aggregate(total=Sum("importe_invertido"))
@@ -1377,6 +1382,25 @@ def _build_dashboard_context(user):
         .count()
     )
     total_operaciones = proyectos.count()
+
+    perfiles = {
+        p.cliente_id: p
+        for p in InversorPerfil.objects.filter(cliente_id__in=Participacion.objects.filter(estado="confirmada").values_list("cliente_id", flat=True))
+    }
+    aportacion_por_cliente = {}
+    for part in (
+        Participacion.objects.filter(estado="confirmada")
+        .order_by("cliente_id", "creado", "id")
+    ):
+        if part.cliente_id in aportacion_por_cliente:
+            continue
+        perfil = perfiles.get(part.cliente_id)
+        override = getattr(perfil, "aportacion_inicial_override", None) if perfil else None
+        if override not in (None, ""):
+            aportacion_por_cliente[part.cliente_id] = Decimal(override)
+        else:
+            aportacion_por_cliente[part.cliente_id] = Decimal(part.importe_invertido or 0)
+    capital_en_vigor = sum(aportacion_por_cliente.values(), Decimal("0"))
 
     beneficios = []
     total_beneficio = 0.0
@@ -1409,6 +1433,95 @@ def _build_dashboard_context(user):
     def _fmt_money(value):
         return _fmt_eur(float(value or 0.0))
 
+    def _calc_beneficios_operacion(proyecto: Proyecto, snapshot: dict) -> dict:
+        resultado = _resultado_desde_memoria(proyecto, snapshot)
+        beneficio_bruto = float(resultado.get("beneficio_neto") or 0.0)
+        valor_adquisicion = float(resultado.get("valor_adquisicion") or 0.0)
+        inv_sec = snapshot.get("inversor") if isinstance(snapshot.get("inversor"), dict) else {}
+        comision_pct = _safe_float(
+            inv_sec.get("comision_inversure_pct")
+            or inv_sec.get("inversure_comision_pct")
+            or inv_sec.get("comision_pct")
+            or snapshot.get("comision_inversure_pct")
+            or snapshot.get("inversure_comision_pct")
+            or snapshot.get("comision_pct")
+            or 0.0,
+            0.0,
+        )
+        comision_pct = max(0.0, min(100.0, comision_pct))
+        comision_eur = beneficio_bruto * (comision_pct / 100.0) if beneficio_bruto else 0.0
+        beneficio_neto = beneficio_bruto - comision_eur
+
+        proj_extra = proyecto.extra if isinstance(proyecto.extra, dict) else {}
+        proj_override = proj_extra.get("beneficio_operacion_override")
+        if isinstance(proj_override, dict):
+            override_bruto = proj_override.get("beneficio_bruto")
+            override_comision = proj_override.get("comision_eur")
+            override_neto = proj_override.get("beneficio_neto_total")
+            if override_bruto not in (None, ""):
+                beneficio_bruto = _safe_float(override_bruto, beneficio_bruto)
+            if override_comision not in (None, ""):
+                comision_eur = _safe_float(override_comision, comision_eur)
+            if override_neto not in (None, ""):
+                beneficio_neto = _safe_float(override_neto, beneficio_neto)
+            elif override_bruto not in (None, "") or override_comision not in (None, ""):
+                beneficio_neto = beneficio_bruto - comision_eur
+        return {
+            "beneficio_bruto": beneficio_bruto,
+            "beneficio_neto": beneficio_neto,
+            "valor_adquisicion": valor_adquisicion,
+        }
+
+    proyectos_estado = []
+    cerrado_estados = {"cerrado"}
+    abierto_estados = {"captacion", "comprado", "comercializacion", "reservado", "vendido"}
+    cerrado_bruto = cerrado_neto = 0.0
+    cerrado_valor_adq = 0.0
+    cerrado_roi_bruto = []
+    cerrado_roi_neto = []
+    abierto_bruto = abierto_neto = 0.0
+    for proyecto in proyectos:
+        snap = _get_snapshot_comunicacion(proyecto)
+        benef = _calc_beneficios_operacion(proyecto, snap)
+        beneficio_bruto = benef["beneficio_bruto"]
+        beneficio_neto = benef["beneficio_neto"]
+        valor_adquisicion = benef["valor_adquisicion"]
+        estado = proyecto.estado or ""
+        estado_label = proyecto.get_estado_display() if hasattr(proyecto, "get_estado_display") else estado
+        proyectos_estado.append(
+            {
+                "id": proyecto.id,
+                "nombre": proyecto.nombre or f"Proyecto {proyecto.id}",
+                "estado": estado,
+                "estado_label": estado_label,
+            }
+        )
+        if estado in cerrado_estados:
+            cerrado_bruto += beneficio_bruto
+            cerrado_neto += beneficio_neto
+            cerrado_valor_adq += valor_adquisicion
+            if valor_adquisicion:
+                cerrado_roi_bruto.append(beneficio_bruto / valor_adquisicion * 100.0)
+                cerrado_roi_neto.append(beneficio_neto / valor_adquisicion * 100.0)
+        elif estado in abierto_estados:
+            abierto_bruto += beneficio_bruto
+            abierto_neto += beneficio_neto
+
+    cerrado_roi_bruto_total = (
+        (cerrado_bruto / cerrado_valor_adq * 100.0) if cerrado_valor_adq else 0.0
+    )
+    cerrado_roi_neto_total = (
+        (cerrado_neto / cerrado_valor_adq * 100.0) if cerrado_valor_adq else 0.0
+    )
+    cerrado_roi_bruto_medio = (
+        sum(cerrado_roi_bruto) / len(cerrado_roi_bruto) if cerrado_roi_bruto else 0.0
+    )
+    cerrado_roi_neto_medio = (
+        sum(cerrado_roi_neto) / len(cerrado_roi_neto) if cerrado_roi_neto else 0.0
+    )
+    cerrado_bruto_medio = (cerrado_bruto / len(cerrado_roi_bruto)) if cerrado_roi_bruto else 0.0
+    cerrado_neto_medio = (cerrado_neto / len(cerrado_roi_neto)) if cerrado_roi_neto else 0.0
+
     return {
         "is_admin": is_admin_user(user),
         "can_simulador": perms.get("can_simulador"),
@@ -1420,19 +1533,43 @@ def _build_dashboard_context(user):
         "can_cms": perms.get("can_cms"),
         "dashboard_stats": {
             "inversores_activos": inversores_activos,
+            "inversores_cuota": inversores_con_cuota,
+            "capital_en_vigor": capital_en_vigor,
             "capital_actual": capital_actual,
             "capital_acumulado": capital_acumulado,
             "operaciones": total_operaciones,
             "beneficio_total": total_beneficio,
             "beneficio_medio": avg_beneficio,
+            "beneficio_cerrado_bruto": cerrado_bruto,
+            "beneficio_cerrado_neto": cerrado_neto,
+            "beneficio_cerrado_bruto_medio": cerrado_bruto_medio,
+            "beneficio_cerrado_neto_medio": cerrado_neto_medio,
+            "beneficio_abierto_bruto": abierto_bruto,
+            "beneficio_abierto_neto": abierto_neto,
+            "beneficio_cerrado_roi_bruto_total": cerrado_roi_bruto_total,
+            "beneficio_cerrado_roi_neto_total": cerrado_roi_neto_total,
+            "beneficio_cerrado_roi_bruto_medio": cerrado_roi_bruto_medio,
+            "beneficio_cerrado_roi_neto_medio": cerrado_roi_neto_medio,
         },
         "dashboard_stats_fmt": {
+            "capital_en_vigor": _fmt_money(capital_en_vigor),
             "capital_actual": _fmt_money(capital_actual),
             "capital_acumulado": _fmt_money(capital_acumulado),
             "beneficio_total": _fmt_money(total_beneficio),
             "beneficio_medio": _fmt_money(avg_beneficio),
+            "beneficio_cerrado_bruto": _fmt_money(cerrado_bruto),
+            "beneficio_cerrado_neto": _fmt_money(cerrado_neto),
+            "beneficio_cerrado_bruto_medio": _fmt_money(cerrado_bruto_medio),
+            "beneficio_cerrado_neto_medio": _fmt_money(cerrado_neto_medio),
+            "beneficio_abierto_bruto": _fmt_money(abierto_bruto),
+            "beneficio_abierto_neto": _fmt_money(abierto_neto),
+            "beneficio_cerrado_roi_bruto_total": _fmt_pct(cerrado_roi_bruto_total),
+            "beneficio_cerrado_roi_neto_total": _fmt_pct(cerrado_roi_neto_total),
+            "beneficio_cerrado_roi_bruto_medio": _fmt_pct(cerrado_roi_bruto_medio),
+            "beneficio_cerrado_roi_neto_medio": _fmt_pct(cerrado_roi_neto_medio),
         },
         "beneficios_chart": beneficios_chart,
+        "proyectos_estado": proyectos_estado,
     }
 
 
