@@ -351,6 +351,11 @@ body {
   border-bottom: none;
 }
 
+.open-chart-wrap {
+  margin-top: 14px;
+  height: 180px;
+}
+
 .chart-legend {
   display: flex;
   flex-wrap: wrap;
