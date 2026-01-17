@@ -285,7 +285,7 @@ body {
 }
 
 .kpi-card strong {
-  font-size: 18px;
+  font-size: 20px;
   color: #0f172a;
 }
 
@@ -359,6 +359,15 @@ body {
 .open-chart-wrap {
   margin-top: 14px;
   height: 180px;
+}
+
+.deviation-chart-wrap {
+  position: relative;
+  min-height: 220px;
+  padding: 12px 8px;
+  border-radius: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
 }
 
 .chart-legend {

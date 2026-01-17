@@ -784,6 +784,30 @@ def _checklist_defaults():
     ]
 
 
+def _ensure_checklist_defaults(proyecto: Proyecto) -> None:
+    existentes = set(
+        ChecklistItem.objects.filter(proyecto=proyecto).values_list("fase", "titulo")
+    )
+    nuevos = [
+        (fase, titulo)
+        for fase, titulo in _checklist_defaults()
+        if (fase, titulo) not in existentes
+    ]
+    if not nuevos:
+        return
+    ChecklistItem.objects.bulk_create(
+        [
+            ChecklistItem(
+                proyecto=proyecto,
+                fase=fase,
+                titulo=titulo,
+                estado="pendiente",
+            )
+            for fase, titulo in nuevos
+        ]
+    )
+
+
 def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
     gastos = list(GastoProyecto.objects.filter(proyecto=proyecto))
     ingresos = list(IngresoProyecto.objects.filter(proyecto=proyecto))
@@ -1496,6 +1520,7 @@ def _build_dashboard_context(user):
         return {
             "beneficio_bruto": beneficio_bruto,
             "beneficio_neto": beneficio_neto,
+            "comision_eur": comision_eur,
             "valor_adquisicion": valor_adquisicion,
         }
 
@@ -1507,12 +1532,15 @@ def _build_dashboard_context(user):
     cerrado_roi_bruto = []
     cerrado_roi_neto = []
     abierto_bruto = abierto_neto = 0.0
+    total_comision_inversure = 0.0
+    beneficio_deviation = []
     for proyecto in proyectos:
         snap = _get_snapshot_comunicacion(proyecto)
         benef = _calc_beneficios_operacion(proyecto, snap)
         beneficio_bruto = benef["beneficio_bruto"]
         beneficio_neto = benef["beneficio_neto"]
         valor_adquisicion = benef["valor_adquisicion"]
+        total_comision_inversure += benef.get("comision_eur") or 0.0
         estado = proyecto.estado or ""
         estado_label = proyecto.get_estado_display() if hasattr(proyecto, "get_estado_display") else estado
         proyectos_estado.append(
@@ -1533,6 +1561,16 @@ def _build_dashboard_context(user):
         elif estado in abierto_estados:
             abierto_bruto += beneficio_bruto
             abierto_neto += beneficio_neto
+
+        beneficio_estimado_base = getattr(proyecto, "beneficio_estimado_base", None)
+        if beneficio_estimado_base not in (None, ""):
+            beneficio_deviation.append(
+                {
+                    "nombre": proyecto.nombre or f"Proyecto {proyecto.id}",
+                    "estimado": float(beneficio_estimado_base or 0.0),
+                    "real": float(beneficio_bruto or 0.0),
+                }
+            )
 
     cerrado_roi_bruto_total = (
         (cerrado_bruto / cerrado_valor_adq * 100.0) if cerrado_valor_adq else 0.0
@@ -1596,6 +1634,7 @@ def _build_dashboard_context(user):
             "beneficio_cerrado_roi_neto_total": cerrado_roi_neto_total,
             "beneficio_cerrado_roi_bruto_medio": cerrado_roi_bruto_medio,
             "beneficio_cerrado_roi_neto_medio": cerrado_roi_neto_medio,
+            "beneficio_inversure": total_comision_inversure,
         },
         "dashboard_stats_fmt": {
             "capital_en_vigor": _fmt_money(capital_en_vigor),
@@ -1613,8 +1652,10 @@ def _build_dashboard_context(user):
             "beneficio_cerrado_roi_neto_total": _fmt_pct(cerrado_roi_neto_total),
             "beneficio_cerrado_roi_bruto_medio": _fmt_pct(cerrado_roi_bruto_medio),
             "beneficio_cerrado_roi_neto_medio": _fmt_pct(cerrado_roi_neto_medio),
+            "beneficio_inversure": _fmt_money(total_comision_inversure),
         },
         "beneficios_chart": beneficios_chart,
+        "beneficio_deviation_chart": beneficio_deviation,
         "proyectos_estado": proyectos_estado,
         "checklist_alerts": {
             "pendientes": checklist_qs.count(),
@@ -3178,14 +3219,7 @@ def proyecto(request, proyecto_id: int):
     }
 
     try:
-        if not ChecklistItem.objects.filter(proyecto=proyecto_obj).exists():
-            for fase, titulo in _checklist_defaults():
-                ChecklistItem.objects.create(
-                    proyecto=proyecto_obj,
-                    fase=fase,
-                    titulo=titulo,
-                    estado="pendiente",
-                )
+        _ensure_checklist_defaults(proyecto_obj)
         ctx["checklist_items"] = ChecklistItem.objects.filter(proyecto=proyecto_obj).order_by("fase", "fecha_objetivo", "id")
     except Exception:
         ctx["checklist_items"] = []
@@ -4305,18 +4339,8 @@ def proyecto_checklist(request, proyecto_id: int):
     except Proyecto.DoesNotExist:
         return JsonResponse({"ok": False, "error": "Proyecto no encontrado"}, status=404)
 
-    def _seed_defaults():
-        for fase, titulo in _checklist_defaults():
-            ChecklistItem.objects.create(
-                proyecto=proyecto,
-                fase=fase,
-                titulo=titulo,
-                estado="pendiente",
-            )
-
     if request.method == "GET":
-        if not ChecklistItem.objects.filter(proyecto=proyecto).exists():
-            _seed_defaults()
+        _ensure_checklist_defaults(proyecto)
         items = []
         for it in ChecklistItem.objects.filter(proyecto=proyecto).order_by("fase", "fecha_objetivo", "id"):
             items.append({
