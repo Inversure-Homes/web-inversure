@@ -1,8 +1,7 @@
-from django.db.models import Sum
 from django.shortcuts import get_object_or_404, render
 
-from core.models import Proyecto, Participacion
-from core.views import _get_snapshot_comunicacion, _resultado_desde_memoria
+from core.models import Proyecto
+from core.views import _build_dashboard_context
 from .models import Noticia
 
 
@@ -16,6 +15,11 @@ def landing_home(request):
         if value is None:
             return "—"
         return f"{value:.2f} %".replace(".", ",")
+
+    def _fmt_int(value):
+        if value is None:
+            return "—"
+        return f"{int(value):,}".replace(",", ".")
 
     def _as_float(value, default=None):
         try:
@@ -110,72 +114,40 @@ def landing_home(request):
         },
     ]
     proyectos_qs = Proyecto.objects.all()
-    total_proyectos = proyectos_qs.count()
-    capital_gestionado = (
-        Participacion.objects.filter(estado="confirmada")
-        .aggregate(total=Sum("importe_invertido"))
-        .get("total")
-        or 0
-    )
-    inversores_count = (
-        Participacion.objects.filter(estado="confirmada")
-        .values_list("cliente_id", flat=True)
-        .distinct()
-        .count()
-    )
-
-    total_beneficio = 0.0
-    total_inversion = 0.0
-    roi_vals = []
-    meses_vals = []
-    for proyecto in proyectos_qs:
-        snapshot = _get_snapshot_comunicacion(proyecto)
-        resultado = _resultado_desde_memoria(proyecto, snapshot)
-        beneficio = _as_float(resultado.get("beneficio_neto"), 0.0) or 0.0
-        inversion = _as_float(resultado.get("valor_adquisicion"), 0.0) or 0.0
-        total_beneficio += beneficio
-        total_inversion += inversion
-        if inversion > 0:
-            roi_vals.append((beneficio / inversion) * 100.0)
-        snap_econ = snapshot.get("economico") if isinstance(snapshot.get("economico"), dict) else {}
-        meses = _as_float(snap_econ.get("meses"), None)
-        if meses:
-            meses_vals.append(meses)
-
-    rentabilidad_media = sum(roi_vals) / len(roi_vals) if roi_vals else None
-    rentabilidad_total = (total_beneficio / total_inversion) * 100.0 if total_inversion > 0 else None
-    plazo_medio = sum(meses_vals) / len(meses_vals) if meses_vals else None
+    dashboard_ctx = _build_dashboard_context(request.user)
+    dashboard_stats = dashboard_ctx.get("dashboard_stats", {})
+    dashboard_stats_fmt = dashboard_ctx.get("dashboard_stats_fmt", {})
 
     estadisticas = [
         {
-            "label": "Capital gestionado",
-            "value": _fmt_eur(capital_gestionado),
-            "detail": "operaciones activas y finalizadas",
+            "label": "Inversores activos",
+            "value": _fmt_int(dashboard_stats.get("inversores_activos")),
+            "detail": "con inversión en vigor",
         },
         {
-            "label": "Rentabilidad total",
-            "value": _fmt_pct(rentabilidad_total),
-            "detail": "sobre inversión agregada",
+            "label": "Capital en vigor",
+            "value": dashboard_stats_fmt.get("capital_en_vigor", "—"),
+            "detail": "capital actualmente invertido",
         },
         {
-            "label": "Rentabilidad media",
-            "value": _fmt_pct(rentabilidad_media),
-            "detail": "promedio por operación",
-        },
-        {
-            "label": "Plazo medio",
-            "value": f"{plazo_medio:.1f} meses".replace(".", ",") if plazo_medio else "—",
-            "detail": "desde compra a venta",
-        },
-        {
-            "label": "Inversores",
-            "value": f"{inversores_count}",
-            "detail": "con participación confirmada",
+            "label": "Capital acumulado",
+            "value": dashboard_stats_fmt.get("capital_acumulado", "—"),
+            "detail": "aportaciones históricas",
         },
         {
             "label": "Operaciones",
-            "value": f"{total_proyectos}",
+            "value": _fmt_int(dashboard_stats.get("operaciones")),
             "detail": "proyectos registrados",
+        },
+        {
+            "label": "Beneficio total generado",
+            "value": dashboard_stats_fmt.get("beneficio_total", "—"),
+            "detail": "resultado acumulado",
+        },
+        {
+            "label": "Beneficio medio por operación",
+            "value": dashboard_stats_fmt.get("beneficio_medio", "—"),
+            "detail": "media histórica",
         },
     ]
     quienes_somos = {
