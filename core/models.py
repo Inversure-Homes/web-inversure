@@ -404,6 +404,14 @@ class Proyecto(models.Model):
     beneficio_neto = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True, default=None
     )
+    beneficio_estimado_base = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        default=None,
+        help_text="Beneficio estimado base heredado del estudio",
+    )
     roi = models.DecimalField(
         max_digits=6, decimal_places=2, null=True, blank=True, default=None
     )

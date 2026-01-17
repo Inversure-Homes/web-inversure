@@ -3627,6 +3627,19 @@ def guardar_proyecto(request, proyecto_id: int):
         proyecto_obj.acceso_comercial = bool(acceso_raw)
         update_fields.append("acceso_comercial")
 
+    beneficio_estimado_base_raw = payload_proyecto.get(
+        "beneficio_estimado_base",
+        payload.get("beneficio_estimado_base"),
+    )
+    if beneficio_estimado_base_raw not in (None, ""):
+        try:
+            beneficio_estimado_base_val = _parse_decimal(beneficio_estimado_base_raw)
+            if beneficio_estimado_base_val is not None:
+                proyecto_obj.beneficio_estimado_base = beneficio_estimado_base_val
+                update_fields.append("beneficio_estimado_base")
+        except Exception:
+            pass
+
     if update_fields:
         try:
             proyecto_obj.save(update_fields=list(set(update_fields)))
@@ -3765,6 +3778,7 @@ def convertir_a_proyecto(request, estudio_id: int):
         estudio_snapshot = EstudioSnapshot.objects.create(**snap_kwargs)
 
         # 2) Crear proyecto heredando
+        metricas_estudio = _metricas_desde_estudio(estudio)
         proyecto_kwargs = {}
         nombre_estudio = (
             estudio.nombre
@@ -3811,6 +3825,16 @@ def convertir_a_proyecto(request, estudio_id: int):
         if _has_field(Proyecto, "estado"):
             # estado inicial del proyecto
             proyecto_kwargs["estado"] = "captacion"
+        if _has_field(Proyecto, "beneficio_estimado_base"):
+            beneficio_base = (
+                metricas_estudio.get("beneficio_estimado")
+                if isinstance(metricas_estudio, dict)
+                else None
+            )
+            if beneficio_base is None and isinstance(metricas_estudio, dict):
+                beneficio_base = metricas_estudio.get("beneficio_bruto")
+            if beneficio_base is not None:
+                proyecto_kwargs["beneficio_estimado_base"] = beneficio_base
 
         proyecto = Proyecto.objects.create(**proyecto_kwargs)
 

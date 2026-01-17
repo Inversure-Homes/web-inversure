@@ -697,6 +697,17 @@
                             <div class="form-text mt-2">
                                 La comisión se calcula sobre el beneficio bruto y se descuenta del beneficio del inversor.
                             </div>
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-4">
+                                    <label class="form-label">Beneficio estimado base (€)</label>
+                                    <input type="text"
+                                           class="form-control"
+                                           name="proyecto.beneficio_estimado_base"
+                                           data-euro="true"
+                                           value="{{ proyecto.beneficio_estimado_base|default:metricas.beneficio_estimado|default:'' }}"
+                                           {% if not editable %}disabled{% endif %}>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="row g-3 align-items-end">
