@@ -143,9 +143,11 @@ def landing_home(request):
             if not _is_image(doc):
                 continue
             proyecto = doc.proyecto
+            if not getattr(proyecto, "mostrar_en_landing", False):
+                continue
             presentaciones.append(
                 {
-                    "titulo": proyecto.nombre or proyecto.nombre_proyecto or doc.titulo,
+                    "titulo": proyecto.nombre or getattr(proyecto, "nombre_proyecto", "") or doc.titulo,
                     "ubicacion": proyecto.direccion or "—",
                     "anio": str(proyecto.fecha.year) if proyecto.fecha else str(timezone.now().year),
                     "plazo": "—",

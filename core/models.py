@@ -174,6 +174,10 @@ class Proyecto(models.Model):
         default=False,
         help_text="Permite acceso del equipo comercial a este proyecto",
     )
+    mostrar_en_landing = models.BooleanField(
+        default=False,
+        help_text="Permite mostrar este proyecto en la landing pública",
+    )
 
     # =========================
     # DATOS DEL INMUEBLE

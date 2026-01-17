@@ -3767,6 +3767,16 @@ def guardar_proyecto(request, proyecto_id: int):
         proyecto_obj.acceso_comercial = bool(acceso_raw)
         update_fields.append("acceso_comercial")
 
+    mostrar_landing_raw = payload_proyecto.get(
+        "mostrar_en_landing",
+        payload.get("mostrar_en_landing"),
+    )
+    if mostrar_landing_raw is not None and is_admin_user(request.user):
+        if isinstance(mostrar_landing_raw, str):
+            mostrar_landing_raw = mostrar_landing_raw.strip().lower() in {"1", "true", "si", "sí", "on"}
+        proyecto_obj.mostrar_en_landing = bool(mostrar_landing_raw)
+        update_fields.append("mostrar_en_landing")
+
     beneficio_estimado_base_raw = payload_proyecto.get(
         "beneficio_estimado_base",
         payload.get("beneficio_estimado_base"),
@@ -4452,7 +4462,12 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
     if not any(formatos.values()):
         formatos["pdf"] = True
 
-    titulo = (request.POST.get("titulo") or proyecto.nombre or proyecto.nombre_proyecto or "Proyecto").strip()
+    titulo = (
+        request.POST.get("titulo")
+        or proyecto.nombre
+        or getattr(proyecto, "nombre_proyecto", "")
+        or "Proyecto"
+    ).strip()
     descripcion = (request.POST.get("descripcion") or "").strip()
     ubicacion = (request.POST.get("ubicacion") or "").strip()
     rentabilidad = _parse_decimal(request.POST.get("rentabilidad"))
