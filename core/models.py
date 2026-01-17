@@ -1122,6 +1122,7 @@ class DocumentoProyecto(models.Model):
         ("inmueble", "Documentación inmueble"),
         ("facturas", "Facturas"),
         ("fotografias", "Fotografías"),
+        ("presentacion", "Presentación"),
         ("otros", "Otros"),
     ]
     TIPO_CHOICES = CATEGORIAS

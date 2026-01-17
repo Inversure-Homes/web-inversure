@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <style>
+      @page { margin: 20mm; size: A4; }
+      body {
+        font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+        color: #0f1d2e;
+      }
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+      }
+      .header img {
+        height: 28px;
+      }
+      h1 {
+        font-size: 22px;
+        margin: 0;
+        font-weight: 700;
+      }
+      .image {
+        margin-top: 12px;
+        border: 1px solid #e2e8f0;
+        padding: 10px;
+      }
+      .image img {
+        max-width: 100%;
+        height: auto;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>{{ titulo }}</h1>
+      {% if logo_data_uri %}
+        <img src="{{ logo_data_uri }}" alt="Inversure">
+      {% endif %}
+    </div>
+    <div class="image">
+      <img src="{{ imagen_url }}" alt="{{ titulo }}">
+    </div>
+  </body>
+</html>

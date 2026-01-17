@@ -12,10 +12,12 @@ from django.core.paginator import Paginator
 from django.utils import timezone
 from django.conf import settings
 from django.core.mail import send_mail, EmailMultiAlternatives
+from django.core.files.base import ContentFile
 from django.template.loader import render_to_string
 from django.templatetags.static import static
 from django.utils.safestring import mark_safe
 from django.contrib.staticfiles import finders
+from django.utils.text import slugify
 
 from copy import deepcopy
 
@@ -621,6 +623,110 @@ def _merge_pdf_with_anexos(carta_pdf: bytes, anexos: list[DocumentoProyecto], re
         return buffer.getvalue()
     except Exception:
         return carta_pdf
+
+
+# =========================
+# PRESENTACIONES DE PROYECTO
+# =========================
+def _logo_data_uri() -> str:
+    try:
+        logo_path = finders.find("core/logo_inversure.png")
+        if not logo_path:
+            return ""
+        with open(logo_path, "rb") as logo_file:
+            logo_bytes = logo_file.read()
+        mime, _ = mimetypes.guess_type(logo_path)
+        mime = mime or "image/png"
+        return f"data:{mime};base64,{base64.b64encode(logo_bytes).decode('ascii')}"
+    except Exception:
+        return ""
+
+
+def _documento_url(request, documento: DocumentoProyecto) -> str:
+    key = getattr(documento.archivo, "name", "") or ""
+    signed = _s3_presigned_url(key)
+    if signed:
+        return signed
+    try:
+        if request:
+            return request.build_absolute_uri(documento.archivo.url)
+    except Exception:
+        pass
+    try:
+        return documento.archivo.url
+    except Exception:
+        return ""
+
+
+def _documento_pdf_bytes(request, documento: DocumentoProyecto) -> bytes | None:
+    nombre = (documento.archivo.name or "").lower()
+    if nombre.endswith(".pdf"):
+        try:
+            with documento.archivo.open("rb") as f:
+                return f.read()
+        except Exception:
+            return None
+    mime, _ = mimetypes.guess_type(nombre)
+    if not mime or not mime.startswith("image/"):
+        return None
+    img_url = _documento_url(request, documento)
+    html = render_to_string(
+        "core/pdf_anexo_documento.html",
+        {
+            "titulo": documento.titulo,
+            "imagen_url": img_url,
+            "logo_data_uri": _logo_data_uri(),
+        },
+    )
+    from weasyprint import HTML  # defer import
+    return HTML(string=html, base_url=request.build_absolute_uri("/") if request else None).write_pdf()
+
+
+def _merge_pdf_with_documentos(base_pdf: bytes, anexos: list[DocumentoProyecto], request=None) -> bytes | None:
+    if not base_pdf:
+        return None
+    try:
+        from io import BytesIO
+        from pypdf import PdfReader, PdfWriter
+
+        writer = PdfWriter()
+        base_reader = PdfReader(BytesIO(base_pdf))
+        for page in base_reader.pages:
+            writer.add_page(page)
+        for doc in anexos:
+            doc_pdf = _documento_pdf_bytes(request, doc)
+            if not doc_pdf:
+                continue
+            reader = PdfReader(BytesIO(doc_pdf))
+            for page in reader.pages:
+                writer.add_page(page)
+        buffer = BytesIO()
+        writer.write(buffer)
+        return buffer.getvalue()
+    except Exception:
+        return base_pdf
+
+
+def _build_presentacion_html(request, context: dict) -> str:
+    return render_to_string("core/pdf_presentacion_proyecto.html", context)
+
+
+def _build_presentacion_pdf(request, context: dict) -> bytes | None:
+    try:
+        from weasyprint import HTML  # defer import
+        html = _build_presentacion_html(request, context)
+        return HTML(string=html, base_url=request.build_absolute_uri("/") if request else None).write_pdf()
+    except Exception:
+        return None
+
+
+def _build_presentacion_png(request, context: dict) -> bytes | None:
+    try:
+        from weasyprint import HTML  # defer import
+        html = _build_presentacion_html(request, context)
+        return HTML(string=html, base_url=request.build_absolute_uri("/") if request else None).write_png()
+    except Exception:
+        return None
 
 
 # --- Helper para sanear datos para JSONField (Decimal, fechas, etc.) ---
@@ -4329,6 +4435,139 @@ def proyecto_documento_principal(request, proyecto_id: int, documento_id: int):
     ).update(es_principal=False)
     documento.es_principal = True
     documento.save(update_fields=["es_principal"])
+    return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-documentacion")
+
+
+def proyecto_presentacion_generar(request, proyecto_id: int):
+    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+    if request.method != "POST":
+        return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-documentacion")
+
+    estilo = (request.POST.get("estilo") or "coin").strip().lower()
+    formatos = {
+        "pdf": request.POST.get("gen_pdf") == "on",
+        "ig_feed": request.POST.get("gen_feed") == "on",
+        "ig_story": request.POST.get("gen_story") == "on",
+    }
+    if not any(formatos.values()):
+        formatos["pdf"] = True
+
+    titulo = (request.POST.get("titulo") or proyecto.nombre or proyecto.nombre_proyecto or "Proyecto").strip()
+    descripcion = (request.POST.get("descripcion") or "").strip()
+    ubicacion = (request.POST.get("ubicacion") or "").strip()
+    rentabilidad = _parse_decimal(request.POST.get("rentabilidad"))
+    plazo_meses = _parse_decimal(request.POST.get("plazo_meses"))
+    acceso_minimo = _parse_decimal(request.POST.get("acceso_minimo"))
+    try:
+        anio = int(request.POST.get("anio") or timezone.now().year)
+    except Exception:
+        anio = timezone.now().year
+
+    foto_doc = None
+    foto_id = request.POST.get("foto_id")
+    if foto_id:
+        foto_doc = DocumentoProyecto.objects.filter(
+            proyecto=proyecto, id=foto_id, categoria="fotografias"
+        ).first()
+    if not foto_doc:
+        foto_doc = DocumentoProyecto.objects.filter(
+            proyecto=proyecto, categoria="fotografias", es_principal=True
+        ).first()
+    if not foto_doc:
+        foto_doc = DocumentoProyecto.objects.filter(
+            proyecto=proyecto, categoria="fotografias"
+        ).first()
+
+    foto_url = ""
+    if foto_doc:
+        foto_url = _documento_url(request, foto_doc)
+    if not foto_url:
+        foto_url = request.build_absolute_uri(static("landing/assets/hero_investor.jpg"))
+
+    mapa_id = request.POST.get("mapa_id") or ""
+    dossier_id = request.POST.get("dossier_id") or ""
+    anexos_ids = request.POST.getlist("anexos")
+    anexos_ids = [x for x in [mapa_id, dossier_id, *anexos_ids] if x]
+    anexos_docs = []
+    if anexos_ids:
+        docs = DocumentoProyecto.objects.filter(proyecto=proyecto, id__in=anexos_ids)
+        docs_map = {str(doc.id): doc for doc in docs}
+        for doc_id in anexos_ids:
+            doc = docs_map.get(str(doc_id))
+            if not doc or doc.categoria == "presentacion":
+                continue
+            anexos_docs.append(doc)
+
+    context = {
+        "proyecto": proyecto,
+        "titulo": titulo,
+        "descripcion": descripcion,
+        "ubicacion": ubicacion,
+        "rentabilidad": rentabilidad,
+        "plazo_meses": plazo_meses,
+        "acceso_minimo": acceso_minimo,
+        "anio": anio,
+        "estilo": estilo,
+        "formato": "pdf",
+        "foto_url": foto_url,
+        "logo_data_uri": _logo_data_uri(),
+    }
+
+    slug = slugify(titulo or "proyecto") or f"proyecto_{proyecto_id}"
+    created = 0
+
+    if formatos.get("pdf"):
+        pdf_context = dict(context)
+        pdf_context["formato"] = "pdf"
+        pdf_bytes = _build_presentacion_pdf(request, pdf_context)
+        if pdf_bytes:
+            pdf_bytes = _merge_pdf_with_documentos(pdf_bytes, anexos_docs, request=request)
+            if pdf_bytes:
+                nombre = f"presentacion_{slug}_{estilo}.pdf"
+                DocumentoProyecto.objects.create(
+                    proyecto=proyecto,
+                    tipo="presentacion",
+                    categoria="presentacion",
+                    titulo=f"Presentación RRSS (PDF) · {titulo}",
+                    archivo=ContentFile(pdf_bytes, name=nombre),
+                )
+                created += 1
+
+    if formatos.get("ig_feed"):
+        feed_context = dict(context)
+        feed_context["formato"] = "ig_feed"
+        feed_bytes = _build_presentacion_png(request, feed_context)
+        if feed_bytes:
+            nombre = f"presentacion_{slug}_{estilo}_feed.png"
+            DocumentoProyecto.objects.create(
+                proyecto=proyecto,
+                tipo="presentacion",
+                categoria="presentacion",
+                titulo=f"Presentación RRSS (IG Feed) · {titulo}",
+                archivo=ContentFile(feed_bytes, name=nombre),
+            )
+            created += 1
+
+    if formatos.get("ig_story"):
+        story_context = dict(context)
+        story_context["formato"] = "ig_story"
+        story_bytes = _build_presentacion_png(request, story_context)
+        if story_bytes:
+            nombre = f"presentacion_{slug}_{estilo}_story.png"
+            DocumentoProyecto.objects.create(
+                proyecto=proyecto,
+                tipo="presentacion",
+                categoria="presentacion",
+                titulo=f"Presentación RRSS (IG Story) · {titulo}",
+                archivo=ContentFile(story_bytes, name=nombre),
+            )
+            created += 1
+
+    if created:
+        messages.success(request, f"Presentación generada ({created} archivo/s).")
+    else:
+        messages.error(request, "No se pudo generar la presentación.")
+
     return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-documentacion")
 
 

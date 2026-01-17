@@ -1,7 +1,9 @@
 from django.shortcuts import get_object_or_404, render
+from django.templatetags.static import static
+from django.utils import timezone
 
-from core.models import Proyecto
-from core.views import _build_dashboard_context
+from core.models import Proyecto, DocumentoProyecto
+from core.views import _build_dashboard_context, _s3_presigned_url
 from .models import Noticia
 
 
@@ -26,6 +28,20 @@ def landing_home(request):
             return float(value)
         except Exception:
             return default
+
+    def _doc_url(doc):
+        key = getattr(doc.archivo, "name", "") or ""
+        signed = _s3_presigned_url(key)
+        if signed:
+            return signed
+        try:
+            return request.build_absolute_uri(doc.archivo.url)
+        except Exception:
+            return doc.archivo.url
+
+    def _is_image(doc):
+        name = (doc.archivo.name or "").lower()
+        return name.endswith((".png", ".jpg", ".jpeg", ".webp"))
 
     hero = {
         "tag": "Inversión inmobiliaria con trazabilidad real",
@@ -113,6 +129,39 @@ def landing_home(request):
             "imagen": "landing/assets/hero_growth.jpg",
         },
     ]
+    presentaciones = []
+    try:
+        docs = (
+            DocumentoProyecto.objects.filter(categoria="presentacion")
+            .select_related("proyecto")
+            .order_by("-creado", "-id")
+        )
+        seen = set()
+        for doc in docs:
+            if doc.proyecto_id in seen:
+                continue
+            if not _is_image(doc):
+                continue
+            proyecto = doc.proyecto
+            presentaciones.append(
+                {
+                    "titulo": proyecto.nombre or proyecto.nombre_proyecto or doc.titulo,
+                    "ubicacion": proyecto.direccion or "—",
+                    "anio": str(proyecto.fecha.year) if proyecto.fecha else str(timezone.now().year),
+                    "plazo": "—",
+                    "rentabilidad": "—",
+                    "acceso_minimo": "—",
+                    "inversion_total": "—",
+                    "beneficio_estimado": "—",
+                    "estado": proyecto.estado or "—",
+                    "imagen_url": _doc_url(doc),
+                }
+            )
+            seen.add(doc.proyecto_id)
+    except Exception:
+        presentaciones = []
+    if presentaciones:
+        proyectos = presentaciones
     proyectos_qs = Proyecto.objects.all()
     dashboard_ctx = _build_dashboard_context(request.user)
     dashboard_stats = dashboard_ctx.get("dashboard_stats", {})
