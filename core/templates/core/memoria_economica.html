@@ -59,6 +59,7 @@
           <tr>
             <th>Fecha</th>
             <th>Concepto</th>
+            <th>Observaciones</th>
             <th class="text-end">Importe</th>
           </tr>
         </thead>
@@ -67,11 +68,18 @@
           <tr>
             <td>{{ ingreso.fecha|date:"d/m/Y" }}</td>
             <td>{{ ingreso.concepto }}</td>
+            <td>
+              {% if ingreso.observaciones %}
+              <span class="badge bg-warning text-dark">{{ ingreso.observaciones }}</span>
+              {% else %}
+              <span class="text-muted">—</span>
+              {% endif %}
+            </td>
             <td class="text-end">{{ ingreso.importe|floatformat:2 }} €</td>
           </tr>
           {% empty %}
           <tr>
-            <td colspan="3" class="text-muted text-center">
+            <td colspan="4" class="text-muted text-center">
               No hay ingresos registrados
             </td>
           </tr>
@@ -79,7 +87,7 @@
         </tbody>
         <tfoot>
           <tr class="fw-bold">
-            <td colspan="2">Total ingresos</td>
+            <td colspan="3">Total ingresos</td>
             <td class="text-end">{{ total_ingresos|floatformat:2 }} €</td>
           </tr>
         </tfoot>
@@ -98,6 +106,7 @@
             <th>Fecha</th>
             <th>Concepto</th>
             <th>Tipo</th>
+            <th>Observaciones</th>
             <th class="text-end">Importe</th>
           </tr>
         </thead>
@@ -107,11 +116,18 @@
             <td>{{ gasto.fecha|date:"d/m/Y" }}</td>
             <td>{{ gasto.concepto }}</td>
             <td>{{ gasto.tipo|capfirst }}</td>
+            <td>
+              {% if gasto.observaciones %}
+              <span class="badge bg-warning text-dark">{{ gasto.observaciones }}</span>
+              {% else %}
+              <span class="text-muted">—</span>
+              {% endif %}
+            </td>
             <td class="text-end">{{ gasto.importe|floatformat:2 }} €</td>
           </tr>
           {% empty %}
           <tr>
-            <td colspan="4" class="text-muted text-center">
+            <td colspan="5" class="text-muted text-center">
               No hay gastos registrados
             </td>
           </tr>
@@ -119,7 +135,7 @@
         </tbody>
         <tfoot>
           <tr class="fw-bold">
-            <td colspan="3">Total gastos</td>
+            <td colspan="4">Total gastos</td>
             <td class="text-end">{{ total_gastos|floatformat:2 }} €</td>
           </tr>
         </tfoot>
