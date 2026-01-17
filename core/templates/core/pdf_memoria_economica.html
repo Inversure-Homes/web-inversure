@@ -73,6 +73,7 @@
     }
     .pill--good { background: rgba(22,163,74,.15); border-color: rgba(22,163,74,.3); }
     .pill--warn { background: rgba(245,158,11,.18); border-color: rgba(245,158,11,.3); }
+    .pill--note { background: rgba(250,204,21,.2); border-color: rgba(250,204,21,.45); }
 
     .section-title { font-size:13px; font-weight:800; margin: 8px 0; }
     .kpi .sub { font-size:11px; color: var(--muted); margin-top:4px; }
@@ -202,7 +203,13 @@
                   {{ g.get_estado_display }}
                 </span>
               </td>
-              <td>{{ g.observaciones|default:"—" }}</td>
+              <td>
+                {% if g.observaciones %}
+                  <span class="pill pill--note">{{ g.observaciones }}</span>
+                {% else %}
+                  —
+                {% endif %}
+              </td>
             </tr>
             {% empty %}
             <tr><td colspan="6" class="muted">Sin gastos registrados.</td></tr>
@@ -241,7 +248,13 @@
                   {{ i.get_estado_display }}
                 </span>
               </td>
-              <td>{{ i.observaciones|default:"—" }}</td>
+              <td>
+                {% if i.observaciones %}
+                  <span class="pill pill--note">{{ i.observaciones }}</span>
+                {% else %}
+                  —
+                {% endif %}
+              </td>
             </tr>
             {% empty %}
             <tr><td colspan="6" class="muted">Sin ingresos registrados.</td></tr>
