@@ -134,7 +134,7 @@
                 <div class="col-md-5 mb-3">
                     <label class="form-label text-muted">Nombre del proyecto</label>
                     <input type="text" name="nombre" class="form-control form-control-lg"
-                           value="{{ proyecto.nombre|default:inm.nombre_proyecto|default:'' }}" {% if not editable %}disabled{% endif %}>
+                           value="{{ proyecto.nombre|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
 
                 <div class="col-md-2 mb-3">
@@ -804,147 +804,166 @@
                         <div class="col-lg-5">
                             <div class="card border-0 shadow-sm">
                                 <div class="card-body">
-                                    <h6 class="mb-3">Subir documento</h6>
-                                    <div class="mb-3">
-                                        <label class="form-label">Título</label>
-                                        <input type="text" id="doc_titulo" class="form-control" placeholder="Ej. Escritura de compra">
+                                    <h6 class="mb-3">Herramientas de documentación</h6>
+                                    <div class="accordion" id="docToolsAccordion">
+                                        <div class="accordion-item">
+                                            <h2 class="accordion-header" id="docToolsUploadHeading">
+                                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#docToolsUpload" aria-expanded="true">
+                                                    Subir documento
+                                                </button>
+                                            </h2>
+                                            <div id="docToolsUpload" class="accordion-collapse collapse show" data-bs-parent="#docToolsAccordion">
+                                                <div class="accordion-body">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Título</label>
+                                                        <input type="text" id="doc_titulo" class="form-control" placeholder="Ej. Escritura de compra">
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Categoría</label>
+                                                        <select id="doc_categoria" class="form-select">
+                                                            <option value="inmueble">Documentación inmueble</option>
+                                                            <option value="facturas">Facturas</option>
+                                                            <option value="fotografias">Fotografías</option>
+                                                            <option value="presentacion">Presentación</option>
+                                                            <option value="otros">Otros</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Archivo</label>
+                                                        <input type="file" id="doc_archivo" class="form-control" multiple>
+                                                        <div class="form-text">Formatos: PDF, imágenes, hojas de cálculo. Puedes seleccionar varias (útil para fotografías).</div>
+                                                    </div>
+                                                    <div class="small text-muted mb-2" id="doc_upload_status"></div>
+                                                    <button type="button" class="btn btn-inversure w-100 text-nowrap" id="doc_upload_btn">Subir documento</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="accordion-item">
+                                            <h2 class="accordion-header" id="docToolsPresentacionHeading">
+                                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#docToolsPresentacion" aria-expanded="false">
+                                                    Presentacion de proyecto
+                                                </button>
+                                            </h2>
+                                            <div id="docToolsPresentacion" class="accordion-collapse collapse" data-bs-parent="#docToolsAccordion">
+                                                <div class="accordion-body">
+                                                    <form method="post" action="{% url 'core:proyecto_presentacion_generar' proyecto.id %}">
+                                                        {% csrf_token %}
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Nombre para portada</label>
+                                                            <input type="text" name="titulo" class="form-control" placeholder="Ej. COIN" value="{{ proyecto.nombre|default:'' }}">
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Descripcion breve</label>
+                                                            <textarea name="descripcion" class="form-control" rows="3" placeholder="Describe la oportunidad en 2-3 lineas"></textarea>
+                                                        </div>
+                                                        <div class="row g-2">
+                                                            <div class="col-6">
+                                                                <label class="form-label">Rentabilidad neta (%)</label>
+                                                                <input type="text" name="rentabilidad" class="form-control" placeholder="Ej. 11,63">
+                                                            </div>
+                                                            <div class="col-6">
+                                                                <label class="form-label">Plazo (meses)</label>
+                                                                <input type="number" name="plazo_meses" class="form-control" placeholder="Ej. 3">
+                                                            </div>
+                                                        </div>
+                                                        <div class="row g-2 mt-1">
+                                                            <div class="col-6">
+                                                                <label class="form-label">Acceso minimo (€)</label>
+                                                                <input type="text" name="acceso_minimo" class="form-control" placeholder="Ej. 10.000">
+                                                            </div>
+                                                            <div class="col-6">
+                                                                <label class="form-label">Ano</label>
+                                                                <input type="number" name="anio" class="form-control" placeholder="2026">
+                                                            </div>
+                                                        </div>
+                                                        <div class="mb-3 mt-2">
+                                                            <label class="form-label">Ubicacion</label>
+                                                            <input type="text" name="ubicacion" class="form-control" placeholder="Ej. Plaza Mayor, Madrid">
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Foto principal</label>
+                                                            <select name="foto_id" class="form-select">
+                                                                <option value="">Usar principal</option>
+                                                                {% for doc in documentos %}
+                                                                    {% if doc.categoria == "fotografias" %}
+                                                                        <option value="{{ doc.id }}">{{ doc.titulo }}</option>
+                                                                    {% endif %}
+                                                                {% endfor %}
+                                                            </select>
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Mapa (PDF o imagen)</label>
+                                                            <select name="mapa_id" class="form-select">
+                                                                <option value="">No incluir</option>
+                                                                {% for doc in documentos %}
+                                                                    {% if doc.categoria != "presentacion" %}
+                                                                        <option value="{{ doc.id }}">{{ doc.titulo }}</option>
+                                                                    {% endif %}
+                                                                {% endfor %}
+                                                            </select>
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Dossier / catastro (PDF o imagen)</label>
+                                                            <select name="dossier_id" class="form-select">
+                                                                <option value="">No incluir</option>
+                                                                {% for doc in documentos %}
+                                                                    {% if doc.categoria != "presentacion" %}
+                                                                        <option value="{{ doc.id }}">{{ doc.titulo }}</option>
+                                                                    {% endif %}
+                                                                {% endfor %}
+                                                            </select>
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Anexos extra (PDF o imagen)</label>
+                                                            <div class="small text-muted mb-2">Se anexan al PDF final.</div>
+                                                            <div class="d-flex flex-column gap-1" style="max-height: 140px; overflow:auto;">
+                                                                {% for doc in documentos %}
+                                                                    {% if doc.categoria != "presentacion" %}
+                                                                        <label class="form-check">
+                                                                            <input class="form-check-input" type="checkbox" name="anexos" value="{{ doc.id }}">
+                                                                            <span class="form-check-label">{{ doc.titulo }}</span>
+                                                                        </label>
+                                                                    {% endif %}
+                                                                {% empty %}
+                                                                    <span class="text-muted">No hay documentos disponibles.</span>
+                                                                {% endfor %}
+                                                            </div>
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Estilo visual</label>
+                                                            <select name="estilo" class="form-select">
+                                                                <option value="coin">Coin</option>
+                                                                <option value="madrid">Madrid</option>
+                                                                <option value="mijas">Mijas</option>
+                                                                <option value="sotogrande">Sotogrande</option>
+                                                                <option value="torremolinos">Torremolinos</option>
+                                                                <option value="martinez">Martinez</option>
+                                                                <option value="aurora">Aurora</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Formatos</label>
+                                                            <div class="d-flex gap-3 flex-wrap">
+                                                                <label class="form-check">
+                                                                    <input class="form-check-input" type="checkbox" name="gen_pdf" checked>
+                                                                    <span class="form-check-label">PDF A4</span>
+                                                                </label>
+                                                                <label class="form-check">
+                                                                    <input class="form-check-input" type="checkbox" name="gen_feed" checked>
+                                                                    <span class="form-check-label">Instagram Feed (1080x1350)</span>
+                                                                </label>
+                                                                <label class="form-check">
+                                                                    <input class="form-check-input" type="checkbox" name="gen_story" checked>
+                                                                    <span class="form-check-label">Instagram Story (1080x1920)</span>
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                        <button type="submit" class="btn btn-inversure w-100">Generar presentacion</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Categoría</label>
-                                        <select id="doc_categoria" class="form-select">
-                                            <option value="inmueble">Documentación inmueble</option>
-                                            <option value="facturas">Facturas</option>
-                                            <option value="fotografias">Fotografías</option>
-                                            <option value="presentacion">Presentación</option>
-                                            <option value="otros">Otros</option>
-                                        </select>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Archivo</label>
-                                        <input type="file" id="doc_archivo" class="form-control" multiple>
-                                        <div class="form-text">Formatos: PDF, imágenes, hojas de cálculo. Puedes seleccionar varias (útil para fotografías).</div>
-                                    </div>
-                                    <div class="small text-muted mb-2" id="doc_upload_status"></div>
-                                    <button type="button" class="btn btn-inversure w-100 text-nowrap" id="doc_upload_btn">Subir documento</button>
-                                </div>
-                            </div>
-                            <div class="card border-0 shadow-sm mt-3">
-                                <div class="card-body">
-                                    <h6 class="mb-3">Presentacion de proyecto</h6>
-                                    <form method="post" action="{% url 'core:proyecto_presentacion_generar' proyecto.id %}">
-                                        {% csrf_token %}
-                                        <div class="mb-3">
-                                            <label class="form-label">Nombre para portada</label>
-                                            <input type="text" name="titulo" class="form-control" placeholder="Ej. COIN" value="{{ proyecto.nombre|default:'' }}">
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Descripcion breve</label>
-                                            <textarea name="descripcion" class="form-control" rows="3" placeholder="Describe la oportunidad en 2-3 lineas"></textarea>
-                                        </div>
-                                        <div class="row g-2">
-                                            <div class="col-6">
-                                                <label class="form-label">Rentabilidad neta (%)</label>
-                                                <input type="text" name="rentabilidad" class="form-control" placeholder="Ej. 11,63">
-                                            </div>
-                                            <div class="col-6">
-                                                <label class="form-label">Plazo (meses)</label>
-                                                <input type="number" name="plazo_meses" class="form-control" placeholder="Ej. 3">
-                                            </div>
-                                        </div>
-                                        <div class="row g-2 mt-1">
-                                            <div class="col-6">
-                                                <label class="form-label">Acceso minimo (€)</label>
-                                                <input type="text" name="acceso_minimo" class="form-control" placeholder="Ej. 10.000">
-                                            </div>
-                                            <div class="col-6">
-                                                <label class="form-label">Ano</label>
-                                                <input type="number" name="anio" class="form-control" placeholder="2026">
-                                            </div>
-                                        </div>
-                                        <div class="mb-3 mt-2">
-                                            <label class="form-label">Ubicacion</label>
-                                            <input type="text" name="ubicacion" class="form-control" placeholder="Ej. Plaza Mayor, Madrid">
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Foto principal</label>
-                                            <select name="foto_id" class="form-select">
-                                                <option value="">Usar principal</option>
-                                                {% for doc in documentos %}
-                                                    {% if doc.categoria == "fotografias" %}
-                                                        <option value="{{ doc.id }}">{{ doc.titulo }}</option>
-                                                    {% endif %}
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Mapa (PDF o imagen)</label>
-                                            <select name="mapa_id" class="form-select">
-                                                <option value="">No incluir</option>
-                                                {% for doc in documentos %}
-                                                    {% if doc.categoria != "presentacion" %}
-                                                        <option value="{{ doc.id }}">{{ doc.titulo }}</option>
-                                                    {% endif %}
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Dossier / catastro (PDF o imagen)</label>
-                                            <select name="dossier_id" class="form-select">
-                                                <option value="">No incluir</option>
-                                                {% for doc in documentos %}
-                                                    {% if doc.categoria != "presentacion" %}
-                                                        <option value="{{ doc.id }}">{{ doc.titulo }}</option>
-                                                    {% endif %}
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Anexos extra (PDF o imagen)</label>
-                                            <div class="small text-muted mb-2">Se anexan al PDF final.</div>
-                                            <div class="d-flex flex-column gap-1" style="max-height: 140px; overflow:auto;">
-                                                {% for doc in documentos %}
-                                                    {% if doc.categoria != "presentacion" %}
-                                                        <label class="form-check">
-                                                            <input class="form-check-input" type="checkbox" name="anexos" value="{{ doc.id }}">
-                                                            <span class="form-check-label">{{ doc.titulo }}</span>
-                                                        </label>
-                                                    {% endif %}
-                                                {% empty %}
-                                                    <span class="text-muted">No hay documentos disponibles.</span>
-                                                {% endfor %}
-                                            </div>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Estilo visual</label>
-                                            <select name="estilo" class="form-select">
-                                                <option value="coin">Coin</option>
-                                                <option value="madrid">Madrid</option>
-                                                <option value="mijas">Mijas</option>
-                                                <option value="sotogrande">Sotogrande</option>
-                                                <option value="torremolinos">Torremolinos</option>
-                                                <option value="martinez">Martinez</option>
-                                                <option value="aurora">Aurora</option>
-                                            </select>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Formatos</label>
-                                            <div class="d-flex gap-3 flex-wrap">
-                                                <label class="form-check">
-                                                    <input class="form-check-input" type="checkbox" name="gen_pdf" checked>
-                                                    <span class="form-check-label">PDF A4</span>
-                                                </label>
-                                                <label class="form-check">
-                                                    <input class="form-check-input" type="checkbox" name="gen_feed" checked>
-                                                    <span class="form-check-label">Instagram Feed (1080x1350)</span>
-                                                </label>
-                                                <label class="form-check">
-                                                    <input class="form-check-input" type="checkbox" name="gen_story" checked>
-                                                    <span class="form-check-label">Instagram Story (1080x1920)</span>
-                                                </label>
-                                            </div>
-                                        </div>
-                                        <button type="submit" class="btn btn-inversure w-100">Generar presentacion</button>
-                                    </form>
                                 </div>
                             </div>
                         </div>
