@@ -4663,15 +4663,27 @@ def proyecto_participaciones(request, proyecto_id: int):
         try:
             snap = getattr(proyecto, "snapshot_datos", {}) or {}
             economico = snap.get("economico") if isinstance(snap.get("economico"), dict) else {}
+            inversor = snap.get("inversor") if isinstance(snap.get("inversor"), dict) else {}
             kpis = snap.get("kpis") if isinstance(snap.get("kpis"), dict) else {}
             metricas = kpis.get("metricas") if isinstance(kpis.get("metricas"), dict) else {}
             capital_objetivo = (
-                metricas.get("valor_adquisicion_total")
+                inversor.get("inversion_total")
+                or inversor.get("capital_objetivo")
+                or inversor.get("objetivo")
+                or metricas.get("inversion_total")
+                or metricas.get("valor_adquisicion_total")
                 or metricas.get("valor_adquisicion")
                 or economico.get("valor_adquisicion")
+                or economico.get("valor_adquisicion_total")
                 or 0
             )
             capital_objetivo = _parse_decimal(capital_objetivo) or Decimal("0")
+            if capital_objetivo <= 0:
+                capital_objetivo = _parse_decimal(
+                    getattr(proyecto, "precio_compra_inmueble", None)
+                    or getattr(proyecto, "precio_propiedad", None)
+                    or 0
+                ) or Decimal("0")
         except Exception:
             capital_objetivo = Decimal("0")
 
@@ -4680,12 +4692,13 @@ def proyecto_participaciones(request, proyecto_id: int):
         total_confirmadas = qs.filter(estado="confirmada").aggregate(total=Sum("importe_invertido")).get("total") or Decimal("0")
         total_confirmadas = _parse_decimal(total_confirmadas) or Decimal("0")
         for p in qs:
-            pct = p.porcentaje_participacion
-            if pct is None:
-                if capital_objetivo > 0:
-                    pct = (p.importe_invertido / capital_objetivo) * Decimal("100")
-                elif total_confirmadas > 0:
-                    pct = (p.importe_invertido / total_confirmadas) * Decimal("100")
+            pct = None
+            if capital_objetivo > 0:
+                pct = (p.importe_invertido / capital_objetivo) * Decimal("100")
+            elif total_confirmadas > 0:
+                pct = (p.importe_invertido / total_confirmadas) * Decimal("100")
+            else:
+                pct = p.porcentaje_participacion
             participaciones.append({
                 "id": p.id,
                 "cliente_id": p.cliente_id,
