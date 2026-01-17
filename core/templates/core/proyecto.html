@@ -835,7 +835,7 @@
                                         {% csrf_token %}
                                         <div class="mb-3">
                                             <label class="form-label">Nombre para portada</label>
-                                            <input type="text" name="titulo" class="form-control" placeholder="Ej. COIN" value="{{ proyecto.nombre|default:proyecto.nombre_proyecto }}">
+                                            <input type="text" name="titulo" class="form-control" placeholder="Ej. COIN" value="{{ proyecto.nombre|default:'' }}">
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Descripcion breve</label>
