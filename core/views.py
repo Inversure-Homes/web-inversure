@@ -3334,7 +3334,28 @@ def proyecto(request, proyecto_id: int):
     except Exception:
         ctx["clientes"] = []
     try:
-        ctx["participaciones"] = Participacion.objects.filter(proyecto=proyecto_obj).select_related("cliente").order_by("-id")
+        participaciones = list(
+            Participacion.objects.filter(proyecto=proyecto_obj)
+            .select_related("cliente")
+            .order_by("-id")
+        )
+        capital_objetivo = _parse_decimal(captacion_ctx.get("capital_objetivo")) or Decimal("0")
+        total_confirmadas = (
+            Participacion.objects.filter(proyecto=proyecto_obj, estado="confirmada")
+            .aggregate(total=Sum("importe_invertido"))
+            .get("total")
+            or Decimal("0")
+        )
+        total_confirmadas = _parse_decimal(total_confirmadas) or Decimal("0")
+        for p in participaciones:
+            pct = None
+            if capital_objetivo > 0:
+                pct = (p.importe_invertido / capital_objetivo) * Decimal("100")
+            elif total_confirmadas > 0:
+                pct = (p.importe_invertido / total_confirmadas) * Decimal("100")
+            if pct is not None:
+                p.porcentaje_participacion = pct
+        ctx["participaciones"] = participaciones
     except Exception:
         ctx["participaciones"] = []
     try:
