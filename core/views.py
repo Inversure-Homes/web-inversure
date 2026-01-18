@@ -4682,23 +4682,25 @@ def proyecto_participaciones(request, proyecto_id: int):
     if request.method == "GET":
         capital_objetivo = Decimal("0")
         try:
+            capital_objetivo = _parse_decimal(getattr(proyecto, "capital_objetivo", None)) or Decimal("0")
             snap = getattr(proyecto, "snapshot_datos", {}) or {}
             economico = snap.get("economico") if isinstance(snap.get("economico"), dict) else {}
             inversor = snap.get("inversor") if isinstance(snap.get("inversor"), dict) else {}
             kpis = snap.get("kpis") if isinstance(snap.get("kpis"), dict) else {}
             metricas = kpis.get("metricas") if isinstance(kpis.get("metricas"), dict) else {}
-            capital_objetivo = (
-                inversor.get("inversion_total")
-                or inversor.get("capital_objetivo")
-                or inversor.get("objetivo")
-                or metricas.get("inversion_total")
-                or metricas.get("valor_adquisicion_total")
-                or metricas.get("valor_adquisicion")
-                or economico.get("valor_adquisicion")
-                or economico.get("valor_adquisicion_total")
-                or 0
-            )
-            capital_objetivo = _parse_decimal(capital_objetivo) or Decimal("0")
+            if capital_objetivo <= 0:
+                capital_objetivo = (
+                    inversor.get("inversion_total")
+                    or inversor.get("capital_objetivo")
+                    or inversor.get("objetivo")
+                    or metricas.get("inversion_total")
+                    or metricas.get("valor_adquisicion_total")
+                    or metricas.get("valor_adquisicion")
+                    or economico.get("valor_adquisicion")
+                    or economico.get("valor_adquisicion_total")
+                    or 0
+                )
+                capital_objetivo = _parse_decimal(capital_objetivo) or Decimal("0")
             if capital_objetivo <= 0:
                 capital_objetivo = _parse_decimal(
                     getattr(proyecto, "precio_compra_inmueble", None)
