@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <title>{{ titulo }}</title>
     <style>
-      @page { margin: 26mm 22mm 28mm; }
+      @page { margin: 24mm 20mm 26mm; }
       :root {
         --brand-blue: #22314E;
         --brand-gold: #C8BB89;
@@ -12,73 +12,82 @@
         --muted: #475569;
         --side-bg: #f3f4f6;
       }
-      body { font-family: "IBM Plex Sans", "DejaVu Sans", Arial, sans-serif; color: var(--ink); font-size: 12.5px; }
-      .brand-bar { height: 10px; background: var(--brand-blue); margin: -26mm -22mm 18px; }
+      body { font-family: "IBM Plex Sans", "DejaVu Sans", Arial, sans-serif; color: var(--ink); font-size: 12.5px; margin: 0; }
+      .brand-bar { height: 10px; background: var(--brand-blue); margin: -24mm -20mm 16px; }
       .brand-bar::after { content: ""; display: block; height: 4px; background: var(--brand-gold); }
-      .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-      .logo { height: 34px; }
+      .layout { width: 100%; border-collapse: collapse; }
+      .side { width: 28mm; vertical-align: top; }
+      .main { vertical-align: top; padding-left: 8mm; }
+      .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+      .logo { height: 38px; }
       .title { font-size: 20px; font-weight: 700; margin: 0 0 6px; color: var(--brand-blue); }
-      .meta { color: var(--muted); font-size: 11px; margin: 0; }
-      .card { margin-top: 16px; }
+      .meta { color: var(--muted); font-size: 11px; margin: 0 0 2px; }
+      .card { margin-top: 12px; }
       .signature { margin-top: 18px; font-size: 11px; color: var(--muted); }
       .footer { margin-top: 22px; font-size: 10px; color: #64748b; }
       .legal { margin-top: 12px; font-size: 9.5px; color: #94a3b8; line-height: 1.4; }
       .side-meta {
-        position: fixed;
-        top: 35mm;
-        left: 6mm;
         font-size: 9px;
         color: #64748b;
         line-height: 1.4;
-        transform: rotate(-90deg);
-        transform-origin: top left;
         letter-spacing: 0.02em;
+        border-right: 1px solid #e2e8f0;
+        padding-right: 6mm;
       }
       .side-meta strong { color: var(--brand-blue); font-weight: 700; }
       .descriptor { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--brand-gold); }
+      .message { line-height: 1.6; margin-top: 10px; }
     </style>
   </head>
   <body>
     <div class="brand-bar"></div>
-    <div class="side-meta">
-      <strong>INVERSURE</strong>
-      Inversure Homes &amp; investment<br>
-      B72265843<br>
-      Antonio Chacon 5, 29004<br>
-      www.inversurehomes.es
-    </div>
-    <div class="header">
-      <div>
-        <div class="title">{{ titulo }}</div>
-        <p class="meta">Fecha: {{ fecha|date:"d/m/Y" }}</p>
-        {% if proyecto %}
-          <p class="meta">Proyecto: {{ proyecto.nombre|default:"Proyecto" }}</p>
-        {% endif %}
-      </div>
-      {% if logo_data_uri %}
-        <img class="logo" src="{{ logo_data_uri }}" alt="Inversure">
-      {% elif logo_url %}
-        <img class="logo" src="{{ logo_url }}" alt="Inversure">
-      {% endif %}
-    </div>
-    <div class="descriptor">Secure · Invest · Grow</div>
+    <table class="layout">
+      <tr>
+        <td class="side">
+          <div class="side-meta">
+            <strong>INVERSURE</strong><br>
+            Inversure Homes &amp; investment<br>
+            B72265843<br>
+            Antonio Chacon 5, 29004<br>
+            www.inversurehomes.es
+          </div>
+        </td>
+        <td class="main">
+          <div class="header">
+            <div>
+              <div class="title">{{ titulo }}</div>
+              <p class="meta">Fecha: {{ fecha|date:"d/m/Y" }}</p>
+              {% if proyecto %}
+                <p class="meta">Proyecto: {{ proyecto.nombre|default:"Proyecto" }}</p>
+              {% endif %}
+            </div>
+            {% if logo_data_uri %}
+              <img class="logo" src="{{ logo_data_uri }}" alt="Inversure">
+            {% elif logo_url %}
+              <img class="logo" src="{{ logo_url }}" alt="Inversure">
+            {% endif %}
+          </div>
+          <div class="descriptor">Secure · Invest · Grow</div>
 
-    <div class="card">
-      <p>{{ mensaje_html|default:mensaje|linebreaksbr|safe }}</p>
-      <div class="signature">
-        Equipo INVERSURE<br>
-        comunicacion@inversurehomes.es
-      </div>
-    </div>
+          <div class="card">
+            <div class="message">{{ mensaje_html|default:mensaje|linebreaksbr|safe }}</div>
+            <div class="signature">
+              Equipo INVERSURE<br>
+              comunicacion@inversurehomes.es
+            </div>
+          </div>
 
-    <div class="footer">
-      Inversure Homes · Comunicación a inversores
-      <div class="legal">
-        Aviso legal: Este mensaje y los archivos adjuntos son confidenciales y están dirigidos exclusivamente a su destinatario.
-        Si usted no es el destinatario, por favor notifíquelo al remitente y elimine el mensaje. Queda prohibida su reproducción o distribución sin autorización expresa.<br>
-        Protección de datos (RGPD): Los datos personales incluidos en esta comunicación se tratarán conforme al Reglamento (UE) 2016/679 (RGPD) y la normativa europea y nacional vigente.
-        Puede ejercer sus derechos de acceso, rectificación y supresión dirigiéndose a mximenez@inversurehomes.es.
-      </div>
-    </div>
+          <div class="footer">
+            Inversure Homes · Comunicación a inversores
+            <div class="legal">
+              Aviso legal: Este mensaje y los archivos adjuntos son confidenciales y están dirigidos exclusivamente a su destinatario.
+              Si usted no es el destinatario, por favor notifíquelo al remitente y elimine el mensaje. Queda prohibida su reproducción o distribución sin autorización expresa.<br>
+              Protección de datos (RGPD): Los datos personales incluidos en esta comunicación se tratarán conforme al Reglamento (UE) 2016/679 (RGPD) y la normativa europea y nacional vigente.
+              Puede ejercer sus derechos de acceso, rectificación y supresión dirigiéndose a mximenez@inversurehomes.es.
+            </div>
+          </div>
+        </td>
+      </tr>
+    </table>
   </body>
 </html>
