@@ -913,6 +913,10 @@ function updateComisionInversureMetrics({ beneficioBase = 0, valorAdqBase = 0 } 
   const eurInput = document.getElementById("inv_comision_eur");
   const netoInput = document.getElementById("inv_beneficio_neto");
   const roiInput = document.getElementById("inv_roi_neto");
+  const beneficioHidden = document.getElementById("inv_beneficio_neto_hidden");
+  const roiHidden = document.getElementById("inv_roi_neto_hidden");
+  const beneficioBaseHidden = document.getElementById("inv_beneficio_neto_base");
+  const roiBaseHidden = document.getElementById("inv_roi_neto_base");
   const dashComision = document.getElementById("dash_comision_inversure");
   const dashNeto = document.getElementById("dash_beneficio_neto_inversor");
   const dashRoi = document.getElementById("dash_roi_neto_inversor");
@@ -943,6 +947,10 @@ function updateComisionInversureMetrics({ beneficioBase = 0, valorAdqBase = 0 } 
   _setElText(eurInput, formatEuro(comision));
   _setElText(netoInput, formatEuro(neto));
   _setElText(roiInput, formatNumberEs(roi, 2));
+  if (beneficioHidden) beneficioHidden.value = neto;
+  if (roiHidden) roiHidden.value = roi;
+  if (beneficioBaseHidden) beneficioBaseHidden.value = neto;
+  if (roiBaseHidden) roiBaseHidden.value = roi;
 
   if (dashComision) dashComision.textContent = formatEuro(comision);
   if (dashNeto) dashNeto.textContent = formatEuro(neto);
@@ -1472,11 +1480,15 @@ function bindMemoriaEconomica() {
     // Derivados: valores estimados / reales desde memoria económica
     const precioCompraInput = parseEuro(_getElText(document.querySelector("[name='precio_propiedad']"))) ??
       parseEuro(_getElText(document.querySelector("[name='precio_escritura']")));
-    const precioCompraBase = (Number.isFinite(precioCompraInput) && precioCompraInput > 0)
+    const precioCompraManual = (Number.isFinite(precioCompraInput) && precioCompraInput > 0)
       ? precioCompraInput
-      : ((compraReal > 0) ? compraReal : compraEstimada);
-    const valAdqEstimado = totalEstimado;
-    const valAdqReal = totalReal;
+      : 0;
+    const precioCompraBaseEst = precioCompraManual > 0 ? precioCompraManual : compraEstimada;
+    const precioCompraBaseReal = precioCompraManual > 0 ? precioCompraManual : compraReal;
+    let valAdqEstimado = (precioCompraBaseEst || 0) + (gastosAdqEstimado || 0);
+    let valAdqReal = (precioCompraBaseReal || 0) + (gastosAdqReal || 0);
+    if (valAdqEstimado <= 0 && totalEstimado > 0) valAdqEstimado = totalEstimado;
+    if (valAdqReal <= 0 && totalReal > 0) valAdqReal = totalReal;
     const valTransEstimado = totalIngresosEstimados - gastosVentaEstimado;
     const valTransReal = totalIngresosReales - gastosVentaReal;
 
@@ -1494,7 +1506,7 @@ function bindMemoriaEconomica() {
     const valTransInput = document.querySelector("[name='precio_venta_estimado']");
     const valTransInputAlt = document.querySelector("[name='valor_transmision']");
     if (valAdqInput) {
-      const chosen = gastosAdqReal > 0 ? valAdqReal : valAdqEstimado;
+      const chosen = valAdqReal > 0 ? valAdqReal : valAdqEstimado;
       _setElText(valAdqInput, formatEuro(chosen));
     }
     const usarTransReal = (totalIngresosReales > 0) || (gastosVentaReal > 0);
@@ -2602,6 +2614,7 @@ function bindDocumentos() {
   const wrap = document.getElementById("doc_upload_wrap");
   const btn = document.getElementById("doc_upload_btn");
   const elTitulo = document.getElementById("doc_titulo");
+  const elTituloOtro = document.getElementById("doc_titulo_otro");
   const elCategoria = document.getElementById("doc_categoria");
   const elArchivo = document.getElementById("doc_archivo");
   const status = document.getElementById("doc_upload_status");
@@ -2609,6 +2622,20 @@ function bindDocumentos() {
 
   const url = wrap.getAttribute("data-upload-url") || "";
   if (!url) return;
+
+  const toggleOtro = () => {
+    if (!elTituloOtro || !elTitulo) return;
+    if ((elTitulo.value || "").trim() === "otros") {
+      elTituloOtro.classList.remove("d-none");
+    } else {
+      elTituloOtro.classList.add("d-none");
+      elTituloOtro.value = "";
+    }
+  };
+  if (elTitulo) {
+    elTitulo.addEventListener("change", toggleOtro);
+    toggleOtro();
+  }
 
   btn.addEventListener("click", async () => {
     const files = elArchivo.files ? Array.from(elArchivo.files) : [];
@@ -2619,7 +2646,13 @@ function bindDocumentos() {
     if (status) status.textContent = "Subiendo documento...";
     const fd = new FormData();
     files.forEach(file => fd.append("archivo", file));
-    fd.append("titulo", (elTitulo && elTitulo.value || "").trim());
+    let titulo = (elTitulo && elTitulo.value || "").trim();
+    if (titulo === "otros") {
+      titulo = (elTituloOtro && elTituloOtro.value || "").trim();
+    } else if (elTitulo && elTitulo.selectedOptions && elTitulo.selectedOptions.length) {
+      titulo = (elTitulo.selectedOptions[0].textContent || titulo).trim();
+    }
+    fd.append("titulo", titulo);
     fd.append("categoria", (elCategoria && elCategoria.value || "otros").trim());
     const csrf = getCsrfToken();
     try {
