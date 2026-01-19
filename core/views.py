@@ -2195,14 +2195,57 @@ def clientes(request):
     return render(request, "core/clientes.html", {"clientes": clientes_qs})
 
 
+def _normalizar_dni_cif(value: str) -> str:
+    return (value or "").strip().upper().replace(" ", "")
+
+
+def _validar_dni_cif(value: str) -> bool:
+    value = _normalizar_dni_cif(value)
+    if not value:
+        return False
+    letras = "TRWAGMYFPDXBNJZSQVHLCKE"
+    # DNI: 8 dígitos + letra
+    if len(value) == 9 and value[:-1].isdigit():
+        num = int(value[:-1])
+        return value[-1] == letras[num % 23]
+    # NIE: X/Y/Z + 7 dígitos + letra
+    if len(value) == 9 and value[0] in "XYZ" and value[1:-1].isdigit():
+        prefix = {"X": "0", "Y": "1", "Z": "2"}[value[0]]
+        num = int(prefix + value[1:-1])
+        return value[-1] == letras[num % 23]
+    # CIF: letra + 7 dígitos + control
+    if len(value) == 9 and value[0].isalpha() and value[1:-1].isdigit():
+        letra = value[0]
+        nums = value[1:-1]
+        control = value[-1]
+        suma_par = sum(int(nums[i]) for i in range(1, 7, 2))
+        suma_impar = 0
+        for i in range(0, 7, 2):
+            n = int(nums[i]) * 2
+            suma_impar += (n // 10) + (n % 10)
+        total = suma_par + suma_impar
+        digito = (10 - (total % 10)) % 10
+        control_letra = "JABCDEFGHI"[digito]
+        if letra in "ABEH":
+            return control == str(digito)
+        if letra in "KPQS":
+            return control == control_letra
+        return control == str(digito) or control == control_letra
+    return False
+
+
 def clientes_form(request):
     if request.method == "POST":
         data = request.POST
         try:
+            dni_cif = _normalizar_dni_cif(data.get("dni_cif"))
+            if not _validar_dni_cif(dni_cif):
+                messages.error(request, "DNI/NIE/CIF no es válido.")
+                return render(request, "core/clientes_form.html", {"titulo": "Nuevo cliente"})
             kwargs = {
                 "tipo_persona": data.get("tipo_persona") or "F",
                 "nombre": (data.get("nombre") or "").strip(),
-                "dni_cif": (data.get("dni_cif") or "").strip(),
+                "dni_cif": dni_cif,
                 "email": (data.get("email") or "").strip() or None,
                 "telefono": (data.get("telefono") or "").strip() or None,
                 "iban": (data.get("iban") or "").strip() or None,
@@ -2228,9 +2271,13 @@ def cliente_edit(request, cliente_id: int):
     if request.method == "POST":
         data = request.POST
         try:
+            dni_cif = _normalizar_dni_cif(data.get("dni_cif"))
+            if not _validar_dni_cif(dni_cif):
+                messages.error(request, "DNI/NIE/CIF no es válido.")
+                return render(request, "core/clientes_form.html", {"titulo": "Editar cliente", "cliente": cliente})
             cliente.tipo_persona = data.get("tipo_persona") or cliente.tipo_persona
             cliente.nombre = (data.get("nombre") or "").strip()
-            cliente.dni_cif = (data.get("dni_cif") or "").strip()
+            cliente.dni_cif = dni_cif
             cliente.email = (data.get("email") or "").strip() or None
             cliente.telefono = (data.get("telefono") or "").strip() or None
             cliente.iban = (data.get("iban") or "").strip() or None
