@@ -4897,12 +4897,20 @@ def proyecto_solicitudes(request, proyecto_id: int):
     if request.method == "GET":
         solicitudes = []
         for s in SolicitudParticipacion.objects.filter(proyecto=proyecto).select_related("inversor", "inversor__cliente"):
+            decision_by = None
+            try:
+                if s.decision_by:
+                    decision_by = s.decision_by.get_full_name() or s.decision_by.get_username()
+            except Exception:
+                decision_by = None
             solicitudes.append({
                 "id": s.id,
                 "cliente_nombre": s.inversor.cliente.nombre,
                 "importe_solicitado": float(s.importe_solicitado),
                 "estado": s.estado,
                 "fecha": s.creado.isoformat(),
+                "decision_by": decision_by,
+                "decision_at": s.decision_at.isoformat() if s.decision_at else None,
             })
         return JsonResponse({"ok": True, "solicitudes": solicitudes})
 
@@ -4924,9 +4932,17 @@ def proyecto_solicitud_detalle(request, proyecto_id: int, solicitud_id: int):
     try:
         data = json.loads(request.body or "{}")
         estado = (data.get("estado") or "").strip()
+        if not data.get("confirm"):
+            return JsonResponse({"ok": False, "error": "Confirmación requerida"}, status=400)
         if estado not in ("aprobada", "rechazada", "pendiente"):
             return JsonResponse({"ok": False, "error": "Estado inválido"}, status=400)
         solicitud.estado = estado
+        if estado == "pendiente":
+            solicitud.decision_by = None
+            solicitud.decision_at = None
+        else:
+            solicitud.decision_by = request.user if request.user.is_authenticated else None
+            solicitud.decision_at = timezone.now()
         solicitud.save()
 
         if estado == "aprobada":

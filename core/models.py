@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from django.utils.timezone import now
 
@@ -1080,6 +1081,14 @@ class SolicitudParticipacion(models.Model):
     importe_solicitado = models.DecimalField(max_digits=12, decimal_places=2)
     comentario = models.TextField(blank=True, null=True)
     estado = models.CharField(max_length=12, choices=ESTADOS, default="pendiente")
+    decision_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="solicitudes_decididas",
+    )
+    decision_at = models.DateTimeField(null=True, blank=True)
     creado = models.DateTimeField(auto_now_add=True)
     actualizado = models.DateTimeField(auto_now=True)
 

@@ -2505,17 +2505,31 @@ function bindSolicitudes() {
       if (!data || !data.ok) return;
       const rows = data.solicitudes || [];
       if (!rows.length) {
-        tabla.innerHTML = "<tr><td colspan=\"5\" class=\"text-muted\">Sin solicitudes todavía.</td></tr>";
+        tabla.innerHTML = "<tr><td colspan=\"6\" class=\"text-muted\">Sin solicitudes todavía.</td></tr>";
         return;
       }
+      const formatDecisionDate = (iso) => {
+        if (!iso) return "";
+        const parts = iso.split("T");
+        if (parts.length < 2) return "";
+        const date = parts[0].split("-");
+        if (date.length !== 3) return "";
+        const time = parts[1].slice(0, 5);
+        return `${date[2]}/${date[1]}/${date[0]} ${time}`;
+      };
       tabla.innerHTML = rows.map(r => {
         const fecha = r.fecha ? r.fecha.slice(0, 10).split("-").reverse().join("/") : "";
+        const decisionTime = formatDecisionDate(r.decision_at);
+        const decisionLabel = r.decision_by
+          ? `${r.decision_by}${decisionTime ? " · " + decisionTime : ""}`
+          : (decisionTime || "—");
         return `
           <tr data-id="${r.id}">
             <td>${r.cliente_nombre}</td>
             <td class="text-end">${formatEuro(r.importe_solicitado)}</td>
             <td>${fecha}</td>
             <td>${r.estado}</td>
+            <td>${decisionLabel}</td>
             <td class="text-end">
               <button type="button" class="btn btn-sm btn-outline-success sol-aprobar">Aprobar</button>
               <button type="button" class="btn btn-sm btn-outline-danger sol-rechazar">Rechazar</button>
@@ -2534,13 +2548,17 @@ function bindSolicitudes() {
     const id = tr.getAttribute("data-id");
     if (!id) return;
     const estado = btnAprobar ? "aprobada" : "rechazada";
+    const actionLabel = btnAprobar ? "aprobar" : "rechazar";
+    if (!confirm(`¿Confirmar ${actionLabel} esta solicitud?`)) {
+      return;
+    }
     const resp = await fetch(`${url}${id}/`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
         ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}),
       },
-      body: JSON.stringify({ estado }),
+      body: JSON.stringify({ estado, confirm: true }),
     });
     if (!resp.ok) {
       alert("No se pudo actualizar la solicitud.");
