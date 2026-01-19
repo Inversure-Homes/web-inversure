@@ -2271,7 +2271,15 @@ def clientes_form(request):
         except Exception as e:
             messages.error(request, f"No se pudo crear el cliente: {e}")
 
-    return render(request, "core/clientes_form.html", {"titulo": "Nuevo cliente"})
+    return render(
+        request,
+        "core/clientes_form.html",
+        {
+            "titulo": "Nuevo cliente",
+            "cliente": None,
+            "form_data": {},
+        },
+    )
 
 
 def cliente_edit(request, cliente_id: int):
