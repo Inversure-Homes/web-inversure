@@ -2276,7 +2276,7 @@ def clientes_form(request):
         "core/clientes_form.html",
         {
             "titulo": "Nuevo cliente",
-            "cliente": None,
+            "cliente": Cliente(),
             "form_data": {},
         },
     )
