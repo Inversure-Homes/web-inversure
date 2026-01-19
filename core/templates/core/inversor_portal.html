@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load humanize %}
+{% load humanize formatting %}
 {% block content %}
 
 <style>
@@ -77,6 +77,20 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .portal-beneficios-table th {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #64748b;
+    vertical-align: bottom;
+  }
+  .portal-beneficios-table td.text-end,
+  .portal-beneficios-table th.text-end {
+    font-variant-numeric: tabular-nums;
+  }
+  .portal-beneficios-table input.form-control {
+    min-width: 120px;
   }
   .bar-track {
     height: 10px;
@@ -229,7 +243,7 @@
     <h5 class="mb-3">Beneficio por operación</h5>
     {% if beneficios_por_proyecto %}
       <div class="table-responsive">
-        <table class="table table-sm align-middle">
+        <table class="table table-sm align-middle portal-beneficios-table">
           <thead>
             <tr>
               <th>Proyecto</th>
@@ -250,44 +264,44 @@
                 <td class="text-end">{{ b.participacion_pct|floatformat:2 }} %</td>
                 <td class="text-end">
                   {% if internal_view %}
-                    <input type="text" name="beneficio_bruto" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.beneficio_bruto|floatformat:2 }}">
+                    <input type="text" name="beneficio_bruto" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.beneficio_bruto|es_number }}">
                   {% else %}
-                    {{ b.beneficio_bruto|floatformat:2|intcomma }} €
+                    {{ b.beneficio_bruto|es_number }} €
                   {% endif %}
                 </td>
                 <td class="text-end">
                   {% if internal_view %}
-                    <input type="text" name="comision_eur" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.comision_eur|floatformat:2 }}">
+                    <input type="text" name="comision_eur" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.comision_eur|es_number }}">
                   {% else %}
-                    {{ b.comision_eur|floatformat:2|intcomma }} €
+                    {{ b.comision_eur|es_number }} €
                   {% endif %}
                 </td>
                 <td class="text-end">
                   {% if internal_view %}
-                    <input type="text" name="beneficio_neto_total" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.beneficio_neto_total|floatformat:2 }}">
+                    <input type="text" name="beneficio_neto_total" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.beneficio_neto_total|es_number }}">
                   {% else %}
-                    {{ b.beneficio_neto_total|floatformat:2|intcomma }} €
+                    {{ b.beneficio_neto_total|es_number }} €
                   {% endif %}
                 </td>
                 <td class="text-end">
                   {% if internal_view %}
-                    <input type="text" name="beneficio_inversor" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.beneficio_inversor|floatformat:2 }}">
+                    <input type="text" name="beneficio_inversor" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.beneficio_inversor|es_number }}">
                   {% else %}
-                    {{ b.beneficio_inversor|floatformat:2|intcomma }} €
+                    {{ b.beneficio_inversor|es_number }} €
                   {% endif %}
                 </td>
                 <td class="text-end">
                   {% if internal_view %}
-                    <input type="text" name="retencion" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.retencion|floatformat:2 }}">
+                    <input type="text" name="retencion" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.retencion|es_number }}">
                   {% else %}
-                    {{ b.retencion|floatformat:2|intcomma }} €
+                    {{ b.retencion|es_number }} €
                   {% endif %}
                 </td>
                 <td class="text-end">
                   {% if internal_view %}
-                    <input type="text" name="neto_cobrar" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.neto_cobrar|floatformat:2 }}">
+                    <input type="text" name="neto_cobrar" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.neto_cobrar|es_number }}">
                   {% else %}
-                    {{ b.neto_cobrar|floatformat:2|intcomma }} €
+                    {{ b.neto_cobrar|es_number }} €
                   {% endif %}
                 </td>
                 <td class="text-end">
