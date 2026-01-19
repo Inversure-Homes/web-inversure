@@ -1944,7 +1944,7 @@ def lista_estudio(request):
 
     estudios_qs_base = estudios_qs
     try:
-        estudios_qs = estudios_qs.order_by("-datos__roi", "-id")
+        estudios_qs = estudios_qs.order_by("-datos__roi_neto", "-datos__roi", "-id")
         # Force evaluation to catch JSON lookup errors on backends without JSON1 support.
         list(estudios_qs[:1])
     except Exception:
@@ -1953,6 +1953,8 @@ def lista_estudio(request):
 
     for e in estudios_qs:
         d = e.datos or {}
+        beneficio_neto = d.get("beneficio_neto", None)
+        roi_neto = d.get("roi_neto", None)
         estudios.append({
             "id": e.id,
             "nombre": e.nombre,
@@ -1960,8 +1962,8 @@ def lista_estudio(request):
             "ref_catastral": e.ref_catastral,
             "valor_referencia": e.valor_referencia,
             "valor_adquisicion": d.get("valor_adquisicion", 0),
-            "beneficio": d.get("beneficio", 0),
-            "roi": d.get("roi", 0),
+            "beneficio": beneficio_neto if beneficio_neto not in (None, "") else d.get("beneficio", 0),
+            "roi": roi_neto if roi_neto not in (None, "") else d.get("roi", 0),
            "fecha": e.creado,
             "guardado": bool(getattr(e, "guardado", False)),
             "bloqueado": bool(getattr(e, "bloqueado", False)),

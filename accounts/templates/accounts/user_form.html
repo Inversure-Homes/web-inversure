@@ -8,9 +8,107 @@
   <form method="post" class="card border-0 shadow-sm">
     {% csrf_token %}
     <div class="card-body">
-      {{ form.as_p }}
-      <button class="btn btn-inversure">Guardar</button>
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+          {{ form.non_field_errors }}
+        </div>
+      {% endif %}
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label" for="{{ form.username.id_for_label }}">Usuario</label>
+          {{ form.username }}
+          {% if form.username.errors %}<div class="text-danger small">{{ form.username.errors }}</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="{{ form.email.id_for_label }}">Email</label>
+          {{ form.email }}
+          {% if form.email.errors %}<div class="text-danger small">{{ form.email.errors }}</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="{{ form.first_name.id_for_label }}">Nombre</label>
+          {{ form.first_name }}
+          {% if form.first_name.errors %}<div class="text-danger small">{{ form.first_name.errors }}</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="{{ form.last_name.id_for_label }}">Apellidos</label>
+          {{ form.last_name }}
+          {% if form.last_name.errors %}<div class="text-danger small">{{ form.last_name.errors }}</div>{% endif %}
+        </div>
+      </div>
+
+      <div class="row g-3 mt-1">
+        <div class="col-md-6">
+          <label class="form-label" for="{{ form.password.id_for_label }}">Contraseña</label>
+          <div class="input-group">
+            {{ form.password }}
+            <button class="btn btn-outline-secondary toggle-password" type="button" data-target="{{ form.password.id_for_label }}">👁</button>
+          </div>
+          {% if form.password.errors %}<div class="text-danger small">{{ form.password.errors }}</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="{{ form.password_confirm.id_for_label }}">Confirmar contraseña</label>
+          <div class="input-group">
+            {{ form.password_confirm }}
+            <button class="btn btn-outline-secondary toggle-password" type="button" data-target="{{ form.password_confirm.id_for_label }}">👁</button>
+          </div>
+          {% if form.password_confirm.errors %}<div class="text-danger small">{{ form.password_confirm.errors }}</div>{% endif %}
+        </div>
+      </div>
+
+      <div class="row g-3 mt-1">
+        <div class="col-md-6">
+          <div class="form-check">
+            {{ form.is_active }}
+            <label class="form-check-label" for="{{ form.is_active.id_for_label }}">Activo</label>
+          </div>
+          {% if form.is_active.errors %}<div class="text-danger small">{{ form.is_active.errors }}</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+          <div class="form-check">
+            {{ form.is_staff }}
+            <label class="form-check-label" for="{{ form.is_staff.id_for_label }}">Staff</label>
+          </div>
+          {% if form.is_staff.errors %}<div class="text-danger small">{{ form.is_staff.errors }}</div>{% endif %}
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <label class="form-label">Grupos</label>
+        <div class="border rounded p-2">
+          {{ form.groups }}
+        </div>
+        {% if form.groups.errors %}<div class="text-danger small">{{ form.groups.errors }}</div>{% endif %}
+      </div>
+
+      <div class="mt-4">
+        <label class="form-label">Permisos individuales</label>
+        <div class="row g-2">
+          <div class="col-md-4"><div class="form-check">{{ form.use_custom_perms }} <label class="form-check-label" for="{{ form.use_custom_perms.id_for_label }}">Usar permisos individuales</label></div></div>
+          <div class="col-md-4"><div class="form-check">{{ form.can_simulador }} <label class="form-check-label" for="{{ form.can_simulador.id_for_label }}">Acceso a Simulador</label></div></div>
+          <div class="col-md-4"><div class="form-check">{{ form.can_estudios }} <label class="form-check-label" for="{{ form.can_estudios.id_for_label }}">Acceso a Estudios</label></div></div>
+          <div class="col-md-4"><div class="form-check">{{ form.can_proyectos }} <label class="form-check-label" for="{{ form.can_proyectos.id_for_label }}">Acceso a Proyectos</label></div></div>
+          <div class="col-md-4"><div class="form-check">{{ form.can_clientes }} <label class="form-check-label" for="{{ form.can_clientes.id_for_label }}">Acceso a Clientes</label></div></div>
+          <div class="col-md-4"><div class="form-check">{{ form.can_inversores }} <label class="form-check-label" for="{{ form.can_inversores.id_for_label }}">Acceso a Inversores</label></div></div>
+          <div class="col-md-4"><div class="form-check">{{ form.can_usuarios }} <label class="form-check-label" for="{{ form.can_usuarios.id_for_label }}">Acceso a Usuarios</label></div></div>
+          <div class="col-md-4"><div class="form-check">{{ form.can_cms }} <label class="form-check-label" for="{{ form.can_cms.id_for_label }}">Acceso a CMS</label></div></div>
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <button class="btn btn-inversure">Guardar</button>
+      </div>
     </div>
   </form>
 </div>
+<script>
+  document.querySelectorAll(".toggle-password").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-target");
+      const input = document.getElementById(id);
+      if (!input) return;
+      input.type = (input.type === "password") ? "text" : "password";
+    });
+  });
+</script>
 {% endblock %}

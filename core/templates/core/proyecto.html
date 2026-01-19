@@ -446,10 +446,17 @@
     ================================ -->
     <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
         <div class="card-body">
-            <h5 class="mb-3 inversure-form-header">Checklist operativo</h5>
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="mb-0 inversure-form-header">Checklist operativo</h5>
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#checklistCollapse" aria-expanded="true" aria-controls="checklistCollapse">
+                    <span>Ver checklist</span>
+                    <span class="badge bg-light text-dark ms-2">{{ checklist_items|length }}</span>
+                </button>
+            </div>
 
-            <div class="table-responsive">
-                <table class="table table-sm align-middle">
+            <div class="collapse show" id="checklistCollapse">
+              <div class="table-responsive">
+                  <table class="table table-sm align-middle">
                     <thead>
                         <tr>
                             <th>Fase</th>
@@ -484,7 +491,8 @@
                           <tr><td colspan="6" class="text-muted">Sin tareas todavía.</td></tr>
                         {% endif %}
                     </tbody>
-                </table>
+                  </table>
+              </div>
             </div>
         </div>
     </div>
@@ -702,6 +710,10 @@
                                            value="{{ inv.roi_neto_inversor|default:inv.roi_neto|default:'' }}">
                                 </div>
                             </div>
+                            <input type="hidden" name="inversor.beneficio_neto_inversor" id="inv_beneficio_neto_hidden" value="{{ inv.beneficio_neto_inversor|default:inv.beneficio_neto|default:'' }}">
+                            <input type="hidden" name="inversor.roi_neto_inversor" id="inv_roi_neto_hidden" value="{{ inv.roi_neto_inversor|default:inv.roi_neto|default:'' }}">
+                            <input type="hidden" name="inversor.beneficio_neto" id="inv_beneficio_neto_base" value="{{ inv.beneficio_neto|default:'' }}">
+                            <input type="hidden" name="inversor.roi_neto" id="inv_roi_neto_base" value="{{ inv.roi_neto|default:'' }}">
                             <div class="form-text mt-2">
                                 La comisión se calcula sobre el beneficio bruto y se descuenta del beneficio del inversor.
                             </div>
@@ -823,8 +835,17 @@
                                             <div id="docToolsUpload" class="accordion-collapse collapse show" data-bs-parent="#docToolsAccordion">
                                                 <div class="accordion-body">
                                                     <div class="mb-3">
-                                                        <label class="form-label">Título</label>
-                                                        <input type="text" id="doc_titulo" class="form-control" placeholder="Ej. Escritura de compra">
+                                                        <label class="form-label">Tipo de documento</label>
+                                                        <select id="doc_titulo" class="form-select">
+                                                            <option value="escritura">Escritura</option>
+                                                            <option value="ficha_catastral">Ficha catastral</option>
+                                                            <option value="certificado_valor">Certificado valor escritura</option>
+                                                            <option value="comunidad">Comunidad</option>
+                                                            <option value="ibi">IBI</option>
+                                                            <option value="nota_simple">Nota simple</option>
+                                                            <option value="otros">Otros</option>
+                                                        </select>
+                                                        <input type="text" id="doc_titulo_otro" class="form-control mt-2 d-none" placeholder="Especifica el nombre del documento">
                                                     </div>
                                                     <div class="mb-3">
                                                         <label class="form-label">Categoría</label>
