@@ -2241,7 +2241,15 @@ def clientes_form(request):
             dni_cif = _normalizar_dni_cif(data.get("dni_cif"))
             if not _validar_dni_cif(dni_cif):
                 messages.error(request, "DNI/NIE/CIF no es válido.")
-                return render(request, "core/clientes_form.html", {"titulo": "Nuevo cliente"})
+                return render(
+                    request,
+                    "core/clientes_form.html",
+                    {
+                        "titulo": "Nuevo cliente",
+                        "form_data": data,
+                        "dni_cif_error": "DNI/NIE/CIF no es válido.",
+                    },
+                )
             kwargs = {
                 "tipo_persona": data.get("tipo_persona") or "F",
                 "nombre": (data.get("nombre") or "").strip(),
@@ -2274,7 +2282,16 @@ def cliente_edit(request, cliente_id: int):
             dni_cif = _normalizar_dni_cif(data.get("dni_cif"))
             if not _validar_dni_cif(dni_cif):
                 messages.error(request, "DNI/NIE/CIF no es válido.")
-                return render(request, "core/clientes_form.html", {"titulo": "Editar cliente", "cliente": cliente})
+                return render(
+                    request,
+                    "core/clientes_form.html",
+                    {
+                        "titulo": "Editar cliente",
+                        "cliente": cliente,
+                        "form_data": data,
+                        "dni_cif_error": "DNI/NIE/CIF no es válido.",
+                    },
+                )
             cliente.tipo_persona = data.get("tipo_persona") or cliente.tipo_persona
             cliente.nombre = (data.get("nombre") or "").strip()
             cliente.dni_cif = dni_cif
