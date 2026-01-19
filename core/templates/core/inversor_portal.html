@@ -86,8 +86,8 @@
     color: #0b1523;
   }
   .donut {
-    width: 140px;
-    height: 140px;
+    width: 170px;
+    height: 170px;
     border-radius: 50%;
     background: conic-gradient(#0f1d2e 0 0, #e2e8f0 0 100%);
     display: grid;
@@ -95,20 +95,27 @@
     margin: 0 auto;
   }
   .donut-inner {
-    width: 100px;
-    height: 100px;
+    width: 120px;
+    height: 120px;
     border-radius: 50%;
     background: #fff;
-    display: grid;
-    place-items: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
     text-align: center;
     font-size: 12px;
     color: #475569;
   }
   .donut-inner strong {
     display: block;
-    font-size: 16px;
+    font-size: 18px;
     color: #0b1523;
+  }
+  .donut-label {
+    display: block;
+    font-size: 12px;
+    color: #64748b;
   }
 </style>
 
@@ -220,7 +227,7 @@
               <th class="text-end">% participación</th>
               <th class="text-end">Beneficio bruto</th>
               <th class="text-end">Comisión Inversure</th>
-              <th class="text-end">Beneficio neto</th>
+              <th class="text-end">Beneficio neto total proyecto</th>
               <th class="text-end">Mi beneficio</th>
               <th class="text-end">Retención 19%</th>
               <th class="text-end">Neto a cobrar</th>
@@ -351,7 +358,7 @@
         <div class="donut" id="beneficioDonut" data-total="{{ total_beneficio }}" data-retencion="{{ total_retencion }}">
           <div class="donut-inner">
             <strong>{{ total_beneficio|floatformat:2|intcomma }} €</strong>
-            Neto acumulado
+            <span class="donut-label">Neto acumulado</span>
           </div>
         </div>
         <div class="mt-3 small text-muted">
