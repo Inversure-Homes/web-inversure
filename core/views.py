@@ -4689,17 +4689,17 @@ def proyecto_participaciones(request, proyecto_id: int):
             kpis = snap.get("kpis") if isinstance(snap.get("kpis"), dict) else {}
             metricas = kpis.get("metricas") if isinstance(kpis.get("metricas"), dict) else {}
             if capital_objetivo <= 0:
-            capital_objetivo = (
-                economico.get("valor_adquisicion_total")
-                or economico.get("valor_adquisicion")
-                or metricas.get("valor_adquisicion_total")
-                or metricas.get("valor_adquisicion")
-                or inversor.get("capital_objetivo")
-                or inversor.get("objetivo")
-                or inversor.get("inversion_total")
-                or metricas.get("inversion_total")
-                or 0
-            )
+                capital_objetivo = (
+                    economico.get("valor_adquisicion_total")
+                    or economico.get("valor_adquisicion")
+                    or metricas.get("valor_adquisicion_total")
+                    or metricas.get("valor_adquisicion")
+                    or inversor.get("capital_objetivo")
+                    or inversor.get("objetivo")
+                    or inversor.get("inversion_total")
+                    or metricas.get("inversion_total")
+                    or 0
+                )
                 capital_objetivo = _parse_decimal(capital_objetivo) or Decimal("0")
             if capital_objetivo <= 0:
                 capital_objetivo = _parse_decimal(
