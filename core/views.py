@@ -3425,6 +3425,13 @@ def proyecto(request, proyecto_id: int):
     except Exception:
         ctx["participaciones"] = []
     try:
+        ctx["solicitudes_pendientes_count"] = SolicitudParticipacion.objects.filter(
+            proyecto=proyecto_obj,
+            estado="pendiente",
+        ).count()
+    except Exception:
+        ctx["solicitudes_pendientes_count"] = 0
+    try:
         documentos = list(DocumentoProyecto.objects.filter(proyecto=proyecto_obj).order_by("-creado", "-id"))
         use_signed = False
         try:

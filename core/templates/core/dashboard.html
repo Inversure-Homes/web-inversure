@@ -18,6 +18,15 @@
         </div>
       </div>
 
+      {% if pending_solicitudes_count %}
+      <div class="alert alert-warning d-flex align-items-center justify-content-between mt-3 mb-0" role="alert">
+        <div>
+          <strong>{{ pending_solicitudes_count }}</strong> solicitudes de inversión pendientes de revisión.
+        </div>
+        <a class="btn btn-sm btn-outline-dark" href="{% url 'core:inversores_list' %}">Revisar</a>
+      </div>
+      {% endif %}
+
       <div class="dashboard-kpis">
         <div class="kpi-card">
           <div class="kpi-icon"><i class="bi bi-people"></i></div>

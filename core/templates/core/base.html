@@ -33,7 +33,17 @@
                  style="height:56px;width:auto;">
         </a>
         {% if user.is_authenticated %}
-        <a href="{% url 'accounts:logout' %}" class="btn btn-outline-light btn-sm">Salir</a>
+        <div class="d-flex align-items-center gap-2">
+            {% if pending_solicitudes_count %}
+            <a href="{% url 'core:inversores_list' %}" class="btn btn-outline-light btn-sm position-relative" aria-label="Solicitudes pendientes">
+                <i class="bi bi-bell"></i>
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                    {{ pending_solicitudes_count }}
+                </span>
+            </a>
+            {% endif %}
+            <a href="{% url 'accounts:logout' %}" class="btn btn-outline-light btn-sm">Salir</a>
+        </div>
         {% endif %}
     </div>
 </header>

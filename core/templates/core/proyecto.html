@@ -793,6 +793,14 @@
 
                     <div class="mt-4">
                         <h6 class="mb-2">Solicitudes pendientes</h6>
+                        {% if solicitudes_pendientes_count %}
+                            <div class="alert alert-warning d-flex align-items-center justify-content-between py-2" role="alert">
+                                <div>
+                                    <strong>{{ solicitudes_pendientes_count }}</strong> solicitudes esperando revisión.
+                                </div>
+                                <a class="btn btn-sm btn-outline-dark" href="{% url 'core:inversores_list' %}">Ver inversores</a>
+                            </div>
+                        {% endif %}
                         <div class="table-responsive">
                             <table class="table table-sm align-middle">
                                 <thead>
