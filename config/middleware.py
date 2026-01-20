@@ -21,7 +21,8 @@ class MaintenanceModeMiddleware:
             )
             if request.path.startswith(allowed_prefixes):
                 return self.get_response(request)
-            if request.user.is_authenticated:
+            user = getattr(request, "user", None)
+            if getattr(user, "is_authenticated", False) and getattr(user, "is_staff", False):
                 return self.get_response(request)
             return redirect(maintenance_path)
         return self.get_response(request)
