@@ -1032,15 +1032,6 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
         elif valor_transmision > 0 or valor_adquisicion > 0:
             beneficio = valor_transmision - valor_adquisicion
 
-    # Si el snapshot trae valores, los tratamos como fuente principal
-    if snap_valor_adq is not None and snap_valor_adq > 0:
-        valor_adquisicion = snap_valor_adq
-    if snap_valor_trans is not None and snap_valor_trans > 0:
-        valor_transmision = snap_valor_trans
-    if snap_beneficio is not None:
-        beneficio = snap_beneficio
-    elif (snap_valor_adq is not None or snap_valor_trans is not None) and (valor_transmision > 0 or valor_adquisicion > 0):
-        beneficio = valor_transmision - valor_adquisicion
     roi = float(beneficio / valor_adquisicion * 100) if valor_adquisicion > 0 else 0.0
     ratio_euro = float(beneficio / valor_adquisicion) if valor_adquisicion > 0 else 0.0
     margen_pct = float(beneficio / valor_transmision * 100) if valor_transmision > 0 else 0.0
