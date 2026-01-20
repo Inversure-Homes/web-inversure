@@ -24,9 +24,21 @@
             <img class="hero__panel-image" src="{% static hero.panel_image %}" alt="Proyecto">
             <div class="hero__panel-card">
               <h4>{{ hero.panel_title }}</h4>
-              <p>{{ hero.panel_text }}</p>
-              <div class="hero__bar"><span></span></div>
-              <small>{{ hero.panel_footer }}</small>
+              {% if hero.panel_stats %}
+                <div class="hero__panel-stats">
+                  {% for stat in hero.panel_stats %}
+                    <div class="hero__panel-stat">
+                      <span>{{ stat.label }}</span>
+                      <strong>{{ stat.value }}</strong>
+                    </div>
+                  {% endfor %}
+                </div>
+                <small>{{ hero.panel_footer }}</small>
+              {% else %}
+                <p>{{ hero.panel_text }}</p>
+                <div class="hero__bar"><span></span></div>
+                <small>{{ hero.panel_footer }}</small>
+              {% endif %}
             </div>
           </div>
         </div>

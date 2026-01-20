@@ -176,6 +176,26 @@ body.landing-body {
   margin-top: 20px;
 }
 
+.hero__panel-stats {
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.hero__panel-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 14px;
+  color: #5b6675;
+}
+
+.hero__panel-stat strong {
+  font-size: 18px;
+  color: var(--ink);
+}
+
 .hero__bar {
   height: 8px;
   border-radius: 999px;

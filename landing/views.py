@@ -58,9 +58,9 @@ def landing_home(request):
             {"value": "100", "label": "trazabilidad documental"},
             {"value": "24h", "label": "tiempo de respuesta"},
         ],
-        "panel_title": "Estado del proyecto",
-        "panel_text": "Documento, gastos y retornos alineados para comité.",
-        "panel_footer": "Progreso operativo actualizado",
+        "panel_title": "Desviación estimado vs real",
+        "panel_text": "",
+        "panel_footer": "Resultados del portfolio",
     }
     secciones = [
         {
@@ -168,6 +168,12 @@ def landing_home(request):
     dashboard_ctx = _build_dashboard_context(request.user)
     dashboard_stats = dashboard_ctx.get("dashboard_stats", {})
     dashboard_stats_fmt = dashboard_ctx.get("dashboard_stats_fmt", {})
+    beneficio_deviation = dashboard_ctx.get("beneficio_deviation_chart", [])
+    total_estimado = sum(_as_float(item.get("estimado"), 0.0) for item in beneficio_deviation)
+    total_real = sum(_as_float(item.get("real"), 0.0) for item in beneficio_deviation)
+    desviacion_pct = None
+    if total_estimado:
+        desviacion_pct = (total_real - total_estimado) / total_estimado * 100.0
 
     estadisticas = [
         {
@@ -181,24 +187,31 @@ def landing_home(request):
             "detail": "capital actualmente invertido",
         },
         {
-            "label": "Capital acumulado",
-            "value": dashboard_stats_fmt.get("capital_acumulado", "—"),
-            "detail": "aportaciones históricas",
-        },
-        {
             "label": "Operaciones",
             "value": _fmt_int(dashboard_stats.get("operaciones")),
             "detail": "proyectos registrados",
         },
         {
-            "label": "Beneficio total generado",
-            "value": dashboard_stats_fmt.get("beneficio_total", "—"),
-            "detail": "resultado acumulado",
+            "label": "Desviación estimado vs real",
+            "value": _fmt_pct(desviacion_pct),
+            "detail": "sobre beneficio estimado",
+        },
+        {
+            "label": "Beneficio acumulado",
+            "value": dashboard_stats_fmt.get("beneficio_cerrado_roi_neto_total", "—"),
+            "detail": "ROI neto total",
         },
         {
             "label": "Beneficio medio por operación",
-            "value": dashboard_stats_fmt.get("beneficio_medio", "—"),
-            "detail": "media histórica",
+            "value": dashboard_stats_fmt.get("beneficio_cerrado_roi_neto_medio", "—"),
+            "detail": "ROI neto medio",
+        },
+    ]
+    hero["panel_stats"] = [
+        {"label": "Desviación", "value": _fmt_pct(desviacion_pct)},
+        {
+            "label": "ROI neto acumulado",
+            "value": dashboard_stats_fmt.get("beneficio_cerrado_roi_neto_total", "—"),
         },
     ]
     quienes_somos = {
