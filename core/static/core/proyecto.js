@@ -1948,9 +1948,9 @@ function bindMemoriaEconomica() {
           <td class="text-end">${fmtEuroLocal(r.importe)}</td>
           <td>${r.estado ? _capFirst(r.estado) : "-"}</td>
           <td class="text-end">
-            ${canConfirm ? `<button type="button" class="btn btn-sm btn-outline-success me-1 eco-confirm">Confirmar</button>` : ""}
-            <button type="button" class="btn btn-sm btn-outline-secondary eco-edit">Editar</button>
-            <button type="button" class="btn btn-sm btn-outline-danger eco-del">Borrar</button>
+            ${canConfirm ? `<button type="button" class="btn btn-sm btn-outline-success me-1 eco-confirm" title="Confirmar" aria-label="Confirmar"><i class="bi bi-check2-circle"></i></button>` : ""}
+            <button type="button" class="btn btn-sm btn-outline-secondary me-1 eco-edit" title="Editar" aria-label="Editar"><i class="bi bi-pencil"></i></button>
+            <button type="button" class="btn btn-sm btn-outline-danger eco-del" title="Borrar" aria-label="Borrar"><i class="bi bi-trash"></i></button>
           </td>
         </tr>
       `;
@@ -2083,12 +2083,12 @@ function bindMemoriaEconomica() {
 
     if (tipo === "gasto") {
       payload.categoria = (elCategoria && elCategoria.value) || "otros";
-      payload.estado = (elEstado && elEstado.value) || "estimado";
+      payload.estado = "estimado";
       payload.imputable_inversores = (elImputable && elImputable.value === "1");
       payload.observaciones = (elObs && elObs.value) || "";
     } else {
       payload.tipo = (elTipoIngreso && elTipoIngreso.value) || "venta";
-      payload.estado = (elEstado && elEstado.value) || "estimado";
+      payload.estado = "estimado";
       payload.imputable_inversores = (elImputable && elImputable.value === "1");
       payload.observaciones = (elObs && elObs.value) || "";
     }
@@ -2573,7 +2573,7 @@ function bindSolicitudes() {
         const acciones = canAct
           ? `<button type="button" class="btn btn-sm btn-outline-success sol-aprobar">Aprobar</button>
              <button type="button" class="btn btn-sm btn-outline-danger sol-rechazar">Rechazar</button>`
-          : `<span class="text-muted small">Sin acciones</span>`;
+          : "";
         return `
           <tr data-id="${r.id}">
             <td>${r.cliente_nombre}</td>
@@ -2581,9 +2581,7 @@ function bindSolicitudes() {
             <td>${fecha}</td>
             <td>${r.estado}</td>
             <td>${decisionLabel}</td>
-            <td class="text-end">
-              ${acciones}
-            </td>
+            <td class="text-end">${acciones}</td>
           </tr>
         `;
       }).join("");
@@ -2597,11 +2595,13 @@ function bindSolicitudes() {
     const tr = e.target.closest("tr");
     const id = tr.getAttribute("data-id");
     if (!id) return;
+    if (tr.dataset.busy === "1") return;
     const estado = btnAprobar ? "aprobada" : "rechazada";
     const actionLabel = btnAprobar ? "aprobar" : "rechazar";
     if (!confirm(`¿Confirmar ${actionLabel} esta solicitud?`)) {
       return;
     }
+    tr.dataset.busy = "1";
     const resp = await fetch(`${url}${id}/`, {
       method: "PATCH",
       headers: {
@@ -2610,6 +2610,7 @@ function bindSolicitudes() {
       },
       body: JSON.stringify({ estado, confirm: true }),
     });
+    tr.dataset.busy = "0";
     if (!resp.ok) {
       alert("No se pudo actualizar la solicitud.");
       return;
