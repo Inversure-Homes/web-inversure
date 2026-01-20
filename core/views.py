@@ -956,6 +956,42 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
     snap_kpis = snapshot.get("kpis") if isinstance(snapshot.get("kpis"), dict) else {}
     snap_met = snap_kpis.get("metricas") if isinstance(snap_kpis.get("metricas"), dict) else {}
 
+    snap_valor_adq = _parse_decimal(
+        snap_econ.get("valor_adquisicion_total")
+        or snap_econ.get("valor_adquisicion")
+        or snap_met.get("valor_adquisicion_total")
+        or snap_met.get("valor_adquisicion")
+        or ""
+    )
+    snap_valor_trans = _parse_decimal(
+        snap_econ.get("valor_transmision")
+        or snap_econ.get("precio_transmision")
+        or snap_econ.get("valor_transmision_estimado")
+        or snap_econ.get("precio_venta_estimado")
+        or snap_econ.get("venta_estimada")
+        or snap_met.get("valor_transmision")
+        or snap_met.get("precio_transmision")
+        or snap_met.get("valor_transmision_estimado")
+        or ""
+    )
+    snap_beneficio = _parse_decimal(
+        snap_econ.get("beneficio_bruto")
+        or snap_econ.get("beneficio_neto")
+        or snap_econ.get("beneficio")
+        or snap_met.get("beneficio_bruto")
+        or snap_met.get("beneficio_neto")
+        or snap_met.get("beneficio")
+        or ""
+    )
+    snap_gastos_venta = _sum_importes(
+        [
+            _parse_decimal(snap_econ.get("plusvalia")),
+            _parse_decimal(snap_econ.get("inmobiliaria")),
+            _parse_decimal(snap_econ.get("gestion_comercial")),
+            _parse_decimal(snap_econ.get("gestion_administracion")),
+        ]
+    )
+
     base_precio = (
         proyecto.precio_compra_inmueble
         or proyecto.precio_propiedad
@@ -964,19 +1000,47 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
         or Decimal("0")
     )
 
-    valor_adquisicion = base_precio + gastos_adq_base
-    venta_snapshot = _parse_decimal(
-        snap_econ.get("venta_estimada")
-        or snap_econ.get("valor_transmision")
-        or snap_met.get("venta_estimada")
-        or snap_met.get("valor_transmision")
-        or ""
-    ) or Decimal("0")
+    no_movimientos = ingresos_est == 0 and ingresos_real == 0 and gastos_est == 0 and gastos_real == 0
+
+    if no_movimientos and snap_valor_adq is not None and snap_valor_adq > 0:
+        valor_adquisicion = snap_valor_adq
+    else:
+        valor_adquisicion = base_precio + gastos_adq_base
+
+    venta_snapshot = (
+        snap_valor_trans
+        or _parse_decimal(
+            snap_econ.get("venta_estimada")
+            or snap_econ.get("valor_transmision")
+            or snap_met.get("venta_estimada")
+            or snap_met.get("valor_transmision")
+            or ""
+        )
+        or Decimal("0")
+    )
     if venta_base > 0:
         valor_transmision = venta_base - gastos_venta_base
     else:
         valor_transmision = venta_snapshot
 
+    if no_movimientos and gastos_venta_base == 0 and snap_gastos_venta > 0:
+        gastos_venta_base = snap_gastos_venta
+
+    if no_movimientos:
+        if snap_beneficio is not None:
+            beneficio = snap_beneficio
+        elif valor_transmision > 0 or valor_adquisicion > 0:
+            beneficio = valor_transmision - valor_adquisicion
+
+    # Si el snapshot trae valores, los tratamos como fuente principal
+    if snap_valor_adq is not None and snap_valor_adq > 0:
+        valor_adquisicion = snap_valor_adq
+    if snap_valor_trans is not None and snap_valor_trans > 0:
+        valor_transmision = snap_valor_trans
+    if snap_beneficio is not None:
+        beneficio = snap_beneficio
+    elif (snap_valor_adq is not None or snap_valor_trans is not None) and (valor_transmision > 0 or valor_adquisicion > 0):
+        beneficio = valor_transmision - valor_adquisicion
     roi = float(beneficio / valor_adquisicion * 100) if valor_adquisicion > 0 else 0.0
     ratio_euro = float(beneficio / valor_adquisicion) if valor_adquisicion > 0 else 0.0
     margen_pct = float(beneficio / valor_transmision * 100) if valor_transmision > 0 else 0.0
