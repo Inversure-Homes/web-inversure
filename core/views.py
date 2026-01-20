@@ -1090,6 +1090,29 @@ def _capital_objetivo_desde_memoria(proyecto: Proyecto, snapshot: dict | None = 
     return capital_objetivo
 
 
+def _beneficio_estimado_real_memoria(proyecto: Proyecto) -> dict:
+    gastos = list(GastoProyecto.objects.filter(proyecto=proyecto))
+    ingresos = list(IngresoProyecto.objects.filter(proyecto=proyecto))
+
+    def _sum_importes(items):
+        total = Decimal("0")
+        for item in items:
+            if item is None:
+                continue
+            total += item
+        return total
+
+    ingresos_estimados = _sum_importes([i.importe for i in ingresos if i.estado == "estimado"])
+    ingresos_reales = _sum_importes([i.importe for i in ingresos if i.estado == "confirmado"])
+    gastos_estimados = _sum_importes([g.importe for g in gastos if g.estado == "estimado"])
+    gastos_reales = _sum_importes([g.importe for g in gastos if g.estado == "confirmado"])
+
+    return {
+        "beneficio_estimado": float((ingresos_estimados - gastos_estimados) or 0),
+        "beneficio_real": float((ingresos_reales - gastos_reales) or 0),
+    }
+
+
 def _fmt_es_number(x: float, decimals: int = 2) -> str:
     # 12,345.67 -> 12.345,67
     s = f"{x:,.{decimals}f}"
@@ -1746,13 +1769,15 @@ def _build_dashboard_context(user):
             abierto_bruto += beneficio_bruto
             abierto_neto += beneficio_neto
 
-        beneficio_estimado_base = getattr(proyecto, "beneficio_estimado_base", None)
-        if beneficio_estimado_base not in (None, ""):
+        memoria_benef = _beneficio_estimado_real_memoria(proyecto)
+        beneficio_estimado = memoria_benef.get("beneficio_estimado", 0.0)
+        beneficio_real = memoria_benef.get("beneficio_real", 0.0)
+        if beneficio_estimado or beneficio_real:
             beneficio_deviation.append(
                 {
                     "nombre": proyecto.nombre or f"Proyecto {proyecto.id}",
-                    "estimado": float(beneficio_estimado_base or 0.0),
-                    "real": float(beneficio_bruto or 0.0),
+                    "estimado": float(beneficio_estimado or 0.0),
+                    "real": float(beneficio_real or 0.0),
                 }
             )
 
@@ -3879,19 +3904,6 @@ def guardar_proyecto(request, proyecto_id: int):
         proyecto_obj.mostrar_en_landing = bool(mostrar_landing_raw)
         update_fields.append("mostrar_en_landing")
 
-    beneficio_estimado_base_raw = payload_proyecto.get(
-        "beneficio_estimado_base",
-        payload.get("beneficio_estimado_base"),
-    )
-    if beneficio_estimado_base_raw not in (None, ""):
-        try:
-            beneficio_estimado_base_val = _parse_decimal(beneficio_estimado_base_raw)
-            if beneficio_estimado_base_val is not None:
-                proyecto_obj.beneficio_estimado_base = beneficio_estimado_base_val
-                update_fields.append("beneficio_estimado_base")
-        except Exception:
-            pass
-
     if update_fields:
         try:
             proyecto_obj.save(update_fields=list(set(update_fields)))
@@ -4077,17 +4089,6 @@ def convertir_a_proyecto(request, estudio_id: int):
         if _has_field(Proyecto, "estado"):
             # estado inicial del proyecto
             proyecto_kwargs["estado"] = "captacion"
-        if _has_field(Proyecto, "beneficio_estimado_base"):
-            beneficio_base = (
-                metricas_estudio.get("beneficio_estimado")
-                if isinstance(metricas_estudio, dict)
-                else None
-            )
-            if beneficio_base is None and isinstance(metricas_estudio, dict):
-                beneficio_base = metricas_estudio.get("beneficio_bruto")
-            if beneficio_base is not None:
-                proyecto_kwargs["beneficio_estimado_base"] = beneficio_base
-
         proyecto = Proyecto.objects.create(**proyecto_kwargs)
 
         # 3) Bloquear el estudio

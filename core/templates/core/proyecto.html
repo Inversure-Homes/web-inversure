@@ -581,13 +581,7 @@
             <button type="button" class="btn btn-inversure btn-sm w-100 text-nowrap" id="eco_add_btn">Añadir</button>
             <button type="button" class="btn btn-link btn-sm w-100 text-nowrap d-none" id="eco_cancel_btn">Cancelar</button>
           </div>
-          <div class="col-md-2">
-            <label class="form-label">Estado</label>
-            <select class="form-select" id="eco_estado">
-              <option value="estimado" selected>Estimado</option>
-              <option value="confirmado">Real</option>
-            </select>
-          </div>
+          <input type="hidden" id="eco_estado" value="estimado">
           <div class="col-md-2">
             <label class="form-label">Imputable inversores</label>
             <select class="form-select" id="eco_imputable">
@@ -621,6 +615,9 @@
               <div class="fw-bold" id="eco_balance_neto">—</div>
             </div>
           </div>
+        </div>
+        <div class="small text-muted mt-2">
+          Todos los asientos se crean como estimados. Usa “Confirmar” en la tabla para marcar el importe final.
         </div>
 
         <div class="table-responsive mt-3">
@@ -716,17 +713,6 @@
                             <input type="hidden" name="inversor.roi_neto" id="inv_roi_neto_base" value="{{ inv.roi_neto|default:'' }}">
                             <div class="form-text mt-2">
                                 La comisión se calcula sobre el beneficio bruto y se descuenta del beneficio del inversor.
-                            </div>
-                            <div class="row g-3 mt-2">
-                                <div class="col-md-4">
-                                    <label class="form-label">Beneficio estimado base (€)</label>
-                                    <input type="text"
-                                           class="form-control"
-                                           name="proyecto.beneficio_estimado_base"
-                                           data-euro="true"
-                                           value="{{ proyecto.beneficio_estimado_base|default:metricas.beneficio_estimado|default:'' }}"
-                                           {% if not editable %}disabled{% endif %}>
-                                </div>
                             </div>
                         </div>
                     </div>
