@@ -1077,6 +1077,20 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
     }
 
 
+def _capital_objetivo_desde_adquisicion(proyecto: Proyecto, snapshot: dict | None = None) -> float:
+    snap = snapshot if isinstance(snapshot, dict) else {}
+    resultado = _resultado_desde_memoria(proyecto, snap)
+    capital_objetivo = _safe_float(resultado.get("valor_adquisicion"), 0.0)
+    if capital_objetivo <= 0:
+        capital_objetivo = _safe_float(
+            getattr(proyecto, "precio_compra_inmueble", None)
+            or getattr(proyecto, "precio_propiedad", None)
+            or 0.0,
+            0.0,
+        )
+    return capital_objetivo
+
+
 def _fmt_es_number(x: float, decimals: int = 2) -> str:
     # 12,345.67 -> 12.345,67
     s = f"{x:,.{decimals}f}"
@@ -2090,21 +2104,8 @@ def lista_proyectos(request):
         kpis = snap.get("kpis") if isinstance(snap.get("kpis"), dict) else {}
         metricas = kpis.get("metricas") if isinstance(kpis.get("metricas"), dict) else {}
 
-        # Capital objetivo (lo que realmente se invierte)
-        capital_objetivo = (
-            inversor.get("inversion_total")
-            or metricas.get("inversion_total")
-            or metricas.get("valor_adquisicion_total")
-            or metricas.get("valor_adquisicion")
-            or economico.get("valor_adquisicion")
-            or metricas.get("precio_adquisicion")
-            or metricas.get("precio_compra")
-            or 0
-        )
-        capital_objetivo = _as_float(capital_objetivo, 0.0)
-        gastos_reales = gastos_reales_map.get(p.id, 0.0)
-        if gastos_reales > 0:
-            capital_objetivo = gastos_reales
+        # Capital objetivo: siempre valor de adquisición
+        capital_objetivo = _capital_objetivo_desde_adquisicion(p, snap)
 
         # Capital captado: suma de participaciones reales del proyecto
         capital_captado = Participacion.objects.filter(
@@ -2198,20 +2199,8 @@ def lista_proyectos_cerrados(request):
         kpis = snap.get("kpis") if isinstance(snap.get("kpis"), dict) else {}
         metricas = kpis.get("metricas") if isinstance(kpis.get("metricas"), dict) else {}
 
-        capital_objetivo = (
-            inversor.get("inversion_total")
-            or metricas.get("inversion_total")
-            or metricas.get("valor_adquisicion_total")
-            or metricas.get("valor_adquisicion")
-            or economico.get("valor_adquisicion")
-            or metricas.get("precio_adquisicion")
-            or metricas.get("precio_compra")
-            or 0
-        )
-        capital_objetivo = _as_float(capital_objetivo, 0.0)
-        gastos_reales = gastos_reales_map.get(p.id, 0.0)
-        if gastos_reales > 0:
-            capital_objetivo = gastos_reales
+        # Capital objetivo: siempre valor de adquisición
+        capital_objetivo = _capital_objetivo_desde_adquisicion(p, snap)
 
         capital_captado = Participacion.objects.filter(
             proyecto=p, estado="confirmada"
@@ -2817,15 +2806,6 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
         visible_ids = []
 
     candidatos_ids = list(proyectos_candidatos.values_list("id", flat=True))
-    gastos_reales_map = {}
-    if candidatos_ids:
-        for row in (
-            GastoProyecto.objects.filter(proyecto_id__in=candidatos_ids, estado="confirmado")
-            .values("proyecto_id")
-            .annotate(total=Sum("importe"))
-        ):
-            gastos_reales_map[row["proyecto_id"]] = float(row.get("total") or 0.0)
-
     captado_map = {}
     if candidatos_ids:
         for row in (
@@ -2838,28 +2818,9 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
     proyectos_abiertos = []
     for p in proyectos_candidatos:
         snap = _get_snapshot(p)
-        economico = snap.get("economico") if isinstance(snap.get("economico"), dict) else {}
-        inversor = snap.get("inversor") if isinstance(snap.get("inversor"), dict) else {}
-        kpis = snap.get("kpis") if isinstance(snap.get("kpis"), dict) else {}
-        metricas = kpis.get("metricas") if isinstance(kpis.get("metricas"), dict) else {}
 
-        capital_objetivo = (
-            inversor.get("inversion_total")
-            or metricas.get("inversion_total")
-            or metricas.get("valor_adquisicion_total")
-            or metricas.get("valor_adquisicion")
-            or economico.get("valor_adquisicion")
-            or metricas.get("precio_adquisicion")
-            or metricas.get("precio_compra")
-            or 0
-        )
-        try:
-            capital_objetivo = float(capital_objetivo or 0.0)
-        except Exception:
-            capital_objetivo = 0.0
-        gastos_reales = gastos_reales_map.get(p.id, 0.0)
-        if gastos_reales > 0:
-            capital_objetivo = gastos_reales
+        # Capital objetivo: siempre valor de adquisición
+        capital_objetivo = _capital_objetivo_desde_adquisicion(p, snap)
 
         capital_captado = captado_map.get(p.id, 0.0)
 
@@ -3093,22 +3054,7 @@ def inversor_solicitar(request, token: str, proyecto_id: int):
         sd = getattr(proyecto, "snapshot_datos", None)
         if isinstance(sd, dict):
             snap = sd
-        inv_sec = snap.get("inversor") if isinstance(snap.get("inversor"), dict) else {}
-        eco_sec = snap.get("economico") if isinstance(snap.get("economico"), dict) else {}
-        kpis_sec = snap.get("kpis") if isinstance(snap.get("kpis"), dict) else {}
-        met_sec = kpis_sec.get("metricas") if isinstance(kpis_sec.get("metricas"), dict) else {}
-
-        capital_objetivo = (
-            inv_sec.get("inversion_total")
-            or met_sec.get("inversion_total")
-            or met_sec.get("valor_adquisicion_total")
-            or met_sec.get("valor_adquisicion")
-            or eco_sec.get("valor_adquisicion")
-            or met_sec.get("precio_adquisicion")
-            or met_sec.get("precio_compra")
-            or 0
-        )
-        capital_objetivo = _safe_float(capital_objetivo, 0.0)
+        capital_objetivo = _capital_objetivo_desde_adquisicion(proyecto, snap)
 
         captado = Participacion.objects.filter(
             proyecto=proyecto, estado="confirmada"
@@ -3335,22 +3281,11 @@ def proyecto(request, proyecto_id: int):
     # Objetivo: lo que se pretende captar (normalmente la inversión total)
     try:
         inv_sec = snapshot.get("inversor") if isinstance(snapshot.get("inversor"), dict) else {}
-        eco_sec = snapshot.get("economico") if isinstance(snapshot.get("economico"), dict) else {}
         kpis_sec = snapshot.get("kpis") if isinstance(snapshot.get("kpis"), dict) else {}
         met_sec = kpis_sec.get("metricas") if isinstance(kpis_sec.get("metricas"), dict) else {}
 
-        # Capital objetivo (prioridad)
-        capital_objetivo = _safe_float(
-            eco_sec.get("valor_adquisicion_total")
-            or eco_sec.get("valor_adquisicion")
-            or met_sec.get("valor_adquisicion_total")
-            or met_sec.get("valor_adquisicion")
-            or inv_sec.get("capital_objetivo")
-            or inv_sec.get("objetivo")
-            or inv_sec.get("inversion_total")
-            or met_sec.get("inversion_total"),
-            0.0,
-        )
+        # Capital objetivo: siempre valor de adquisición
+        capital_objetivo = _capital_objetivo_desde_adquisicion(proyecto_obj, snapshot)
 
         # Capital captado: suma de participaciones confirmadas (si existe el módulo)
         capital_captado_db = Participacion.objects.filter(
@@ -3371,16 +3306,6 @@ def proyecto(request, proyecto_id: int):
         )
         if capital_captado_db > 0:
             capital_captado = capital_captado_db
-
-        # Fallback si no hay objetivo en snapshot: usar resultado o valores del proyecto
-        if capital_objetivo <= 0:
-            capital_objetivo = _safe_float(
-                resultado.get("valor_adquisicion")
-                or getattr(proyecto_obj, "precio_compra_inmueble", None)
-                or getattr(proyecto_obj, "precio_propiedad", None)
-                or 0.0,
-                0.0,
-            )
 
         # Normalizar
         if capital_objetivo < 0:
@@ -4837,31 +4762,9 @@ def proyecto_participaciones(request, proyecto_id: int):
     if request.method == "GET":
         capital_objetivo = Decimal("0")
         try:
-            capital_objetivo = _parse_decimal(getattr(proyecto, "capital_objetivo", None)) or Decimal("0")
             snap = getattr(proyecto, "snapshot_datos", {}) or {}
-            economico = snap.get("economico") if isinstance(snap.get("economico"), dict) else {}
-            inversor = snap.get("inversor") if isinstance(snap.get("inversor"), dict) else {}
-            kpis = snap.get("kpis") if isinstance(snap.get("kpis"), dict) else {}
-            metricas = kpis.get("metricas") if isinstance(kpis.get("metricas"), dict) else {}
-            if capital_objetivo <= 0:
-                capital_objetivo = (
-                    economico.get("valor_adquisicion_total")
-                    or economico.get("valor_adquisicion")
-                    or metricas.get("valor_adquisicion_total")
-                    or metricas.get("valor_adquisicion")
-                    or inversor.get("capital_objetivo")
-                    or inversor.get("objetivo")
-                    or inversor.get("inversion_total")
-                    or metricas.get("inversion_total")
-                    or 0
-                )
-                capital_objetivo = _parse_decimal(capital_objetivo) or Decimal("0")
-            if capital_objetivo <= 0:
-                capital_objetivo = _parse_decimal(
-                    getattr(proyecto, "precio_compra_inmueble", None)
-                    or getattr(proyecto, "precio_propiedad", None)
-                    or 0
-                ) or Decimal("0")
+            capital_objetivo = _capital_objetivo_desde_adquisicion(proyecto, snap)
+            capital_objetivo = Decimal(str(capital_objetivo))
         except Exception:
             capital_objetivo = Decimal("0")
 
@@ -4907,16 +4810,8 @@ def proyecto_participaciones(request, proyecto_id: int):
         porcentaje = None
         try:
             snap = getattr(proyecto, "snapshot_datos", {}) or {}
-            economico = snap.get("economico") if isinstance(snap.get("economico"), dict) else {}
-            kpis = snap.get("kpis") if isinstance(snap.get("kpis"), dict) else {}
-            metricas = kpis.get("metricas") if isinstance(kpis.get("metricas"), dict) else {}
-            capital_objetivo = (
-                metricas.get("valor_adquisicion_total")
-                or metricas.get("valor_adquisicion")
-                or economico.get("valor_adquisicion")
-                or 0
-            )
-            capital_objetivo = _parse_decimal(capital_objetivo) or Decimal("0")
+            capital_objetivo = _capital_objetivo_desde_adquisicion(proyecto, snap)
+            capital_objetivo = Decimal(str(capital_objetivo))
             if capital_objetivo > 0:
                 porcentaje = (importe / capital_objetivo) * Decimal("100")
         except Exception:
