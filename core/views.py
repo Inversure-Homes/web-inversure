@@ -3380,6 +3380,7 @@ def proyecto(request, proyecto_id: int):
         "ESTADO_INICIAL_JSON": json.dumps(estado_inicial, ensure_ascii=False),
         "editable": editable,
         "is_admin": is_admin_user(request.user),
+        "can_manage_difusion": is_admin_user(request.user) or use_custom_permissions(request.user),
         "acceso_comercial": bool(getattr(proyecto_obj, "acceso_comercial", False)),
         "proyecto": proyecto_obj,
         "notificar_inversores": notify_flag,
@@ -4983,6 +4984,9 @@ def proyecto_solicitud_detalle(request, proyecto_id: int, solicitud_id: int):
 
 def proyecto_difusion(request, proyecto_id: int):
     if request.method != "POST":
+        return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-inversores")
+    if not (is_admin_user(request.user) or use_custom_permissions(request.user)):
+        messages.error(request, "No tienes permisos para difundir proyectos.")
         return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-inversores")
 
     proyecto = get_object_or_404(Proyecto, id=proyecto_id)

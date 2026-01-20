@@ -173,7 +173,7 @@
                         Notificar automáticamente a inversores
                       </label>
                     </div>
-                    {% if is_admin %}
+                    {% if can_manage_difusion %}
                     <div class="form-check mt-2">
                       <input class="form-check-input" type="checkbox" id="acceso_comercial"
                              name="acceso_comercial" {% if proyecto.acceso_comercial or acceso_comercial %}checked{% endif %}
