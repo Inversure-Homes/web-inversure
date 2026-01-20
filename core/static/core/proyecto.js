@@ -2523,6 +2523,11 @@ function bindSolicitudes() {
         const decisionLabel = r.decision_by
           ? `${r.decision_by}${decisionTime ? " · " + decisionTime : ""}`
           : (decisionTime || "—");
+        const canAct = r.estado === "pendiente";
+        const acciones = canAct
+          ? `<button type="button" class="btn btn-sm btn-outline-success sol-aprobar">Aprobar</button>
+             <button type="button" class="btn btn-sm btn-outline-danger sol-rechazar">Rechazar</button>`
+          : `<span class="text-muted small">Sin acciones</span>`;
         return `
           <tr data-id="${r.id}">
             <td>${r.cliente_nombre}</td>
@@ -2531,8 +2536,7 @@ function bindSolicitudes() {
             <td>${r.estado}</td>
             <td>${decisionLabel}</td>
             <td class="text-end">
-              <button type="button" class="btn btn-sm btn-outline-success sol-aprobar">Aprobar</button>
-              <button type="button" class="btn btn-sm btn-outline-danger sol-rechazar">Rechazar</button>
+              ${acciones}
             </td>
           </tr>
         `;
