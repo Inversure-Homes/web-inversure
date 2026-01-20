@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load humanize %}
+{% load humanize formatting %}
 {% block content %}
 <style>
   :root {
@@ -121,7 +121,7 @@
     <div class="col-md-3">
       <div class="inv-kpi">
         <div class="label">Capital invertido</div>
-        <div class="value">{{ total_invertido|floatformat:2|intcomma }} €</div>
+        <div class="value">{{ total_invertido|es_number }} €</div>
       </div>
     </div>
     <div class="col-md-3">
@@ -213,11 +213,11 @@
         <div class="inv-stats mt-3">
           <div class="inv-stat">
             <div class="label">Total invertido</div>
-            <div class="value">{{ inv.total_invertido|floatformat:2|intcomma }} €</div>
+            <div class="value">{{ inv.total_invertido|es_number }} €</div>
           </div>
           <div class="inv-stat">
             <div class="label">Aportación inicial</div>
-            <div class="value">{{ inv.aportacion_inicial|floatformat:2|intcomma }} €</div>
+            <div class="value">{{ inv.aportacion_inicial|es_number }} €</div>
           </div>
           <div class="inv-stat">
             <div class="label">Proyectos activos</div>
@@ -239,7 +239,7 @@
             <ul class="inv-list">
               {% for p in inv.participaciones_preview %}
                 <li>
-                  {{ p.proyecto.nombre|default:"Proyecto" }} · {{ p.importe_invertido|floatformat:2|intcomma }} €
+                  {{ p.proyecto.nombre|default:"Proyecto" }} · {{ p.importe_invertido|es_number }} €
                 </li>
               {% endfor %}
             </ul>

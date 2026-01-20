@@ -1,6 +1,6 @@
 {% extends "core/base.html" %}
 {% load static %}
-{% load humanize %}
+{% load humanize formatting %}
 {% block content %}
 <div class="inversure-app">
   <section class="inversure-section">
@@ -49,11 +49,11 @@
                 <div class="fw-bold inversure-roi">
                   {% if estudio.roi is not None %}
                     {% if estudio.roi < 0 %}
-                      <span class="text-danger">{{ estudio.roi|floatformat:2 }}%</span>
+                      <span class="text-danger">{{ estudio.roi|es_number }}%</span>
                     {% elif estudio.roi < 12 %}
-                      <span class="text-warning">{{ estudio.roi|floatformat:2 }}%</span>
+                      <span class="text-warning">{{ estudio.roi|es_number }}%</span>
                     {% else %}
-                      <span class="text-success">{{ estudio.roi|floatformat:2 }}%</span>
+                      <span class="text-success">{{ estudio.roi|es_number }}%</span>
                     {% endif %}
                   {% else %}
                     —
@@ -67,7 +67,7 @@
                   <div class="fw-semibold small text-muted" title="Capital total invertido en la operación">Inversión</div>
                   <div class="fw-bold">
                     {% if estudio.valor_adquisicion %}
-                      {{ estudio.valor_adquisicion|floatformat:2|intcomma }} €
+                      {{ estudio.valor_adquisicion|es_number }} €
                     {% else %}
                       —
                     {% endif %}
@@ -79,11 +79,11 @@
                     {% if estudio.beneficio %}
                       {% if estudio.beneficio < 0 %}
                         <span class="text-danger">
-                          {{ estudio.beneficio|floatformat:2|intcomma }} €
+                          {{ estudio.beneficio|es_number }} €
                         </span>
                       {% else %}
                         <span class="text-success">
-                          {{ estudio.beneficio|floatformat:2|intcomma }} €
+                          {{ estudio.beneficio|es_number }} €
                         </span>
                       {% endif %}
                     {% else %}

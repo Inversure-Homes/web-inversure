@@ -84,7 +84,21 @@
     letter-spacing: .04em;
     color: #64748b;
     vertical-align: bottom;
+    white-space: normal;
+    line-height: 1.2;
   }
+  .portal-beneficios-table {
+    table-layout: fixed;
+    width: 100%;
+  }
+  .portal-beneficios-table th,
+  .portal-beneficios-table td {
+    vertical-align: middle;
+  }
+  .portal-beneficios-table .col-proyecto { width: 15%; }
+  .portal-beneficios-table .col-pct { width: 8%; }
+  .portal-beneficios-table .col-money { width: 11%; }
+  .portal-beneficios-table .col-action { width: 11%; }
   .portal-beneficios-table td.text-end,
   .portal-beneficios-table th.text-end {
     font-variant-numeric: tabular-nums;
@@ -159,7 +173,7 @@
     <div class="col-md-3">
       <div class="portal-card">
         <div class="portal-label">Total invertido (confirmado)</div>
-        <div class="portal-kpi">{{ total_invertido|floatformat:2|intcomma }} €</div>
+        <div class="portal-kpi">{{ total_invertido|es_number }} €</div>
       </div>
     </div>
     <div class="col-md-3">
@@ -179,7 +193,7 @@
     <div class="col-md-3">
       <div class="portal-card">
         <div class="portal-label">Beneficio total estimado</div>
-        <div class="portal-kpi">{{ total_beneficio|floatformat:2|intcomma }} €</div>
+        <div class="portal-kpi">{{ total_beneficio|es_number }} €</div>
       </div>
     </div>
   </div>
@@ -196,8 +210,8 @@
                   <div>
                     <strong>{{ p.proyecto.nombre }}</strong>
                     <div class="small text-muted">
-                      Aportación: {{ p.importe_invertido|floatformat:2|intcomma }} €
-                      · Participación: {{ p.porcentaje_participacion|default:0|floatformat:2 }} %
+                      Aportación: {{ p.importe_invertido|es_number }} €
+                      · Participación: {{ p.porcentaje_participacion|default:0|es_number }} %
                     </div>
                   </div>
                   {% if p.estado == "confirmada" %}
@@ -246,65 +260,65 @@
         <table class="table table-sm align-middle portal-beneficios-table">
           <thead>
             <tr>
-              <th>Proyecto</th>
-              <th class="text-end">% participación</th>
-              <th class="text-end">Beneficio bruto</th>
-              <th class="text-end">Comisión Inversure</th>
-              <th class="text-end">Beneficio neto total proyecto</th>
-              <th class="text-end">Mi beneficio</th>
-              <th class="text-end">Retención 19%</th>
-              <th class="text-end">Neto a cobrar</th>
-              <th></th>
+              <th class="col-proyecto">Proyecto</th>
+              <th class="text-end col-pct">% participación</th>
+              <th class="text-end col-money">Beneficio bruto</th>
+              <th class="text-end col-money">Comisión Inversure</th>
+              <th class="text-end col-money">Beneficio neto total proyecto</th>
+              <th class="text-end col-money">Mi beneficio</th>
+              <th class="text-end col-money">Retención 19%</th>
+              <th class="text-end col-money">Neto a cobrar</th>
+              <th class="col-action"></th>
             </tr>
           </thead>
           <tbody>
             {% for b in beneficios_por_proyecto %}
               <tr>
-                <td>{{ b.proyecto.nombre }}</td>
-                <td class="text-end">{{ b.participacion_pct|floatformat:2 }} %</td>
-                <td class="text-end">
+                <td class="col-proyecto">{{ b.proyecto.nombre }}</td>
+                <td class="text-end col-pct">{{ b.participacion_pct|es_number }} %</td>
+                <td class="text-end col-money">
                   {% if internal_view %}
                     <input type="text" name="beneficio_bruto" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.beneficio_bruto|es_number }}">
                   {% else %}
                     {{ b.beneficio_bruto|es_number }} €
                   {% endif %}
                 </td>
-                <td class="text-end">
+                <td class="text-end col-money">
                   {% if internal_view %}
                     <input type="text" name="comision_eur" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.comision_eur|es_number }}">
                   {% else %}
                     {{ b.comision_eur|es_number }} €
                   {% endif %}
                 </td>
-                <td class="text-end">
+                <td class="text-end col-money">
                   {% if internal_view %}
                     <input type="text" name="beneficio_neto_total" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.beneficio_neto_total|es_number }}">
                   {% else %}
                     {{ b.beneficio_neto_total|es_number }} €
                   {% endif %}
                 </td>
-                <td class="text-end">
+                <td class="text-end col-money">
                   {% if internal_view %}
                     <input type="text" name="beneficio_inversor" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.beneficio_inversor|es_number }}">
                   {% else %}
                     {{ b.beneficio_inversor|es_number }} €
                   {% endif %}
                 </td>
-                <td class="text-end">
+                <td class="text-end col-money">
                   {% if internal_view %}
                     <input type="text" name="retencion" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.retencion|es_number }}">
                   {% else %}
                     {{ b.retencion|es_number }} €
                   {% endif %}
                 </td>
-                <td class="text-end">
+                <td class="text-end col-money">
                   {% if internal_view %}
                     <input type="text" name="neto_cobrar" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.neto_cobrar|es_number }}">
                   {% else %}
                     {{ b.neto_cobrar|es_number }} €
                   {% endif %}
                 </td>
-                <td class="text-end">
+                <td class="text-end col-action">
                   {% if internal_view %}
                     <form id="beneficio-form-{{ b.participacion_id }}" method="post" action="{% url 'core:inversor_beneficio_update' perfil.token b.participacion_id %}">
                       {% csrf_token %}
@@ -380,12 +394,12 @@
         <h5 class="mb-3">Beneficio acumulado</h5>
         <div class="donut" id="beneficioDonut" data-total="{{ total_beneficio }}" data-retencion="{{ total_retencion }}">
           <div class="donut-inner">
-            <strong>{{ total_beneficio|floatformat:2|intcomma }} €</strong>
+            <strong>{{ total_beneficio|es_number }} €</strong>
             <span class="donut-label">Neto acumulado</span>
           </div>
         </div>
         <div class="mt-3 small text-muted">
-          Retención total: {{ total_retencion|floatformat:2|intcomma }} € · Neto a cobrar: {{ total_neto_cobrar|floatformat:2|intcomma }} €
+          Retención total: {{ total_retencion|es_number }} € · Neto a cobrar: {{ total_neto_cobrar|es_number }} €
         </div>
       </div>
     </div>
@@ -477,7 +491,7 @@
       <div class="row g-2 align-items-end">
         <div class="col-md-4">
           <label class="form-label">Aportación inicial</label>
-          <input type="text" name="aportacion_inicial_override" class="form-control" value="{{ aportacion_inicial_override|default:aportacion_inicial|floatformat:2 }}">
+          <input type="text" name="aportacion_inicial_override" class="form-control" value="{{ aportacion_inicial_override|default:aportacion_inicial|es_number }}">
           <div class="form-text">Deja en blanco para usar la primera aportación confirmada.</div>
         </div>
         <div class="col-md-2">
@@ -525,11 +539,11 @@
                 <div class="small text-muted">Estado: {{ p.estado|default:"activo" }}</div>
                 {% if p.capital_objetivo and p.capital_objetivo > 0 %}
                   <div class="small text-muted">
-                    Captado: {{ p.capital_captado|floatformat:2|intcomma }} € /
-                    {{ p.capital_objetivo|floatformat:2|intcomma }} €
+                    Captado: {{ p.capital_captado|es_number }} € /
+                    {{ p.capital_objetivo|es_number }} €
                   </div>
                   <div class="small text-muted">
-                    Falta: {{ p.falta_pct|floatformat:2 }} % · {{ p.falta_eur|floatformat:2|intcomma }} €
+                    Falta: {{ p.falta_pct|es_number }} % · {{ p.falta_eur|es_number }} €
                   </div>
                 {% endif %}
               </div>

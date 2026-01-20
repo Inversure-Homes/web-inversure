@@ -1,7 +1,7 @@
 
 
 {% extends "core/base.html" %}
-{% load humanize %}
+{% load humanize formatting %}
 
 {% block title %}Inversores del proyecto{% endblock %}
 
@@ -38,7 +38,7 @@
         <div class="card-body">
           <div class="text-muted small">Capital invertido</div>
           <div class="h4 mb-0">
-            {{ total_invertido|floatformat:2|intcomma }} €
+            {{ total_invertido|es_number }} €
           </div>
         </div>
       </div>
@@ -72,10 +72,10 @@
               {{ p.cliente.nombre }}
             </td>
             <td class="text-end">
-              {{ p.importe|floatformat:2|intcomma }} €
+              {{ p.importe|es_number }} €
             </td>
             <td class="text-end">
-              {{ p.porcentaje|floatformat:2 }} %
+              {{ p.porcentaje|es_number }} %
             </td>
           </tr>
           {% empty %}

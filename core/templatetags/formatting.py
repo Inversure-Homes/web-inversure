@@ -6,7 +6,17 @@ register = template.Library()
 @register.filter
 def es_number(value, decimals=2):
     try:
-        num = float(value)
+        if isinstance(value, str):
+            s = value.strip().replace("€", "").replace("%", "").strip()
+            if not s:
+                return ""
+            if "." in s and "," in s:
+                s = s.replace(".", "").replace(",", ".")
+            else:
+                s = s.replace(",", ".")
+            num = float(s)
+        else:
+            num = float(value)
     except (TypeError, ValueError):
         return ""
     try:

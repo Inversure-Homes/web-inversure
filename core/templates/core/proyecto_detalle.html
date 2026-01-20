@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load humanize %}
+{% load humanize formatting %}
 {% block content %}
 
 <div class="container py-5">
@@ -53,14 +53,14 @@
         <div class="col-md-3 border-end py-3">
           <div class="small text-muted">Valor ref. Catastro</div>
           <div class="fw-semibold">
-            {{ proyecto.valor_referencia_catastral|default:0|intcomma }} €
+            {{ proyecto.valor_referencia_catastral|default:0|es_number }} €
           </div>
         </div>
 
         <div class="col-md-3 border-end py-3">
           <div class="small text-muted">Capital objetivo</div>
           <div class="fw-semibold">
-            {{ proyecto.capital_objetivo|default:0|intcomma }} €
+            {{ proyecto.capital_objetivo|default:0|es_number }} €
           </div>
         </div>
 
@@ -138,19 +138,19 @@
             <li>
               <span class="small text-muted">Capital objetivo:</span>
               <span class="fw-semibold">
-                {{ proyecto.capital_objetivo|default:0|floatformat:0|intcomma }} €
+                {{ proyecto.capital_objetivo|default:0|es_number }} €
               </span>
             </li>
             <li>
               <span class="small text-muted">Capital captado:</span>
               <span class="fw-semibold text-success">
-                {{ capital_captado|default:0|floatformat:0|intcomma }} €
+                {{ capital_captado|default:0|es_number }} €
               </span>
             </li>
             <li>
               <span class="small text-muted">Capital pendiente:</span>
               <span class="fw-semibold text-warning">
-                {{ capital_pendiente|default:0|floatformat:0|intcomma }} €
+                {{ capital_pendiente|default:0|es_number }} €
               </span>
             </li>
           </ul>
@@ -185,25 +185,25 @@
         <div class="col-md-3">
           <div class="small text-muted">Compra</div>
           <div class="fw-semibold">
-            {{ proyecto.precio_compra_estimado|default:0|floatformat:0|intcomma }} €
+            {{ proyecto.precio_compra_estimado|default:0|es_number }} €
           </div>
         </div>
         <div class="col-md-3">
           <div class="small text-muted">Costes</div>
           <div class="fw-semibold">
-            {{ proyecto.costes_totales|default:0|floatformat:0|intcomma }} €
+            {{ proyecto.costes_totales|default:0|es_number }} €
           </div>
         </div>
         <div class="col-md-3">
           <div class="small text-muted">Venta</div>
           <div class="fw-semibold">
-            {{ proyecto.precio_venta_estimado|default:0|floatformat:0|intcomma }} €
+            {{ proyecto.precio_venta_estimado|default:0|es_number }} €
           </div>
         </div>
         <div class="col-md-3">
           <div class="small text-muted">Rentabilidad</div>
           <div class="fw-semibold">
-            {{ proyecto.rentabilidad_estimada|default:0|floatformat:2 }} %
+            {{ proyecto.rentabilidad_estimada|default:0|es_number }} %
           </div>
         </div>
       </div>
@@ -238,7 +238,7 @@
         <div class="col-md-4">
           <div class="small text-muted">Capital aportado</div>
           <div class="fw-semibold text-success">
-            {{ capital_captado|default:0|floatformat:0|intcomma }} €
+            {{ capital_captado|default:0|es_number }} €
           </div>
         </div>
 
@@ -262,7 +262,7 @@
         <li>
           <span class="small text-muted">Valor de referencia (Catastro):</span>
           <span class="fw-semibold">
-            {{ proyecto.valor_referencia_catastral|default:"--"|intcomma }} €
+            {{ proyecto.valor_referencia_catastral|default:"--"|es_number }} €
           </span>
         </li>
         <li><span class="small text-muted">Municipio:</span> <span class="fw-semibold">{{ proyecto.municipio|default:"--" }}</span></li>

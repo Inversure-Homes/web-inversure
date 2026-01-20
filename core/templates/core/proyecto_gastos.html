@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load humanize %}
+{% load humanize formatting %}
 
 {% block content %}
 <div class="container-fluid">
@@ -44,7 +44,7 @@
           <div class="card-body">
             <div class="small text-muted">Precio de escritura</div>
             <div class="fs-5 fw-semibold text-end">
-              {{ datos_economicos.precio_escritura|default_if_none:0|floatformat:2|intcomma }} €
+              {{ datos_economicos.precio_escritura|default_if_none:0|es_number }} €
             </div>
           </div>
         </div>
@@ -372,7 +372,7 @@
             {% for gasto in gastos_extraordinarios %}
             <tr>
               <td>{{ gasto.concepto }}</td>
-              <td class="text-end">{{ gasto.importe|floatformat:2|intcomma }} €</td>
+              <td class="text-end">{{ gasto.importe|es_number }} €</td>
               <td>{{ gasto.fecha|date:"d/m/Y" }}</td>
               <td class="text-end">
                 <a href="{{ gasto.justificante.url }}" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener noreferrer">Justificante</a>

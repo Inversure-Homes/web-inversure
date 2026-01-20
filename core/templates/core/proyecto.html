@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load static %}
+{% load static formatting %}
 {% block content %}
 
 {#
@@ -766,9 +766,9 @@
                                   {% for p in participaciones %}
                                   <tr data-id="{{ p.id }}">
                                       <td>{{ p.cliente.nombre }}</td>
-                                      <td class="text-end">{{ p.importe_invertido|floatformat:2 }} €</td>
+                                      <td class="text-end">{{ p.importe_invertido|es_number }} €</td>
                                       <td class="text-end">
-                                        {% if p.porcentaje_participacion %}{{ p.porcentaje_participacion|floatformat:2 }} %{% else %}—{% endif %}
+                                        {% if p.porcentaje_participacion %}{{ p.porcentaje_participacion|es_number }} %{% else %}—{% endif %}
                                       </td>
                                       <td>{{ p.creado|date:"d/m/Y" }}</td>
                                       <td>

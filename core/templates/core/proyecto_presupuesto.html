@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load humanize %}
+{% load humanize formatting %}
 
 {% block content %}
 <div class="container mt-4">
@@ -25,7 +25,7 @@
       <div class="card shadow-sm">
         <div class="card-body">
           <h6 class="text-muted">Inversión total estimada</h6>
-          <h4>{{ kpis.inversion_total|floatformat:2|intcomma }} €</h4>
+          <h4>{{ kpis.inversion_total|es_number }} €</h4>
         </div>
       </div>
     </div>
@@ -35,7 +35,7 @@
         <div class="card-body">
           <h6 class="text-muted">Beneficio estimado</h6>
           <h4 class="{% if kpis.beneficio_estimado >= 0 %}text-success{% else %}text-danger{% endif %}">
-            {{ kpis.beneficio_estimado|floatformat:2|intcomma }} €
+            {{ kpis.beneficio_estimado|es_number }} €
           </h4>
         </div>
       </div>
@@ -46,7 +46,7 @@
         <div class="card-body">
           <h6 class="text-muted">ROI estimado</h6>
           <h4>
-            {{ kpis.roi_estimado|floatformat:2 }} %
+            {{ kpis.roi_estimado|es_number }} %
           </h4>
         </div>
       </div>
