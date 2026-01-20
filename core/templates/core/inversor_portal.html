@@ -33,7 +33,13 @@
     border: 1px solid rgba(212,163,79,.35);
     box-shadow: 0 12px 30px rgba(212,163,79,.15);
   }
-  .portal-kpi { font-size:20px; font-weight:800; color: var(--ink); }
+  .portal-kpi {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--ink);
+    line-height: 1.15;
+    white-space: nowrap;
+  }
   .portal-label { color:#64748b; font-size:12px; }
   .badge-soft { background:#f8fafc; border:1px solid #e2e8f0; color:#475569; }
   .btn-portal { background:#122135; color:#fff; }
@@ -185,9 +191,7 @@
     <div class="col-md-3">
       <div class="portal-card">
         <div class="portal-label">Solicitudes pendientes</div>
-        <div class="portal-kpi">
-          {{ solicitudes|dictsort:"estado"|length }}
-        </div>
+        <div class="portal-kpi">{{ solicitudes_pendientes|default:0 }}</div>
       </div>
     </div>
     <div class="col-md-3">
