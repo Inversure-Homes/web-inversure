@@ -2746,6 +2746,41 @@ function bindDocumentos() {
   });
 }
 
+function bindDifusion() {
+  const form = document.getElementById("difusion_form");
+  if (!form) {
+    return;
+  }
+  const countEl = document.getElementById("difusion_count");
+  const checks = Array.from(form.querySelectorAll(".difusion-check"));
+
+  const updateCount = () => {
+    const count = checks.filter((c) => c.checked).length;
+    if (countEl) {
+      countEl.textContent = `${count} seleccionados`;
+    }
+  };
+
+  checks.forEach((c) => c.addEventListener("change", updateCount));
+  updateCount();
+
+  form.addEventListener("submit", (e) => {
+    const submitter = e.submitter;
+    if (!submitter || submitter.value !== "enviar") {
+      return;
+    }
+    const count = checks.filter((c) => c.checked).length;
+    if (!count) {
+      e.preventDefault();
+      alert("Selecciona al menos un destinatario para difundir el proyecto.");
+      return;
+    }
+    if (!confirm(`¿Enviar el dossier y habilitar la inversión a ${count} destinatario(s)?`)) {
+      e.preventDefault();
+    }
+  });
+}
+
 // -----------------------------
 // Init
 // -----------------------------
@@ -2798,4 +2833,5 @@ document.addEventListener("DOMContentLoaded", () => {
   bindComunicaciones();
   bindComisionInversureInputs();
   bindDocumentos();
+  bindDifusion();
 });

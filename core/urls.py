@@ -81,5 +81,6 @@ urlpatterns = [
     # Solicitudes de participación (interno)
     path("proyectos/<int:proyecto_id>/solicitudes/", views.proyecto_solicitudes, name="proyecto_solicitudes"),
     path("proyectos/<int:proyecto_id>/solicitudes/<int:solicitud_id>/", views.proyecto_solicitud_detalle, name="proyecto_solicitud_detalle"),
+    path("proyectos/<int:proyecto_id>/difusion/", views.proyecto_difusion, name="proyecto_difusion"),
     path("proyectos/<int:proyecto_id>/comunicaciones/", views.proyecto_comunicaciones, name="proyecto_comunicaciones"),
 ]

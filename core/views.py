@@ -20,6 +20,7 @@ from django.contrib.staticfiles import finders
 from django.utils.text import slugify
 
 from copy import deepcopy
+from types import SimpleNamespace
 
 import json
 import os
@@ -3408,6 +3409,12 @@ def proyecto(request, proyecto_id: int):
     except Exception:
         ctx["clientes"] = []
     try:
+        ctx["difusion_clientes_ids"] = list(
+            proyecto_obj.difusion_clientes.values_list("id", flat=True)
+        )
+    except Exception:
+        ctx["difusion_clientes_ids"] = []
+    try:
         participaciones = list(
             Participacion.objects.filter(proyecto=proyecto_obj)
             .select_related("cliente")
@@ -4972,6 +4979,96 @@ def proyecto_solicitud_detalle(request, proyecto_id: int, solicitud_id: int):
         return JsonResponse({"ok": True})
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+
+def proyecto_difusion(request, proyecto_id: int):
+    if request.method != "POST":
+        return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-inversores")
+
+    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+    clientes_ids = []
+    for raw in request.POST.getlist("difusion_clientes"):
+        try:
+            clientes_ids.append(int(raw))
+        except Exception:
+            continue
+
+    clientes = list(Cliente.objects.filter(id__in=clientes_ids).order_by("nombre"))
+    proyecto.difusion_clientes.set(clientes)
+
+    accion = (request.POST.get("accion") or "").strip().lower()
+    if accion != "enviar":
+        messages.success(request, "Destinatarios de difusión actualizados.")
+        return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-inversores")
+
+    if not clientes:
+        messages.error(request, "Selecciona al menos un destinatario para difundir el proyecto.")
+        return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-inversores")
+
+    perfiles = []
+    perfiles_map = {}
+    for perfil in InversorPerfil.objects.filter(cliente__in=clientes).select_related("cliente"):
+        perfiles.append(perfil)
+        perfiles_map[perfil.cliente_id] = perfil
+    for cliente in clientes:
+        if cliente.id not in perfiles_map:
+            perfil, _ = InversorPerfil.objects.get_or_create(cliente=cliente)
+            perfiles.append(perfil)
+
+    proyecto_id_val = proyecto.id
+    for perfil in perfiles:
+        visibles = perfil.proyectos_visibles if isinstance(perfil.proyectos_visibles, list) else []
+        visibles = [int(v) for v in visibles if str(v).isdigit()]
+        if proyecto_id_val not in visibles:
+            visibles.append(proyecto_id_val)
+            perfil.proyectos_visibles = visibles
+            perfil.save(update_fields=["proyectos_visibles"])
+
+    snapshot = _get_snapshot_comunicacion(proyecto)
+    resultado_mem = _resultado_desde_memoria(proyecto, snapshot) if isinstance(snapshot, dict) else {}
+
+    attachment = None
+    try:
+        presentaciones = DocumentoProyecto.objects.filter(
+            proyecto=proyecto,
+            categoria="presentacion",
+        ).order_by("-creado", "-id")
+        for doc in presentaciones:
+            if (doc.archivo.name or "").lower().endswith(".pdf"):
+                pdf_bytes = _documento_pdf_bytes(request, doc)
+                if pdf_bytes:
+                    nombre = os.path.basename(doc.archivo.name) or "presentacion.pdf"
+                    attachment = [(nombre, pdf_bytes, "application/pdf")]
+                break
+    except Exception:
+        attachment = None
+
+    enviados = 0
+    for perfil in perfiles:
+        part = SimpleNamespace(
+            cliente=perfil.cliente,
+            importe_invertido=0,
+            beneficio_neto_override=None,
+            beneficio_override_data={},
+        )
+        ctx = _build_comunicacion_context(proyecto, part, snapshot, resultado_mem, 0.0)
+        try:
+            ctx["portal_link"] = request.build_absolute_uri(
+                reverse("core:inversor_portal", args=[perfil.token])
+            )
+        except Exception:
+            ctx["portal_link"] = ""
+        titulo, mensaje = _render_comunicacion_template("presentacion", ctx)
+        if not titulo or not mensaje:
+            continue
+        _crear_comunicacion(request, perfil, proyecto, titulo, mensaje, attachments=attachment)
+        enviados += 1
+
+    if enviados:
+        messages.success(request, f"Difusión enviada a {enviados} destinatarios.")
+    else:
+        messages.error(request, "No se pudo enviar la difusión.")
+    return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-inversores")
 
 
 @csrf_exempt

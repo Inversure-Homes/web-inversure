@@ -179,6 +179,12 @@ class Proyecto(models.Model):
         default=False,
         help_text="Permite mostrar este proyecto en la landing pública",
     )
+    difusion_clientes = models.ManyToManyField(
+        "Cliente",
+        blank=True,
+        related_name="proyectos_difusion",
+        help_text="Clientes seleccionados para la difusión de este proyecto",
+    )
 
     # =========================
     # DATOS DEL INMUEBLE

@@ -1236,3 +1236,9 @@ button,
   font-weight: 600;
 }
 }
+
+.difusion-list {
+  max-height: 260px;
+  overflow: auto;
+  background: #f8fafc;
+}
