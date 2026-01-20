@@ -116,6 +116,12 @@
   .portal-beneficios-table input.form-control {
     min-width: 120px;
   }
+  .portal-beneficios-table .input-group-text {
+    background: #f1f5f9;
+    color: #475569;
+    border-color: #e2e8f0;
+    font-weight: 600;
+  }
   .bar-track {
     height: 10px;
     background: #e2e8f0;
@@ -286,42 +292,60 @@
                 <td class="text-end col-pct">{{ b.participacion_pct|es_number }} %</td>
                 <td class="text-end col-money">
                   {% if internal_view %}
-                    <input type="text" name="beneficio_bruto" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.beneficio_bruto|es_number }}">
+                    <div class="input-group input-group-sm flex-nowrap">
+                      <input type="text" name="beneficio_bruto" form="beneficio-form-{{ b.participacion_id }}" class="form-control text-end" value="{{ b.beneficio_bruto|es_number }}">
+                      <span class="input-group-text">€</span>
+                    </div>
                   {% else %}
                     {{ b.beneficio_bruto|es_number }} €
                   {% endif %}
                 </td>
                 <td class="text-end col-money">
                   {% if internal_view %}
-                    <input type="text" name="comision_eur" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.comision_eur|es_number }}">
+                    <div class="input-group input-group-sm flex-nowrap">
+                      <input type="text" name="comision_eur" form="beneficio-form-{{ b.participacion_id }}" class="form-control text-end" value="{{ b.comision_eur|es_number }}">
+                      <span class="input-group-text">€</span>
+                    </div>
                   {% else %}
                     {{ b.comision_eur|es_number }} €
                   {% endif %}
                 </td>
                 <td class="text-end col-money">
                   {% if internal_view %}
-                    <input type="text" name="beneficio_neto_total" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.beneficio_neto_total|es_number }}">
+                    <div class="input-group input-group-sm flex-nowrap">
+                      <input type="text" name="beneficio_neto_total" form="beneficio-form-{{ b.participacion_id }}" class="form-control text-end" value="{{ b.beneficio_neto_total|es_number }}">
+                      <span class="input-group-text">€</span>
+                    </div>
                   {% else %}
                     {{ b.beneficio_neto_total|es_number }} €
                   {% endif %}
                 </td>
                 <td class="text-end col-money">
                   {% if internal_view %}
-                    <input type="text" name="beneficio_inversor" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.beneficio_inversor|es_number }}">
+                    <div class="input-group input-group-sm flex-nowrap">
+                      <input type="text" name="beneficio_inversor" form="beneficio-form-{{ b.participacion_id }}" class="form-control text-end" value="{{ b.beneficio_inversor|es_number }}">
+                      <span class="input-group-text">€</span>
+                    </div>
                   {% else %}
                     {{ b.beneficio_inversor|es_number }} €
                   {% endif %}
                 </td>
                 <td class="text-end col-money">
                   {% if internal_view %}
-                    <input type="text" name="retencion" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.retencion|es_number }}">
+                    <div class="input-group input-group-sm flex-nowrap">
+                      <input type="text" name="retencion" form="beneficio-form-{{ b.participacion_id }}" class="form-control text-end" value="{{ b.retencion|es_number }}">
+                      <span class="input-group-text">€</span>
+                    </div>
                   {% else %}
                     {{ b.retencion|es_number }} €
                   {% endif %}
                 </td>
                 <td class="text-end col-money">
                   {% if internal_view %}
-                    <input type="text" name="neto_cobrar" form="beneficio-form-{{ b.participacion_id }}" class="form-control form-control-sm text-end" value="{{ b.neto_cobrar|es_number }}">
+                    <div class="input-group input-group-sm flex-nowrap">
+                      <input type="text" name="neto_cobrar" form="beneficio-form-{{ b.participacion_id }}" class="form-control text-end" value="{{ b.neto_cobrar|es_number }}">
+                      <span class="input-group-text">€</span>
+                    </div>
                   {% else %}
                     {{ b.neto_cobrar|es_number }} €
                   {% endif %}
