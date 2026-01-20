@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="480" viewBox="0 0 800 480">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="480" rx="28" fill="url(#bg)"/>
+  <rect x="60" y="40" width="520" height="400" rx="18" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
+  <rect x="60" y="40" width="520" height="56" rx="18" fill="#0b1324"/>
+  <text x="84" y="74" font-size="16" fill="#f8fafc" font-family="Arial, sans-serif">Informe de rentabilidad (Comite)</text>
+  <rect x="90" y="120" width="460" height="22" rx="10" fill="#f1f5f9"/>
+  <rect x="90" y="152" width="320" height="18" rx="9" fill="#f1f5f9"/>
+  <rect x="90" y="190" width="220" height="96" rx="12" fill="#f8fafc" stroke="#e2e8f0"/>
+  <rect x="320" y="190" width="230" height="96" rx="12" fill="#f8fafc" stroke="#e2e8f0"/>
+  <rect x="90" y="300" width="460" height="90" rx="12" fill="#f8fafc" stroke="#e2e8f0"/>
+  <rect x="610" y="70" width="140" height="340" rx="18" fill="#0b1324"/>
+  <rect x="628" y="98" width="104" height="26" rx="10" fill="#d6b35a"/>
+  <rect x="628" y="140" width="104" height="14" rx="7" fill="#94a3b8"/>
+  <rect x="628" y="168" width="104" height="14" rx="7" fill="#94a3b8"/>
+  <rect x="628" y="210" width="104" height="60" rx="10" fill="#1f2a44"/>
+  <rect x="628" y="290" width="104" height="70" rx="10" fill="#1f2a44"/>
+  <text x="628" y="380" font-size="12" fill="#cbd3e1" font-family="Arial, sans-serif">Datos anonimizados</text>
+</svg>

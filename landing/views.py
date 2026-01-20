@@ -64,19 +64,25 @@ def landing_home(request):
     }
     secciones = [
         {
-            "icon": "bi-shield-check",
-            "title": "Control de inversión",
-            "text": "Seguimiento total del capital desde captación hasta liquidación.",
+            "icon": "bi-file-earmark-text",
+            "title": "Informe PDF para inversores",
+            "text": "Documentos listos para comité y seguimiento con datos anonimizados.",
+            "image": "landing/assets/erp_pdf_report.svg",
+            "image_alt": "Mockup de informe PDF para inversores",
         },
         {
-            "icon": "bi-journal-bookmark",
-            "title": "Memoria económica",
-            "text": "Registro de gastos e ingresos con estimados y reales.",
+            "icon": "bi-people",
+            "title": "Espacio del inversor",
+            "text": "Vista personalizada con métricas clave y evolución de la inversión.",
+            "image": "landing/assets/erp_inversor_portal.svg",
+            "image_alt": "Mockup del espacio del inversor",
         },
         {
             "icon": "bi-graph-up-arrow",
             "title": "Rentabilidad transparente",
             "text": "KPIs claros y documentación verificable en cada etapa.",
+            "image": "landing/assets/erp_kpis.svg",
+            "image_alt": "Vista de rentabilidad transparente",
         },
     ]
     proyectos = [

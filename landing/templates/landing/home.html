@@ -72,6 +72,9 @@
         <div class="grid">
           {% for seccion in secciones %}
             <article class="card">
+              {% if seccion.image %}
+                <img class="card__image card__image--screenshot" src="{% static seccion.image %}" alt="{{ seccion.image_alt|default:seccion.title }}">
+              {% endif %}
               <div class="card__icon">
                 <i class="bi {{ seccion.icon }}"></i>
               </div>

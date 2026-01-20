@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="480" viewBox="0 0 800 480">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="480" rx="28" fill="url(#bg)"/>
+  <rect x="40" y="40" width="720" height="400" rx="20" fill="#ffffff"/>
+  <rect x="40" y="40" width="720" height="64" rx="20" fill="#0b1324"/>
+  <text x="70" y="78" font-size="18" fill="#f8fafc" font-family="Arial, sans-serif">Panel del inversor</text>
+  <rect x="70" y="120" width="240" height="84" rx="14" fill="#f8fafc" stroke="#e2e8f0"/>
+  <rect x="330" y="120" width="200" height="84" rx="14" fill="#f8fafc" stroke="#e2e8f0"/>
+  <rect x="550" y="120" width="180" height="84" rx="14" fill="#f8fafc" stroke="#e2e8f0"/>
+  <rect x="70" y="220" width="430" height="170" rx="16" fill="#f8fafc" stroke="#e2e8f0"/>
+  <rect x="90" y="250" width="110" height="110" rx="10" fill="#0b1324"/>
+  <rect x="220" y="260" width="240" height="14" rx="7" fill="#94a3b8"/>
+  <rect x="220" y="288" width="200" height="14" rx="7" fill="#94a3b8"/>
+  <rect x="220" y="316" width="160" height="14" rx="7" fill="#94a3b8"/>
+  <rect x="520" y="220" width="210" height="170" rx="16" fill="#f8fafc" stroke="#e2e8f0"/>
+  <rect x="540" y="250" width="170" height="10" rx="5" fill="#0b1324"/>
+  <rect x="540" y="276" width="120" height="10" rx="5" fill="#94a3b8"/>
+  <rect x="540" y="302" width="140" height="10" rx="5" fill="#94a3b8"/>
+  <rect x="540" y="328" width="110" height="10" rx="5" fill="#94a3b8"/>
+</svg>
