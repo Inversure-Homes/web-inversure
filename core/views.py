@@ -2609,7 +2609,8 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
         estado__in=["captacion", "comprado", "comercializacion", "reservado"]
     ).order_by("-id")
     solicitudes = SolicitudParticipacion.objects.filter(inversor=perfil).select_related("proyecto")
-    pendientes_count = solicitudes.filter(estado="pendiente").count()
+    solicitudes_pendientes_list = list(solicitudes.filter(estado="pendiente"))
+    pendientes_count = len(solicitudes_pendientes_list)
 
     total_invertido = participaciones.filter(estado="confirmada").aggregate(total=Sum("importe_invertido")).get("total") or 0
     total_invertido = float(total_invertido or 0)
@@ -2850,6 +2851,7 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
         "proyectos_participados": proyectos_participados,
         "proyectos_visibles": visible_ids,
         "solicitudes": solicitudes,
+        "solicitudes_pendientes_list": solicitudes_pendientes_list,
         "solicitudes_pendientes": pendientes_count,
         "total_invertido": total_invertido,
         "aportacion_inicial": aportacion_inicial,
