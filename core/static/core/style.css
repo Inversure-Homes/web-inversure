@@ -1242,3 +1242,25 @@ button,
   overflow: auto;
   background: #f8fafc;
 }
+
+.difusion-dropdown {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #ffffff;
+}
+
+.difusion-summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #122135;
+  list-style: none;
+}
+
+.difusion-summary::-webkit-details-marker {
+  display: none;
+}
+
+.difusion-search {
+  background: #f8fafc;
+}

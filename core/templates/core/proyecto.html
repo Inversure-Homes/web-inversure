@@ -805,21 +805,30 @@
                                 </p>
                                 <div class="row g-3">
                                     <div class="col-lg-8">
-                                        <div class="border rounded p-2 difusion-list">
-                                            {% for c in clientes %}
-                                                <div class="form-check">
-                                                    <input class="form-check-input difusion-check"
-                                                           type="checkbox"
-                                                           name="difusion_clientes"
-                                                           id="difusion_cli_{{ c.id }}"
-                                                           value="{{ c.id }}"
-                                                           {% if c.id in difusion_clientes_ids %}checked{% endif %}>
-                                                    <label class="form-check-label" for="difusion_cli_{{ c.id }}">{{ c.nombre }}</label>
+                                        <details class="difusion-dropdown" open>
+                                            <summary class="difusion-summary">
+                                                Ver destinatarios
+                                                <span class="text-muted small">({{ clientes|length }} disponibles)</span>
+                                            </summary>
+                                            <div class="mt-3">
+                                                <input type="search" class="form-control form-control-sm difusion-search" id="difusion_search" placeholder="Buscar cliente...">
+                                                <div class="border rounded p-2 mt-2 difusion-list">
+                                                    {% for c in clientes %}
+                                                        <div class="form-check difusion-item" data-label="{{ c.nombre|lower }}">
+                                                            <input class="form-check-input difusion-check"
+                                                                   type="checkbox"
+                                                                   name="difusion_clientes"
+                                                                   id="difusion_cli_{{ c.id }}"
+                                                                   value="{{ c.id }}"
+                                                                   {% if c.id in difusion_clientes_ids %}checked{% endif %}>
+                                                            <label class="form-check-label" for="difusion_cli_{{ c.id }}">{{ c.nombre }}</label>
+                                                        </div>
+                                                    {% empty %}
+                                                        <span class="text-muted">No hay clientes disponibles.</span>
+                                                    {% endfor %}
                                                 </div>
-                                            {% empty %}
-                                                <span class="text-muted">No hay clientes disponibles.</span>
-                                            {% endfor %}
-                                        </div>
+                                            </div>
+                                        </details>
                                     </div>
                                     <div class="col-lg-4">
                                         <div class="d-grid gap-2">

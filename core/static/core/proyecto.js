@@ -2757,6 +2757,8 @@ function bindDifusion() {
   }
   const countEl = document.getElementById("difusion_count");
   const checks = Array.from(form.querySelectorAll(".difusion-check"));
+  const searchInput = form.querySelector("#difusion_search");
+  const items = Array.from(form.querySelectorAll(".difusion-item"));
 
   const updateCount = () => {
     const count = checks.filter((c) => c.checked).length;
@@ -2765,7 +2767,22 @@ function bindDifusion() {
     }
   };
 
+  const applyFilter = () => {
+    if (!searchInput) {
+      return;
+    }
+    const q = searchInput.value.trim().toLowerCase();
+    items.forEach((item) => {
+      const label = item.dataset.label || "";
+      item.classList.toggle("d-none", q && !label.includes(q));
+    });
+  };
+
   checks.forEach((c) => c.addEventListener("change", updateCount));
+  if (searchInput) {
+    searchInput.addEventListener("input", applyFilter);
+    applyFilter();
+  }
   updateCount();
 
   form.addEventListener("submit", (e) => {
