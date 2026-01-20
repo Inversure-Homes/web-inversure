@@ -1938,6 +1938,7 @@ function bindMemoriaEconomica() {
       const catLabel = (r.tipo === "ingreso")
         ? (ingresoLabels[r.categoria] || ingresoLabels[r.tipo_ingreso] || r.categoria || "")
         : (r.categoria || "");
+      const canConfirm = r.estado === "estimado";
       return `
         <tr data-id="${r.id}" data-tipo="${r.tipo}">
           <td>${r.fecha || ""}</td>
@@ -1947,6 +1948,7 @@ function bindMemoriaEconomica() {
           <td class="text-end">${fmtEuroLocal(r.importe)}</td>
           <td>${r.estado ? _capFirst(r.estado) : "-"}</td>
           <td class="text-end">
+            ${canConfirm ? `<button type="button" class="btn btn-sm btn-outline-success me-1 eco-confirm">Confirmar</button>` : ""}
             <button type="button" class="btn btn-sm btn-outline-secondary eco-edit">Editar</button>
             <button type="button" class="btn btn-sm btn-outline-danger eco-del">Borrar</button>
           </td>
@@ -2133,6 +2135,44 @@ function bindMemoriaEconomica() {
     await loadRows();
   }
 
+  async function confirmRow(tr) {
+    if (!tr) return;
+    const id = tr.getAttribute("data-id");
+    const tipo = tr.getAttribute("data-tipo");
+    if (!id || !tipo) return;
+    const row = rows.find(r => String(r.id) === String(id) && r.tipo === tipo);
+    if (!row) return;
+    const actual = fmtEuroLocal(row.importe || 0);
+    const input = prompt("Importe final confirmado:", actual);
+    if (input === null) return;
+    const importe = parseEuro(input);
+    if (importe === null) {
+      alert("Importe no válido.");
+      return;
+    }
+    const obs = prompt("Observaciones finales (opcional):", row.observaciones || "");
+    if (obs === null) return;
+    const url = (tipo === "gasto") ? `${urlGastos}${id}/` : `${urlIngresos}${id}/`;
+    const csrf = getCsrfToken();
+    const resp = await fetch(url, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(csrf ? { "X-CSRFToken": csrf } : {}),
+      },
+      body: JSON.stringify({
+        estado: "confirmado",
+        importe,
+        observaciones: obs || "",
+      }),
+    });
+    if (!resp.ok) {
+      alert("No se pudo confirmar el asiento.");
+      return;
+    }
+    await loadRows();
+  }
+
   function editRow(tr) {
     const id = tr.getAttribute("data-id");
     const tipo = tr.getAttribute("data-tipo");
@@ -2171,6 +2211,12 @@ function bindMemoriaEconomica() {
   tabla.addEventListener("click", (e) => {
     const btn = e.target.closest(".eco-del");
     const btnEdit = e.target.closest(".eco-edit");
+    const btnConfirm = e.target.closest(".eco-confirm");
+    if (btnConfirm) {
+      const tr = btnConfirm.closest("tr");
+      confirmRow(tr);
+      return;
+    }
     if (btnEdit) {
       const tr = btnEdit.closest("tr");
       editRow(tr);
