@@ -1063,14 +1063,22 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
         "margen_neto": margen_pct,
         "ajuste_precio_venta": ajuste_precio_venta,
         "ajuste_gastos": ajuste_gastos,
+        "gastos_real_total": float(gastos_real),
+        "gastos_est_total": float(gastos_est),
         "origen_memoria": True,
         "base_memoria_real": bool(has_real),
     }
 
 
-def _capital_objetivo_desde_adquisicion(proyecto: Proyecto, snapshot: dict | None = None) -> float:
+def _capital_objetivo_desde_memoria(proyecto: Proyecto, snapshot: dict | None = None) -> float:
     snap = snapshot if isinstance(snapshot, dict) else {}
     resultado = _resultado_desde_memoria(proyecto, snap)
+    gastos_real = _safe_float(resultado.get("gastos_real_total"), 0.0)
+    if gastos_real > 0:
+        return gastos_real
+    gastos_est = _safe_float(resultado.get("gastos_est_total"), 0.0)
+    if gastos_est > 0:
+        return gastos_est
     capital_objetivo = _safe_float(resultado.get("valor_adquisicion"), 0.0)
     if capital_objetivo <= 0:
         capital_objetivo = _safe_float(
@@ -2095,8 +2103,8 @@ def lista_proyectos(request):
         kpis = snap.get("kpis") if isinstance(snap.get("kpis"), dict) else {}
         metricas = kpis.get("metricas") if isinstance(kpis.get("metricas"), dict) else {}
 
-        # Capital objetivo: siempre valor de adquisición
-        capital_objetivo = _capital_objetivo_desde_adquisicion(p, snap)
+        # Capital objetivo: total de gastos (real/estimado) desde memoria
+        capital_objetivo = _capital_objetivo_desde_memoria(p, snap)
 
         # Capital captado: suma de participaciones reales del proyecto
         capital_captado = Participacion.objects.filter(
@@ -2190,8 +2198,8 @@ def lista_proyectos_cerrados(request):
         kpis = snap.get("kpis") if isinstance(snap.get("kpis"), dict) else {}
         metricas = kpis.get("metricas") if isinstance(kpis.get("metricas"), dict) else {}
 
-        # Capital objetivo: siempre valor de adquisición
-        capital_objetivo = _capital_objetivo_desde_adquisicion(p, snap)
+        # Capital objetivo: total de gastos (real/estimado) desde memoria
+        capital_objetivo = _capital_objetivo_desde_memoria(p, snap)
 
         capital_captado = Participacion.objects.filter(
             proyecto=p, estado="confirmada"
@@ -2810,8 +2818,8 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
     for p in proyectos_candidatos:
         snap = _get_snapshot(p)
 
-        # Capital objetivo: siempre valor de adquisición
-        capital_objetivo = _capital_objetivo_desde_adquisicion(p, snap)
+        # Capital objetivo: total de gastos (real/estimado) desde memoria
+        capital_objetivo = _capital_objetivo_desde_memoria(p, snap)
 
         capital_captado = captado_map.get(p.id, 0.0)
 
@@ -3045,7 +3053,7 @@ def inversor_solicitar(request, token: str, proyecto_id: int):
         sd = getattr(proyecto, "snapshot_datos", None)
         if isinstance(sd, dict):
             snap = sd
-        capital_objetivo = _capital_objetivo_desde_adquisicion(proyecto, snap)
+        capital_objetivo = _capital_objetivo_desde_memoria(proyecto, snap)
 
         captado = Participacion.objects.filter(
             proyecto=proyecto, estado="confirmada"
@@ -3275,8 +3283,8 @@ def proyecto(request, proyecto_id: int):
         kpis_sec = snapshot.get("kpis") if isinstance(snapshot.get("kpis"), dict) else {}
         met_sec = kpis_sec.get("metricas") if isinstance(kpis_sec.get("metricas"), dict) else {}
 
-        # Capital objetivo: siempre valor de adquisición
-        capital_objetivo = _capital_objetivo_desde_adquisicion(proyecto_obj, snapshot)
+        # Capital objetivo: total de gastos (real/estimado) desde memoria
+        capital_objetivo = _capital_objetivo_desde_memoria(proyecto_obj, snapshot)
 
         # Capital captado: suma de participaciones confirmadas (si existe el módulo)
         capital_captado_db = Participacion.objects.filter(
@@ -4754,7 +4762,7 @@ def proyecto_participaciones(request, proyecto_id: int):
         capital_objetivo = Decimal("0")
         try:
             snap = getattr(proyecto, "snapshot_datos", {}) or {}
-            capital_objetivo = _capital_objetivo_desde_adquisicion(proyecto, snap)
+            capital_objetivo = _capital_objetivo_desde_memoria(proyecto, snap)
             capital_objetivo = Decimal(str(capital_objetivo))
         except Exception:
             capital_objetivo = Decimal("0")
@@ -4801,7 +4809,7 @@ def proyecto_participaciones(request, proyecto_id: int):
         porcentaje = None
         try:
             snap = getattr(proyecto, "snapshot_datos", {}) or {}
-            capital_objetivo = _capital_objetivo_desde_adquisicion(proyecto, snap)
+            capital_objetivo = _capital_objetivo_desde_memoria(proyecto, snap)
             capital_objetivo = Decimal(str(capital_objetivo))
             if capital_objetivo > 0:
                 porcentaje = (importe / capital_objetivo) * Decimal("100")
