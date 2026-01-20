@@ -1264,3 +1264,16 @@ button,
 .difusion-search {
   background: #f8fafc;
 }
+/* Project list cards */
+.inversure-project-card .project-metrics .col-4 {
+  min-width: 0;
+}
+.inversure-project-card .project-metric-value {
+  font-size: 0.95rem;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+  display: block;
+}

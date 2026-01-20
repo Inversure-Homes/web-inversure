@@ -80,23 +80,23 @@
                   </div>
 
                   <!-- MÉTRICAS -->
-                  <div class="row text-center mb-4 g-2">
+                  <div class="row text-center mb-4 g-2 project-metrics">
                     <div class="col-4">
                       <div class="fw-semibold small text-muted">Inversión</div>
-                      <div class="fw-bold text-nowrap">
-                        {{ item.capital_captado|default:p.capital_captado|default:0|es_number }} €
+                      <div class="fw-bold project-metric-value">
+                        {{ item.capital_captado|default:p.capital_captado|default:0|es_number }}&nbsp;€
                       </div>
                     </div>
                     <div class="col-4">
                       <div class="fw-semibold small text-muted">Objetivo</div>
-                      <div class="fw-bold text-nowrap">
-                        {{ item.capital_objetivo|default:p.capital_objetivo|default:0|es_number }} €
+                      <div class="fw-bold project-metric-value">
+                        {{ item.capital_objetivo|default:p.capital_objetivo|default:0|es_number }}&nbsp;€
                       </div>
                     </div>
                     <div class="col-4">
                       <div class="fw-semibold small text-muted">ROI</div>
-                      <div class="fw-bold text-nowrap">
-                        {{ item.roi|default:p.roi|default:0|es_number }} %
+                      <div class="fw-bold project-metric-value">
+                        {{ item.roi|default:p.roi|default:0|es_number }}&nbsp;%
                       </div>
                     </div>
                   </div>
