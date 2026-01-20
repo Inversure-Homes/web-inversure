@@ -1,4 +1,4 @@
-{% load static humanize %}
+{% load static humanize formatting %}
 <!doctype html>
 <html lang="es">
 <head>
@@ -327,7 +327,7 @@
             <div class="k">Valor de referencia</div>
             <div class="v money">
               {% if snapshot.inmueble.valor_referencia %}
-                {{ snapshot.inmueble.valor_referencia|floatformat:2|intcomma }} €
+                {{ snapshot.inmueble.valor_referencia|es_number }} €
               {% else %}—{% endif %}
             </div>
 
@@ -368,7 +368,7 @@
               <div class="label">Valor de adquisición</div>
               <div class="value money value--xl">
                 {% if snapshot.economico.valor_adquisicion %}
-                  {{ snapshot.economico.valor_adquisicion|floatformat:2|intcomma }} €
+                {{ snapshot.economico.valor_adquisicion|es_number }} €
                 {% else %}—{% endif %}
               </div>
             </div>
@@ -376,7 +376,7 @@
               <div class="label">Valor de transmisión</div>
               <div class="value money value--xl">
                 {% if snapshot.economico.valor_transmision %}
-                  {{ snapshot.economico.valor_transmision|floatformat:2|intcomma }} €
+                {{ snapshot.economico.valor_transmision|es_number }} €
                 {% else %}—{% endif %}
               </div>
             </div>
@@ -384,7 +384,7 @@
               <div class="label">Beneficio estimado</div>
               <div class="value money value--xl">
                 {% if snapshot.economico.beneficio_estimado %}
-                  {{ snapshot.economico.beneficio_estimado|floatformat:2|intcomma }} €
+                  {{ snapshot.economico.beneficio_estimado|es_number }} €
                 {% else %}—{% endif %}
               </div>
             </div>
@@ -399,7 +399,7 @@
               {% endif %}">
               ROI:
               {% if snapshot.economico.roi_estimado %}
-                {{ snapshot.economico.roi_estimado|floatformat:2 }} %
+                {{ snapshot.economico.roi_estimado|es_number }} %
               {% else %}—{% endif %}
             </span>
             <span class="pill
@@ -468,14 +468,14 @@
               <div class="k">Compra</div>
               <div class="v money">
                 {% if snapshot.economico.valor_adquisicion %}
-                  {{ snapshot.economico.valor_adquisicion|floatformat:2|intcomma }} €
+                  {{ snapshot.economico.valor_adquisicion|es_number }} €
                 {% else %}—{% endif %}
               </div>
 
               <div class="k">Venta</div>
               <div class="v money">
                 {% if snapshot.economico.valor_transmision %}
-                  {{ snapshot.economico.valor_transmision|floatformat:2|intcomma }} €
+                  {{ snapshot.economico.valor_transmision|es_number }} €
                 {% else %}—{% endif %}
               </div>
 
@@ -491,11 +491,11 @@
               <div class="k">% financiación</div>
               <div class="v">
                 {% if snapshot.economico.financiacion_pct %}
-                  {{ snapshot.economico.financiacion_pct|floatformat:2 }} %
+                  {{ snapshot.economico.financiacion_pct|es_number }} %
                 {% elif snapshot.economico.porcentaje_financiacion %}
-                  {{ snapshot.economico.porcentaje_financiacion|floatformat:2 }} %
+                  {{ snapshot.economico.porcentaje_financiacion|es_number }} %
                 {% elif snapshot.kpis.metricas.financiacion_pct %}
-                  {{ snapshot.kpis.metricas.financiacion_pct|floatformat:2 }} %
+                  {{ snapshot.kpis.metricas.financiacion_pct|es_number }} %
                 {% else %}—{% endif %}
               </div>
             </div>
@@ -512,7 +512,7 @@
             <div class="k">Ratio €/beneficio</div>
             <div class="v money">
               {% if snapshot.kpis.ratio_euro_beneficio or snapshot.kpis.ratio_euro_beneficio == 0 %}
-                {{ snapshot.kpis.ratio_euro_beneficio|floatformat:2 }} €
+                {{ snapshot.kpis.ratio_euro_beneficio|es_number }} €
               {% else %}
                 —
               {% endif %}
@@ -521,14 +521,14 @@
             <div class="k">Colchón de seguridad</div>
             <div class="v money">
               {% if snapshot.kpis.colchon_seguridad %}
-                {{ snapshot.kpis.colchon_seguridad|floatformat:2|intcomma }} €
+                {{ snapshot.kpis.colchon_seguridad|es_number }} €
               {% else %}—{% endif %}
             </div>
 
             <div class="k">Break-even (venta mínima)</div>
             <div class="v money">
               {% if snapshot.kpis.precio_breakeven %}
-                {{ snapshot.kpis.precio_breakeven|floatformat:2|intcomma }} €
+                {{ snapshot.kpis.precio_breakeven|es_number }} €
               {% else %}—{% endif %}
             </div>
           </div>
@@ -545,39 +545,39 @@
             <div class="k">Inversión total</div>
             <div class="v money v--big">
               {% if snapshot.inversor.inversion_total %}
-                {{ snapshot.inversor.inversion_total|floatformat:2|intcomma }} €
+                {{ snapshot.inversor.inversion_total|es_number }} €
               {% else %}—{% endif %}
             </div>
 
             <div class="k">Comisión Inversure</div>
             <div class="v">
               {% if inversor.comision_inversure_pct or inversor.comision_inversure_pct == 0 %}
-                {{ inversor.comision_inversure_pct|floatformat:2 }} %
+                {{ inversor.comision_inversure_pct|es_number }} %
               {% elif inversor.comision_pct or inversor.comision_pct == 0 %}
-                {{ inversor.comision_pct|floatformat:2 }} %
+                {{ inversor.comision_pct|es_number }} %
               {% else %}—{% endif %}
             </div>
 
             <div class="k">Comisión (€)</div>
             <div class="v money">
               {% if inversor.comision_inversure_eur or inversor.comision_inversure_eur == 0 %}
-                {{ inversor.comision_inversure_eur|floatformat:2|intcomma }} €
+                {{ inversor.comision_inversure_eur|es_number }} €
               {% elif inversor.comision_eur or inversor.comision_eur == 0 %}
-                {{ inversor.comision_eur|floatformat:2|intcomma }} €
+                {{ inversor.comision_eur|es_number }} €
               {% else %}—{% endif %}
             </div>
 
             <div class="k">Beneficio neto inversor</div>
             <div class="v money v--big">
               {% if snapshot.inversor.beneficio_neto %}
-                {{ snapshot.inversor.beneficio_neto|floatformat:2|intcomma }} €
+                {{ snapshot.inversor.beneficio_neto|es_number }} €
               {% else %}—{% endif %}
             </div>
 
             <div class="k">ROI neto inversor</div>
             <div class="v">
               {% if snapshot.inversor.roi_neto %}
-                {{ snapshot.inversor.roi_neto|floatformat:2 }} %
+                {{ snapshot.inversor.roi_neto|es_number }} %
               {% else %}—{% endif %}
             </div>
           </div>
@@ -630,9 +630,9 @@
                   </div>
                 {% endwith %}
                 <div class="note">
-                  Break-even: {{ be|floatformat:2|intcomma }} € ·
-                  Colchón: {{ col|floatformat:2|intcomma }} € ·
-                  Venta estimada: {{ vt|floatformat:2|intcomma }} €
+                  Break-even: {{ be|es_number }} € ·
+                  Colchón: {{ col|es_number }} € ·
+                  Venta estimada: {{ vt|es_number }} €
                 </div>
               {% else %}
                 <div class="note">—</div>
@@ -663,14 +663,14 @@
                     </div>
                     <div class="note" style="margin-top:0;">
                       <div><strong>Neto inversor</strong> (porcentaje sobre beneficio)</div>
-                      <div>Comisión: {{ com|floatformat:2|intcomma }} € · Neto: {{ net|floatformat:2|intcomma }} €</div>
+                      <div>Comisión: {{ com|es_number }} € · Neto: {{ net|es_number }} €</div>
                     </div>
                   </div>
                 {% endwith %}
                 <div class="note">
-                  Beneficio: {{ ben|floatformat:2|intcomma }} € ·
-                  Comisión: {{ com|floatformat:2|intcomma }} € ·
-                  Neto inversor: {{ net|floatformat:2|intcomma }} €
+                  Beneficio: {{ ben|es_number }} € ·
+                  Comisión: {{ com|es_number }} € ·
+                  Neto inversor: {{ net|es_number }} €
                 </div>
               {% else %}
                 <div class="note">—</div>

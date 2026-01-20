@@ -1,4 +1,4 @@
-{% load static humanize %}
+{% load static humanize formatting %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -105,24 +105,24 @@
         <div class="grid grid-4">
           <div class="kpi">
             <div class="label">Ingresos</div>
-            <div class="value">{{ resumen.ingresos_reales|floatformat:2|intcomma }} €</div>
-            <div class="sub">Estimado: {{ resumen.ingresos_estimados|floatformat:2|intcomma }} €</div>
+            <div class="value">{{ resumen.ingresos_reales|es_number }} €</div>
+            <div class="sub">Estimado: {{ resumen.ingresos_estimados|es_number }} €</div>
           </div>
           <div class="kpi">
             <div class="label">Gastos</div>
-            <div class="value">{{ resumen.gastos_reales|floatformat:2|intcomma }} €</div>
-            <div class="sub">Estimado: {{ resumen.gastos_estimados|floatformat:2|intcomma }} €</div>
+            <div class="value">{{ resumen.gastos_reales|es_number }} €</div>
+            <div class="sub">Estimado: {{ resumen.gastos_estimados|es_number }} €</div>
           </div>
           <div class="kpi">
             <div class="label">Beneficio neto</div>
-            <div class="value">{{ resumen.beneficio_real|floatformat:2|intcomma }} €</div>
-            <div class="sub">Estimado: {{ resumen.beneficio_estimado|floatformat:2|intcomma }} €</div>
+            <div class="value">{{ resumen.beneficio_real|es_number }} €</div>
+            <div class="sub">Estimado: {{ resumen.beneficio_estimado|es_number }} €</div>
           </div>
           <div class="kpi">
             <div class="label">ROI</div>
             <div class="value">
               {% if resumen.roi_real is not None %}
-                {{ resumen.roi_real|floatformat:2 }} %
+                {{ resumen.roi_real|es_number }} %
               {% else %}
                 —
               {% endif %}
@@ -130,7 +130,7 @@
             <div class="sub">
               Estimado:
               {% if resumen.roi_estimado is not None %}
-                {{ resumen.roi_estimado|floatformat:2 }} %
+                {{ resumen.roi_estimado|es_number }} %
               {% else %}
                 —
               {% endif %}
@@ -139,14 +139,14 @@
         </div>
         <div class="grid grid-2" style="margin-top:12px;">
           <div class="kpi">
-            <div class="label">Comisión Inversure{% if resumen.comision_inversure_pct %} ({{ resumen.comision_inversure_pct|floatformat:2 }} %){% endif %}</div>
-            <div class="value">{{ resumen.comision_inversure_real|floatformat:2|intcomma }} €</div>
-            <div class="sub">Estimado: {{ resumen.comision_inversure_estimada|floatformat:2|intcomma }} €</div>
+            <div class="label">Comisión Inversure{% if resumen.comision_inversure_pct %} ({{ resumen.comision_inversure_pct|es_number }} %){% endif %}</div>
+            <div class="value">{{ resumen.comision_inversure_real|es_number }} €</div>
+            <div class="sub">Estimado: {{ resumen.comision_inversure_estimada|es_number }} €</div>
           </div>
           <div class="kpi">
             <div class="label">Beneficio neto inversor</div>
-            <div class="value">{{ resumen.beneficio_neto_real|floatformat:2|intcomma }} €</div>
-            <div class="sub">Estimado: {{ resumen.beneficio_neto_estimado|floatformat:2|intcomma }} €</div>
+            <div class="value">{{ resumen.beneficio_neto_real|es_number }} €</div>
+            <div class="sub">Estimado: {{ resumen.beneficio_neto_estimado|es_number }} €</div>
           </div>
         </div>
       </div>
@@ -167,8 +167,8 @@
             {% for cat in resumen.categorias %}
             <tr>
               <td>{{ cat.nombre }}</td>
-              <td class="right">{{ cat.estimado|floatformat:2|intcomma }} €</td>
-              <td class="right">{{ cat.real|floatformat:2|intcomma }} €</td>
+              <td class="right">{{ cat.estimado|es_number }} €</td>
+              <td class="right">{{ cat.real|es_number }} €</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -197,7 +197,7 @@
               <td class="nowrap">{{ g.fecha|date:"d/m/Y" }}</td>
               <td class="nowrap">{{ g.get_categoria_display }}</td>
               <td>{{ g.concepto }}</td>
-              <td class="right nowrap">{{ g.importe|floatformat:2|intcomma }} €</td>
+              <td class="right nowrap">{{ g.importe|es_number }} €</td>
               <td class="nowrap">
                 <span class="pill {% if g.estado == 'confirmado' %}pill--good{% else %}pill--warn{% endif %}">
                   {{ g.get_estado_display }}
@@ -217,8 +217,8 @@
             <tr class="table-total">
               <td colspan="3">Total gastos (estimado / real)</td>
               <td class="right nowrap" colspan="3">
-                {{ resumen.gastos_estimados|floatformat:2|intcomma }} € /
-                {{ resumen.gastos_reales|floatformat:2|intcomma }} €
+                {{ resumen.gastos_estimados|es_number }} € /
+                {{ resumen.gastos_reales|es_number }} €
               </td>
             </tr>
           </tbody>
@@ -242,7 +242,7 @@
               <td class="nowrap">{{ i.fecha|date:"d/m/Y" }}</td>
               <td class="nowrap">{{ i.get_tipo_display }}</td>
               <td>{{ i.concepto }}</td>
-              <td class="right nowrap">{{ i.importe|floatformat:2|intcomma }} €</td>
+              <td class="right nowrap">{{ i.importe|es_number }} €</td>
               <td class="nowrap">
                 <span class="pill {% if i.estado == 'confirmado' %}pill--good{% else %}pill--warn{% endif %}">
                   {{ i.get_estado_display }}
@@ -261,7 +261,7 @@
             {% endfor %}
             <tr class="table-total">
               <td colspan="3">Total ingresos</td>
-              <td class="right nowrap" colspan="3">{{ resumen.ingresos_estimados|floatformat:2|intcomma }} € / {{ resumen.ingresos_reales|floatformat:2|intcomma }} €</td>
+              <td class="right nowrap" colspan="3">{{ resumen.ingresos_estimados|es_number }} € / {{ resumen.ingresos_reales|es_number }} €</td>
             </tr>
           </tbody>
         </table>

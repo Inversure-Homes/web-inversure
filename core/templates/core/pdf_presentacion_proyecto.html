@@ -1,3 +1,4 @@
+{% load formatting %}
 <!DOCTYPE html>
 <html lang="es">
   <head>
@@ -247,8 +248,8 @@
 
       <div class="meta">
         <div>Operacion a <strong>{{ plazo_meses|default:"--" }}</strong> meses</div>
-        <div><strong>{{ rentabilidad|floatformat:2|default:"--" }}%</strong> de rentabilidad estimada</div>
-        <div>Accede a partir de <strong>{{ acceso_minimo|floatformat:0|default:"--" }}€</strong></div>
+        <div><strong>{{ rentabilidad|es_number|default:"--" }}%</strong> de rentabilidad estimada</div>
+        <div>Accede a partir de <strong>{{ acceso_minimo|es_number|default:"--" }}€</strong></div>
       </div>
 
       <div class="photo" style="background-image: url('{{ foto_url }}');"></div>
