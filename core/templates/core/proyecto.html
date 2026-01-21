@@ -35,6 +35,7 @@
     }
 
     const previewCard = document.getElementById("landing_preview");
+    const previewFullBtn = document.getElementById("landing_preview_full_btn");
     const landingSelect = document.querySelector("[name='landing.imagen_id']");
     const focusX = document.querySelector("[name='landing.imagen_focus_x']");
     const focusY = document.querySelector("[name='landing.imagen_focus_y']");
@@ -69,6 +70,15 @@
       if (focusX) focusX.addEventListener("input", updatePreview);
       if (focusY) focusY.addEventListener("input", updatePreview);
       updatePreview();
+    }
+
+    if (previewFullBtn && previewCard) {
+      previewFullBtn.addEventListener("click", () => {
+        previewCard.classList.toggle("landing-preview-card--contain");
+        previewFullBtn.textContent = previewCard.classList.contains("landing-preview-card--contain")
+          ? "Ver recorte"
+          : "Ver completa";
+      });
     }
   });
 </script>
@@ -124,6 +134,12 @@
     display: grid;
     align-items: end;
     box-shadow: 0 14px 32px rgba(11, 19, 36, 0.25);
+  }
+
+  .landing-preview-card--contain {
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-color: #0b1324;
   }
 
   .landing-preview-body {
@@ -1225,6 +1241,10 @@
                                                     </div>
                                                 </div>
                                             </div>
+                                        </div>
+                                        <div class="d-flex gap-2 flex-wrap mt-2">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="landing_preview_full_btn">Ver completa</button>
+                                            <a class="btn btn-sm btn-outline-primary" href="https://www.inversurehomes.es/#proyectos" target="_blank" rel="noopener">Ver en landing</a>
                                         </div>
                                     </div>
                                     <div class="mb-3">
