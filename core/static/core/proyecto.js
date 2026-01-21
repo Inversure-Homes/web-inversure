@@ -1374,6 +1374,16 @@ function bindMemoriaEconomica() {
   const elImputable = document.getElementById("eco_imputable");
   const elObs = document.getElementById("eco_obs");
 
+  const docCategoria = document.getElementById("doc_categoria");
+  const docFecha = document.getElementById("doc_factura_fecha");
+  const docImporte = document.getElementById("doc_factura_importe");
+  const docArchivo = document.getElementById("doc_archivo");
+  const docTitulo = document.getElementById("doc_titulo");
+  const docTituloOtro = document.getElementById("doc_titulo_otro");
+  const docUploadBtn = document.getElementById("doc_upload_btn");
+  const docUploadStatus = document.getElementById("doc_upload_status");
+  const docUploadWrap = document.getElementById("doc_upload_wrap");
+
   const totalEstimadoEl = document.getElementById("eco_total_estimado");
   const totalRealEl = document.getElementById("eco_total_real");
   const totalIngresosEl = document.getElementById("eco_total_ingresos");
@@ -2737,6 +2747,8 @@ function bindDocumentos() {
   const elTituloOtro = document.getElementById("doc_titulo_otro");
   const elCategoria = document.getElementById("doc_categoria");
   const elArchivo = document.getElementById("doc_archivo");
+  const elFacturaFecha = document.getElementById("doc_factura_fecha");
+  const elFacturaImporte = document.getElementById("doc_factura_importe");
   const status = document.getElementById("doc_upload_status");
   if (!wrap || !btn || !elArchivo) return;
 
@@ -2773,7 +2785,16 @@ function bindDocumentos() {
       titulo = (elTitulo.selectedOptions[0].textContent || titulo).trim();
     }
     fd.append("titulo", titulo);
-    fd.append("categoria", (elCategoria && elCategoria.value || "otros").trim());
+    const categoria = (elCategoria && elCategoria.value || "otros").trim();
+    fd.append("categoria", categoria);
+    if (categoria === "facturas") {
+      if (elFacturaFecha && elFacturaFecha.value) {
+        fd.append("factura_fecha", elFacturaFecha.value);
+      }
+      if (elFacturaImporte && elFacturaImporte.value) {
+        fd.append("factura_importe", elFacturaImporte.value);
+      }
+    }
     const csrf = getCsrfToken();
     try {
       const resp = await fetch(url, {

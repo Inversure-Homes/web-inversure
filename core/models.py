@@ -1151,6 +1151,18 @@ class DocumentoProyecto(models.Model):
     categoria = models.CharField(max_length=20, choices=CATEGORIAS, default="otros")
     titulo = models.CharField(max_length=255)
     archivo = models.FileField(upload_to="proyectos/documentos/%Y/%m/")
+    fecha_factura = models.DateField(
+        blank=True,
+        null=True,
+        help_text="Fecha de la factura (solo para categoria facturas)",
+    )
+    importe_factura = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Importe de la factura (solo para categoria facturas)",
+    )
     es_principal = models.BooleanField(default=False)
     creado = models.DateTimeField(auto_now_add=True)
 

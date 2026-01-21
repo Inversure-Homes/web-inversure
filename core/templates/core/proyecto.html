@@ -19,6 +19,21 @@
 </script>
 {% if snapshot %}{{ snapshot|json_script:"snapshotData" }}{% endif %}
 
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const catSelect = document.getElementById("doc_categoria");
+    const facturaFields = document.getElementById("doc_factura_fields");
+    const toggleFacturaFields = () => {
+      if (!catSelect || !facturaFields) return;
+      facturaFields.classList.toggle("d-none", catSelect.value !== "facturas");
+    };
+    if (catSelect && facturaFields) {
+      catSelect.addEventListener("change", toggleFacturaFields);
+      toggleFacturaFields();
+    }
+  });
+</script>
+
 <style>
   /* Estilos corporativos Inversure (solo para esta vista) */
   .btn-inversure {
@@ -908,6 +923,16 @@
                                                             <option value="otros">Otros</option>
                                                         </select>
                                                     </div>
+                                                    <div class="row g-2 mb-3 d-none" id="doc_factura_fields">
+                                                        <div class="col-6">
+                                                            <label class="form-label">Fecha de factura</label>
+                                                            <input type="date" id="doc_factura_fecha" class="form-control">
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <label class="form-label">Importe factura</label>
+                                                            <input type="text" id="doc_factura_importe" class="form-control" data-euro="true" placeholder="Ej. 320,50">
+                                                        </div>
+                                                    </div>
                                                     <div class="mb-3">
                                                         <label class="form-label">Archivo</label>
                                                         <input type="file" id="doc_archivo" class="form-control" multiple>
@@ -977,6 +1002,49 @@
                                         {% empty %}
                                             <div class="text-muted">No hay documentos todavía.</div>
                                         {% endfor %}
+                                        <div class="accordion-item">
+                                            <h2 class="accordion-header" id="heading-facturas-gasto">
+                                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-facturas-gasto">
+                                                    Facturas (gastos) {% if facturas_gasto %}({{ facturas_gasto|length }}){% endif %}
+                                                </button>
+                                            </h2>
+                                            <div id="collapse-facturas-gasto" class="accordion-collapse collapse" data-bs-parent="#docAccordion">
+                                                <div class="accordion-body">
+                                                    {% if facturas_gasto %}
+                                                        <div class="table-responsive">
+                                                            <table class="table table-sm align-middle">
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th>Concepto</th>
+                                                                        <th>Fecha</th>
+                                                                        <th class="text-end">Importe</th>
+                                                                        <th class="text-end">Archivo</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {% for factura in facturas_gasto %}
+                                                                        <tr>
+                                                                            <td class="fw-semibold">{{ factura.concepto }}</td>
+                                                                            <td>{% if factura.fecha %}{{ factura.fecha|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+                                                                            <td class="text-end">{% if factura.importe %}{{ factura.importe|es_number }} €{% else %}—{% endif %}</td>
+                                                                            <td class="text-end">
+                                                                                {% if factura.archivo_url %}
+                                                                                    <a href="{{ factura.archivo_url }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">Ver</a>
+                                                                                {% else %}
+                                                                                    <span class="text-muted">Sin archivo</span>
+                                                                                {% endif %}
+                                                                            </td>
+                                                                        </tr>
+                                                                    {% endfor %}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    {% else %}
+                                                        <div class="text-muted">No hay facturas asociadas a gastos.</div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

@@ -3509,6 +3509,28 @@ def proyecto(request, proyecto_id: int):
                 pass
     except Exception:
         ctx["documentos"] = []
+    try:
+        facturas = []
+        for factura in FacturaGasto.objects.select_related("gasto").filter(gasto__proyecto=proyecto_obj).order_by("-fecha_subida", "-id"):
+            factura_url = None
+            try:
+                key = getattr(factura.archivo, "name", "") or ""
+                signed = _s3_presigned_url(key)
+                factura_url = signed if signed else factura.archivo.url
+            except Exception:
+                factura_url = None
+            facturas.append({
+                "id": factura.id,
+                "gasto_id": factura.gasto_id,
+                "concepto": factura.gasto.concepto if factura.gasto else "—",
+                "fecha": factura.gasto.fecha if factura.gasto else None,
+                "importe": factura.gasto.importe if factura.gasto else None,
+                "archivo_url": factura_url,
+                "nombre": factura.nombre_original or (os.path.basename(factura.archivo.name) if factura.archivo else "Factura"),
+            })
+        ctx["facturas_gasto"] = facturas
+    except Exception:
+        ctx["facturas_gasto"] = []
 
     return render(request, "core/proyecto.html", ctx)
 
@@ -4299,6 +4321,23 @@ def proyecto_gastos(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": "Proyecto no encontrado"}, status=404)
 
     if request.method == "GET":
+        facturas_docs = {}
+        try:
+            docs = (
+                DocumentoProyecto.objects.filter(
+                    proyecto=proyecto,
+                    categoria="facturas",
+                    fecha_factura__isnull=False,
+                    importe_factura__isnull=False,
+                )
+                .order_by("-creado", "-id")
+            )
+            for doc in docs:
+                key = (doc.fecha_factura, doc.importe_factura)
+                if key not in facturas_docs:
+                    facturas_docs[key] = doc
+        except Exception:
+            facturas_docs = {}
         gastos = []
         for g in GastoProyecto.objects.filter(proyecto=proyecto).order_by("fecha", "id"):
             factura_url = None
@@ -4309,6 +4348,15 @@ def proyecto_gastos(request, proyecto_id: int):
                     factura_url = signed if signed else g.factura.archivo.url
                 except Exception:
                     factura_url = None
+            if not factura_url and facturas_docs:
+                doc = facturas_docs.get((g.fecha, g.importe))
+                if doc and doc.archivo:
+                    try:
+                        key = getattr(doc.archivo, "name", "") or ""
+                        signed = _s3_presigned_url(key)
+                        factura_url = signed if signed else doc.archivo.url
+                    except Exception:
+                        factura_url = None
             gastos.append({
                 "id": g.id,
                 "fecha": g.fecha.isoformat(),
@@ -4566,6 +4614,8 @@ def proyecto_documentos(request, proyecto_id: int):
     categorias_validas = {c[0] for c in DocumentoProyecto.CATEGORIAS}
     if categoria not in categorias_validas:
         categoria = "otros"
+    factura_fecha = _parse_date(request.POST.get("factura_fecha")) if categoria == "facturas" else None
+    factura_importe = _parse_decimal(request.POST.get("factura_importe")) if categoria == "facturas" else None
 
     for idx, archivo in enumerate(archivos, start=1):
         nombre_base = os.path.splitext(archivo.name or "")[0] or "Documento"
@@ -4579,6 +4629,8 @@ def proyecto_documentos(request, proyecto_id: int):
             categoria=categoria,
             titulo=doc_titulo,
             archivo=archivo,
+            fecha_factura=factura_fecha,
+            importe_factura=factura_importe,
         )
 
     return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-documentacion")
