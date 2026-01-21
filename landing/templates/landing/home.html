@@ -92,44 +92,32 @@
           <h2>Proyectos</h2>
           <p>Presentación de operaciones con resultados económicos destacados.</p>
         </div>
-        <div class="project-grid">
-          {% for proyecto in proyectos %}
-            <article class="project-card">
-              <div class="project-card__media">
-                <div class="project-card__media-bg" style="background-image: linear-gradient(160deg, rgba(13, 22, 40, 0.65), rgba(13, 22, 40, 0.25)), url('{% if proyecto.imagen_url %}{{ proyecto.imagen_url }}{% else %}{% static proyecto.imagen %}{% endif %}');"></div>
-                <div class="project-card__badge">{{ proyecto.anio }}</div>
-              </div>
-              <div class="project-card__body">
-                <p class="project-card__eyebrow">Nuevo proyecto de inversión</p>
-                <h3>{{ proyecto.titulo }}</h3>
-                <p class="project-card__location">{{ proyecto.ubicacion }}</p>
-                <div class="project-card__metrics">
-                  <div>
-                    <span>Operación</span>
-                    <strong>{{ proyecto.plazo }}</strong>
-                  </div>
-                  <div>
-                    <span>Rentabilidad estimada</span>
-                    <strong>{{ proyecto.rentabilidad }}</strong>
-                  </div>
-                  <div>
-                    <span>Accede a partir de</span>
-                    <strong>{{ proyecto.acceso_minimo }}</strong>
-                  </div>
-                  <div>
-                    <span>Inversión total</span>
-                    <strong>{{ proyecto.inversion_total }}</strong>
-                  </div>
-                  <div>
-                    <span>Beneficio estimado</span>
-                    <strong>{{ proyecto.beneficio_estimado }}</strong>
+        {% if proyectos %}
+          <div class="project-grid">
+            {% for proyecto in proyectos %}
+              <article class="project-card">
+                <div class="project-card__media">
+                  <div class="project-card__media-bg" style="background-image: linear-gradient(160deg, rgba(13, 22, 40, 0.65), rgba(13, 22, 40, 0.25)), url('{% if proyecto.imagen_url %}{{ proyecto.imagen_url }}{% else %}{% static proyecto.imagen %}{% endif %}');"></div>
+                </div>
+                <div class="project-card__body">
+                  <h3>{{ proyecto.titulo }}</h3>
+                  <div class="project-card__metrics">
+                    <div>
+                      <span>Beneficio neto</span>
+                      <strong>{{ proyecto.beneficio_neto_pct }}</strong>
+                    </div>
+                    <div>
+                      <span>Plazo</span>
+                      <strong>{{ proyecto.plazo }}</strong>
+                    </div>
                   </div>
                 </div>
-                <span class="project-card__tag">{{ proyecto.estado }}</span>
-              </div>
-            </article>
-          {% endfor %}
-        </div>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="section__note">Publicaremos aquí las operaciones cerradas con su rentabilidad final.</p>
+        {% endif %}
       </div>
     </section>
 

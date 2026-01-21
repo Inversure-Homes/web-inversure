@@ -229,6 +229,12 @@ body.landing-body {
   color: var(--muted);
 }
 
+.section__note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 16px;
+}
+
 .section--stats {
   background: linear-gradient(180deg, rgba(15, 23, 42, 0.04), rgba(255, 255, 255, 0.95));
 }
