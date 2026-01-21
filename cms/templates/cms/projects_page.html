@@ -32,24 +32,12 @@
                     {% endif %}
                     <div class="project-card__metrics">
                       <div>
-                        <span>Operación</span>
-                        <strong>{{ block.value.plazo|default:"3 meses" }}</strong>
-                      </div>
-                      <div>
-                        <span>Rentabilidad estimada</span>
+                        <span>Beneficio neto</span>
                         <strong>{{ block.value.rentabilidad|default:"—" }}</strong>
                       </div>
                       <div>
-                        <span>Accede a partir de</span>
-                        <strong>{{ block.value.acceso_minimo|default:"—" }}</strong>
-                      </div>
-                      <div>
-                        <span>Inversión total</span>
-                        <strong>{{ block.value.inversion_total|default:"—" }}</strong>
-                      </div>
-                      <div>
-                        <span>Beneficio estimado</span>
-                        <strong>{{ block.value.beneficio_estimado|default:"—" }}</strong>
+                        <span>Plazo</span>
+                        <strong>{{ block.value.plazo|default:"3 meses" }}</strong>
                       </div>
                     </div>
                     {% if block.value.descripcion %}
