@@ -298,8 +298,8 @@ body.landing-body {
 
 .project-grid {
   display: grid;
-  gap: 18px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
 
 .card {
@@ -324,11 +324,11 @@ body.landing-body {
 }
 
 .project-card {
-  border-radius: 16px;
+  border-radius: 14px;
   overflow: hidden;
   background: #0b1324;
   color: #f8fafc;
-  box-shadow: 0 16px 30px rgba(11, 19, 36, 0.22);
+  box-shadow: 0 14px 26px rgba(11, 19, 36, 0.2);
   display: grid;
   grid-template-rows: auto 1fr;
 }
@@ -355,7 +355,7 @@ body.landing-body {
 }
 
 .project-card__body {
-  padding: 14px;
+  padding: 12px;
   background: linear-gradient(180deg, rgba(11, 19, 36, 0.96), rgba(11, 19, 36, 0.88));
 }
 
@@ -368,7 +368,7 @@ body.landing-body {
 }
 
 .project-card h3 {
-  font-size: 18px;
+  font-size: 16px;
   margin: 0 0 8px;
   font-weight: 700;
 }
@@ -380,20 +380,20 @@ body.landing-body {
 
 .project-card__metrics {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .project-card__metrics span {
   display: block;
-  font-size: 11px;
+  font-size: 10px;
   color: #9aa4b2;
   margin-bottom: 4px;
 }
 
 .project-card__metrics strong {
-  font-size: 13px;
+  font-size: 12px;
   color: #f8fafc;
 }
 
