@@ -1113,6 +1113,19 @@
                                             {% endfor %}
                                         </select>
                                     </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Foto cabecera (proyecto)</label>
+                                        <select name="publicaciones.cabecera_imagen_id" class="form-select" {% if not editable %}disabled{% endif %}>
+                                            <option value="">Usar principal</option>
+                                            {% for doc in documentos %}
+                                                {% if doc.categoria == "fotografias" %}
+                                                    <option value="{{ doc.id }}" {% if publicaciones_config.cabecera_imagen_id and publicaciones_config.cabecera_imagen_id|stringformat:"s" == doc.id|stringformat:"s" %}selected{% endif %}>
+                                                        {{ doc.titulo }}
+                                                    </option>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </select>
+                                    </div>
                                     <div class="form-text">Estos campos se muestran en la landing pública.</div>
                                 </div>
                             </div>

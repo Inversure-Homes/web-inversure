@@ -3426,8 +3426,13 @@ def proyecto(request, proyecto_id: int):
         if not landing_config and isinstance(overlay, dict):
             landing_config = overlay.get("landing", {}) or {}
         ctx["landing_config"] = landing_config if isinstance(landing_config, dict) else {}
+        publicaciones_config = extra.get("publicaciones", {}) if isinstance(extra, dict) else {}
+        if not publicaciones_config and isinstance(overlay, dict):
+            publicaciones_config = overlay.get("publicaciones", {}) or {}
+        ctx["publicaciones_config"] = publicaciones_config if isinstance(publicaciones_config, dict) else {}
     except Exception:
         ctx["landing_config"] = {}
+        ctx["publicaciones_config"] = {}
 
     try:
         _ensure_checklist_defaults(proyecto_obj)
@@ -3507,6 +3512,19 @@ def proyecto(request, proyecto_id: int):
                 ctx["foto_principal_titulo"] = principal.titulo
             except Exception:
                 pass
+        try:
+            publicaciones_config = ctx.get("publicaciones_config") if isinstance(ctx.get("publicaciones_config"), dict) else {}
+            cabecera_id = publicaciones_config.get("cabecera_imagen_id")
+            if cabecera_id:
+                cabecera_doc = next(
+                    (d for d in documentos if str(d.id) == str(cabecera_id) and d.categoria == "fotografias"),
+                    None,
+                )
+                if cabecera_doc:
+                    ctx["foto_principal_url"] = cabecera_doc.signed_url if hasattr(cabecera_doc, "signed_url") and cabecera_doc.signed_url else cabecera_doc.archivo.url
+                    ctx["foto_principal_titulo"] = cabecera_doc.titulo
+        except Exception:
+            pass
         try:
             facturas_docs = []
             for doc in documentos:
@@ -3990,6 +4008,9 @@ def guardar_proyecto(request, proyecto_id: int):
         landing_payload = payload.get("landing")
         if isinstance(landing_payload, dict):
             extra["landing"] = _sanitize_for_json(landing_payload)
+        publicaciones_payload = payload.get("publicaciones")
+        if isinstance(publicaciones_payload, dict):
+            extra["publicaciones"] = _sanitize_for_json(publicaciones_payload)
 
         # Guardar también dentro de snapshot_datos como fallback si existe
         try:
