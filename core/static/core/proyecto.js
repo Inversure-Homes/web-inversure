@@ -2242,7 +2242,7 @@ function bindMemoriaEconomica() {
   btnAdd.addEventListener("click", addRow);
   if (btnCancel) btnCancel.addEventListener("click", () => clearForm());
   if (elTipo) elTipo.addEventListener("change", toggleTipoFields);
-  tabla.addEventListener("click", (e) => {
+  tabla.addEventListener("click", async (e) => {
     const btn = e.target.closest(".eco-del");
     const btnEdit = e.target.closest(".eco-edit");
     const btnConfirm = e.target.closest(".eco-confirm");
