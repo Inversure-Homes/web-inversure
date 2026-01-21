@@ -2,17 +2,12 @@ from django.shortcuts import get_object_or_404, render
 from django.templatetags.static import static
 from django.utils import timezone
 
-from core.models import Proyecto, DocumentoProyecto
-from core.views import _build_dashboard_context, _s3_presigned_url
+from core.models import Proyecto
+from core.views import _build_dashboard_context
 from .models import Noticia
 
 
 def landing_home(request):
-    def _fmt_eur(value):
-        if value is None:
-            return "—"
-        return f"{value:,.0f} €".replace(",", "X").replace(".", ",").replace("X", ".")
-
     def _fmt_pct(value):
         if value is None:
             return "—"
@@ -28,20 +23,6 @@ def landing_home(request):
             return float(value)
         except Exception:
             return default
-
-    def _doc_url(doc):
-        key = getattr(doc.archivo, "name", "") or ""
-        signed = _s3_presigned_url(key)
-        if signed:
-            return signed
-        try:
-            return request.build_absolute_uri(doc.archivo.url)
-        except Exception:
-            return doc.archivo.url
-
-    def _is_image(doc):
-        name = (doc.archivo.name or "").lower()
-        return name.endswith((".png", ".jpg", ".jpeg", ".webp"))
 
     hero = {
         "tag": "Inversión inmobiliaria con trazabilidad real",
@@ -85,91 +66,23 @@ def landing_home(request):
             "image_alt": "Vista de rentabilidad transparente",
         },
     ]
-    proyectos = [
-        {
-            "titulo": "COÍN",
-            "ubicacion": "Málaga",
-            "anio": "2025",
-            "plazo": "3 meses",
-            "rentabilidad": "11,63 %",
-            "acceso_minimo": "10.000 €",
-            "inversion_total": "148.000 €",
-            "beneficio_estimado": "17.200 €",
-            "estado": "En curso",
-            "imagen": "landing/assets/hero_family.jpg",
-        },
-        {
-            "titulo": "Sotogrande",
-            "ubicacion": "Cádiz",
-            "anio": "2025",
-            "plazo": "3 meses",
-            "rentabilidad": "4,16 %",
-            "acceso_minimo": "10.000 €",
-            "inversion_total": "240.000 €",
-            "beneficio_estimado": "9.980 €",
-            "estado": "Finalizado",
-            "imagen": "landing/assets/hero_investor.jpg",
-        },
-        {
-            "titulo": "Torremolinos",
-            "ubicacion": "Málaga",
-            "anio": "2025",
-            "plazo": "3 meses",
-            "rentabilidad": "8,22 %",
-            "acceso_minimo": "10.000 €",
-            "inversion_total": "162.000 €",
-            "beneficio_estimado": "13.300 €",
-            "estado": "Finalizado",
-            "imagen": "landing/assets/hero_model.jpg",
-        },
-        {
-            "titulo": "Mijas",
-            "ubicacion": "Málaga",
-            "anio": "2025",
-            "plazo": "4 meses",
-            "rentabilidad": "16,64 %",
-            "acceso_minimo": "10.000 €",
-            "inversion_total": "210.000 €",
-            "beneficio_estimado": "34.900 €",
-            "estado": "En curso",
-            "imagen": "landing/assets/hero_growth.jpg",
-        },
-    ]
-    presentaciones = []
-    try:
-        docs = (
-            DocumentoProyecto.objects.filter(categoria="presentacion")
-            .select_related("proyecto")
-            .order_by("-creado", "-id")
+    estados_finalizados = {"cerrado", "cerrado_positivo", "cerrado_negativo", "finalizado", "vendido"}
+    proyectos = []
+    for proyecto in (
+        Proyecto.objects.filter(mostrar_en_landing=True, estado__in=estados_finalizados).order_by("-id")
+    ):
+        meses = getattr(proyecto, "meses", None)
+        proyectos.append(
+            {
+                "titulo": proyecto.nombre or getattr(proyecto, "nombre_proyecto", "") or "Proyecto",
+                "ubicacion": proyecto.direccion or "—",
+                "anio": str(proyecto.fecha.year) if proyecto.fecha else str(timezone.now().year),
+                "plazo": f"{int(meses)} meses" if meses else "—",
+                "beneficio_neto_pct": _fmt_pct(_as_float(getattr(proyecto, "roi", None))),
+                "estado": proyecto.estado or "—",
+                "imagen": "landing/assets/hero_growth.jpg",
+            }
         )
-        seen = set()
-        for doc in docs:
-            if doc.proyecto_id in seen:
-                continue
-            if not _is_image(doc):
-                continue
-            proyecto = doc.proyecto
-            if not getattr(proyecto, "mostrar_en_landing", False):
-                continue
-            presentaciones.append(
-                {
-                    "titulo": proyecto.nombre or getattr(proyecto, "nombre_proyecto", "") or doc.titulo,
-                    "ubicacion": proyecto.direccion or "—",
-                    "anio": str(proyecto.fecha.year) if proyecto.fecha else str(timezone.now().year),
-                    "plazo": "—",
-                    "rentabilidad": "—",
-                    "acceso_minimo": "—",
-                    "inversion_total": "—",
-                    "beneficio_estimado": "—",
-                    "estado": proyecto.estado or "—",
-                    "imagen_url": _doc_url(doc),
-                }
-            )
-            seen.add(doc.proyecto_id)
-    except Exception:
-        presentaciones = []
-    if presentaciones:
-        proyectos = presentaciones
     proyectos_qs = Proyecto.objects.all()
     dashboard_ctx = _build_dashboard_context(request.user)
     dashboard_stats = dashboard_ctx.get("dashboard_stats", {})
