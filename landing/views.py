@@ -86,6 +86,8 @@ def landing_home(request):
         beneficio_val = _as_float(beneficio_raw, _as_float(getattr(proyecto, "roi", None)))
         plazo_raw = landing_cfg.get("plazo_meses")
         plazo_val = _as_float(plazo_raw, _as_float(getattr(proyecto, "meses", None)))
+        focus_x = _as_float(landing_cfg.get("imagen_focus_x"), 50.0)
+        focus_y = _as_float(landing_cfg.get("imagen_focus_y"), 50.0)
         imagen_url = ""
         imagen_id = landing_cfg.get("imagen_id")
         if imagen_id:
@@ -118,6 +120,8 @@ def landing_home(request):
                 "beneficio_neto_pct": _fmt_pct(beneficio_val),
                 "estado": proyecto.estado or "—",
                 "imagen_url": imagen_url,
+                "imagen_focus_x": focus_x,
+                "imagen_focus_y": focus_y,
                 "imagen": "landing/assets/hero_growth.jpg",
             }
         )

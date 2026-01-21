@@ -19,6 +19,7 @@
 </script>
 {% if snapshot %}{{ snapshot|json_script:"snapshotData" }}{% endif %}
 {% if facturas_docs %}{{ facturas_docs|json_script:"facturasDocsData" }}{% endif %}
+{% if fotos_docs %}{{ fotos_docs|json_script:"fotosDocsData" }}{% endif %}
 
 <script>
   document.addEventListener("DOMContentLoaded", () => {
@@ -31,6 +32,43 @@
     if (catSelect && facturaFields) {
       catSelect.addEventListener("change", toggleFacturaFields);
       toggleFacturaFields();
+    }
+
+    const previewCard = document.getElementById("landing_preview");
+    const landingSelect = document.querySelector("[name='landing.imagen_id']");
+    const focusX = document.querySelector("[name='landing.imagen_focus_x']");
+    const focusY = document.querySelector("[name='landing.imagen_focus_y']");
+    let fotos = [];
+    try {
+      const data = document.getElementById("fotosDocsData");
+      if (data && data.textContent) {
+        fotos = JSON.parse(data.textContent) || [];
+      }
+    } catch (e) {
+      fotos = [];
+    }
+
+    const getFotoUrl = (id) => {
+      if (!id) return "";
+      const found = fotos.find(item => String(item.id) === String(id));
+      return found ? (found.archivo_url || "") : "";
+    };
+
+    const updatePreview = () => {
+      if (!previewCard) return;
+      const selectedId = landingSelect ? landingSelect.value : "";
+      const url = getFotoUrl(selectedId) || previewCard.dataset.defaultUrl || "";
+      const x = focusX && focusX.value ? focusX.value : "50";
+      const y = focusY && focusY.value ? focusY.value : "50";
+      previewCard.style.backgroundImage = `linear-gradient(180deg, rgba(11, 19, 36, 0.2), rgba(11, 19, 36, 0.75)), url('${url}')`;
+      previewCard.style.backgroundPosition = `${x}% ${y}%`;
+    };
+
+    if (previewCard) {
+      if (landingSelect) landingSelect.addEventListener("change", updatePreview);
+      if (focusX) focusX.addEventListener("input", updatePreview);
+      if (focusY) focusY.addEventListener("input", updatePreview);
+      updatePreview();
     }
   });
 </script>
@@ -74,6 +112,48 @@
   }
   .btn-inversure-outline:hover .arrow {
     color: #d7b04c;
+  }
+
+  .landing-preview-card {
+    border-radius: 16px;
+    overflow: hidden;
+    background-color: #0b1324;
+    background-size: cover;
+    background-position: 50% 50%;
+    aspect-ratio: 1 / 1;
+    display: grid;
+    align-items: end;
+    box-shadow: 0 14px 32px rgba(11, 19, 36, 0.25);
+  }
+
+  .landing-preview-body {
+    background: linear-gradient(180deg, rgba(11, 19, 36, 0.0), rgba(11, 19, 36, 0.9));
+    color: #f8fafc;
+    padding: 16px;
+  }
+
+  .landing-preview-title {
+    font-weight: 700;
+    font-size: 18px;
+    margin-bottom: 10px;
+  }
+
+  .landing-preview-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    font-size: 12px;
+  }
+
+  .landing-preview-metrics span {
+    display: block;
+    color: #cbd3e1;
+    margin-bottom: 4px;
+  }
+
+  .landing-preview-metrics strong {
+    font-size: 14px;
+    color: #f8fafc;
   }
 </style>
 
@@ -1112,6 +1192,40 @@
                                                 {% endif %}
                                             {% endfor %}
                                         </select>
+                                    </div>
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-6">
+                                            <label class="form-label">Encuadre horizontal</label>
+                                            <input type="range" min="0" max="100" step="1" name="landing.imagen_focus_x" class="form-range"
+                                                   data-number="true"
+                                                   value="{{ landing_config.imagen_focus_x|default:50 }}" {% if not editable %}disabled{% endif %}>
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label">Encuadre vertical</label>
+                                            <input type="range" min="0" max="100" step="1" name="landing.imagen_focus_y" class="form-range"
+                                                   data-number="true"
+                                                   value="{{ landing_config.imagen_focus_y|default:50 }}" {% if not editable %}disabled{% endif %}>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Vista previa</label>
+                                        <div class="landing-preview-card" id="landing_preview"
+                                             data-default-url="{{ landing_preview_url|default:'' }}"
+                                             style="background-image: linear-gradient(180deg, rgba(11, 19, 36, 0.2), rgba(11, 19, 36, 0.75)), url('{{ landing_preview_url|default:'' }}');">
+                                            <div class="landing-preview-body">
+                                                <div class="landing-preview-title">{{ landing_config.titulo|default:proyecto.nombre|default:'' }}</div>
+                                                <div class="landing-preview-metrics">
+                                                    <div>
+                                                        <span>Beneficio neto</span>
+                                                        <strong>{{ landing_config.beneficio_neto_pct|default:proyecto.roi|default:"—" }}</strong>
+                                                    </div>
+                                                    <div>
+                                                        <span>Plazo</span>
+                                                        <strong>{{ landing_config.plazo_meses|default:proyecto.meses|default:"—" }} {% if landing_config.plazo_meses or proyecto.meses %}meses{% endif %}</strong>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label">Foto cabecera (proyecto)</label>

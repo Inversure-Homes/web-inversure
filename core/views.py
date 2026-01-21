@@ -3526,6 +3526,41 @@ def proyecto(request, proyecto_id: int):
         except Exception:
             pass
         try:
+            fotos_docs = []
+            for doc in documentos:
+                if doc.categoria != "fotografias":
+                    continue
+                archivo_url = None
+                try:
+                    archivo_url = doc.signed_url if hasattr(doc, "signed_url") and doc.signed_url else doc.archivo.url
+                except Exception:
+                    archivo_url = None
+                fotos_docs.append({
+                    "id": doc.id,
+                    "titulo": doc.titulo,
+                    "archivo_url": archivo_url,
+                })
+            ctx["fotos_docs"] = fotos_docs
+        except Exception:
+            ctx["fotos_docs"] = []
+
+        try:
+            landing_config = ctx.get("landing_config") if isinstance(ctx.get("landing_config"), dict) else {}
+            landing_img_id = landing_config.get("imagen_id")
+            landing_preview_url = None
+            if landing_img_id:
+                landing_doc = next(
+                    (d for d in documentos if str(d.id) == str(landing_img_id) and d.categoria == "fotografias"),
+                    None,
+                )
+                if landing_doc:
+                    landing_preview_url = landing_doc.signed_url if hasattr(landing_doc, "signed_url") and landing_doc.signed_url else landing_doc.archivo.url
+            if not landing_preview_url and principal:
+                landing_preview_url = principal.signed_url if hasattr(principal, "signed_url") and principal.signed_url else principal.archivo.url
+            ctx["landing_preview_url"] = landing_preview_url
+        except Exception:
+            ctx["landing_preview_url"] = None
+        try:
             facturas_docs = []
             for doc in documentos:
                 if doc.categoria != "facturas":
