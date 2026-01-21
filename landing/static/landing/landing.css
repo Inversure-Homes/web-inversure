@@ -330,18 +330,19 @@ body.landing-body {
   color: #f8fafc;
   box-shadow: 0 26px 50px rgba(11, 19, 36, 0.28);
   display: grid;
-  grid-template-rows: 200px auto;
+  grid-template-rows: auto 1fr;
 }
 
 .project-card__media {
   position: relative;
+  aspect-ratio: 1 / 1;
 }
 
 .project-card__media-bg {
   width: 100%;
   height: 100%;
   background-size: cover;
-  background-position: center 30%;
+  background-position: center;
   background-repeat: no-repeat;
 }
 
