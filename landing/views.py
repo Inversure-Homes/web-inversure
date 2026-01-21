@@ -2,8 +2,8 @@ from django.shortcuts import get_object_or_404, render
 from django.templatetags.static import static
 from django.utils import timezone
 
-from core.models import Proyecto
-from core.views import _build_dashboard_context
+from core.models import Proyecto, DocumentoProyecto
+from core.views import _build_dashboard_context, _s3_presigned_url
 from .models import Noticia
 
 
@@ -20,6 +20,8 @@ def landing_home(request):
 
     def _as_float(value, default=None):
         try:
+            if isinstance(value, str):
+                value = value.strip().replace("%", "").replace(",", ".")
             return float(value)
         except Exception:
             return default
@@ -66,20 +68,56 @@ def landing_home(request):
             "image_alt": "Vista de rentabilidad transparente",
         },
     ]
-    estados_finalizados = {"cerrado", "cerrado_positivo", "cerrado_negativo", "finalizado", "vendido"}
+    def _doc_url(doc):
+        key = getattr(doc.archivo, "name", "") or ""
+        signed = _s3_presigned_url(key)
+        if signed:
+            return signed
+        try:
+            return request.build_absolute_uri(doc.archivo.url)
+        except Exception:
+            return doc.archivo.url
+
     proyectos = []
-    for proyecto in (
-        Proyecto.objects.filter(mostrar_en_landing=True, estado__in=estados_finalizados).order_by("-id")
-    ):
-        meses = getattr(proyecto, "meses", None)
+    for proyecto in Proyecto.objects.filter(mostrar_en_landing=True).order_by("-id"):
+        extra = getattr(proyecto, "extra", None)
+        landing_cfg = extra.get("landing", {}) if isinstance(extra, dict) else {}
+        beneficio_raw = landing_cfg.get("beneficio_neto_pct")
+        beneficio_val = _as_float(beneficio_raw, _as_float(getattr(proyecto, "roi", None)))
+        plazo_raw = landing_cfg.get("plazo_meses")
+        plazo_val = _as_float(plazo_raw, _as_float(getattr(proyecto, "meses", None)))
+        imagen_url = ""
+        imagen_id = landing_cfg.get("imagen_id")
+        if imagen_id:
+            try:
+                doc = DocumentoProyecto.objects.filter(
+                    id=imagen_id,
+                    proyecto=proyecto,
+                    categoria="fotografias",
+                ).first()
+                if doc:
+                    imagen_url = _doc_url(doc)
+            except Exception:
+                imagen_url = ""
+        if not imagen_url:
+            try:
+                doc = DocumentoProyecto.objects.filter(
+                    proyecto=proyecto,
+                    categoria="fotografias",
+                ).order_by("-es_principal", "-creado", "-id").first()
+                if doc:
+                    imagen_url = _doc_url(doc)
+            except Exception:
+                imagen_url = ""
         proyectos.append(
             {
-                "titulo": proyecto.nombre or getattr(proyecto, "nombre_proyecto", "") or "Proyecto",
-                "ubicacion": proyecto.direccion or "—",
+                "titulo": landing_cfg.get("titulo") or proyecto.nombre or getattr(proyecto, "nombre_proyecto", "") or "Proyecto",
+                "ubicacion": landing_cfg.get("ubicacion") or proyecto.direccion or "—",
                 "anio": str(proyecto.fecha.year) if proyecto.fecha else str(timezone.now().year),
-                "plazo": f"{int(meses)} meses" if meses else "—",
-                "beneficio_neto_pct": _fmt_pct(_as_float(getattr(proyecto, "roi", None))),
+                "plazo": f"{int(plazo_val)} meses" if plazo_val else "—",
+                "beneficio_neto_pct": _fmt_pct(beneficio_val),
                 "estado": proyecto.estado or "—",
+                "imagen_url": imagen_url,
                 "imagen": "landing/assets/hero_growth.jpg",
             }
         )

@@ -3416,6 +3416,14 @@ def proyecto(request, proyecto_id: int):
         "capital_captado": captacion_ctx.get("capital_captado"),
         "pct_captado": captacion_ctx.get("pct_captado"),
     }
+    try:
+        extra = getattr(proyecto_obj, "extra", None)
+        landing_config = extra.get("landing", {}) if isinstance(extra, dict) else {}
+        if not landing_config and isinstance(overlay, dict):
+            landing_config = overlay.get("landing", {}) or {}
+        ctx["landing_config"] = landing_config if isinstance(landing_config, dict) else {}
+    except Exception:
+        ctx["landing_config"] = {}
 
     try:
         _ensure_checklist_defaults(proyecto_obj)
@@ -3933,6 +3941,9 @@ def guardar_proyecto(request, proyecto_id: int):
             if isinstance(notif_val, str):
                 notif_val = notif_val.strip().lower() in {"1", "true", "si", "sí", "on"}
             extra["notificar_inversores"] = bool(notif_val)
+        landing_payload = payload.get("landing")
+        if isinstance(landing_payload, dict):
+            extra["landing"] = _sanitize_for_json(landing_payload)
 
         # Guardar también dentro de snapshot_datos como fallback si existe
         try:

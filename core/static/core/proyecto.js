@@ -666,7 +666,7 @@ function buildOverlayPayloadFromDOM() {
     // En proyecto.html el selector de estado del proyecto tiene id="estado_proyecto"
     if (name === "estado" && el.id === "estado_proyecto") return true;
     if (name === "fecha" || name === "responsable" || name === "codigo_proyecto") return true;
-    if (name === "notificar_inversores" || name === "acceso_comercial") return true;
+    if (name === "notificar_inversores" || name === "acceso_comercial" || name === "mostrar_en_landing") return true;
     // Resultado del cierre: id="resultado_cierre" (solo visible si estado=cerrado)
     if (name === "resultado_cierre" && el.id === "resultado_cierre") return true;
     return false;
