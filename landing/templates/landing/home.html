@@ -111,6 +111,9 @@
                       <strong>{{ proyecto.plazo }}</strong>
                     </div>
                   </div>
+                  {% if proyecto.estado %}
+                    <span class="project-card__tag">{{ proyecto.estado }}</span>
+                  {% endif %}
                 </div>
               </article>
             {% endfor %}
