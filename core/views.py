@@ -4493,6 +4493,13 @@ def proyecto_gasto_factura(request, proyecto_id: int, gasto_id: int):
     except GastoProyecto.DoesNotExist:
         return JsonResponse({"ok": False, "error": "Gasto no encontrado"}, status=404)
 
+    if request.method == "DELETE":
+        try:
+            FacturaGasto.objects.filter(gasto=gasto).delete()
+            return JsonResponse({"ok": True})
+        except Exception as e:
+            return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
     if request.method != "POST":
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 

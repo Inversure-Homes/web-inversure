@@ -1969,6 +1969,9 @@ function bindMemoriaEconomica() {
       const facturaBtn = (r.tipo === "gasto")
         ? `<button type="button" class="btn btn-sm ${r.has_factura ? "btn-outline-success" : "btn-outline-secondary"} me-1 eco-factura" title="${r.has_factura ? "Reemplazar factura" : "Añadir factura"}" aria-label="Añadir factura"><i class="bi bi-paperclip"></i></button>`
         : "";
+      const facturaUndo = (r.tipo === "gasto" && r.has_factura)
+        ? `<button type="button" class="btn btn-sm btn-outline-warning me-1 eco-factura-remove" title="Quitar factura" aria-label="Quitar factura"><i class="bi bi-arrow-counterclockwise"></i></button>`
+        : "";
       return `
         <tr data-id="${r.id}" data-tipo="${r.tipo}" class="${r.has_factura ? "eco-row-factura" : ""}">
           <td>${r.fecha || ""}</td>
@@ -1979,6 +1982,7 @@ function bindMemoriaEconomica() {
           <td>${r.estado ? _capFirst(r.estado) : "-"}${facturaBadge}</td>
           <td class="text-end">
             ${facturaBtn}
+            ${facturaUndo}
             ${facturaView}
             ${canConfirm ? `<button type="button" class="btn btn-sm btn-outline-success me-1 eco-confirm" title="Confirmar" aria-label="Confirmar"><i class="bi bi-check2-circle"></i></button>` : ""}
             <button type="button" class="btn btn-sm btn-outline-secondary me-1 eco-edit" title="Editar" aria-label="Editar"><i class="bi bi-pencil"></i></button>
@@ -2247,6 +2251,7 @@ function bindMemoriaEconomica() {
     const btnEdit = e.target.closest(".eco-edit");
     const btnConfirm = e.target.closest(".eco-confirm");
     const btnFactura = e.target.closest(".eco-factura");
+    const btnFacturaRemove = e.target.closest(".eco-factura-remove");
     if (btnFactura) {
       const tr = btnFactura.closest("tr");
       const id = tr ? tr.getAttribute("data-id") : null;
@@ -2318,6 +2323,32 @@ function bindMemoriaEconomica() {
         }
       };
       input.click();
+      return;
+    }
+    if (btnFacturaRemove) {
+      const tr = btnFacturaRemove.closest("tr");
+      const id = tr ? tr.getAttribute("data-id") : null;
+      if (!id || !urlFacturaBase) return;
+      if (!confirm("¿Quitar la factura asociada?")) return;
+      const url = urlFacturaBase.replace("/0/", `/${id}/`);
+      try {
+        const resp = await fetch(url, {
+          method: "DELETE",
+          headers: { ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}) },
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.ok) {
+          alert((data && data.error) || "No se pudo quitar la factura.");
+          return;
+        }
+        rows = rows.map(r => {
+          if (String(r.id) !== String(id)) return r;
+          return { ...r, has_factura: false, factura_url: null };
+        });
+        renderTable();
+      } catch (err) {
+        alert("No se pudo quitar la factura.");
+      }
       return;
     }
     if (btnConfirm) {
