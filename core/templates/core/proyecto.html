@@ -12,6 +12,7 @@
   window.ESTUDIO_ORIGEN_ID = {% if snapshot and snapshot.meta and snapshot.meta.estudio_id %}{{ snapshot.meta.estudio_id }}{% else %}null{% endif %};
   window.PROYECTO_GASTOS_URL = "{% url 'core:proyecto_gastos' proyecto.id %}";
   window.PROYECTO_INGRESOS_URL = "{% url 'core:proyecto_ingresos' proyecto.id %}";
+  window.PROYECTO_GASTO_FACTURA_URL = "{% url 'core:proyecto_gasto_factura' proyecto.id 0 %}";
   window.PROYECTO_CHECKLIST_URL = "{% url 'core:proyecto_checklist' proyecto.id %}";
   window.PROYECTO_PARTICIPACIONES_URL = "{% url 'core:proyecto_participaciones' proyecto.id %}";
   window.PROYECTO_SOLICITUDES_URL = "{% url 'core:proyecto_solicitudes' proyecto.id %}";

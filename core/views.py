@@ -34,7 +34,7 @@ from datetime import date, datetime
 from .models import Estudio, Proyecto
 from .models import EstudioSnapshot, ProyectoSnapshot
 from .models import GastoProyecto, IngresoProyecto, ChecklistItem
-from .models import Cliente, Participacion, InversorPerfil, SolicitudParticipacion, ComunicacionInversor, DocumentoProyecto, DocumentoInversor
+from .models import Cliente, Participacion, InversorPerfil, SolicitudParticipacion, ComunicacionInversor, DocumentoProyecto, DocumentoInversor, FacturaGasto
 from accounts.utils import is_admin_user, is_comercial_user, is_marketing_user, resolve_permissions, use_custom_permissions
 
 # --- SafeAccessDict helper and _safe_template_obj ---
@@ -4301,6 +4301,14 @@ def proyecto_gastos(request, proyecto_id: int):
     if request.method == "GET":
         gastos = []
         for g in GastoProyecto.objects.filter(proyecto=proyecto).order_by("fecha", "id"):
+            factura_url = None
+            if hasattr(g, "factura") and g.factura:
+                try:
+                    key = getattr(g.factura.archivo, "name", "") or ""
+                    signed = _s3_presigned_url(key)
+                    factura_url = signed if signed else g.factura.archivo.url
+                except Exception:
+                    factura_url = None
             gastos.append({
                 "id": g.id,
                 "fecha": g.fecha.isoformat(),
@@ -4311,6 +4319,8 @@ def proyecto_gastos(request, proyecto_id: int):
                 "imputable_inversores": g.imputable_inversores,
                 "estado": g.estado,
                 "observaciones": g.observaciones,
+                "factura_url": factura_url,
+                "has_factura": bool(factura_url),
             })
         return JsonResponse({"ok": True, "gastos": gastos})
 
@@ -4351,6 +4361,14 @@ def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
         return JsonResponse({"ok": False, "error": "Gasto no encontrado"}, status=404)
 
     if request.method == "GET":
+        factura_url = None
+        if hasattr(gasto, "factura") and gasto.factura:
+            try:
+                key = getattr(gasto.factura.archivo, "name", "") or ""
+                signed = _s3_presigned_url(key)
+                factura_url = signed if signed else gasto.factura.archivo.url
+            except Exception:
+                factura_url = None
         return JsonResponse({
             "ok": True,
             "gasto": {
@@ -4363,6 +4381,8 @@ def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
                 "imputable_inversores": gasto.imputable_inversores,
                 "estado": gasto.estado,
                 "observaciones": gasto.observaciones,
+                "factura_url": factura_url,
+                "has_factura": bool(factura_url),
             },
         })
 
@@ -4396,6 +4416,36 @@ def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
         return JsonResponse({"ok": True})
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+
+@csrf_exempt
+def proyecto_gasto_factura(request, proyecto_id: int, gasto_id: int):
+    try:
+        gasto = GastoProyecto.objects.select_related("proyecto").get(id=gasto_id, proyecto_id=proyecto_id)
+    except GastoProyecto.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Gasto no encontrado"}, status=404)
+
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+    archivo = request.FILES.get("factura") or request.FILES.get("archivo")
+    if not archivo:
+        return JsonResponse({"ok": False, "error": "Archivo requerido"}, status=400)
+
+    factura_obj, _ = FacturaGasto.objects.get_or_create(gasto=gasto)
+    factura_obj.archivo = archivo
+    factura_obj.nombre_original = getattr(archivo, "name", "") or factura_obj.nombre_original
+    factura_obj.save()
+
+    factura_url = None
+    try:
+        key = getattr(factura_obj.archivo, "name", "") or ""
+        signed = _s3_presigned_url(key)
+        factura_url = signed if signed else factura_obj.archivo.url
+    except Exception:
+        factura_url = None
+
+    return JsonResponse({"ok": True, "factura_url": factura_url})
 
 
 @csrf_exempt

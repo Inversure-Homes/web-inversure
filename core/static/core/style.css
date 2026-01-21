@@ -398,6 +398,14 @@ body {
 .legend-reservado { background: #22c55e; }
 .legend-vendido { background: #10b981; }
 .legend-cerrado { background: #14b8a6; }
+
+.eco-row-factura {
+  background-color: #ecfdf3;
+}
+
+.eco-row-factura td {
+  border-color: #bbf7d0;
+}
 .legend-descartado { background: #94a3b8; }
 
 .dashboard-alerts {

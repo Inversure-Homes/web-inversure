@@ -1362,6 +1362,7 @@ function bindMemoriaEconomica() {
 
   const urlGastos = window.PROYECTO_GASTOS_URL || "";
   const urlIngresos = window.PROYECTO_INGRESOS_URL || "";
+  const urlFacturaBase = window.PROYECTO_GASTO_FACTURA_URL || "";
 
   const elFecha = document.getElementById("eco_fecha");
   const elTipo = document.getElementById("eco_tipo");
@@ -1939,15 +1940,26 @@ function bindMemoriaEconomica() {
         ? (ingresoLabels[r.categoria] || ingresoLabels[r.tipo_ingreso] || r.categoria || "")
         : (r.categoria || "");
       const canConfirm = r.estado === "estimado";
+      const facturaBadge = (r.tipo === "gasto" && r.has_factura)
+        ? ' <span class="badge bg-success">Factura</span>'
+        : "";
+      const facturaView = (r.tipo === "gasto" && r.factura_url)
+        ? `<a class="btn btn-sm btn-outline-success me-1" href="${r.factura_url}" target="_blank" rel="noopener noreferrer" title="Ver factura" aria-label="Ver factura"><i class="bi bi-eye"></i></a>`
+        : "";
+      const facturaBtn = (r.tipo === "gasto")
+        ? `<button type="button" class="btn btn-sm ${r.has_factura ? "btn-outline-success" : "btn-outline-secondary"} me-1 eco-factura" title="${r.has_factura ? "Reemplazar factura" : "Añadir factura"}" aria-label="Añadir factura"><i class="bi bi-paperclip"></i></button>`
+        : "";
       return `
-        <tr data-id="${r.id}" data-tipo="${r.tipo}">
+        <tr data-id="${r.id}" data-tipo="${r.tipo}" class="${r.has_factura ? "eco-row-factura" : ""}">
           <td>${r.fecha || ""}</td>
           <td>${_capFirst(r.tipo)}</td>
           <td>${r.tipo === "ingreso" ? catLabel : _capFirst(catLabel)}</td>
           <td>${r.concepto || ""}</td>
           <td class="text-end">${fmtEuroLocal(r.importe)}</td>
-          <td>${r.estado ? _capFirst(r.estado) : "-"}</td>
+          <td>${r.estado ? _capFirst(r.estado) : "-"}${facturaBadge}</td>
           <td class="text-end">
+            ${facturaBtn}
+            ${facturaView}
             ${canConfirm ? `<button type="button" class="btn btn-sm btn-outline-success me-1 eco-confirm" title="Confirmar" aria-label="Confirmar"><i class="bi bi-check2-circle"></i></button>` : ""}
             <button type="button" class="btn btn-sm btn-outline-secondary me-1 eco-edit" title="Editar" aria-label="Editar"><i class="bi bi-pencil"></i></button>
             <button type="button" class="btn btn-sm btn-outline-danger eco-del" title="Borrar" aria-label="Borrar"><i class="bi bi-trash"></i></button>
@@ -1976,6 +1988,8 @@ function bindMemoriaEconomica() {
               estado: g.estado,
               imputable_inversores: g.imputable_inversores,
               observaciones: g.observaciones,
+              factura_url: g.factura_url,
+              has_factura: !!g.has_factura,
             });
           });
         }
@@ -2212,6 +2226,43 @@ function bindMemoriaEconomica() {
     const btn = e.target.closest(".eco-del");
     const btnEdit = e.target.closest(".eco-edit");
     const btnConfirm = e.target.closest(".eco-confirm");
+    const btnFactura = e.target.closest(".eco-factura");
+    if (btnFactura) {
+      const tr = btnFactura.closest("tr");
+      const id = tr ? tr.getAttribute("data-id") : null;
+      if (!id || !urlFacturaBase) return;
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "application/pdf,image/*";
+      input.onchange = async () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        const url = urlFacturaBase.replace("/0/", `/${id}/`);
+        const fd = new FormData();
+        fd.append("factura", file);
+        try {
+          const resp = await fetch(url, {
+            method: "POST",
+            headers: { ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}) },
+            body: fd,
+          });
+          const data = await resp.json();
+          if (!resp.ok || !data.ok) {
+            alert((data && data.error) || "No se pudo subir la factura.");
+            return;
+          }
+          rows = rows.map(r => {
+            if (String(r.id) !== String(id)) return r;
+            return { ...r, has_factura: true, factura_url: data.factura_url };
+          });
+          renderTable();
+        } catch (err) {
+          alert("No se pudo subir la factura.");
+        }
+      };
+      input.click();
+      return;
+    }
     if (btnConfirm) {
       const tr = btnConfirm.closest("tr");
       confirmRow(tr);
