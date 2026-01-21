@@ -18,6 +18,7 @@
   window.PROYECTO_SOLICITUDES_URL = "{% url 'core:proyecto_solicitudes' proyecto.id %}";
 </script>
 {% if snapshot %}{{ snapshot|json_script:"snapshotData" }}{% endif %}
+{% if facturas_docs %}{{ facturas_docs|json_script:"facturasDocsData" }}{% endif %}
 
 <script>
   document.addEventListener("DOMContentLoaded", () => {

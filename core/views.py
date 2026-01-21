@@ -3507,6 +3507,26 @@ def proyecto(request, proyecto_id: int):
                 ctx["foto_principal_titulo"] = principal.titulo
             except Exception:
                 pass
+        try:
+            facturas_docs = []
+            for doc in documentos:
+                if doc.categoria != "facturas":
+                    continue
+                archivo_url = None
+                try:
+                    archivo_url = doc.signed_url if hasattr(doc, "signed_url") and doc.signed_url else doc.archivo.url
+                except Exception:
+                    archivo_url = None
+                facturas_docs.append({
+                    "id": doc.id,
+                    "titulo": doc.titulo,
+                    "fecha": doc.fecha_factura.isoformat() if doc.fecha_factura else None,
+                    "importe": float(doc.importe_factura) if doc.importe_factura is not None else None,
+                    "archivo_url": archivo_url,
+                })
+            ctx["facturas_docs"] = facturas_docs
+        except Exception:
+            ctx["facturas_docs"] = []
     except Exception:
         ctx["documentos"] = []
     try:
@@ -4476,13 +4496,26 @@ def proyecto_gasto_factura(request, proyecto_id: int, gasto_id: int):
     if request.method != "POST":
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
+    documento_id = request.POST.get("documento_id")
     archivo = request.FILES.get("factura") or request.FILES.get("archivo")
-    if not archivo:
+    if not archivo and not documento_id:
         return JsonResponse({"ok": False, "error": "Archivo requerido"}, status=400)
 
     factura_obj, _ = FacturaGasto.objects.get_or_create(gasto=gasto)
-    factura_obj.archivo = archivo
-    factura_obj.nombre_original = getattr(archivo, "name", "") or factura_obj.nombre_original
+    if documento_id:
+        try:
+            doc = DocumentoProyecto.objects.get(
+                id=documento_id,
+                proyecto_id=proyecto_id,
+                categoria="facturas",
+            )
+            factura_obj.archivo = doc.archivo
+            factura_obj.nombre_original = doc.titulo or doc.archivo.name
+        except DocumentoProyecto.DoesNotExist:
+            return JsonResponse({"ok": False, "error": "Documento no encontrado"}, status=404)
+    else:
+        factura_obj.archivo = archivo
+        factura_obj.nombre_original = getattr(archivo, "name", "") or factura_obj.nombre_original
     factura_obj.save()
 
     factura_url = None

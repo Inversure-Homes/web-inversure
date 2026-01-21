@@ -1392,6 +1392,16 @@ function bindMemoriaEconomica() {
 
   let rows = [];
   let editState = null;
+  let facturaDocs = [];
+
+  try {
+    const data = document.getElementById("facturasDocsData");
+    if (data && data.textContent) {
+      facturaDocs = JSON.parse(data.textContent) || [];
+    }
+  } catch (e) {
+    facturaDocs = [];
+  }
 
   function fmtEuroLocal(n) {
     return formatEuro(n);
@@ -2241,6 +2251,43 @@ function bindMemoriaEconomica() {
       const tr = btnFactura.closest("tr");
       const id = tr ? tr.getAttribute("data-id") : null;
       if (!id || !urlFacturaBase) return;
+      const usarExistente = facturaDocs && facturaDocs.length
+        ? confirm("¿Quieres usar una factura ya subida en Documentación?")
+        : false;
+      if (usarExistente) {
+        const lista = facturaDocs.map(doc => {
+          const fecha = doc.fecha ? doc.fecha.split("-").reverse().join("/") : "—";
+          const importe = Number.isFinite(doc.importe) ? formatEuro(doc.importe) : "—";
+          return `${doc.id} · ${doc.titulo} · ${fecha} · ${importe}`;
+        }).join("\n");
+        const raw = prompt(`Introduce el ID de la factura:\n${lista}`);
+        if (!raw) return;
+        const docId = raw.trim();
+        if (!docId) return;
+        const url = urlFacturaBase.replace("/0/", `/${id}/`);
+        const fd = new FormData();
+        fd.append("documento_id", docId);
+        try {
+          const resp = await fetch(url, {
+            method: "POST",
+            headers: { ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}) },
+            body: fd,
+          });
+          const data = await resp.json();
+          if (!resp.ok || !data.ok) {
+            alert((data && data.error) || "No se pudo asociar la factura.");
+            return;
+          }
+          rows = rows.map(r => {
+            if (String(r.id) !== String(id)) return r;
+            return { ...r, has_factura: true, factura_url: data.factura_url };
+          });
+          renderTable();
+        } catch (err) {
+          alert("No se pudo asociar la factura.");
+        }
+        return;
+      }
       const input = document.createElement("input");
       input.type = "file";
       input.accept = "application/pdf,image/*";
