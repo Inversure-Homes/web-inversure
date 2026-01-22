@@ -1,13 +1,52 @@
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.templatetags.static import static
 from django.utils import timezone
 
 from core.models import Proyecto, DocumentoProyecto
 from core.views import _build_dashboard_context, _s3_presigned_url
-from .models import Noticia
+from .models import LandingLead, Noticia
 
 
 def landing_home(request):
+    lead_success = request.GET.get("lead")
+    lead_error = None
+
+    if request.method == "POST":
+        lead_tipo = (request.POST.get("lead_tipo") or "").strip()
+        nombre = (request.POST.get("nombre") or "").strip()
+        email = (request.POST.get("email") or "").strip()
+        telefono = (request.POST.get("telefono") or "").strip()
+        capital = (request.POST.get("capital") or "").strip()
+        ubicacion = (request.POST.get("ubicacion") or "").strip()
+        mensaje = (request.POST.get("mensaje") or "").strip()
+
+        errors = []
+        if lead_tipo not in ("inversor", "oportunidad"):
+            errors.append("tipo")
+        if not nombre:
+            errors.append("nombre")
+        if not email:
+            errors.append("email")
+        if not mensaje:
+            errors.append("mensaje")
+        if lead_tipo == "oportunidad" and not ubicacion:
+            errors.append("ubicacion")
+
+        if errors:
+            lead_error = {"tipo": lead_tipo or "inversor", "fields": errors}
+        else:
+            LandingLead.objects.create(
+                tipo=lead_tipo,
+                nombre=nombre,
+                email=email,
+                telefono=telefono,
+                capital=capital,
+                ubicacion=ubicacion,
+                mensaje=mensaje,
+                origen_url=request.build_absolute_uri(),
+                origen_ref=request.META.get("HTTP_REFERER", ""),
+            )
+            return redirect(f"{request.path}?lead={lead_tipo}#trazabilidad")
     def _fmt_pct(value):
         if value is None:
             return "—"
@@ -246,6 +285,8 @@ def landing_home(request):
             "reseñas": reseñas,
             "patrocinadores": patrocinadores,
             "noticias": noticias,
+            "lead_success": lead_success,
+            "lead_error": lead_error,
         },
     )
 

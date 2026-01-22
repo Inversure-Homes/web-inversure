@@ -173,6 +173,80 @@
             {% endfor %}
           </div>
         </div>
+        <div class="lead-forms">
+          <form class="lead-form" method="post" action="#trazabilidad">
+            {% csrf_token %}
+            <input type="hidden" name="lead_tipo" value="inversor">
+            <div class="lead-form__header">
+              <h3>Quiero invertir</h3>
+              <p>Cuéntanos tu perfil y nos pondremos en contacto con oportunidades activas.</p>
+            </div>
+            {% if lead_success == "inversor" %}
+              <div class="lead-form__success">Gracias, hemos recibido tu solicitud.</div>
+            {% elif lead_error and lead_error.tipo == "inversor" %}
+              <div class="lead-form__error">Revisa los campos obligatorios y vuelve a intentarlo.</div>
+            {% endif %}
+            <label>
+              Nombre
+              <input type="text" name="nombre" required>
+            </label>
+            <label>
+              Email
+              <input type="email" name="email" required>
+            </label>
+            <div class="lead-form__row">
+              <label>
+                Teléfono
+                <input type="text" name="telefono">
+              </label>
+              <label>
+                Capital estimado
+                <input type="text" name="capital" placeholder="Ej. 50.000 - 100.000">
+              </label>
+            </div>
+            <label>
+              Mensaje
+              <textarea name="mensaje" rows="3" required></textarea>
+            </label>
+            <button type="submit" class="btn-solid">Quiero participar</button>
+          </form>
+          <form class="lead-form" method="post" action="#trazabilidad">
+            {% csrf_token %}
+            <input type="hidden" name="lead_tipo" value="oportunidad">
+            <div class="lead-form__header">
+              <h3>Propón un proyecto</h3>
+              <p>Si eres inmobiliaria, freelance o propietario, comparte tu oportunidad.</p>
+            </div>
+            {% if lead_success == "oportunidad" %}
+              <div class="lead-form__success">Gracias, revisaremos la propuesta pronto.</div>
+            {% elif lead_error and lead_error.tipo == "oportunidad" %}
+              <div class="lead-form__error">Revisa los campos obligatorios y vuelve a intentarlo.</div>
+            {% endif %}
+            <label>
+              Nombre
+              <input type="text" name="nombre" required>
+            </label>
+            <label>
+              Email
+              <input type="email" name="email" required>
+            </label>
+            <div class="lead-form__row">
+              <label>
+                Teléfono
+                <input type="text" name="telefono">
+              </label>
+              <label>
+                Ubicación / activo
+                <input type="text" name="ubicacion" required placeholder="Ej. Málaga, piso 2 hab.">
+              </label>
+            </div>
+            <label>
+              Mensaje
+              <textarea name="mensaje" rows="3" required></textarea>
+            </label>
+            <button type="submit" class="btn-solid">Enviar propuesta</button>
+          </form>
+        </div>
       </div>
     </section>
 

@@ -107,3 +107,27 @@ class MediaAsset(models.Model):
 
     def __str__(self):
         return self.titulo or self.archivo.name
+
+
+class LandingLead(models.Model):
+    TIPOS = [
+        ("inversor", "Inversor"),
+        ("oportunidad", "Oportunidad"),
+    ]
+
+    tipo = models.CharField(max_length=20, choices=TIPOS)
+    nombre = models.CharField(max_length=120)
+    email = models.EmailField()
+    telefono = models.CharField(max_length=40, blank=True)
+    capital = models.CharField(max_length=120, blank=True)
+    ubicacion = models.CharField(max_length=200, blank=True)
+    mensaje = models.TextField(blank=True)
+    origen_url = models.CharField(max_length=300, blank=True)
+    origen_ref = models.CharField(max_length=300, blank=True)
+    creado = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-creado", "-id"]
+
+    def __str__(self):
+        return f"{self.nombre} ({self.get_tipo_display()})"
