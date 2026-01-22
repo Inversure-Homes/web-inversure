@@ -657,6 +657,8 @@ function buildOverlayPayloadFromDOM() {
     "tipologia",
     "estado",
     "situacion",
+    "dormitorios",
+    "banos",
     "superficie_m2",
   ]);
 

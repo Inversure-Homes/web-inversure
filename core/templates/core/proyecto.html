@@ -469,6 +469,29 @@
             </div>
 
             <div class="row">
+                <div class="col-lg-3 col-md-6 mb-3">
+                    <label class="form-label">Dormitorios</label>
+                    <input type="number" name="dormitorios" class="form-control" data-number="true"
+                           value="{{ inm.dormitorios|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-3">
+                    <label class="form-label">Baños</label>
+                    <input type="number" name="banos" class="form-control" data-number="true"
+                           value="{{ inm.banos|default:inm.baños|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-3">
+                    <label class="form-label">Superficie (m²)</label>
+                    <input type="number" name="superficie_m2" class="form-control" data-number="true"
+                           value="{{ inm.superficie_m2|default:inm.superficie|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-3">
+                    <label class="form-label">Plazo estimado (meses)</label>
+                    <input type="number" name="meses" class="form-control" data-number="true"
+                           value="{{ eco.meses|default:proyecto.meses|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+            </div>
+
+            <div class="row">
                 <div class="col-md-6 mb-3">
                     <label class="form-label">
                         Valor de adquisición

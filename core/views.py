@@ -3994,6 +3994,7 @@ def guardar_proyecto(request, proyecto_id: int):
     update_fields = []
 
     payload_proyecto = payload.get("proyecto") if isinstance(payload.get("proyecto"), dict) else {}
+    payload_economico = payload.get("economico") if isinstance(payload.get("economico"), dict) else {}
 
     # Permitir que el payload incluya un nombre editable (si se quiere persistir)
     nombre = (
@@ -4049,6 +4050,22 @@ def guardar_proyecto(request, proyecto_id: int):
             if codigo_val >= 0:
                 proyecto_obj.codigo_proyecto = codigo_val
                 update_fields.append("codigo_proyecto")
+        except Exception:
+            pass
+
+    meses_raw = (
+        payload_economico.get("meses")
+        or payload.get("meses")
+        or payload_proyecto.get("meses")
+    )
+    if meses_raw not in (None, ""):
+        try:
+            if isinstance(meses_raw, str):
+                meses_raw = meses_raw.strip()
+            meses_val = int(float(meses_raw))
+            if meses_val >= 0:
+                proyecto_obj.meses = meses_val
+                update_fields.append("meses")
         except Exception:
             pass
 
