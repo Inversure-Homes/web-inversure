@@ -226,6 +226,42 @@
       .format-ig_story .photo { width: 520px; height: 620px; }
       .format-ig_feed h1 { font-size: 48px; }
 
+      .format-pdf .page {
+        background: #ffffff;
+        color: #0f172a;
+        padding: 60px 70px;
+      }
+      .format-pdf .cover-page {
+        background: #0f1d2e;
+        color: #ffffff;
+      }
+      .format-pdf .brand span { color: #ffffff; }
+      .format-pdf .shape-blob { display: none; }
+      .format-pdf .badge { background: #d2b05c; }
+      .format-pdf .cover-grid {
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 28px;
+        align-items: center;
+      }
+      .format-pdf .cover-meta {
+        margin-top: 18px;
+        display: grid;
+        gap: 8px;
+        font-size: 16px;
+      }
+      .format-pdf .cover-meta strong { color: #d2b05c; }
+      .format-pdf .photo {
+        position: relative;
+        right: auto;
+        bottom: auto;
+        width: 100%;
+        height: 320px;
+        border-radius: 24px;
+        box-shadow: 0 18px 40px rgba(5, 10, 20, 0.25);
+      }
+      .format-pdf .eyebrow { background: rgba(255, 255, 255, 0.16); }
+
       .page-break {
         page-break-after: always;
       }
@@ -269,7 +305,7 @@
     </style>
   </head>
   <body class="style-{{ estilo }} format-{{ formato }}">
-    <div class="page">
+    <div class="page cover-page">
       <div class="shape-blob"></div>
       <div class="brand">
         {% if logo_data_uri %}
@@ -278,22 +314,31 @@
           <span>INVERSURE</span>
         {% endif %}
       </div>
-
-      <div class="title-block">
-        <span class="eyebrow">Nuevo proyecto de inversion</span>
-        <h1>{{ titulo }}</h1>
-        {% if descripcion %}
-          <p class="desc">{{ descripcion|truncatechars:160 }}</p>
-        {% endif %}
+      <div class="cover-grid">
+        <div>
+          <div class="title-block">
+            <span class="eyebrow">Nuevo proyecto de inversion</span>
+            <h1>{{ titulo }}</h1>
+            {% if descripcion %}
+              <p class="desc">{{ descripcion|truncatechars:160 }}</p>
+            {% endif %}
+          </div>
+          <div class="cover-meta">
+            {% if plazo_meses %}
+              <div>Operacion a <strong>{{ plazo_meses }}</strong> meses</div>
+            {% endif %}
+            {% if rentabilidad %}
+              <div><strong>{{ rentabilidad|es_number }}%</strong> de rentabilidad estimada</div>
+            {% endif %}
+            {% if acceso_minimo %}
+              <div>Accede a partir de <strong>{{ acceso_minimo|es_number }}€</strong></div>
+            {% endif %}
+          </div>
+        </div>
+        <div>
+          <div class="photo" style="background-image: url('{{ foto_url }}');"></div>
+        </div>
       </div>
-
-      <div class="meta">
-        <div>Operacion a <strong>{{ plazo_meses|default:"--" }}</strong> meses</div>
-        <div><strong>{{ rentabilidad|es_number|default:"--" }}%</strong> de rentabilidad estimada</div>
-        <div>Accede a partir de <strong>{{ acceso_minimo|es_number|default:"--" }}€</strong></div>
-      </div>
-
-      <div class="photo" style="background-image: url('{{ foto_url }}');"></div>
       <div class="badge">{{ anio }}</div>
       {% if ubicacion %}
         <div class="location">{{ ubicacion }}</div>
