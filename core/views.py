@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
@@ -719,6 +721,7 @@ def _build_presentacion_pdf(request, context: dict) -> bytes | None:
         html = _build_presentacion_html(request, context)
         return HTML(string=html, base_url=request.build_absolute_uri("/") if request else None).write_pdf()
     except Exception:
+        logging.getLogger(__name__).exception("Fallo al generar PDF de presentacion")
         return None
 
 
@@ -728,6 +731,7 @@ def _build_presentacion_png(request, context: dict) -> bytes | None:
         html = _build_presentacion_html(request, context)
         return HTML(string=html, base_url=request.build_absolute_uri("/") if request else None).write_png()
     except Exception:
+        logging.getLogger(__name__).exception("Fallo al generar PNG de presentacion")
         return None
 
 
@@ -5008,7 +5012,10 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
     if created:
         messages.success(request, f"Presentación generada ({created} archivo/s).")
     else:
-        messages.error(request, "No se pudo generar la presentación.")
+        messages.error(
+            request,
+            "No se pudo generar la presentación. Revisa dependencias del servidor para WeasyPrint.",
+        )
 
     return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-difusion")
 
