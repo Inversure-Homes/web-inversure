@@ -1250,8 +1250,7 @@
                             <div class="card border-0 shadow-sm">
                                 <div class="card-body">
                                     <h6 class="mb-3">Presentación de proyecto</h6>
-                                    <form method="post" action="{% url 'core:proyecto_presentacion_generar' proyecto.id %}">
-                                        {% csrf_token %}
+                                    <div>
                                         <div class="mb-3">
                                             <label class="form-label">Nombre para portada</label>
                                             <input type="text" name="titulo" class="form-control" placeholder="Ej. COIN" value="{{ proyecto.nombre|default:'' }}">
@@ -1362,8 +1361,14 @@
                                                 </label>
                                             </div>
                                         </div>
-                                        <button type="submit" class="btn btn-inversure w-100">Generar presentacion</button>
-                                    </form>
+                                        <button type="submit"
+                                                class="btn btn-inversure w-100"
+                                                formaction="{% url 'core:proyecto_presentacion_generar' proyecto.id %}"
+                                                formmethod="post"
+                                                formnovalidate>
+                                            Generar presentacion
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1371,8 +1376,7 @@
                         <div class="col-lg-5">
                             <div class="card border-0 shadow-sm">
                                 <div class="card-body">
-                                    <form method="post" action="{% url 'core:proyecto_difusion' proyecto.id %}" id="difusion_form">
-                                        {% csrf_token %}
+                                    <div id="difusion_form">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <h6 class="mb-0">Difusión del proyecto</h6>
                                             <span class="badge bg-light text-muted" id="difusion_count">0 seleccionados</span>
@@ -1409,17 +1413,29 @@
                                             </div>
                                         </details>
                                         <div class="d-grid gap-2 mt-3">
-                                            <button type="submit" name="accion" value="guardar" class="btn btn-outline-secondary">
+                                            <button type="submit"
+                                                    name="accion"
+                                                    value="guardar"
+                                                    class="btn btn-outline-secondary"
+                                                    formaction="{% url 'core:proyecto_difusion' proyecto.id %}"
+                                                    formmethod="post"
+                                                    formnovalidate>
                                                 Guardar destinatarios
                                             </button>
-                                            <button type="submit" name="accion" value="enviar" class="btn btn-inversure">
+                                            <button type="submit"
+                                                    name="accion"
+                                                    value="enviar"
+                                                    class="btn btn-inversure"
+                                                    formaction="{% url 'core:proyecto_difusion' proyecto.id %}"
+                                                    formmethod="post"
+                                                    formnovalidate>
                                                 Enviar dossier y habilitar inversión
                                             </button>
                                         </div>
                                         <div class="form-text mt-2">
                                             Se enviará la presentación PDF más reciente y el proyecto quedará disponible para los seleccionados.
                                         </div>
-                                    </form>
+                                    </div>
                                 </div>
                             </div>
                         </div>

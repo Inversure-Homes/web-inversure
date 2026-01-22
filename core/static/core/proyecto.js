@@ -3019,20 +3019,22 @@ function bindDifusion() {
   }
   updateCount();
 
-  form.addEventListener("submit", (e) => {
-    const submitter = e.submitter;
-    if (!submitter || submitter.value !== "enviar") {
-      return;
-    }
-    const count = checks.filter((c) => c.checked).length;
-    if (!count) {
-      e.preventDefault();
-      alert("Selecciona al menos un destinatario para difundir el proyecto.");
-      return;
-    }
-    if (!confirm(`¿Enviar el dossier y habilitar la inversión a ${count} destinatario(s)?`)) {
-      e.preventDefault();
-    }
+  const submitButtons = Array.from(form.querySelectorAll('button[name="accion"]'));
+  submitButtons.forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      if (btn.value !== "enviar") {
+        return;
+      }
+      const count = checks.filter((c) => c.checked).length;
+      if (!count) {
+        e.preventDefault();
+        alert("Selecciona al menos un destinatario para difundir el proyecto.");
+        return;
+      }
+      if (!confirm(`¿Enviar el dossier y habilitar la inversión a ${count} destinatario(s)?`)) {
+        e.preventDefault();
+      }
+    });
   });
 }
 
