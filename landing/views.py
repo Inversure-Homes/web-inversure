@@ -73,7 +73,7 @@ def landing_home(request):
                 origen_url=request.build_absolute_uri(),
                 origen_ref=request.META.get("HTTP_REFERER", ""),
             )
-            return redirect(f"{request.path}?lead={lead_tipo}#trazabilidad")
+            return redirect(f"{request.path}?lead={lead_tipo}")
     def _fmt_pct(value):
         if value is None:
             return "—"

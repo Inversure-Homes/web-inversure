@@ -44,6 +44,15 @@
         </div>
       </div>
     </section>
+    {% if lead_success == "inversor" %}
+      <div class="container">
+        <div class="lead-toast">Gracias, hemos recibido tu solicitud de inversor.</div>
+      </div>
+    {% elif lead_success == "oportunidad" %}
+      <div class="container">
+        <div class="lead-toast">Gracias, revisaremos tu propuesta en breve.</div>
+      </div>
+    {% endif %}
 
     <section class="section section--stats" id="estadisticas">
       <div class="container">
@@ -152,52 +161,11 @@
       </div>
     </section>
 
-    <section class="section section--dark" id="trazabilidad">
-      <div class="container">
-        <div class="section__split">
-          <div>
-            <h2>{{ transparencia.titulo }}</h2>
-            <p>{{ transparencia.texto }}</p>
-            <ul class="feature-list">
-              {% for item in transparencia.features %}
-                <li>{{ item }}</li>
-              {% endfor %}
-            </ul>
-          </div>
-          <div class="stat-card">
-            {% for stat in transparencia.stats %}
-              <div>
-                <span>{{ stat.label }}</span>
-                <strong>{{ stat.value }}</strong>
-              </div>
-            {% endfor %}
-          </div>
-        </div>
-        <div class="lead-cta">
-          <div>
-            <h3>¿Quieres participar como inversor?</h3>
-            <p>Accede a operaciones activas y recibe información personalizada.</p>
-            <button type="button" class="btn-solid" data-lead-open="inversor">Soy inversor</button>
-          </div>
-          <div>
-            <h3>¿Tienes un proyecto de inversión?</h3>
-            <p>Envíanos la oportunidad y nuestro equipo la revisará contigo.</p>
-            <button type="button" class="btn-outline" data-lead-open="oportunidad">Proponer proyecto</button>
-          </div>
-        </div>
-        {% if lead_success == "inversor" %}
-          <div class="lead-toast">Gracias, hemos recibido tu solicitud de inversor.</div>
-        {% elif lead_success == "oportunidad" %}
-          <div class="lead-toast">Gracias, revisaremos tu propuesta en breve.</div>
-        {% endif %}
-      </div>
-    </section>
-
     <div class="lead-modal" id="lead_modal_inversor" aria-hidden="true" data-lead-modal="inversor" {% if lead_error and lead_error.tipo == "inversor" %}data-open="true"{% endif %}>
       <div class="lead-modal__backdrop" data-lead-close></div>
       <div class="lead-modal__panel" role="dialog" aria-modal="true" aria-label="Formulario inversor">
         <button type="button" class="lead-modal__close" data-lead-close aria-label="Cerrar">×</button>
-        <form class="lead-form" method="post" action="#trazabilidad">
+        <form class="lead-form" method="post" action="">
           {% csrf_token %}
           <input type="hidden" name="lead_tipo" value="inversor">
           <input type="hidden" name="lead_token" value="{{ lead_token }}">
@@ -243,7 +211,7 @@
       <div class="lead-modal__backdrop" data-lead-close></div>
       <div class="lead-modal__panel" role="dialog" aria-modal="true" aria-label="Formulario oportunidad">
         <button type="button" class="lead-modal__close" data-lead-close aria-label="Cerrar">×</button>
-        <form class="lead-form" method="post" action="#trazabilidad">
+        <form class="lead-form" method="post" action="">
           {% csrf_token %}
           <input type="hidden" name="lead_tipo" value="oportunidad">
           <input type="hidden" name="lead_token" value="{{ lead_token }}">
