@@ -106,7 +106,7 @@
             {% for proyecto in proyectos %}
               <article class="project-card">
                 <div class="project-card__media">
-                  <div class="project-card__media-bg" style="background-image: linear-gradient(160deg, rgba(13, 22, 40, 0.65), rgba(13, 22, 40, 0.25)), url('{% if proyecto.imagen_url %}{{ proyecto.imagen_url }}{% else %}{% static proyecto.imagen %}{% endif %}'); background-position: {{ proyecto.imagen_focus_x|default:50 }}% {{ proyecto.imagen_focus_y|default:50 }}%;"></div>
+                  <div class="project-card__media-bg" style="background-image: linear-gradient(160deg, rgba(13, 22, 40, 0.52), rgba(13, 22, 40, 0.20)), url('{% if proyecto.imagen_url %}{{ proyecto.imagen_url }}{% else %}{% static proyecto.imagen %}{% endif %}'); background-position: {{ proyecto.imagen_focus_x|default:50 }}% {{ proyecto.imagen_focus_y|default:50 }}%;"></div>
                 </div>
                 <div class="project-card__body">
                   <h3>{{ proyecto.titulo }}</h3>
