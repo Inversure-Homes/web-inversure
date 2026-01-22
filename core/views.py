@@ -4859,7 +4859,7 @@ def proyecto_documento_principal(request, proyecto_id: int, documento_id: int):
 def proyecto_presentacion_generar(request, proyecto_id: int):
     proyecto = get_object_or_404(Proyecto, id=proyecto_id)
     if request.method != "POST":
-        return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-documentacion")
+        return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-difusion")
 
     estilo = (request.POST.get("estilo") or "coin").strip().lower()
     formatos = {
@@ -4893,6 +4893,17 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
             proyecto=proyecto, id=foto_id, categoria="fotografias"
         ).first()
     if not foto_doc:
+        extra = getattr(proyecto, "extra", None)
+        landing_cfg = extra.get("landing", {}) if isinstance(extra, dict) else {}
+        publicaciones_cfg = extra.get("publicaciones", {}) if isinstance(extra, dict) else {}
+        landing_img_id = landing_cfg.get("imagen_id")
+        cabecera_id = publicaciones_cfg.get("cabecera_imagen_id")
+        chosen_id = landing_img_id or cabecera_id
+        if chosen_id:
+            foto_doc = DocumentoProyecto.objects.filter(
+                proyecto=proyecto, id=chosen_id, categoria="fotografias"
+            ).first()
+    if not foto_doc:
         foto_doc = DocumentoProyecto.objects.filter(
             proyecto=proyecto, categoria="fotografias", es_principal=True
         ).first()
@@ -4921,6 +4932,12 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
                 continue
             anexos_docs.append(doc)
 
+    snapshot = _get_snapshot_comunicacion(proyecto)
+    inmueble = snapshot.get("inmueble") if isinstance(snapshot.get("inmueble"), dict) else {}
+    resultado = _resultado_desde_memoria(proyecto, snapshot)
+    if rentabilidad is None and resultado.get("roi") is not None:
+        rentabilidad = resultado.get("roi")
+
     context = {
         "proyecto": proyecto,
         "titulo": titulo,
@@ -4934,6 +4951,8 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
         "formato": "pdf",
         "foto_url": foto_url,
         "logo_data_uri": _logo_data_uri(),
+        "inmueble": inmueble,
+        "resultado": resultado,
     }
 
     slug = slugify(titulo or "proyecto") or f"proyecto_{proyecto_id}"
@@ -4991,7 +5010,7 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
     else:
         messages.error(request, "No se pudo generar la presentación.")
 
-    return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-documentacion")
+    return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-difusion")
 
 
 @csrf_exempt
