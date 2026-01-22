@@ -78,6 +78,12 @@ body.landing-body {
   padding: 8px 14px;
   font-size: 13px;
   border-radius: 999px;
+  min-height: 34px;
+  line-height: 1;
+}
+
+.landing-nav__actions .btn-solid {
+  border: 1px solid transparent;
 }
 
 .hero {
