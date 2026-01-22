@@ -1102,14 +1102,29 @@ def _beneficio_estimado_real_memoria(proyecto: Proyecto) -> dict:
             total += item
         return total
 
-    ingresos_estimados = _sum_importes([i.importe for i in ingresos if i.estado == "estimado"])
-    ingresos_reales = _sum_importes([i.importe for i in ingresos if i.estado == "confirmado"])
-    gastos_estimados = _sum_importes([g.importe for g in gastos if g.estado == "estimado"])
-    gastos_reales = _sum_importes([g.importe for g in gastos if g.estado == "confirmado"])
+    def _importe_estimado(item):
+        estimado = getattr(item, "importe_estimado", None)
+        if estimado is not None:
+            return estimado
+        if getattr(item, "estado", "") == "estimado":
+            return item.importe
+        return Decimal("0")
+
+    def _importe_real(item):
+        if getattr(item, "estado", "") != "confirmado":
+            return Decimal("0")
+        real = getattr(item, "importe_real", None)
+        return real if real is not None else item.importe
+
+    ingresos_estimados = _sum_importes([_importe_estimado(i) for i in ingresos])
+    ingresos_reales = _sum_importes([_importe_real(i) for i in ingresos])
+    gastos_estimados = _sum_importes([_importe_estimado(g) for g in gastos])
+    gastos_reales = _sum_importes([_importe_real(g) for g in gastos])
 
     return {
         "beneficio_estimado": float((ingresos_estimados - gastos_estimados) or 0),
         "beneficio_real": float((ingresos_reales - gastos_reales) or 0),
+        "has_movimientos": bool(ingresos or gastos),
     }
 
 
@@ -1772,7 +1787,7 @@ def _build_dashboard_context(user):
         memoria_benef = _beneficio_estimado_real_memoria(proyecto)
         beneficio_estimado = memoria_benef.get("beneficio_estimado", 0.0)
         beneficio_real = memoria_benef.get("beneficio_real", 0.0)
-        if beneficio_estimado or beneficio_real:
+        if memoria_benef.get("has_movimientos"):
             beneficio_deviation.append(
                 {
                     "nombre": proyecto.nombre or f"Proyecto {proyecto.id}",
@@ -4313,10 +4328,24 @@ def pdf_memoria_economica(request, proyecto_id: int):
             total += item
         return total
 
-    ingresos_estimados = _sum_importes([i.importe for i in ingresos if i.estado == "estimado"])
-    ingresos_reales = _sum_importes([i.importe for i in ingresos if i.estado == "confirmado"])
-    gastos_estimados = _sum_importes([g.importe for g in gastos if g.estado == "estimado"])
-    gastos_reales = _sum_importes([g.importe for g in gastos if g.estado == "confirmado"])
+    def _importe_estimado(item):
+        estimado = getattr(item, "importe_estimado", None)
+        if estimado is not None:
+            return estimado
+        if getattr(item, "estado", "") == "estimado":
+            return item.importe
+        return Decimal("0")
+
+    def _importe_real(item):
+        if getattr(item, "estado", "") != "confirmado":
+            return Decimal("0")
+        real = getattr(item, "importe_real", None)
+        return real if real is not None else item.importe
+
+    ingresos_estimados = _sum_importes([_importe_estimado(i) for i in ingresos])
+    ingresos_reales = _sum_importes([_importe_real(i) for i in ingresos])
+    gastos_estimados = _sum_importes([_importe_estimado(g) for g in gastos])
+    gastos_reales = _sum_importes([_importe_real(g) for g in gastos])
 
     beneficio_estimado = ingresos_estimados - gastos_estimados
     beneficio_real = ingresos_reales - gastos_reales
@@ -4345,10 +4374,10 @@ def pdf_memoria_economica(request, proyecto_id: int):
     base_precio = proyecto.precio_compra_inmueble or proyecto.precio_propiedad or Decimal("0")
     cats_adq = {"adquisicion", "reforma", "seguridad", "operativos", "financieros", "legales", "otros"}
     gastos_adq_estimado = _sum_importes(
-        [g.importe for g in gastos if g.estado == "estimado" and g.categoria in cats_adq]
+        [_importe_estimado(g) for g in gastos if g.categoria in cats_adq]
     )
     gastos_adq_real = _sum_importes(
-        [g.importe for g in gastos if g.estado == "confirmado" and g.categoria in cats_adq]
+        [_importe_real(g) for g in gastos if g.categoria in cats_adq]
     )
 
     base_est = base_precio + gastos_adq_estimado
@@ -4358,8 +4387,8 @@ def pdf_memoria_economica(request, proyecto_id: int):
 
     categorias = []
     for key, label in GastoProyecto.CATEGORIAS:
-        est = _sum_importes([g.importe for g in gastos if g.categoria == key and g.estado == "estimado"])
-        real = _sum_importes([g.importe for g in gastos if g.categoria == key and g.estado == "confirmado"])
+        est = _sum_importes([_importe_estimado(g) for g in gastos if g.categoria == key])
+        real = _sum_importes([_importe_real(g) for g in gastos if g.categoria == key])
         categorias.append({"nombre": label, "estimado": est, "real": real})
 
     resumen = {
@@ -4461,6 +4490,7 @@ def proyecto_gastos(request, proyecto_id: int):
         if not fecha or not categoria or not concepto or importe is None:
             return JsonResponse({"ok": False, "error": "Faltan campos obligatorios"}, status=400)
 
+        estado = (data.get("estado") or "estimado")
         gasto = GastoProyecto.objects.create(
             proyecto=proyecto,
             fecha=fecha,
@@ -4468,8 +4498,10 @@ def proyecto_gastos(request, proyecto_id: int):
             concepto=concepto,
             proveedor=(data.get("proveedor") or "").strip() or None,
             importe=importe,
+            importe_estimado=importe,
+            importe_real=importe if estado == "confirmado" else None,
             imputable_inversores=bool(data.get("imputable_inversores", True)),
-            estado=(data.get("estado") or "estimado"),
+            estado=estado,
             observaciones=(data.get("observaciones") or "").strip() or None,
         )
         return JsonResponse({"ok": True, "id": gasto.id})
@@ -4518,6 +4550,8 @@ def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
     try:
+        prev_importe = gasto.importe
+        prev_estado = gasto.estado
         data = json.loads(request.body or "{}")
         if "fecha" in data:
             gasto.fecha = _parse_date(data.get("fecha")) or gasto.fecha
@@ -4535,6 +4569,15 @@ def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
             gasto.estado = (data.get("estado") or gasto.estado)
         if "observaciones" in data:
             gasto.observaciones = (data.get("observaciones") or "").strip() or None
+
+        if gasto.estado == "estimado":
+            gasto.importe_estimado = gasto.importe
+        elif prev_estado == "estimado" and gasto.estado == "confirmado" and not gasto.importe_estimado:
+            gasto.importe_estimado = prev_importe
+
+        if gasto.estado == "confirmado":
+            if gasto.importe_real is None or "importe" in data or prev_estado != "confirmado":
+                gasto.importe_real = gasto.importe
 
         gasto.save()
         return JsonResponse({"ok": True})
@@ -4627,13 +4670,16 @@ def proyecto_ingresos(request, proyecto_id: int):
         if not fecha or not tipo or not concepto or importe is None:
             return JsonResponse({"ok": False, "error": "Faltan campos obligatorios"}, status=400)
 
+        estado = (data.get("estado") or "estimado")
         ingreso = IngresoProyecto.objects.create(
             proyecto=proyecto,
             fecha=fecha,
             tipo=tipo,
             concepto=concepto,
             importe=importe,
-            estado=(data.get("estado") or "estimado"),
+            importe_estimado=importe,
+            importe_real=importe if estado == "confirmado" else None,
+            estado=estado,
             imputable_inversores=bool(data.get("imputable_inversores", True)),
             observaciones=(data.get("observaciones") or "").strip() or None,
         )
@@ -4672,6 +4718,8 @@ def proyecto_ingreso_detalle(request, proyecto_id: int, ingreso_id: int):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
     try:
+        prev_importe = ingreso.importe
+        prev_estado = ingreso.estado
         data = json.loads(request.body or "{}")
         if "fecha" in data:
             ingreso.fecha = _parse_date(data.get("fecha")) or ingreso.fecha
@@ -4687,6 +4735,15 @@ def proyecto_ingreso_detalle(request, proyecto_id: int, ingreso_id: int):
             ingreso.imputable_inversores = bool(data.get("imputable_inversores"))
         if "observaciones" in data:
             ingreso.observaciones = (data.get("observaciones") or "").strip() or None
+
+        if ingreso.estado == "estimado":
+            ingreso.importe_estimado = ingreso.importe
+        elif prev_estado == "estimado" and ingreso.estado == "confirmado" and not ingreso.importe_estimado:
+            ingreso.importe_estimado = prev_importe
+
+        if ingreso.estado == "confirmado":
+            if ingreso.importe_real is None or "importe" in data or prev_estado != "confirmado":
+                ingreso.importe_real = ingreso.importe
 
         ingreso.save()
         return JsonResponse({"ok": True})

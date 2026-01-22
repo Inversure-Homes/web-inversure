@@ -681,6 +681,20 @@ class GastoProyecto(models.Model):
         max_digits=12,
         decimal_places=2
     )
+    importe_estimado = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Importe estimado original"
+    )
+    importe_real = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Importe real confirmado"
+    )
 
     imputable_inversores = models.BooleanField(
         default=True,
@@ -783,6 +797,20 @@ class IngresoProyecto(models.Model):
         max_digits=12,
         decimal_places=2,
         help_text="Importe del ingreso (positivo o negativo)"
+    )
+    importe_estimado = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Importe estimado original"
+    )
+    importe_real = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Importe real confirmado"
     )
     estado = models.CharField(
         max_length=15,
