@@ -1,10 +1,12 @@
+from decimal import Decimal
+
 from django.core.cache import cache
 from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
 from django.shortcuts import get_object_or_404, redirect, render
 from django.templatetags.static import static
 from django.utils import timezone
 
-from core.models import Proyecto, DocumentoProyecto
+from core.models import DocumentoProyecto, GastoProyecto, IngresoProyecto, Proyecto
 from core.views import _build_dashboard_context, _s3_presigned_url
 from .models import LandingLead, Noticia
 
@@ -92,6 +94,57 @@ def landing_home(request):
         except Exception:
             return default
 
+    def _roi_memoria(proyecto):
+        gastos = list(GastoProyecto.objects.filter(proyecto=proyecto))
+        ingresos = list(IngresoProyecto.objects.filter(proyecto=proyecto))
+        if not gastos and not ingresos:
+            return None
+
+        def _sum_importes(items):
+            total = Decimal("0")
+            for item in items:
+                if item is None:
+                    continue
+                total += item
+            return total
+
+        def _importe_estimado(item):
+            estimado = getattr(item, "importe_estimado", None)
+            if estimado is not None:
+                return estimado
+            if getattr(item, "estado", "") == "estimado":
+                return item.importe
+            return Decimal("0")
+
+        def _importe_real(item):
+            if getattr(item, "estado", "") != "confirmado":
+                return Decimal("0")
+            real = getattr(item, "importe_real", None)
+            return real if real is not None else item.importe
+
+        ingresos_estimados = _sum_importes([_importe_estimado(i) for i in ingresos])
+        ingresos_reales = _sum_importes([_importe_real(i) for i in ingresos])
+        gastos_estimados = _sum_importes([_importe_estimado(g) for g in gastos])
+        gastos_reales = _sum_importes([_importe_real(g) for g in gastos])
+
+        beneficio_estimado = ingresos_estimados - gastos_estimados
+        beneficio_real = ingresos_reales - gastos_reales
+
+        base_precio = proyecto.precio_compra_inmueble or proyecto.precio_propiedad or Decimal("0")
+        cats_adq = {"adquisicion", "reforma", "seguridad", "operativos", "financieros", "legales", "otros"}
+        gastos_adq_estimado = _sum_importes([_importe_estimado(g) for g in gastos if g.categoria in cats_adq])
+        gastos_adq_real = _sum_importes([_importe_real(g) for g in gastos if g.categoria in cats_adq])
+
+        base_est = base_precio + gastos_adq_estimado
+        base_real = base_precio + gastos_adq_real
+
+        if ingresos_reales or gastos_reales:
+            if base_real > 0:
+                return float((beneficio_real / base_real) * Decimal("100"))
+        if base_est > 0:
+            return float((beneficio_estimado / base_est) * Decimal("100"))
+        return None
+
     hero = {
         "tag": "Inversión inmobiliaria con trazabilidad real",
         "title": "Control total de cada operación",
@@ -149,17 +202,34 @@ def landing_home(request):
         extra = getattr(proyecto, "extra", None)
         landing_cfg = extra.get("landing", {}) if isinstance(extra, dict) else {}
         beneficio_raw = landing_cfg.get("beneficio_neto_pct")
-        beneficio_val = _as_float(beneficio_raw, _as_float(getattr(proyecto, "roi", None)))
+        beneficio_val = _as_float(beneficio_raw)
+        if beneficio_val is None:
+            beneficio_val = _as_float(getattr(proyecto, "roi", None))
+        if beneficio_val is None:
+            beneficio_val = _roi_memoria(proyecto)
         plazo_raw = landing_cfg.get("plazo_meses")
         plazo_val = _as_float(plazo_raw, _as_float(getattr(proyecto, "meses", None)))
         focus_x = _as_float(landing_cfg.get("imagen_focus_x"), 50.0)
         focus_y = _as_float(landing_cfg.get("imagen_focus_y"), 50.0)
         imagen_url = ""
         imagen_id = landing_cfg.get("imagen_id")
+        publicaciones_cfg = extra.get("publicaciones", {}) if isinstance(extra, dict) else {}
+        cabecera_id = publicaciones_cfg.get("cabecera_imagen_id")
         if imagen_id:
             try:
                 doc = DocumentoProyecto.objects.filter(
                     id=imagen_id,
+                    proyecto=proyecto,
+                    categoria="fotografias",
+                ).first()
+                if doc:
+                    imagen_url = _doc_url(doc)
+            except Exception:
+                imagen_url = ""
+        if not imagen_url and cabecera_id:
+            try:
+                doc = DocumentoProyecto.objects.filter(
+                    id=cabecera_id,
                     proyecto=proyecto,
                     categoria="fotografias",
                 ).first()
