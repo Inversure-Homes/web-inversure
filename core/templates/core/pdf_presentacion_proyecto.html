@@ -261,6 +261,56 @@
         box-shadow: 0 18px 40px rgba(5, 10, 20, 0.25);
       }
       .format-pdf .eyebrow { background: rgba(255, 255, 255, 0.16); }
+      .format-pdf .detail-page {
+        background: #ffffff;
+        color: #0f172a;
+        padding: 0;
+        display: grid;
+        grid-template-columns: 80px 1fr;
+        min-height: 100%;
+      }
+      .format-pdf .detail-sidebar {
+        background: #122135;
+        position: relative;
+      }
+      .format-pdf .detail-content {
+        padding: 60px 70px;
+      }
+      .format-pdf .detail-title {
+        font-size: 28px;
+        margin: 0 0 18px;
+        color: #0f1d2e;
+      }
+      .format-pdf .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px 24px;
+        font-size: 15px;
+      }
+      .format-pdf .detail-grid span {
+        color: #64748b;
+        display: block;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .format-pdf .detail-grid strong {
+        font-size: 16px;
+      }
+      .format-pdf .detail-block {
+        margin-top: 22px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+      .format-pdf .detail-media {
+        background: #f1f5f9;
+        border-radius: 16px;
+        border: 1px solid #e2e8f0;
+        height: 220px;
+        background-size: cover;
+        background-position: center;
+      }
 
       .page-break {
         page-break-after: always;
@@ -347,68 +397,102 @@
     {% if formato == "pdf" %}
       <div class="page-break"></div>
       <div class="page detail-page">
-        <h2>Descripción del inmueble</h2>
-        <div class="detail-grid">
-          <div>
-            <span>Dirección</span>
-            <strong>{{ inmueble.direccion|default:ubicacion|default:"—" }}</strong>
+        <div class="detail-sidebar"></div>
+        <div class="detail-content">
+          <h2 class="detail-title">Descripción del inmueble</h2>
+          <div class="detail-grid">
+            <div>
+              <span>Dirección</span>
+              <strong>{{ inmueble.direccion|default:ubicacion|default:"—" }}</strong>
+            </div>
+            <div>
+              <span>Tipología</span>
+              <strong>{{ inmueble.tipologia|default:"—" }}</strong>
+            </div>
+            <div>
+              <span>Dormitorios</span>
+              <strong>{{ inmueble.dormitorios|default:"—" }}</strong>
+            </div>
+            <div>
+              <span>Baños</span>
+              <strong>{{ inmueble.banos|default:"—" }}</strong>
+            </div>
+            <div>
+              <span>Superficie</span>
+              <strong>{{ inmueble.superficie_m2|default:inmueble.superficie|default:"—" }}{% if inmueble.superficie_m2 or inmueble.superficie %} m²{% endif %}</strong>
+            </div>
+            <div>
+              <span>Estado</span>
+              <strong>{{ inmueble.estado|default:"—" }}</strong>
+            </div>
+            <div>
+              <span>Situación</span>
+              <strong>{{ inmueble.situacion|default:"—" }}</strong>
+            </div>
+            <div>
+              <span>Valor de referencia</span>
+              <strong>{{ inmueble.valor_referencia|default:"—" }}</strong>
+            </div>
           </div>
-          <div>
-            <span>Tipología</span>
-            <strong>{{ inmueble.tipologia|default:"—" }}</strong>
-          </div>
-          <div>
-            <span>Superficie</span>
-            <strong>{{ inmueble.superficie_m2|default:inmueble.superficie|default:"—" }}{% if inmueble.superficie_m2 or inmueble.superficie %} m²{% endif %}</strong>
-          </div>
-          <div>
-            <span>Estado</span>
-            <strong>{{ inmueble.estado|default:"—" }}</strong>
-          </div>
-          <div>
-            <span>Situación</span>
-            <strong>{{ inmueble.situacion|default:"—" }}</strong>
-          </div>
-          <div>
-            <span>Valor de referencia</span>
-            <strong>{{ inmueble.valor_referencia|default:"—" }}</strong>
+          <div class="detail-block">
+            {% if mapa_url %}
+              <div class="detail-media" style="background-image: url('{{ mapa_url }}');"></div>
+            {% endif %}
+            {% if dossier_url %}
+              <div class="detail-media" style="background-image: url('{{ dossier_url }}');"></div>
+            {% endif %}
           </div>
         </div>
-        {% if descripcion %}
-          <p class="detail-note">{{ descripcion }}</p>
-        {% endif %}
       </div>
 
       <div class="page-break"></div>
       <div class="page detail-page">
-        <h2>Informe de rentabilidad</h2>
-        <div class="detail-grid">
-          <div>
-            <span>Valor adquisición</span>
-            <strong>{{ resultado.valor_adquisicion|es_number }} €</strong>
-          </div>
-          <div>
-            <span>Valor transmisión</span>
-            <strong>{{ resultado.valor_transmision|default:0|es_number }} €</strong>
-          </div>
-          <div>
-            <span>Beneficio neto</span>
-            <strong>{{ resultado.beneficio_neto|es_number }} €</strong>
-          </div>
-          <div>
-            <span>ROI estimado</span>
-            <strong>{{ resultado.roi|default:rentabilidad|es_number }} %</strong>
-          </div>
-          <div>
-            <span>Colchón seguridad</span>
-            <strong>{{ resultado.colchon_seguridad|default:0|es_number }} €</strong>
-          </div>
-          <div>
-            <span>Margen neto</span>
-            <strong>{{ resultado.margen_neto|default:0|es_number }} %</strong>
+        <div class="detail-sidebar"></div>
+        <div class="detail-content">
+          <h2 class="detail-title">Fotos del inmueble</h2>
+          <div class="detail-block">
+            {% for foto in fotos_urls %}
+              <div class="detail-media" style="background-image: url('{{ foto }}');"></div>
+            {% empty %}
+              <div class="detail-media"></div>
+            {% endfor %}
           </div>
         </div>
-        <p class="detail-note">Los anexos seleccionados se adjuntan al final del dossier.</p>
+      </div>
+
+      <div class="page-break"></div>
+      <div class="page detail-page">
+        <div class="detail-sidebar"></div>
+        <div class="detail-content">
+          <h2 class="detail-title">Informe de rentabilidad</h2>
+          <div class="detail-grid">
+            <div>
+              <span>Valor adquisición</span>
+              <strong>{{ resultado.valor_adquisicion|es_number }} €</strong>
+            </div>
+            <div>
+              <span>Valor transmisión</span>
+              <strong>{{ resultado.valor_transmision|default:0|es_number }} €</strong>
+            </div>
+            <div>
+              <span>Beneficio neto</span>
+              <strong>{{ resultado.beneficio_neto|es_number }} €</strong>
+            </div>
+            <div>
+              <span>ROI estimado</span>
+              <strong>{{ resultado.roi|default:rentabilidad|es_number }} %</strong>
+            </div>
+            <div>
+              <span>Colchón seguridad</span>
+              <strong>{{ resultado.colchon_seguridad|default:0|es_number }} €</strong>
+            </div>
+            <div>
+              <span>Margen neto</span>
+              <strong>{{ resultado.margen_neto|default:0|es_number }} %</strong>
+            </div>
+          </div>
+          <p class="detail-note">Los anexos seleccionados se adjuntan al final del dossier.</p>
+        </div>
       </div>
     {% endif %}
   </body>

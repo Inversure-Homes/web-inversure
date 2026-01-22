@@ -4931,6 +4931,8 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
     anexos_ids = request.POST.getlist("anexos")
     anexos_ids = [x for x in [mapa_id, dossier_id, *anexos_ids] if x]
     anexos_docs = []
+    mapa_url = ""
+    dossier_url = ""
     if anexos_ids:
         docs = DocumentoProyecto.objects.filter(proyecto=proyecto, id__in=anexos_ids)
         docs_map = {str(doc.id): doc for doc in docs}
@@ -4939,13 +4941,36 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
             if not doc or doc.categoria == "presentacion":
                 continue
             anexos_docs.append(doc)
+        if mapa_id:
+            mapa_doc = docs_map.get(str(mapa_id))
+            if mapa_doc:
+                mapa_url = _documento_url(request, mapa_doc)
+        if dossier_id:
+            dossier_doc = docs_map.get(str(dossier_id))
+            if dossier_doc:
+                dossier_url = _documento_url(request, dossier_doc)
 
     snapshot = _get_snapshot_comunicacion(proyecto)
     inmueble_raw = snapshot.get("inmueble") if isinstance(snapshot.get("inmueble"), dict) else {}
     inmueble = SafeAccessDict(inmueble_raw)
+    inmueble["dormitorios"] = inmueble.get("dormitorios") or inmueble.get("habitaciones") or inmueble.get("num_dormitorios")
+    inmueble["banos"] = inmueble.get("banos") or inmueble.get("baños") or inmueble.get("num_banos") or inmueble.get("num_baños")
+    inmueble["anio_construccion"] = inmueble.get("anio_construccion") or inmueble.get("ano_construccion") or inmueble.get("year_built")
     resultado = _resultado_desde_memoria(proyecto, snapshot)
     if rentabilidad is None and resultado.get("roi") is not None:
         rentabilidad = resultado.get("roi")
+
+    fotos_urls = []
+    for doc in anexos_docs:
+        if doc.categoria != "fotografias":
+            continue
+        fotos_urls.append(_documento_url(request, doc))
+    if not fotos_urls:
+        fotos_docs = DocumentoProyecto.objects.filter(
+            proyecto=proyecto, categoria="fotografias"
+        ).order_by("-es_principal", "-creado", "-id")[:2]
+        for doc in fotos_docs:
+            fotos_urls.append(_documento_url(request, doc))
 
     context = {
         "proyecto": proyecto,
@@ -4962,6 +4987,9 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
         "logo_data_uri": _logo_data_uri(),
         "inmueble": inmueble,
         "resultado": resultado,
+        "mapa_url": mapa_url,
+        "dossier_url": dossier_url,
+        "fotos_urls": fotos_urls,
     }
 
     slug = slugify(titulo or "proyecto") or f"proyecto_{proyecto_id}"
