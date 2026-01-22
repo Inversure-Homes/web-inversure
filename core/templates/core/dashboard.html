@@ -176,6 +176,7 @@
         <div class="deviation-chart-wrap">
           <canvas id="benefitDeviationChart" height="140"></canvas>
         </div>
+        <div class="row g-2 mt-3" id="benefitDeviationList"></div>
         {{ beneficio_deviation_chart|json_script:"beneficioDeviationData" }}
       </div>
 
@@ -302,6 +303,34 @@
             ctx.restore();
           }
         }]
+      });
+
+      const list = document.getElementById("benefitDeviationList");
+      if (!list) {
+        return;
+      }
+      list.innerHTML = "";
+      data.forEach((row) => {
+        const estimadoValue = Number(row.estimado || 0);
+        const realValue = Number(row.real || 0);
+        const diff = realValue - estimadoValue;
+        const pct = estimadoValue ? (diff / estimadoValue) * 100 : null;
+        const diffLabel = `${diff >= 0 ? "+" : ""}${diff.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+        const pctLabel = pct === null ? "—" : `${pct >= 0 ? "+" : ""}${pct.toFixed(1).replace(".", ",")} %`;
+        const badgeClass = diff > 0 ? "text-bg-success" : diff < 0 ? "text-bg-danger" : "text-bg-secondary";
+
+        const col = document.createElement("div");
+        col.className = "col-12 col-md-6";
+        col.innerHTML = `
+          <div class="border rounded-3 p-2 d-flex align-items-center justify-content-between">
+            <div>
+              <div class="fw-semibold">${row.nombre || "Proyecto"}</div>
+              <div class="text-muted small">Δ ${diffLabel} · ${pctLabel}</div>
+            </div>
+            <span class="badge ${badgeClass}">Desviación</span>
+          </div>
+        `;
+        list.appendChild(col);
       });
     })();
 
