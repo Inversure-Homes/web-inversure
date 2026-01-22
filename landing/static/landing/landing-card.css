@@ -1,0 +1,8 @@
+:root {
+  --landing-card-width: 260px;
+  --landing-card-height: 170px;
+  --landing-card-media-height: 100px;
+  --landing-card-radius: 14px;
+  --landing-card-padding: 10px;
+  --landing-card-shadow: 0 14px 26px rgba(11, 19, 36, 0.2);
+}

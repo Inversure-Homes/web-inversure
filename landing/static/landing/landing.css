@@ -298,8 +298,8 @@ body.landing-body {
 
 .project-grid {
   display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(var(--landing-card-width), 1fr));
 }
 
 .card {
@@ -324,15 +324,15 @@ body.landing-body {
 }
 
 .project-card {
-  border-radius: 16px;
+  border-radius: var(--landing-card-radius);
   overflow: hidden;
   background: #0b1324;
   color: #f8fafc;
-  box-shadow: 0 18px 30px rgba(11, 19, 36, 0.2);
+  box-shadow: var(--landing-card-shadow);
   display: grid;
-  grid-template-rows: 230px 148px;
-  max-width: 756px;
-  height: 378px;
+  grid-template-rows: var(--landing-card-media-height) 1fr;
+  max-width: var(--landing-card-width);
+  height: var(--landing-card-height);
 }
 
 .project-card__media {
@@ -343,8 +343,8 @@ body.landing-body {
 .project-card__media-bg {
   width: 100%;
   height: 100%;
-  background-size: 100% auto;
-  background-position: center top;
+  background-size: cover;
+  background-position: center;
   background-repeat: no-repeat;
 }
 
@@ -357,7 +357,7 @@ body.landing-body {
 }
 
 .project-card__body {
-  padding: 14px;
+  padding: var(--landing-card-padding);
   background: linear-gradient(180deg, rgba(11, 19, 36, 0.96), rgba(11, 19, 36, 0.88));
 }
 
@@ -370,8 +370,8 @@ body.landing-body {
 }
 
 .project-card h3 {
-  font-size: 18px;
-  margin: 0 0 8px;
+  font-size: 15px;
+  margin: 0 0 6px;
   font-weight: 700;
 }
 
@@ -382,20 +382,20 @@ body.landing-body {
 
 .project-card__metrics {
   display: grid;
-  gap: 10px;
+  gap: 6px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .project-card__metrics span {
   display: block;
-  font-size: 11px;
+  font-size: 9px;
   color: #9aa4b2;
   margin-bottom: 4px;
 }
 
 .project-card__metrics strong {
-  font-size: 15px;
+  font-size: 13px;
   color: #f8fafc;
   letter-spacing: 0.02em;
 }
@@ -408,11 +408,11 @@ body.landing-body {
 .project-card__tag {
   display: inline-flex;
   align-items: center;
-  padding: 6px 12px;
+  padding: 4px 10px;
   background: rgba(248, 250, 252, 0.12);
   color: #e2e8f0;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }

@@ -2,6 +2,8 @@
 {% load static formatting %}
 {% block content %}
 
+<link rel="stylesheet" href="{% static 'landing/landing-card.css' %}">
+
 {#
   Proyecto usa su propio JS (proyecto.js). Mantenemos flags globales para que cualquier lógica compartida
   pueda detectar el modo proyecto.
@@ -35,6 +37,7 @@
     }
 
     const previewCard = document.getElementById("landing_preview");
+    const previewMedia = document.getElementById("landing_preview_media");
     const previewFullBtn = document.getElementById("landing_preview_full_btn");
     const landingSelect = document.querySelector("[name='landing.imagen_id']");
     const focusX = document.querySelector("[name='landing.imagen_focus_x']");
@@ -56,26 +59,26 @@
     };
 
     const updatePreview = () => {
-      if (!previewCard) return;
+      if (!previewMedia) return;
       const selectedId = landingSelect ? landingSelect.value : "";
       const url = getFotoUrl(selectedId) || previewCard.dataset.defaultUrl || "";
       const x = focusX && focusX.value ? focusX.value : "50";
       const y = focusY && focusY.value ? focusY.value : "50";
-      previewCard.style.backgroundImage = `linear-gradient(180deg, rgba(11, 19, 36, 0.2), rgba(11, 19, 36, 0.75)), url('${url}')`;
-      previewCard.style.backgroundPosition = `${x}% ${y}%`;
+      previewMedia.style.backgroundImage = `url('${url}')`;
+      previewMedia.style.backgroundPosition = `${x}% ${y}%`;
     };
 
-    if (previewCard) {
+    if (previewCard && previewMedia) {
       if (landingSelect) landingSelect.addEventListener("change", updatePreview);
       if (focusX) focusX.addEventListener("input", updatePreview);
       if (focusY) focusY.addEventListener("input", updatePreview);
       updatePreview();
     }
 
-    if (previewFullBtn && previewCard) {
+    if (previewFullBtn && previewMedia) {
       previewFullBtn.addEventListener("click", () => {
-        previewCard.classList.toggle("landing-preview-card--contain");
-        previewFullBtn.textContent = previewCard.classList.contains("landing-preview-card--contain")
+        previewMedia.classList.toggle("landing-preview-media--contain");
+        previewFullBtn.textContent = previewMedia.classList.contains("landing-preview-media--contain")
           ? "Ver recorte"
           : "Ver completa";
       });
@@ -125,40 +128,45 @@
   }
 
   .landing-preview-card {
-    border-radius: 16px;
+    border-radius: var(--landing-card-radius);
     overflow: hidden;
     background-color: #0b1324;
-    background-size: cover;
-    background-position: 50% 50%;
-    aspect-ratio: 4 / 3;
+    width: var(--landing-card-width);
+    height: var(--landing-card-height);
     display: grid;
-    align-items: end;
-    box-shadow: 0 14px 32px rgba(11, 19, 36, 0.25);
+    grid-template-rows: var(--landing-card-media-height) 1fr;
+    box-shadow: var(--landing-card-shadow);
   }
 
-  .landing-preview-card--contain {
-    background-size: contain;
+  .landing-preview-media {
+    background-size: cover;
+    background-position: 50% 50%;
     background-repeat: no-repeat;
-    background-color: #0b1324;
+  }
+
+  .landing-preview-media--contain {
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
   }
 
   .landing-preview-body {
     background: linear-gradient(180deg, rgba(11, 19, 36, 0.0), rgba(11, 19, 36, 0.9));
     color: #f8fafc;
-    padding: 16px;
+    padding: var(--landing-card-padding);
   }
 
   .landing-preview-title {
     font-weight: 700;
-    font-size: 18px;
-    margin-bottom: 10px;
+    font-size: 15px;
+    margin-bottom: 6px;
   }
 
   .landing-preview-metrics {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-    font-size: 12px;
+    gap: 6px;
+    font-size: 9px;
   }
 
   .landing-preview-metrics span {
@@ -168,7 +176,7 @@
   }
 
   .landing-preview-metrics strong {
-    font-size: 14px;
+    font-size: 13px;
     color: #f8fafc;
   }
 </style>
@@ -1227,7 +1235,9 @@
                                         <label class="form-label">Vista previa</label>
                                         <div class="landing-preview-card" id="landing_preview"
                                              data-default-url="{{ landing_preview_url|default:'' }}"
-                                             style="background-image: linear-gradient(180deg, rgba(11, 19, 36, 0.2), rgba(11, 19, 36, 0.75)), url('{{ landing_preview_url|default:'' }}');">
+                                             style="background-color: #0b1324;">
+                                            <div class="landing-preview-media" id="landing_preview_media"
+                                                 style="background-image: url('{{ landing_preview_url|default:'' }}');"></div>
                                             <div class="landing-preview-body">
                                                 <div class="landing-preview-title">{{ landing_config.titulo|default:proyecto.nombre|default:'' }}</div>
                                                 <div class="landing-preview-metrics">
