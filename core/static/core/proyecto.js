@@ -2956,6 +2956,7 @@ function bindDifusion() {
   const checks = Array.from(form.querySelectorAll(".difusion-check"));
   const searchInput = form.querySelector("#difusion_search");
   const items = Array.from(form.querySelectorAll(".difusion-item"));
+  const selectAll = form.querySelector("#difusion_select_all");
 
   const updateCount = () => {
     const count = checks.filter((c) => c.checked).length;
@@ -2973,9 +2974,45 @@ function bindDifusion() {
       const label = item.dataset.label || "";
       item.classList.toggle("d-none", q && !label.includes(q));
     });
+    if (selectAll) {
+      const visibleChecks = items
+        .filter((item) => !item.classList.contains("d-none"))
+        .map((item) => item.querySelector(".difusion-check"))
+        .filter(Boolean);
+      if (visibleChecks.length) {
+        selectAll.checked = visibleChecks.every((input) => input.checked);
+      } else {
+        selectAll.checked = false;
+      }
+    }
   };
 
-  checks.forEach((c) => c.addEventListener("change", updateCount));
+  checks.forEach((c) =>
+    c.addEventListener("change", () => {
+      updateCount();
+      if (selectAll) {
+        const visibleChecks = items
+          .filter((item) => !item.classList.contains("d-none"))
+          .map((item) => item.querySelector(".difusion-check"))
+          .filter(Boolean);
+        selectAll.checked = visibleChecks.length
+          ? visibleChecks.every((input) => input.checked)
+          : false;
+      }
+    })
+  );
+  if (selectAll) {
+    selectAll.addEventListener("change", () => {
+      const visible = items.filter((item) => !item.classList.contains("d-none"));
+      visible.forEach((item) => {
+        const input = item.querySelector(".difusion-check");
+        if (input) {
+          input.checked = selectAll.checked;
+        }
+      });
+      updateCount();
+    });
+  }
   if (searchInput) {
     searchInput.addEventListener("input", applyFilter);
     applyFilter();
