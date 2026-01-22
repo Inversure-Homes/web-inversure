@@ -230,10 +230,17 @@
         background: #ffffff;
         color: #0f172a;
         padding: 60px 70px;
+        height: 297mm;
       }
       .format-pdf .cover-page {
         background: #0f1d2e;
         color: #ffffff;
+      }
+      .format-pdf .brand {
+        position: relative;
+        top: auto;
+        left: auto;
+        margin-bottom: 28px;
       }
       .format-pdf .brand span { color: #ffffff; }
       .format-pdf .shape-blob { display: none; }
@@ -243,6 +250,7 @@
         grid-template-columns: 1.1fr 0.9fr;
         gap: 28px;
         align-items: center;
+        margin-top: 10px;
       }
       .format-pdf .cover-meta {
         margin-top: 18px;
@@ -314,43 +322,6 @@
 
       .page-break {
         page-break-after: always;
-      }
-
-      .detail-page {
-        background: #f8fafc;
-        color: #0f172a;
-        padding: 70px 80px;
-      }
-
-      .detail-page h2 {
-        margin: 0 0 16px;
-        font-size: 32px;
-        color: #0f1d2e;
-      }
-
-      .detail-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 16px 24px;
-        font-size: 16px;
-      }
-
-      .detail-grid span {
-        color: #64748b;
-        display: block;
-        font-size: 13px;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-      }
-
-      .detail-grid strong {
-        font-size: 18px;
-      }
-
-      .detail-note {
-        margin-top: 18px;
-        font-size: 15px;
-        color: #475569;
       }
     </style>
   </head>
