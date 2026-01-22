@@ -289,6 +289,15 @@
         margin: 0 0 18px;
         color: #0f1d2e;
       }
+      .format-pdf .detail-hero {
+        margin-bottom: 22px;
+        border-radius: 18px;
+        height: 240px;
+        background: #e2e8f0;
+        background-size: cover;
+        background-position: center;
+        border: 1px solid #e2e8f0;
+      }
       .format-pdf .detail-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -311,6 +320,9 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 16px;
       }
+      .format-pdf .detail-block.single {
+        grid-template-columns: 1fr;
+      }
       .format-pdf .detail-media {
         background: #f1f5f9;
         border-radius: 16px;
@@ -318,6 +330,9 @@
         height: 220px;
         background-size: cover;
         background-position: center;
+      }
+      .format-pdf .detail-media.tall {
+        height: 520px;
       }
 
       .page-break {
@@ -371,6 +386,7 @@
         <div class="detail-sidebar"></div>
         <div class="detail-content">
           <h2 class="detail-title">Descripción del inmueble</h2>
+          <div class="detail-hero" style="background-image: url('{{ foto_url }}');"></div>
           <div class="detail-grid">
             <div>
               <span>Dirección</span>
@@ -402,31 +418,14 @@
             </div>
             <div>
               <span>Valor de referencia</span>
-              <strong>{{ inmueble.valor_referencia|default:"—" }}</strong>
+              <strong>
+                {% if inmueble.valor_referencia %}
+                  {{ inmueble.valor_referencia|es_number }} €
+                {% else %}
+                  —
+                {% endif %}
+              </strong>
             </div>
-          </div>
-          <div class="detail-block">
-            {% if mapa_url %}
-              <div class="detail-media" style="background-image: url('{{ mapa_url }}');"></div>
-            {% endif %}
-            {% if dossier_url %}
-              <div class="detail-media" style="background-image: url('{{ dossier_url }}');"></div>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-
-      <div class="page-break"></div>
-      <div class="page detail-page">
-        <div class="detail-sidebar"></div>
-        <div class="detail-content">
-          <h2 class="detail-title">Fotos del inmueble</h2>
-          <div class="detail-block">
-            {% for foto in fotos_urls %}
-              <div class="detail-media" style="background-image: url('{{ foto }}');"></div>
-            {% empty %}
-              <div class="detail-media"></div>
-            {% endfor %}
           </div>
         </div>
       </div>
@@ -463,6 +462,51 @@
             </div>
           </div>
           <p class="detail-note">Los anexos seleccionados se adjuntan al final del dossier.</p>
+        </div>
+      </div>
+
+      <div class="page-break"></div>
+      <div class="page detail-page">
+        <div class="detail-sidebar"></div>
+        <div class="detail-content">
+          <h2 class="detail-title">Fotos del inmueble</h2>
+          <div class="detail-block">
+            {% for foto in fotos_urls %}
+              <div class="detail-media" style="background-image: url('{{ foto }}');"></div>
+            {% empty %}
+              <div class="detail-media"></div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="page-break"></div>
+      <div class="page detail-page">
+        <div class="detail-sidebar"></div>
+        <div class="detail-content">
+          <h2 class="detail-title">Geolocalización (mapa)</h2>
+          <div class="detail-block single">
+            {% if mapa_url %}
+              <div class="detail-media tall" style="background-image: url('{{ mapa_url }}');"></div>
+            {% else %}
+              <div class="detail-media tall"></div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="page-break"></div>
+      <div class="page detail-page">
+        <div class="detail-sidebar"></div>
+        <div class="detail-content">
+          <h2 class="detail-title">Ficha catastral</h2>
+          <div class="detail-block single">
+            {% if dossier_url %}
+              <div class="detail-media tall" style="background-image: url('{{ dossier_url }}');"></div>
+            {% else %}
+              <div class="detail-media tall"></div>
+            {% endif %}
+          </div>
         </div>
       </div>
     {% endif %}

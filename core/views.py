@@ -3488,9 +3488,20 @@ def proyecto(request, proyecto_id: int):
         if not publicaciones_config and isinstance(overlay, dict):
             publicaciones_config = overlay.get("publicaciones", {}) or {}
         ctx["publicaciones_config"] = publicaciones_config if isinstance(publicaciones_config, dict) else {}
+        difusion_config = extra.get("difusion", {}) if isinstance(extra, dict) else {}
+        if not difusion_config and isinstance(overlay, dict):
+            difusion_config = overlay.get("difusion", {}) or {}
+        ctx["difusion_config"] = difusion_config if isinstance(difusion_config, dict) else {}
+        anexos_map = difusion_config.get("anexos") if isinstance(difusion_config, dict) else {}
+        if isinstance(anexos_map, dict):
+            ctx["difusion_anexos_ids"] = {str(k) for k in anexos_map.keys()}
+        else:
+            ctx["difusion_anexos_ids"] = set()
     except Exception:
         ctx["landing_config"] = {}
         ctx["publicaciones_config"] = {}
+        ctx["difusion_config"] = {}
+        ctx["difusion_anexos_ids"] = set()
 
     try:
         _ensure_checklist_defaults(proyecto_obj)
@@ -4121,6 +4132,9 @@ def guardar_proyecto(request, proyecto_id: int):
         publicaciones_payload = payload.get("publicaciones")
         if isinstance(publicaciones_payload, dict):
             extra["publicaciones"] = _sanitize_for_json(publicaciones_payload)
+        difusion_payload = payload.get("difusion")
+        if isinstance(difusion_payload, dict):
+            extra["difusion"] = _sanitize_for_json(difusion_payload)
 
         # Guardar también dentro de snapshot_datos como fallback si existe
         try:
@@ -4886,33 +4900,39 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
     if request.method != "POST":
         return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-difusion")
 
-    estilo = (request.POST.get("estilo") or "coin").strip().lower()
+    def _post_prefixed(key: str, default=None):
+        val = request.POST.get(f"difusion.{key}")
+        if val in (None, ""):
+            return request.POST.get(key, default)
+        return val
+
+    estilo = (_post_prefixed("estilo") or "coin").strip().lower()
     formatos = {
-        "pdf": request.POST.get("gen_pdf") == "on",
-        "ig_feed": request.POST.get("gen_feed") == "on",
-        "ig_story": request.POST.get("gen_story") == "on",
+        "pdf": _post_prefixed("formatos.pdf") == "on" or request.POST.get("gen_pdf") == "on",
+        "ig_feed": _post_prefixed("formatos.feed") == "on" or request.POST.get("gen_feed") == "on",
+        "ig_story": _post_prefixed("formatos.story") == "on" or request.POST.get("gen_story") == "on",
     }
     if not any(formatos.values()):
         formatos["pdf"] = True
 
     titulo = (
-        request.POST.get("titulo")
+        _post_prefixed("titulo")
         or proyecto.nombre
         or getattr(proyecto, "nombre_proyecto", "")
         or "Proyecto"
     ).strip()
-    descripcion = (request.POST.get("descripcion") or "").strip()
-    ubicacion = (request.POST.get("ubicacion") or "").strip()
-    rentabilidad = _parse_decimal(request.POST.get("rentabilidad"))
-    plazo_meses = _parse_decimal(request.POST.get("plazo_meses"))
-    acceso_minimo = _parse_decimal(request.POST.get("acceso_minimo"))
+    descripcion = (_post_prefixed("descripcion") or "").strip()
+    ubicacion = (_post_prefixed("ubicacion") or "").strip()
+    rentabilidad = _parse_decimal(_post_prefixed("rentabilidad"))
+    plazo_meses = _parse_decimal(_post_prefixed("plazo_meses"))
+    acceso_minimo = _parse_decimal(_post_prefixed("acceso_minimo"))
     try:
-        anio = int(request.POST.get("anio") or timezone.now().year)
+        anio = int(_post_prefixed("anio") or timezone.now().year)
     except Exception:
         anio = timezone.now().year
 
     foto_doc = None
-    foto_id = request.POST.get("foto_id")
+    foto_id = _post_prefixed("foto_id")
     if foto_id:
         foto_doc = DocumentoProyecto.objects.filter(
             proyecto=proyecto, id=foto_id, categoria="fotografias"
@@ -4943,9 +4963,16 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
     if not foto_url:
         foto_url = request.build_absolute_uri(static("landing/assets/hero_investor.jpg"))
 
-    mapa_id = request.POST.get("mapa_id") or ""
-    dossier_id = request.POST.get("dossier_id") or ""
+    mapa_id = _post_prefixed("mapa_id") or ""
+    dossier_id = _post_prefixed("dossier_id") or ""
     anexos_ids = request.POST.getlist("anexos")
+    if not anexos_ids:
+        anexos_ids = []
+        for key in request.POST.keys():
+            if key.startswith("difusion.anexos."):
+                doc_id = key.split("difusion.anexos.", 1)[-1]
+                if doc_id:
+                    anexos_ids.append(doc_id)
     anexos_ids = [x for x in [mapa_id, dossier_id, *anexos_ids] if x]
     anexos_docs = []
     mapa_url = ""
@@ -5066,6 +5093,35 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
             request,
             "No se pudo generar la presentación. Revisa dependencias del servidor para WeasyPrint.",
         )
+
+    try:
+        difusion_payload = {
+            "titulo": titulo,
+            "descripcion": descripcion,
+            "ubicacion": ubicacion,
+            "rentabilidad": rentabilidad,
+            "plazo_meses": plazo_meses,
+            "acceso_minimo": acceso_minimo,
+            "anio": anio,
+            "foto_id": foto_id,
+            "mapa_id": mapa_id,
+            "dossier_id": dossier_id,
+            "estilo": estilo,
+            "formatos": {
+                "pdf": formatos.get("pdf", False),
+                "feed": formatos.get("ig_feed", False),
+                "story": formatos.get("ig_story", False),
+            },
+            "anexos": {str(doc_id): True for doc_id in anexos_ids if doc_id},
+        }
+        extra = getattr(proyecto, "extra", None)
+        if not isinstance(extra, dict):
+            extra = {}
+        extra["difusion"] = _sanitize_for_json(difusion_payload)
+        proyecto.extra = extra
+        proyecto.save(update_fields=["extra"])
+    except Exception:
+        pass
 
     return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-difusion")
 

@@ -1276,65 +1276,78 @@
                                     <div>
                                         <div class="mb-3">
                                             <label class="form-label">Nombre para portada</label>
-                                            <input type="text" name="titulo" class="form-control" placeholder="Ej. COIN" value="{{ proyecto.nombre|default:'' }}">
+                                            <input type="text" name="difusion.titulo" class="form-control" placeholder="Ej. COIN"
+                                                   value="{{ difusion_config.titulo|default:proyecto.nombre|default:'' }}">
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Descripcion breve</label>
-                                            <textarea name="descripcion" class="form-control" rows="3" placeholder="Describe la oportunidad en 2-3 lineas"></textarea>
+                                            <textarea name="difusion.descripcion" class="form-control" rows="3"
+                                                      placeholder="Describe la oportunidad en 2-3 lineas">{{ difusion_config.descripcion|default:'' }}</textarea>
                                         </div>
                                         <div class="row g-2">
                                             <div class="col-6">
                                                 <label class="form-label">Rentabilidad neta (%)</label>
-                                                <input type="text" name="rentabilidad" class="form-control" placeholder="Ej. 11,63">
+                                                <input type="text" name="difusion.rentabilidad" class="form-control" placeholder="Ej. 11,63"
+                                                       value="{{ difusion_config.rentabilidad|default:resultado.roi|default:'' }}">
                                             </div>
                                             <div class="col-6">
                                                 <label class="form-label">Plazo (meses)</label>
-                                                <input type="number" name="plazo_meses" class="form-control" placeholder="Ej. 3">
+                                                <input type="number" name="difusion.plazo_meses" class="form-control" placeholder="Ej. 3"
+                                                       value="{{ difusion_config.plazo_meses|default:proyecto.meses|default:'' }}">
                                             </div>
                                         </div>
                                         <div class="row g-2 mt-1">
                                             <div class="col-6">
                                                 <label class="form-label">Acceso minimo (€)</label>
-                                                <input type="text" name="acceso_minimo" class="form-control" placeholder="Ej. 10.000">
+                                                <input type="text" name="difusion.acceso_minimo" class="form-control" placeholder="Ej. 10.000"
+                                                       value="{{ difusion_config.acceso_minimo|default:'' }}">
                                             </div>
                                             <div class="col-6">
                                                 <label class="form-label">Ano</label>
-                                                <input type="number" name="anio" class="form-control" placeholder="2026">
+                                                <input type="number" name="difusion.anio" class="form-control" placeholder="2026"
+                                                       value="{{ difusion_config.anio|default:'' }}">
                                             </div>
                                         </div>
                                         <div class="mb-3 mt-2">
                                             <label class="form-label">Ubicacion</label>
-                                            <input type="text" name="ubicacion" class="form-control" placeholder="Ej. Plaza Mayor, Madrid">
+                                            <input type="text" name="difusion.ubicacion" class="form-control" placeholder="Ej. Plaza Mayor, Madrid"
+                                                   value="{{ difusion_config.ubicacion|default:proyecto.direccion|default:'' }}">
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Foto principal</label>
-                                            <select name="foto_id" class="form-select">
+                                            <select name="difusion.foto_id" class="form-select">
                                                 <option value="">Usar principal</option>
                                                 {% for doc in documentos %}
                                                     {% if doc.categoria == "fotografias" %}
-                                                        <option value="{{ doc.id }}">{{ doc.titulo }}</option>
+                                                        <option value="{{ doc.id }}" {% if difusion_config.foto_id and difusion_config.foto_id|stringformat:"s" == doc.id|stringformat:"s" %}selected{% endif %}>
+                                                            {{ doc.titulo }}
+                                                        </option>
                                                     {% endif %}
                                                 {% endfor %}
                                             </select>
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Mapa (PDF o imagen)</label>
-                                            <select name="mapa_id" class="form-select">
+                                            <select name="difusion.mapa_id" class="form-select">
                                                 <option value="">No incluir</option>
                                                 {% for doc in documentos %}
                                                     {% if doc.categoria != "presentacion" %}
-                                                        <option value="{{ doc.id }}">{{ doc.titulo }}</option>
+                                                        <option value="{{ doc.id }}" {% if difusion_config.mapa_id and difusion_config.mapa_id|stringformat:"s" == doc.id|stringformat:"s" %}selected{% endif %}>
+                                                            {{ doc.titulo }}
+                                                        </option>
                                                     {% endif %}
                                                 {% endfor %}
                                             </select>
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Dossier / catastro (PDF o imagen)</label>
-                                            <select name="dossier_id" class="form-select">
+                                            <select name="difusion.dossier_id" class="form-select">
                                                 <option value="">No incluir</option>
                                                 {% for doc in documentos %}
                                                     {% if doc.categoria != "presentacion" %}
-                                                        <option value="{{ doc.id }}">{{ doc.titulo }}</option>
+                                                        <option value="{{ doc.id }}" {% if difusion_config.dossier_id and difusion_config.dossier_id|stringformat:"s" == doc.id|stringformat:"s" %}selected{% endif %}>
+                                                            {{ doc.titulo }}
+                                                        </option>
                                                     {% endif %}
                                                 {% endfor %}
                                             </select>
@@ -1346,7 +1359,8 @@
                                                 {% for doc in documentos %}
                                                     {% if doc.categoria != "presentacion" %}
                                                         <label class="form-check">
-                                                            <input class="form-check-input" type="checkbox" name="anexos" value="{{ doc.id }}">
+                                                            <input class="form-check-input" type="checkbox" name="difusion.anexos.{{ doc.id }}" value="on"
+                                                                   {% if doc.id|stringformat:"s" in difusion_anexos_ids %}checked{% endif %}>
                                                             <span class="form-check-label">{{ doc.titulo }}</span>
                                                         </label>
                                                     {% endif %}
@@ -1357,29 +1371,32 @@
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Estilo visual</label>
-                                            <select name="estilo" class="form-select">
-                                                <option value="coin">Coin</option>
-                                                <option value="madrid">Madrid</option>
-                                                <option value="mijas">Mijas</option>
-                                                <option value="sotogrande">Sotogrande</option>
-                                                <option value="torremolinos">Torremolinos</option>
-                                                <option value="martinez">Martinez</option>
-                                                <option value="aurora">Aurora</option>
+                                            <select name="difusion.estilo" class="form-select">
+                                                <option value="coin" {% if difusion_config.estilo == "coin" or not difusion_config.estilo %}selected{% endif %}>Coin</option>
+                                                <option value="madrid" {% if difusion_config.estilo == "madrid" %}selected{% endif %}>Madrid</option>
+                                                <option value="mijas" {% if difusion_config.estilo == "mijas" %}selected{% endif %}>Mijas</option>
+                                                <option value="sotogrande" {% if difusion_config.estilo == "sotogrande" %}selected{% endif %}>Sotogrande</option>
+                                                <option value="torremolinos" {% if difusion_config.estilo == "torremolinos" %}selected{% endif %}>Torremolinos</option>
+                                                <option value="martinez" {% if difusion_config.estilo == "martinez" %}selected{% endif %}>Martinez</option>
+                                                <option value="aurora" {% if difusion_config.estilo == "aurora" %}selected{% endif %}>Aurora</option>
                                             </select>
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Formatos</label>
                                             <div class="d-flex gap-3 flex-wrap">
                                                 <label class="form-check">
-                                                    <input class="form-check-input" type="checkbox" name="gen_pdf" checked>
+                                                    <input class="form-check-input" type="checkbox" name="difusion.formatos.pdf"
+                                                           {% if difusion_config.formatos %}{% if difusion_config.formatos.pdf %}checked{% endif %}{% else %}checked{% endif %}>
                                                     <span class="form-check-label">PDF A4</span>
                                                 </label>
                                                 <label class="form-check">
-                                                    <input class="form-check-input" type="checkbox" name="gen_feed" checked>
+                                                    <input class="form-check-input" type="checkbox" name="difusion.formatos.feed"
+                                                           {% if difusion_config.formatos %}{% if difusion_config.formatos.feed %}checked{% endif %}{% else %}checked{% endif %}>
                                                     <span class="form-check-label">Instagram Feed (1080x1350)</span>
                                                 </label>
                                                 <label class="form-check">
-                                                    <input class="form-check-input" type="checkbox" name="gen_story" checked>
+                                                    <input class="form-check-input" type="checkbox" name="difusion.formatos.story"
+                                                           {% if difusion_config.formatos %}{% if difusion_config.formatos.story %}checked{% endif %}{% else %}checked{% endif %}>
                                                     <span class="form-check-label">Instagram Story (1080x1920)</span>
                                                 </label>
                                             </div>
