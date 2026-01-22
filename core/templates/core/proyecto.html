@@ -130,18 +130,17 @@
   .landing-preview-card {
     border-radius: var(--landing-card-radius);
     overflow: hidden;
-    background-color: #0b1324;
     width: var(--landing-card-width);
     height: var(--landing-card-height);
-    display: grid;
-    grid-template-rows: var(--landing-card-media-height) 1fr;
     box-shadow: var(--landing-card-shadow);
+    position: relative;
   }
 
   .landing-preview-media {
     background-size: cover;
     background-position: 50% 50%;
     background-repeat: no-repeat;
+    height: 100%;
   }
 
   .landing-preview-media--contain {
@@ -151,7 +150,11 @@
   }
 
   .landing-preview-body {
-    background: linear-gradient(180deg, rgba(11, 19, 36, 0.0), rgba(11, 19, 36, 0.9));
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(180deg, rgba(11, 19, 36, 0), rgba(11, 19, 36, 0.7) 45%, rgba(11, 19, 36, 0.92));
     color: #f8fafc;
     padding: var(--landing-card-padding);
   }

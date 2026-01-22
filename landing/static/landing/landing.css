@@ -326,11 +326,10 @@ body.landing-body {
 .project-card {
   border-radius: var(--landing-card-radius);
   overflow: hidden;
-  background: #0b1324;
   color: #f8fafc;
   box-shadow: var(--landing-card-shadow);
-  display: grid;
-  grid-template-rows: var(--landing-card-media-height) 1fr;
+  position: relative;
+  min-height: var(--landing-card-height);
   max-width: var(--landing-card-width);
   height: var(--landing-card-height);
 }
@@ -338,6 +337,7 @@ body.landing-body {
 .project-card__media {
   position: relative;
   aspect-ratio: auto;
+  height: 100%;
 }
 
 .project-card__media-bg {
@@ -357,8 +357,12 @@ body.landing-body {
 }
 
 .project-card__body {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   padding: var(--landing-card-padding);
-  background: linear-gradient(180deg, rgba(11, 19, 36, 0.96), rgba(11, 19, 36, 0.88));
+  background: linear-gradient(180deg, rgba(11, 19, 36, 0), rgba(11, 19, 36, 0.7) 45%, rgba(11, 19, 36, 0.92));
 }
 
 .project-card__eyebrow {
