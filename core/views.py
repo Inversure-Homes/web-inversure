@@ -729,7 +729,11 @@ def _build_presentacion_png(request, context: dict) -> bytes | None:
     try:
         from weasyprint import HTML  # defer import
         html = _build_presentacion_html(request, context)
-        return HTML(string=html, base_url=request.build_absolute_uri("/") if request else None).write_png()
+        doc = HTML(string=html, base_url=request.build_absolute_uri("/") if request else None)
+        if not hasattr(doc, "write_png"):
+            logging.getLogger(__name__).warning("WeasyPrint no soporta write_png en este entorno")
+            return None
+        return doc.write_png()
     except Exception:
         logging.getLogger(__name__).exception("Fallo al generar PNG de presentacion")
         return None
@@ -4937,7 +4941,8 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
             anexos_docs.append(doc)
 
     snapshot = _get_snapshot_comunicacion(proyecto)
-    inmueble = snapshot.get("inmueble") if isinstance(snapshot.get("inmueble"), dict) else {}
+    inmueble_raw = snapshot.get("inmueble") if isinstance(snapshot.get("inmueble"), dict) else {}
+    inmueble = SafeAccessDict(inmueble_raw)
     resultado = _resultado_desde_memoria(proyecto, snapshot)
     if rentabilidad is None and resultado.get("roi") is not None:
         rentabilidad = resultado.get("roi")
