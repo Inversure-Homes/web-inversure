@@ -105,7 +105,7 @@
         <div class="muted small">Resumen operativo de clientes inversores y acceso a sus fichas.</div>
       </div>
       <div class="d-flex gap-2 align-items-center">
-        <a href="{% url 'core:clientes_form' %}" class="btn btn-portal btn-sm">Añadir inversor</a>
+        <button class="btn btn-portal btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalBuscarInversor">Añadir inversor</button>
         <span class="inv-tag">Portal privado</span>
       </div>
     </div>
@@ -356,6 +356,34 @@
       </nav>
     </div>
   {% endif %}
+</div>
+
+<div class="modal fade" id="modalBuscarInversor" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Buscar cliente para inversor</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form method="get" action="{% url 'core:inversor_buscar' %}">
+        <div class="modal-body">
+          <p class="text-muted small mb-3">Busca por DNI/NIE/CIF o email. Si no existe, se abrirá el alta con datos precargados.</p>
+          <div class="mb-3">
+            <label class="form-label">DNI/NIE/CIF</label>
+            <input type="text" name="dni_cif" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-portal">Buscar</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 
 <script>

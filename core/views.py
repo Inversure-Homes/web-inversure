@@ -6,6 +6,7 @@ from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.urls import reverse
+from django.utils.http import urlencode
 from django.db import transaction
 from django.db.models import Sum, Count, Max, Prefetch, Min, OuterRef, Subquery
 from django.core.paginator import Paginator
@@ -2364,13 +2365,21 @@ def clientes_form(request):
         except Exception as e:
             messages.error(request, f"No se pudo crear el cliente: {e}")
 
+    form_data = {}
+    if request.GET:
+        form_data = {
+            "dni_cif": (request.GET.get("dni_cif") or "").strip(),
+            "email": (request.GET.get("email") or "").strip(),
+            "telefono": (request.GET.get("telefono") or "").strip(),
+            "nombre": (request.GET.get("nombre") or "").strip(),
+        }
     return render(
         request,
         "core/clientes_form.html",
         {
             "titulo": "Nuevo cliente",
             "cliente": Cliente(),
-            "form_data": {},
+            "form_data": form_data,
         },
     )
 
@@ -2640,6 +2649,32 @@ def cliente_inversor_link(request, cliente_id: int):
     cliente = get_object_or_404(Cliente, id=cliente_id)
     perfil, _ = InversorPerfil.objects.get_or_create(cliente=cliente)
     return render(request, "core/inversor_link.html", {"cliente": cliente, "perfil": perfil})
+
+
+def inversor_buscar(request):
+    dni_cif = (request.GET.get("dni_cif") or "").strip()
+    email = (request.GET.get("email") or "").strip()
+    cliente = None
+    if dni_cif:
+        dni_cif = _normalizar_dni_cif(dni_cif)
+        cliente = Cliente.objects.filter(dni_cif=dni_cif).first()
+    if not cliente and email:
+        cliente = Cliente.objects.filter(email__iexact=email).first()
+
+    if cliente:
+        return redirect("core:cliente_inversor_link", cliente_id=cliente.id)
+
+    if not dni_cif and not email:
+        messages.info(request, "Introduce DNI/NIE/CIF o email para buscar un cliente.")
+        return redirect("core:inversores_list")
+
+    params = {}
+    if dni_cif:
+        params["dni_cif"] = dni_cif
+    if email:
+        params["email"] = email
+    messages.info(request, "No existe ese cliente, crea uno nuevo.")
+    return redirect(f"{reverse('core:clientes_form')}?{urlencode(params)}")
 
 
 def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) -> dict:

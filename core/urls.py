@@ -55,6 +55,7 @@ urlpatterns = [
     path("clientes/editar/<int:cliente_id>/", views.cliente_edit, name="cliente_edit"),
     path("clientes/importar/", views.clientes_import, name="clientes_import"),
     path("clientes/<int:cliente_id>/inversor/", views.cliente_inversor_link, name="cliente_inversor_link"),
+    path("inversores/buscar/", views.inversor_buscar, name="inversor_buscar"),
     path("inversores/", views.inversores_list, name="inversores_list"),
     path("inversores/<int:perfil_id>/portal/", views.inversor_portal_admin, name="inversor_portal_admin"),
     path(
