@@ -1,3 +1,5 @@
+from django.core.cache import cache
+from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
 from django.shortcuts import get_object_or_404, redirect, render
 from django.templatetags.static import static
 from django.utils import timezone
@@ -8,8 +10,10 @@ from .models import LandingLead, Noticia
 
 
 def landing_home(request):
+    signer = TimestampSigner()
     lead_success = request.GET.get("lead")
     lead_error = None
+    lead_token = signer.sign(str(timezone.now().timestamp()))
 
     if request.method == "POST":
         lead_tipo = (request.POST.get("lead_tipo") or "").strip()
@@ -19,6 +23,9 @@ def landing_home(request):
         capital = (request.POST.get("capital") or "").strip()
         ubicacion = (request.POST.get("ubicacion") or "").strip()
         mensaje = (request.POST.get("mensaje") or "").strip()
+        honeypot = (request.POST.get("website") or "").strip()
+        token = (request.POST.get("lead_token") or "").strip()
+        ip_addr = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip() or request.META.get("REMOTE_ADDR", "")
 
         errors = []
         if lead_tipo not in ("inversor", "oportunidad"):
@@ -31,6 +38,26 @@ def landing_home(request):
             errors.append("mensaje")
         if lead_tipo == "oportunidad" and not ubicacion:
             errors.append("ubicacion")
+        if honeypot:
+            errors.append("honeypot")
+
+        try:
+            token_value = signer.unsign(token, max_age=86400)
+            token_time = float(token_value)
+            if timezone.now().timestamp() - token_time < 3:
+                errors.append("timing")
+        except (BadSignature, SignatureExpired, ValueError):
+            errors.append("token")
+
+        if ip_addr:
+            rate_key = f"landing_lead:{ip_addr}:{lead_tipo or 'any'}"
+            try:
+                attempts = cache.incr(rate_key)
+            except ValueError:
+                cache.set(rate_key, 1, timeout=3600)
+                attempts = 1
+            if attempts > 5:
+                errors.append("rate")
 
         if errors:
             lead_error = {"tipo": lead_tipo or "inversor", "fields": errors}
@@ -287,6 +314,7 @@ def landing_home(request):
             "noticias": noticias,
             "lead_success": lead_success,
             "lead_error": lead_error,
+            "lead_token": lead_token,
         },
     )
 

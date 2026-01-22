@@ -177,6 +177,11 @@
           <form class="lead-form" method="post" action="#trazabilidad">
             {% csrf_token %}
             <input type="hidden" name="lead_tipo" value="inversor">
+            <input type="hidden" name="lead_token" value="{{ lead_token }}">
+            <label class="lead-form__hp">
+              Empresa
+              <input type="text" name="website" tabindex="-1" autocomplete="off">
+            </label>
             <div class="lead-form__header">
               <h3>Quiero invertir</h3>
               <p>Cuéntanos tu perfil y nos pondremos en contacto con oportunidades activas.</p>
@@ -213,6 +218,11 @@
           <form class="lead-form" method="post" action="#trazabilidad">
             {% csrf_token %}
             <input type="hidden" name="lead_tipo" value="oportunidad">
+            <input type="hidden" name="lead_token" value="{{ lead_token }}">
+            <label class="lead-form__hp">
+              Empresa
+              <input type="text" name="website" tabindex="-1" autocomplete="off">
+            </label>
             <div class="lead-form__header">
               <h3>Propón un proyecto</h3>
               <p>Si eres inmobiliaria, freelance o propietario, comparte tu oportunidad.</p>

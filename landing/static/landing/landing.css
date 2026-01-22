@@ -569,6 +569,15 @@ body.landing-body {
   letter-spacing: 0.08em;
 }
 
+.lead-form__hp {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
 .lead-form input,
 .lead-form textarea {
   background: rgba(15, 23, 42, 0.9);
