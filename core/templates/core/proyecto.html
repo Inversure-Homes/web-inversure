@@ -1089,11 +1089,17 @@
                                                                             </td>
                                                                             <td>{{ doc.creado|date:"d/m/Y" }}</td>
                                                                             <td class="text-end">
-                                                                                <a href="{{ doc.signed_url|default:doc.archivo.url }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">Ver</a>
+                                                                                <a href="{{ doc.signed_url|default:doc.archivo.url }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" aria-label="Ver documento">
+                                                                                    <i class="bi bi-eye"></i>
+                                                                                </a>
                                                                                 {% if doc.categoria == "fotografias" %}
-                                                                                    <button type="button" class="btn btn-sm btn-outline-success doc-principal-btn" data-url="{% url 'core:proyecto_documento_principal' proyecto.id doc.id %}">Principal</button>
+                                                                                    <button type="button" class="btn btn-sm btn-outline-success doc-principal-btn" data-url="{% url 'core:proyecto_documento_principal' proyecto.id doc.id %}" aria-label="Marcar como principal">
+                                                                                        <i class="bi bi-star"></i>
+                                                                                    </button>
                                                                                 {% endif %}
-                                                                                <button type="button" class="btn btn-sm btn-outline-danger doc-delete-btn" data-url="{% url 'core:proyecto_documento_borrar' proyecto.id doc.id %}">Borrar</button>
+                                                                                <button type="button" class="btn btn-sm btn-outline-danger doc-delete-btn" data-url="{% url 'core:proyecto_documento_borrar' proyecto.id doc.id %}" aria-label="Borrar documento">
+                                                                                    <i class="bi bi-trash"></i>
+                                                                                </button>
                                                                             </td>
                                                                         </tr>
                                                                     {% empty %}
