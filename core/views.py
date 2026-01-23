@@ -731,6 +731,17 @@ def _merge_pdf_with_documentos(base_pdf: bytes, anexos: list[DocumentoProyecto],
         return base_pdf
 
 
+def _can_preview_facturas(user) -> bool:
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if is_admin_user(user):
+        return True
+    if use_custom_permissions(user):
+        perms = resolve_permissions(user)
+        return bool(perms.get("can_facturas_preview"))
+    return False
+
+
 def _build_presentacion_html(request, context: dict) -> str:
     return render_to_string("core/pdf_presentacion_proyecto.html", context)
 
@@ -4521,6 +4532,7 @@ def proyecto_gastos(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": "Proyecto no encontrado"}, status=404)
 
     if request.method == "GET":
+        can_preview = _can_preview_facturas(request.user)
         facturas_docs = {}
         try:
             docs = (
@@ -4541,22 +4553,23 @@ def proyecto_gastos(request, proyecto_id: int):
         gastos = []
         for g in GastoProyecto.objects.filter(proyecto=proyecto).order_by("fecha", "id"):
             factura_url = None
-            if hasattr(g, "factura") and g.factura:
-                try:
-                    key = getattr(g.factura.archivo, "name", "") or ""
-                    signed = _s3_presigned_url(key)
-                    factura_url = signed if signed else g.factura.archivo.url
-                except Exception:
-                    factura_url = None
-            if not factura_url and facturas_docs:
-                doc = facturas_docs.get((g.fecha, g.importe))
-                if doc and doc.archivo:
+            if can_preview:
+                if hasattr(g, "factura") and g.factura:
                     try:
-                        key = getattr(doc.archivo, "name", "") or ""
+                        key = getattr(g.factura.archivo, "name", "") or ""
                         signed = _s3_presigned_url(key)
-                        factura_url = signed if signed else doc.archivo.url
+                        factura_url = signed if signed else g.factura.archivo.url
                     except Exception:
                         factura_url = None
+                if not factura_url and facturas_docs:
+                    doc = facturas_docs.get((g.fecha, g.importe))
+                    if doc and doc.archivo:
+                        try:
+                            key = getattr(doc.archivo, "name", "") or ""
+                            signed = _s3_presigned_url(key)
+                            factura_url = signed if signed else doc.archivo.url
+                        except Exception:
+                            factura_url = None
             gastos.append({
                 "id": g.id,
                 "fecha": g.fecha.isoformat(),
@@ -4613,7 +4626,7 @@ def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
 
     if request.method == "GET":
         factura_url = None
-        if hasattr(gasto, "factura") and gasto.factura:
+        if _can_preview_facturas(request.user) and hasattr(gasto, "factura") and gasto.factura:
             try:
                 key = getattr(gasto.factura.archivo, "name", "") or ""
                 signed = _s3_presigned_url(key)

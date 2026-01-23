@@ -19,6 +19,7 @@ class UserCreateForm(forms.ModelForm):
     can_inversores = forms.BooleanField(required=False, label="Acceso a Inversores")
     can_usuarios = forms.BooleanField(required=False, label="Acceso a Usuarios")
     can_cms = forms.BooleanField(required=False, label="Acceso a CMS")
+    can_facturas_preview = forms.BooleanField(required=False, label="Ver vistas previas de facturas")
 
     class Meta:
         model = User
@@ -44,6 +45,7 @@ class UserCreateForm(forms.ModelForm):
             "can_inversores",
             "can_usuarios",
             "can_cms",
+            "can_facturas_preview",
         ):
             if name in self.fields:
                 self.fields[name].widget = forms.CheckboxInput()
@@ -71,6 +73,7 @@ class UserCreateForm(forms.ModelForm):
             access.can_inversores = bool(self.cleaned_data.get("can_inversores"))
             access.can_usuarios = bool(self.cleaned_data.get("can_usuarios"))
             access.can_cms = bool(self.cleaned_data.get("can_cms"))
+            access.can_facturas_preview = bool(self.cleaned_data.get("can_facturas_preview"))
             access.save()
         return user
 
@@ -91,6 +94,7 @@ class UserEditForm(forms.ModelForm):
     can_inversores = forms.BooleanField(required=False, label="Acceso a Inversores")
     can_usuarios = forms.BooleanField(required=False, label="Acceso a Usuarios")
     can_cms = forms.BooleanField(required=False, label="Acceso a CMS")
+    can_facturas_preview = forms.BooleanField(required=False, label="Ver vistas previas de facturas")
 
     class Meta:
         model = User
@@ -116,6 +120,7 @@ class UserEditForm(forms.ModelForm):
             "can_inversores",
             "can_usuarios",
             "can_cms",
+            "can_facturas_preview",
         ):
             if name in self.fields:
                 self.fields[name].widget = forms.CheckboxInput()
@@ -131,6 +136,7 @@ class UserEditForm(forms.ModelForm):
             self.fields["can_inversores"].initial = access.can_inversores
             self.fields["can_usuarios"].initial = access.can_usuarios
             self.fields["can_cms"].initial = access.can_cms
+            self.fields["can_facturas_preview"].initial = access.can_facturas_preview
     def clean(self):
         cleaned = super().clean()
         pw1 = cleaned.get("password")
@@ -157,5 +163,6 @@ class UserEditForm(forms.ModelForm):
             access.can_inversores = bool(self.cleaned_data.get("can_inversores"))
             access.can_usuarios = bool(self.cleaned_data.get("can_usuarios"))
             access.can_cms = bool(self.cleaned_data.get("can_cms"))
+            access.can_facturas_preview = bool(self.cleaned_data.get("can_facturas_preview"))
             access.save()
         return user

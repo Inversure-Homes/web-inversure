@@ -15,6 +15,7 @@ class UserAccess(models.Model):
     can_inversores = models.BooleanField(default=False)
     can_usuarios = models.BooleanField(default=False)
     can_cms = models.BooleanField(default=False)
+    can_facturas_preview = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Permisos · {self.user.username}"

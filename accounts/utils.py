@@ -41,6 +41,7 @@ def resolve_permissions(user) -> dict:
         "can_inversores": False,
         "can_usuarios": False,
         "can_cms": False,
+        "can_facturas_preview": False,
     }
     if not user or not user.is_authenticated:
         return perms
@@ -58,6 +59,7 @@ def resolve_permissions(user) -> dict:
             "can_inversores": bool(access.can_inversores),
             "can_usuarios": bool(access.can_usuarios),
             "can_cms": bool(access.can_cms),
+            "can_facturas_preview": bool(access.can_facturas_preview),
         }
 
     if is_marketing_user(user):
