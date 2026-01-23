@@ -13,6 +13,7 @@ if command -v apt-get >/dev/null 2>&1; then
     libpangoft2-1.0-0 \
     libgdk-pixbuf-2.0-0 \
     libffi-dev \
+    poppler-utils \
     shared-mime-info \
     fonts-dejavu-core \
     fonts-liberation

@@ -662,6 +662,26 @@ def _documento_url(request, documento: DocumentoProyecto) -> str:
         return ""
 
 
+def _documento_image_url(request, documento: DocumentoProyecto) -> str:
+    nombre = (documento.archivo.name or "").lower()
+    if nombre.endswith(".pdf"):
+        try:
+            from io import BytesIO
+            from pdf2image import convert_from_bytes
+            with documento.archivo.open("rb") as f:
+                pdf_bytes = f.read()
+            images = convert_from_bytes(pdf_bytes, first_page=1, last_page=1)
+            if not images:
+                return ""
+            buf = BytesIO()
+            images[0].save(buf, format="PNG")
+            data = base64.b64encode(buf.getvalue()).decode("ascii")
+            return f"data:image/png;base64,{data}"
+        except Exception:
+            return ""
+    return _documento_url(request, documento)
+
+
 def _documento_pdf_bytes(request, documento: DocumentoProyecto) -> bytes | None:
     nombre = (documento.archivo.name or "").lower()
     if nombre.endswith(".pdf"):
@@ -1066,6 +1086,7 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
         "beneficio_neto": float(beneficio),
         "roi": roi,
         "valor_adquisicion": float(valor_adquisicion),
+        "valor_transmision": float(valor_transmision),
         "ratio_euro": ratio_euro,
         "precio_minimo_venta": float(min_venta),
         "colchon_seguridad": colchon_seguridad,
@@ -4973,26 +4994,27 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
                 doc_id = key.split("difusion.anexos.", 1)[-1]
                 if doc_id:
                     anexos_ids.append(doc_id)
-    anexos_ids = [x for x in [mapa_id, dossier_id, *anexos_ids] if x]
+    anexos_ids = [x for x in anexos_ids if x]
     anexos_docs = []
     mapa_url = ""
     dossier_url = ""
-    if anexos_ids:
-        docs = DocumentoProyecto.objects.filter(proyecto=proyecto, id__in=anexos_ids)
+    lookup_ids = [x for x in [mapa_id, dossier_id, *anexos_ids] if x]
+    if lookup_ids:
+        docs = DocumentoProyecto.objects.filter(proyecto=proyecto, id__in=lookup_ids)
         docs_map = {str(doc.id): doc for doc in docs}
+        if mapa_id:
+            mapa_doc = docs_map.get(str(mapa_id))
+            if mapa_doc:
+                mapa_url = _documento_image_url(request, mapa_doc)
+        if dossier_id:
+            dossier_doc = docs_map.get(str(dossier_id))
+            if dossier_doc:
+                dossier_url = _documento_image_url(request, dossier_doc)
         for doc_id in anexos_ids:
             doc = docs_map.get(str(doc_id))
             if not doc or doc.categoria == "presentacion":
                 continue
             anexos_docs.append(doc)
-        if mapa_id:
-            mapa_doc = docs_map.get(str(mapa_id))
-            if mapa_doc:
-                mapa_url = _documento_url(request, mapa_doc)
-        if dossier_id:
-            dossier_doc = docs_map.get(str(dossier_id))
-            if dossier_doc:
-                dossier_url = _documento_url(request, dossier_doc)
 
     snapshot = _get_snapshot_comunicacion(proyecto)
     inmueble_raw = snapshot.get("inmueble") if isinstance(snapshot.get("inmueble"), dict) else {}
@@ -5003,6 +5025,17 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
     resultado = _resultado_desde_memoria(proyecto, snapshot)
     if rentabilidad is None and resultado.get("roi") is not None:
         rentabilidad = resultado.get("roi")
+
+    roi_val = _safe_float(rentabilidad if rentabilidad is not None else resultado.get("roi"), 0.0)
+    if roi_val >= 15:
+        semaforo_estado = "verde"
+        semaforo_label = "Operación sólida"
+    elif roi_val >= 10:
+        semaforo_estado = "amarillo"
+        semaforo_label = "Operación viable"
+    else:
+        semaforo_estado = "rojo"
+        semaforo_label = "Revisar operación"
 
     fotos_urls = []
     for doc in anexos_docs:
@@ -5034,6 +5067,8 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
         "mapa_url": mapa_url,
         "dossier_url": dossier_url,
         "fotos_urls": fotos_urls,
+        "semaforo_estado": semaforo_estado,
+        "semaforo_label": semaforo_label,
     }
 
     slug = slugify(titulo or "proyecto") or f"proyecto_{proyecto_id}"
