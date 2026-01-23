@@ -241,6 +241,12 @@
         top: auto;
         left: auto;
         margin-bottom: 28px;
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 16px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.12);
       }
       .format-pdf .cover-page .brand img {
         filter: brightness(0) invert(1);
@@ -496,9 +502,6 @@
             <div class="cover-highlight">Oportunidad inmobiliaria de alta visibilidad para inversores.</div>
           </div>
         </div>
-        {% if ubicacion %}
-          <div class="location">{{ ubicacion }}</div>
-        {% endif %}
       </div>
       <div class="badge">{{ anio }}</div>
     </div>
@@ -508,7 +511,7 @@
         <div class="detail-sidebar"></div>
         <div class="detail-content">
           <h2 class="detail-title">Descripción del inmueble</h2>
-          <div class="detail-hero" style="background-image: url('{{ foto_url }}');"></div>
+          <div class="detail-hero" style="background-image: url('{{ descripcion_foto_url|default:foto_url }}');"></div>
           <div class="detail-grid">
             <div>
               <span>Dirección</span>

@@ -5108,6 +5108,7 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
         "estilo": estilo,
         "formato": "pdf",
         "foto_url": foto_url,
+        "descripcion_foto_url": fotos_urls[0] if fotos_urls else foto_url,
         "logo_data_uri": _logo_data_uri(),
         "inmueble": inmueble,
         "resultado": resultado,

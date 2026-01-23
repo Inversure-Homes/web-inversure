@@ -1397,7 +1397,15 @@
                                         <div class="mb-3">
                                             <label class="form-label">Anexos extra (PDF o imagen)</label>
                                             <div class="small text-muted mb-2">Se anexan al PDF final.</div>
-                                            <div class="d-flex flex-column gap-1" style="max-height: 140px; overflow:auto;">
+                                            <div class="small mb-2">
+                                                <button type="button"
+                                                        class="btn btn-sm btn-outline-secondary"
+                                                        data-bs-toggle="collapse"
+                                                        data-bs-target="#anexos_extra_list">
+                                                    Mostrar anexos
+                                                </button>
+                                            </div>
+                                            <div class="d-flex flex-column gap-1 collapse" id="anexos_extra_list" style="max-height: 140px; overflow:auto;">
                                                 {% for doc in documentos %}
                                                     {% if doc.categoria != "presentacion" %}
                                                         <label class="form-check">
