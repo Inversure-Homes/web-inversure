@@ -632,9 +632,9 @@ def _merge_pdf_with_anexos(carta_pdf: bytes, anexos: list[DocumentoProyecto], re
 # =========================
 # PRESENTACIONES DE PROYECTO
 # =========================
-def _logo_data_uri() -> str:
+def _logo_data_uri(logo_name: str = "core/logo_inversure.png") -> str:
     try:
-        logo_path = finders.find("core/logo_inversure.png")
+        logo_path = finders.find(logo_name)
         if not logo_path:
             return ""
         with open(logo_path, "rb") as logo_file:
@@ -5109,7 +5109,7 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
         "formato": "pdf",
         "foto_url": foto_url,
         "descripcion_foto_url": fotos_urls[0] if fotos_urls else foto_url,
-        "logo_data_uri": _logo_data_uri(),
+        "logo_data_uri": _logo_data_uri("core/logo_inversure_blanco.png"),
         "inmueble": inmueble,
         "resultado": resultado,
         "mapa_url": mapa_url,
