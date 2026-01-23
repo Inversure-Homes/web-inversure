@@ -2940,8 +2940,23 @@ function bindDocumentos() {
           alert("No se pudo marcar como principal.");
           return;
         }
-        window.location.hash = "vista-documentacion";
-        window.location.reload();
+        const row = btnPrincipal.closest("tr");
+        document.querySelectorAll(".doc-principal-btn").forEach(btn => {
+          btn.classList.remove("btn-inversure");
+          btn.classList.add("btn-outline-secondary");
+        });
+        document.querySelectorAll(".doc-principal-badge").forEach(badge => badge.remove());
+        btnPrincipal.classList.remove("btn-outline-secondary");
+        btnPrincipal.classList.add("btn-inversure");
+        if (row) {
+          const titleCell = row.querySelector("td.fw-semibold");
+          if (titleCell && !titleCell.querySelector(".doc-principal-badge")) {
+            const badge = document.createElement("span");
+            badge.className = "badge bg-success ms-2 doc-principal-badge";
+            badge.textContent = "Principal";
+            titleCell.appendChild(badge);
+          }
+        }
       } catch (e) {
         alert("No se pudo marcar como principal.");
       }
@@ -2973,8 +2988,14 @@ function bindDocumentos() {
           alert("No se pudo actualizar la foto.");
           return;
         }
-        window.location.hash = "vista-documentacion";
-        window.location.reload();
+        btnFlag.setAttribute("data-active", nextValue);
+        if (nextValue === "1") {
+          btnFlag.classList.remove("btn-outline-secondary");
+          btnFlag.classList.add("btn-inversure");
+        } else {
+          btnFlag.classList.remove("btn-inversure");
+          btnFlag.classList.add("btn-outline-secondary");
+        }
       } catch (e) {
         alert("No se pudo actualizar la foto.");
       }
