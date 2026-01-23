@@ -242,15 +242,34 @@
         left: auto;
         margin-bottom: 28px;
       }
+      .format-pdf .cover-page .brand img {
+        filter: brightness(0) invert(1);
+      }
       .format-pdf .brand span { color: #ffffff; }
       .format-pdf .shape-blob { display: none; }
       .format-pdf .badge { background: #d2b05c; }
       .format-pdf .cover-grid {
         display: grid;
-        grid-template-columns: 1.1fr 0.9fr;
+        grid-template-columns: 1fr 1fr;
         gap: 28px;
         align-items: center;
         margin-top: 10px;
+      }
+      .format-pdf .cover-content {
+        text-align: center;
+      }
+      .format-pdf .cover-content .eyebrow {
+        margin: 0 auto;
+      }
+      .format-pdf .cover-content h1 {
+        font-size: 64px;
+        margin: 22px 0 12px;
+      }
+      .format-pdf .cover-content .desc {
+        margin: 0 auto;
+      }
+      .format-pdf .cover-meta {
+        text-align: center;
       }
       .format-pdf .cover-meta {
         margin-top: 18px;
@@ -334,6 +353,69 @@
       .format-pdf .detail-media.tall {
         height: 520px;
       }
+      .format-pdf .rentabilidad-hero {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 18px;
+        align-items: center;
+        margin-bottom: 22px;
+        padding: 18px 20px;
+        border-radius: 16px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+      }
+      .format-pdf .rentabilidad-hero h3 {
+        margin: 0;
+        font-size: 36px;
+        color: #0f1d2e;
+      }
+      .format-pdf .rentabilidad-hero p {
+        margin: 6px 0 0;
+        color: #64748b;
+        font-size: 14px;
+      }
+      .format-pdf .semaforo-box {
+        padding: 14px 16px;
+        border-radius: 14px;
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        text-align: center;
+      }
+      .format-pdf .semaforo-box h4 {
+        margin: 0 0 10px;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #64748b;
+      }
+      .format-pdf .semaforo-dots {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .format-pdf .semaforo-dot {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #e2e8f0;
+      }
+      .format-pdf .semaforo-dot.activo.verde {
+        background: #22c55e;
+        box-shadow: 0 0 6px rgba(34, 197, 94, 0.7);
+      }
+      .format-pdf .semaforo-dot.activo.amarillo {
+        background: #f59e0b;
+        box-shadow: 0 0 6px rgba(245, 158, 11, 0.7);
+      }
+      .format-pdf .semaforo-dot.activo.rojo {
+        background: #ef4444;
+        box-shadow: 0 0 6px rgba(239, 68, 68, 0.7);
+      }
+      .format-pdf .semaforo-label {
+        font-weight: 600;
+        color: #0f1d2e;
+      }
 
       .page-break {
         page-break-after: always;
@@ -351,7 +433,7 @@
         {% endif %}
       </div>
       <div class="cover-grid">
-        <div>
+        <div class="cover-content">
           <div class="title-block">
             <span class="eyebrow">Nuevo proyecto de inversion</span>
             <h1>{{ titulo }}</h1>
@@ -435,6 +517,21 @@
         <div class="detail-sidebar"></div>
         <div class="detail-content">
           <h2 class="detail-title">Informe de rentabilidad</h2>
+          <div class="rentabilidad-hero">
+            <div>
+              <h3>{{ resultado.roi|default:rentabilidad|es_number }} %</h3>
+              <p>Rentabilidad neta estimada según memoria económica.</p>
+            </div>
+            <div class="semaforo-box">
+              <h4>Viabilidad</h4>
+              <div class="semaforo-dots">
+                <span class="semaforo-dot {% if semaforo_estado == 'verde' %}activo verde{% endif %}"></span>
+                <span class="semaforo-dot {% if semaforo_estado == 'amarillo' %}activo amarillo{% endif %}"></span>
+                <span class="semaforo-dot {% if semaforo_estado == 'rojo' %}activo rojo{% endif %}"></span>
+              </div>
+              <div class="semaforo-label">{{ semaforo_label }}</div>
+            </div>
+          </div>
           <div class="detail-grid">
             <div>
               <span>Valor adquisición</span>
