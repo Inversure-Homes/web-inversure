@@ -248,25 +248,36 @@
       .format-pdf .brand span { color: #ffffff; }
       .format-pdf .shape-blob { display: none; }
       .format-pdf .badge { background: #d2b05c; }
+      .format-pdf .cover-shell {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 24px;
+      }
       .format-pdf .cover-grid {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
         gap: 28px;
         align-items: center;
-        margin-top: 10px;
+        margin-top: 6px;
+        flex: 1;
       }
       .format-pdf .cover-content {
         text-align: center;
       }
       .format-pdf .cover-content .eyebrow {
         margin: 0 auto;
+        font-size: 16px;
       }
       .format-pdf .cover-content h1 {
-        font-size: 64px;
+        font-size: 78px;
         margin: 22px 0 12px;
+        letter-spacing: 1px;
       }
       .format-pdf .cover-content .desc {
         margin: 0 auto;
+        font-size: 20px;
       }
       .format-pdf .cover-meta {
         text-align: center;
@@ -274,8 +285,8 @@
       .format-pdf .cover-meta {
         margin-top: 18px;
         display: grid;
-        gap: 8px;
-        font-size: 16px;
+        gap: 6px;
+        font-size: 18px;
       }
       .format-pdf .cover-meta strong { color: #d2b05c; }
       .format-pdf .photo {
@@ -283,9 +294,18 @@
         right: auto;
         bottom: auto;
         width: 100%;
-        height: 320px;
-        border-radius: 24px;
-        box-shadow: 0 18px 40px rgba(5, 10, 20, 0.25);
+        height: 460px;
+        border-radius: 32px;
+        box-shadow: 0 28px 60px rgba(5, 10, 20, 0.4);
+      }
+      .format-pdf .cover-highlight {
+        margin: 14px auto 0;
+        padding: 14px 18px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        max-width: 360px;
+        font-size: 15px;
       }
       .format-pdf .eyebrow { background: rgba(255, 255, 255, 0.16); }
       .format-pdf .detail-page {
@@ -301,7 +321,7 @@
         position: relative;
       }
       .format-pdf .detail-content {
-        padding: 60px 70px;
+        padding: 56px 64px;
       }
       .format-pdf .detail-title {
         font-size: 28px;
@@ -366,7 +386,7 @@
       }
       .format-pdf .rentabilidad-hero h3 {
         margin: 0;
-        font-size: 36px;
+        font-size: 40px;
         color: #0f1d2e;
       }
       .format-pdf .rentabilidad-hero p {
@@ -416,6 +436,23 @@
         font-weight: 600;
         color: #0f1d2e;
       }
+      .format-pdf .rentabilidad-bar {
+        margin-top: 10px;
+        height: 10px;
+        background: #e2e8f0;
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .format-pdf .rentabilidad-bar span {
+        display: block;
+        height: 100%;
+        background: linear-gradient(90deg, #22c55e 0%, #d2b05c 60%, #f59e0b 100%);
+      }
+      .format-pdf .legal-note {
+        margin-top: 26px;
+        font-size: 12px;
+        color: #64748b;
+      }
 
       .page-break {
         page-break-after: always;
@@ -425,42 +462,45 @@
   <body class="style-{{ estilo }} format-{{ formato }}">
     <div class="page cover-page">
       <div class="shape-blob"></div>
-      <div class="brand">
-        {% if logo_data_uri %}
-          <img src="{{ logo_data_uri }}" alt="Inversure">
-        {% else %}
-          <span>INVERSURE</span>
+      <div class="cover-shell">
+        <div class="brand">
+          {% if logo_data_uri %}
+            <img src="{{ logo_data_uri }}" alt="Inversure">
+          {% else %}
+            <span>INVERSURE</span>
+          {% endif %}
+        </div>
+        <div class="cover-grid">
+          <div>
+            <div class="photo" style="background-image: url('{{ foto_url }}');"></div>
+          </div>
+          <div class="cover-content">
+            <div class="title-block">
+              <span class="eyebrow">Nuevo proyecto de inversion</span>
+              <h1>{{ titulo }}</h1>
+              {% if descripcion %}
+                <p class="desc">{{ descripcion|truncatechars:160 }}</p>
+              {% endif %}
+            </div>
+            <div class="cover-meta">
+              {% if plazo_meses %}
+                <div>Operacion a <strong>{{ plazo_meses }}</strong> meses</div>
+              {% endif %}
+              {% if rentabilidad %}
+                <div><strong>{{ rentabilidad|es_number }}%</strong> de rentabilidad estimada</div>
+              {% endif %}
+              {% if acceso_minimo %}
+                <div>Accede a partir de <strong>{{ acceso_minimo|es_number }}€</strong></div>
+              {% endif %}
+            </div>
+            <div class="cover-highlight">Oportunidad inmobiliaria de alta visibilidad para inversores.</div>
+          </div>
+        </div>
+        {% if ubicacion %}
+          <div class="location">{{ ubicacion }}</div>
         {% endif %}
       </div>
-      <div class="cover-grid">
-        <div class="cover-content">
-          <div class="title-block">
-            <span class="eyebrow">Nuevo proyecto de inversion</span>
-            <h1>{{ titulo }}</h1>
-            {% if descripcion %}
-              <p class="desc">{{ descripcion|truncatechars:160 }}</p>
-            {% endif %}
-          </div>
-          <div class="cover-meta">
-            {% if plazo_meses %}
-              <div>Operacion a <strong>{{ plazo_meses }}</strong> meses</div>
-            {% endif %}
-            {% if rentabilidad %}
-              <div><strong>{{ rentabilidad|es_number }}%</strong> de rentabilidad estimada</div>
-            {% endif %}
-            {% if acceso_minimo %}
-              <div>Accede a partir de <strong>{{ acceso_minimo|es_number }}€</strong></div>
-            {% endif %}
-          </div>
-        </div>
-        <div>
-          <div class="photo" style="background-image: url('{{ foto_url }}');"></div>
-        </div>
-      </div>
       <div class="badge">{{ anio }}</div>
-      {% if ubicacion %}
-        <div class="location">{{ ubicacion }}</div>
-      {% endif %}
     </div>
     {% if formato == "pdf" %}
       <div class="page-break"></div>
@@ -521,6 +561,9 @@
             <div>
               <h3>{{ resultado.roi|default:rentabilidad|es_number }} %</h3>
               <p>Rentabilidad neta estimada según memoria económica.</p>
+              <div class="rentabilidad-bar">
+                <span style="width: {{ roi_bar|default:0|floatformat:0 }}%;"></span>
+              </div>
             </div>
             <div class="semaforo-box">
               <h4>Viabilidad</h4>
@@ -602,8 +645,10 @@
               <div class="detail-media tall" style="background-image: url('{{ dossier_url }}');"></div>
             {% else %}
               <div class="detail-media tall"></div>
+              <p class="detail-note">No se pudo renderizar la ficha catastral como imagen. Se adjunta como PDF si fue seleccionada.</p>
             {% endif %}
           </div>
+          <p class="legal-note">Las cifras y métricas expuestas son orientativas y pueden variar según la evolución de la operación.</p>
         </div>
       </div>
     {% endif %}
