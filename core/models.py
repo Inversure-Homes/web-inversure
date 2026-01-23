@@ -1192,6 +1192,10 @@ class DocumentoProyecto(models.Model):
         help_text="Importe de la factura (solo para categoria facturas)",
     )
     es_principal = models.BooleanField(default=False)
+    usar_pdf = models.BooleanField(default=False)
+    usar_story = models.BooleanField(default=False)
+    usar_instagram = models.BooleanField(default=False)
+    usar_dossier = models.BooleanField(default=False)
     creado = models.DateTimeField(auto_now_add=True)
 
     class Meta:

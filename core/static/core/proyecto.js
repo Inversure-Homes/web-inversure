@@ -2947,6 +2947,39 @@ function bindDocumentos() {
       }
     });
   });
+
+  document.querySelectorAll(".doc-flag-btn").forEach(btnFlag => {
+    if (btnFlag.dataset.bindDocFlag === "1") return;
+    btnFlag.dataset.bindDocFlag = "1";
+    btnFlag.addEventListener("click", async () => {
+      const setUrl = btnFlag.getAttribute("data-url") || "";
+      const field = btnFlag.getAttribute("data-field") || "";
+      if (!setUrl || !field) return;
+      const active = btnFlag.getAttribute("data-active") === "1";
+      const nextValue = active ? "0" : "1";
+      const csrf = getCsrfToken();
+      const fd = new FormData();
+      fd.append("field", field);
+      fd.append("value", nextValue);
+      try {
+        const resp = await fetch(setUrl, {
+          method: "POST",
+          headers: {
+            ...(csrf ? { "X-CSRFToken": csrf } : {}),
+          },
+          body: fd,
+        });
+        if (!resp.ok) {
+          alert("No se pudo actualizar la foto.");
+          return;
+        }
+        window.location.hash = "vista-documentacion";
+        window.location.reload();
+      } catch (e) {
+        alert("No se pudo actualizar la foto.");
+      }
+    });
+  });
 }
 
 function bindDifusion() {

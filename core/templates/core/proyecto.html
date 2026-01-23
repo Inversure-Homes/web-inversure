@@ -1061,17 +1061,59 @@
                                                                                 {% if doc.categoria == "fotografias" and doc.es_principal %}
                                                                                     <span class="badge bg-success ms-2">Principal</span>
                                                                                 {% endif %}
+                                                                                {% if doc.categoria == "fotografias" %}
+                                                                                    <div class="mt-2 d-flex flex-wrap gap-2">
+                                                                                        <button type="button"
+                                                                                                class="btn btn-sm {% if doc.es_principal %}btn-inversure{% else %}btn-outline-secondary{% endif %} doc-principal-btn"
+                                                                                                data-url="{% url 'core:proyecto_documento_principal' proyecto.id doc.id %}"
+                                                                                                aria-label="Marcar como portada"
+                                                                                                style="padding: 2px 8px; font-size: 12px;">
+                                                                                            Portada
+                                                                                        </button>
+                                                                                        <button type="button"
+                                                                                                class="btn btn-sm {% if doc.usar_pdf %}btn-inversure{% else %}btn-outline-secondary{% endif %} doc-flag-btn"
+                                                                                                data-url="{% url 'core:proyecto_documento_flag' proyecto.id doc.id %}"
+                                                                                                data-field="usar_pdf"
+                                                                                                data-active="{% if doc.usar_pdf %}1{% else %}0{% endif %}"
+                                                                                                aria-label="Usar en PDF"
+                                                                                                style="padding: 2px 8px; font-size: 12px;">
+                                                                                            PDF
+                                                                                        </button>
+                                                                                        <button type="button"
+                                                                                                class="btn btn-sm {% if doc.usar_story %}btn-inversure{% else %}btn-outline-secondary{% endif %} doc-flag-btn"
+                                                                                                data-url="{% url 'core:proyecto_documento_flag' proyecto.id doc.id %}"
+                                                                                                data-field="usar_story"
+                                                                                                data-active="{% if doc.usar_story %}1{% else %}0{% endif %}"
+                                                                                                aria-label="Usar en Story"
+                                                                                                style="padding: 2px 8px; font-size: 12px;">
+                                                                                            Story
+                                                                                        </button>
+                                                                                        <button type="button"
+                                                                                                class="btn btn-sm {% if doc.usar_instagram %}btn-inversure{% else %}btn-outline-secondary{% endif %} doc-flag-btn"
+                                                                                                data-url="{% url 'core:proyecto_documento_flag' proyecto.id doc.id %}"
+                                                                                                data-field="usar_instagram"
+                                                                                                data-active="{% if doc.usar_instagram %}1{% else %}0{% endif %}"
+                                                                                                aria-label="Usar en Instagram"
+                                                                                                style="padding: 2px 8px; font-size: 12px;">
+                                                                                            Instagram
+                                                                                        </button>
+                                                                                        <button type="button"
+                                                                                                class="btn btn-sm {% if doc.usar_dossier %}btn-inversure{% else %}btn-outline-secondary{% endif %} doc-flag-btn"
+                                                                                                data-url="{% url 'core:proyecto_documento_flag' proyecto.id doc.id %}"
+                                                                                                data-field="usar_dossier"
+                                                                                                data-active="{% if doc.usar_dossier %}1{% else %}0{% endif %}"
+                                                                                                aria-label="Integrar en dossier"
+                                                                                                style="padding: 2px 8px; font-size: 12px;">
+                                                                                            Dossier
+                                                                                        </button>
+                                                                                    </div>
+                                                                                {% endif %}
                                                                             </td>
                                                                             <td>{{ doc.creado|date:"d/m/Y" }}</td>
                                                                             <td class="text-end">
                                                                                 <a href="{{ doc.signed_url|default:doc.archivo.url }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" aria-label="Ver documento">
                                                                                     <i class="bi bi-eye"></i>
                                                                                 </a>
-                                                                                {% if doc.categoria == "fotografias" %}
-                                                                                    <button type="button" class="btn btn-sm btn-outline-success doc-principal-btn" data-url="{% url 'core:proyecto_documento_principal' proyecto.id doc.id %}" aria-label="Marcar como principal">
-                                                                                        <i class="bi bi-star"></i>
-                                                                                    </button>
-                                                                                {% endif %}
                                                                                 <button type="button" class="btn btn-sm btn-outline-danger doc-delete-btn" data-url="{% url 'core:proyecto_documento_borrar' proyecto.id doc.id %}" aria-label="Borrar documento">
                                                                                     <i class="bi bi-trash"></i>
                                                                                 </button>

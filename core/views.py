@@ -4916,6 +4916,26 @@ def proyecto_documento_principal(request, proyecto_id: int, documento_id: int):
     return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-documentacion")
 
 
+def proyecto_documento_flag(request, proyecto_id: int, documento_id: int):
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+    documento = get_object_or_404(
+        DocumentoProyecto,
+        id=documento_id,
+        proyecto_id=proyecto_id,
+        categoria="fotografias",
+    )
+    field = (request.POST.get("field") or "").strip()
+    allowed = {"usar_pdf", "usar_story", "usar_instagram", "usar_dossier"}
+    if field not in allowed:
+        return JsonResponse({"ok": False, "error": "Campo no permitido"}, status=400)
+    value_raw = (request.POST.get("value") or "").strip().lower()
+    value = value_raw in {"1", "true", "si", "sí", "on"}
+    setattr(documento, field, value)
+    documento.save(update_fields=[field])
+    return JsonResponse({"ok": True, "field": field, "value": value})
+
+
 def proyecto_presentacion_generar(request, proyecto_id: int):
     proyecto = get_object_or_404(Proyecto, id=proyecto_id)
     if request.method != "POST":
@@ -4978,11 +4998,30 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
             proyecto=proyecto, categoria="fotografias"
         ).first()
 
-    foto_url = ""
-    if foto_doc:
-        foto_url = _documento_url(request, foto_doc)
+    def _foto_por_flag(flag: str):
+        return DocumentoProyecto.objects.filter(
+            proyecto=proyecto, categoria="fotografias", **{flag: True}
+        ).order_by("-creado", "-id").first()
+
+    foto_doc_pdf = _foto_por_flag("usar_pdf") or foto_doc
+    foto_doc_feed = _foto_por_flag("usar_instagram") or foto_doc
+    foto_doc_story = _foto_por_flag("usar_story") or foto_doc
+
+    def _foto_url_for(doc):
+        if not doc:
+            return ""
+        return _documento_url(request, doc)
+
+    foto_url = _foto_url_for(foto_doc_pdf)
+    foto_url_feed = _foto_url_for(foto_doc_feed)
+    foto_url_story = _foto_url_for(foto_doc_story)
+
     if not foto_url:
         foto_url = request.build_absolute_uri(static("landing/assets/hero_investor.jpg"))
+    if not foto_url_feed:
+        foto_url_feed = foto_url
+    if not foto_url_story:
+        foto_url_story = foto_url
 
     mapa_id = _post_prefixed("mapa_id") or ""
     dossier_id = _post_prefixed("dossier_id") or ""
@@ -5036,6 +5075,7 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
     else:
         semaforo_estado = "rojo"
         semaforo_label = "Revisar operación"
+    roi_bar = max(0.0, min(roi_val, 30.0)) / 30.0 * 100.0
 
     fotos_urls = []
     for doc in anexos_docs:
@@ -5044,10 +5084,17 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
         fotos_urls.append(_documento_url(request, doc))
     if not fotos_urls:
         fotos_docs = DocumentoProyecto.objects.filter(
-            proyecto=proyecto, categoria="fotografias"
-        ).order_by("-es_principal", "-creado", "-id")[:2]
-        for doc in fotos_docs:
-            fotos_urls.append(_documento_url(request, doc))
+            proyecto=proyecto, categoria="fotografias", usar_dossier=True
+        ).order_by("-creado", "-id")
+        if fotos_docs.exists():
+            for doc in fotos_docs:
+                fotos_urls.append(_documento_url(request, doc))
+        else:
+            fotos_docs = DocumentoProyecto.objects.filter(
+                proyecto=proyecto, categoria="fotografias"
+            ).order_by("-es_principal", "-creado", "-id")[:2]
+            for doc in fotos_docs:
+                fotos_urls.append(_documento_url(request, doc))
 
     context = {
         "proyecto": proyecto,
@@ -5069,6 +5116,7 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
         "fotos_urls": fotos_urls,
         "semaforo_estado": semaforo_estado,
         "semaforo_label": semaforo_label,
+        "roi_bar": roi_bar,
     }
 
     slug = slugify(titulo or "proyecto") or f"proyecto_{proyecto_id}"
@@ -5094,6 +5142,7 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
     if formatos.get("ig_feed"):
         feed_context = dict(context)
         feed_context["formato"] = "ig_feed"
+        feed_context["foto_url"] = foto_url_feed
         feed_bytes = _build_presentacion_png(request, feed_context)
         if feed_bytes:
             nombre = f"presentacion_{slug}_{estilo}_feed.png"
@@ -5109,6 +5158,7 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
     if formatos.get("ig_story"):
         story_context = dict(context)
         story_context["formato"] = "ig_story"
+        story_context["foto_url"] = foto_url_story
         story_bytes = _build_presentacion_png(request, story_context)
         if story_bytes:
             nombre = f"presentacion_{slug}_{estilo}_story.png"
