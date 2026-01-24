@@ -802,6 +802,210 @@ def _build_presentacion_png(request, context: dict) -> bytes | None:
         return None
 
 
+def _build_presentacion_context(request, proyecto: Proyecto) -> dict:
+    def _post_prefixed(key: str, default=None):
+        val = request.POST.get(f"difusion.{key}")
+        if val in (None, ""):
+            return request.POST.get(key, default)
+        return val
+
+    estilo = (_post_prefixed("estilo") or "coin").strip().lower()
+    formatos = {
+        "pdf": _post_prefixed("formatos.pdf") == "on" or request.POST.get("gen_pdf") == "on",
+        "ig_feed": _post_prefixed("formatos.feed") == "on" or request.POST.get("gen_feed") == "on",
+        "ig_story": _post_prefixed("formatos.story") == "on" or request.POST.get("gen_story") == "on",
+    }
+    if not any(formatos.values()):
+        formatos["pdf"] = True
+
+    titulo = (
+        _post_prefixed("titulo")
+        or proyecto.nombre
+        or getattr(proyecto, "nombre_proyecto", "")
+        or "Proyecto"
+    ).strip()
+    descripcion = (_post_prefixed("descripcion") or "").strip()
+    ubicacion = (_post_prefixed("ubicacion") or "").strip()
+    rentabilidad = _parse_decimal(_post_prefixed("rentabilidad"))
+    plazo_meses = _parse_decimal(_post_prefixed("plazo_meses"))
+    acceso_minimo = _parse_decimal(_post_prefixed("acceso_minimo"))
+    try:
+        anio = int(_post_prefixed("anio") or timezone.now().year)
+    except Exception:
+        anio = timezone.now().year
+
+    foto_doc = None
+    foto_id = _post_prefixed("foto_id")
+    if foto_id:
+        foto_doc = DocumentoProyecto.objects.filter(
+            proyecto=proyecto, id=foto_id, categoria="fotografias"
+        ).first()
+    if not foto_doc:
+        extra = getattr(proyecto, "extra", None)
+        landing_cfg = extra.get("landing", {}) if isinstance(extra, dict) else {}
+        publicaciones_cfg = extra.get("publicaciones", {}) if isinstance(extra, dict) else {}
+        landing_img_id = landing_cfg.get("imagen_id")
+        cabecera_id = publicaciones_cfg.get("cabecera_imagen_id")
+        chosen_id = landing_img_id or cabecera_id
+        if chosen_id:
+            foto_doc = DocumentoProyecto.objects.filter(
+                proyecto=proyecto, id=chosen_id, categoria="fotografias"
+            ).first()
+    if not foto_doc:
+        foto_doc = DocumentoProyecto.objects.filter(
+            proyecto=proyecto, categoria="fotografias", es_principal=True
+        ).first()
+    if not foto_doc:
+        foto_doc = DocumentoProyecto.objects.filter(
+            proyecto=proyecto, categoria="fotografias"
+        ).first()
+
+    def _foto_por_flag(flag: str):
+        return DocumentoProyecto.objects.filter(
+            proyecto=proyecto, categoria="fotografias", **{flag: True}
+        ).order_by("-creado", "-id").first()
+
+    foto_doc_pdf = _foto_por_flag("usar_pdf") or foto_doc
+    foto_doc_feed = _foto_por_flag("usar_instagram") or foto_doc
+    foto_doc_story = _foto_por_flag("usar_story") or foto_doc
+
+    def _foto_url_for(doc):
+        if not doc:
+            return ""
+        return _documento_url(request, doc)
+
+    foto_url = _foto_url_for(foto_doc_pdf)
+    foto_url_feed = _foto_url_for(foto_doc_feed)
+    foto_url_story = _foto_url_for(foto_doc_story)
+
+    if not foto_url:
+        foto_url = request.build_absolute_uri(static("landing/assets/hero_investor.jpg"))
+    if not foto_url_feed:
+        foto_url_feed = foto_url
+    if not foto_url_story:
+        foto_url_story = foto_url
+
+    mapa_id = _post_prefixed("mapa_id") or ""
+    dossier_id = _post_prefixed("dossier_id") or ""
+    anexos_ids = request.POST.getlist("anexos")
+    if not anexos_ids:
+        anexos_ids = []
+        for key in request.POST.keys():
+            if key.startswith("difusion.anexos."):
+                doc_id = key.split("difusion.anexos.", 1)[-1]
+                if doc_id:
+                    anexos_ids.append(doc_id)
+    anexos_ids = [x for x in anexos_ids if x]
+    anexos_docs = []
+    mapa_url = ""
+    dossier_url = ""
+    lookup_ids = [x for x in [mapa_id, dossier_id, *anexos_ids] if x]
+    if lookup_ids:
+        docs = DocumentoProyecto.objects.filter(proyecto=proyecto, id__in=lookup_ids)
+        docs_map = {str(doc.id): doc for doc in docs}
+        if mapa_id:
+            mapa_doc = docs_map.get(str(mapa_id))
+            if mapa_doc:
+                mapa_url = _documento_image_url(request, mapa_doc)
+        if dossier_id:
+            dossier_doc = docs_map.get(str(dossier_id))
+            if dossier_doc:
+                dossier_url = _documento_image_url(request, dossier_doc)
+        for doc_id in anexos_ids:
+            doc = docs_map.get(str(doc_id))
+            if not doc or doc.categoria == "presentacion":
+                continue
+            anexos_docs.append(doc)
+
+    snapshot = _get_snapshot_comunicacion(proyecto)
+    inmueble_raw = snapshot.get("inmueble") if isinstance(snapshot.get("inmueble"), dict) else {}
+    inmueble = SafeAccessDict(inmueble_raw)
+    inmueble["dormitorios"] = inmueble.get("dormitorios") or inmueble.get("habitaciones") or inmueble.get("num_dormitorios")
+    inmueble["banos"] = inmueble.get("banos") or inmueble.get("baños") or inmueble.get("num_banos") or inmueble.get("num_baños")
+    inmueble["anio_construccion"] = inmueble.get("anio_construccion") or inmueble.get("ano_construccion") or inmueble.get("year_built")
+    resultado = _resultado_desde_memoria(proyecto, snapshot)
+    if rentabilidad is None and resultado.get("roi") is not None:
+        rentabilidad = resultado.get("roi")
+
+    roi_val = _safe_float(rentabilidad if rentabilidad is not None else resultado.get("roi"), 0.0)
+    if roi_val >= 15:
+        semaforo_estado = "verde"
+        semaforo_label = "Operación sólida"
+    elif roi_val >= 10:
+        semaforo_estado = "amarillo"
+        semaforo_label = "Operación viable"
+    else:
+        semaforo_estado = "rojo"
+        semaforo_label = "Revisar operación"
+    roi_bar = max(0.0, min(roi_val, 30.0)) / 30.0 * 100.0
+
+    fotos_urls = []
+    for doc in anexos_docs:
+        if doc.categoria != "fotografias":
+            continue
+        fotos_urls.append(_documento_url(request, doc))
+    if not fotos_urls:
+        fotos_docs = DocumentoProyecto.objects.filter(
+            proyecto=proyecto, categoria="fotografias", usar_dossier=True
+        ).order_by("-creado", "-id")
+        if fotos_docs.exists():
+            for doc in fotos_docs:
+                fotos_urls.append(_documento_url(request, doc))
+        else:
+            fotos_docs = DocumentoProyecto.objects.filter(
+                proyecto=proyecto, categoria="fotografias"
+            ).order_by("-es_principal", "-creado", "-id")[:2]
+            for doc in fotos_docs:
+                fotos_urls.append(_documento_url(request, doc))
+
+    context = {
+        "proyecto": proyecto,
+        "titulo": titulo,
+        "descripcion": descripcion,
+        "ubicacion": ubicacion,
+        "rentabilidad": rentabilidad,
+        "plazo_meses": plazo_meses,
+        "acceso_minimo": acceso_minimo,
+        "anio": anio,
+        "estilo": estilo,
+        "formato": "pdf",
+        "foto_url": foto_url,
+        "descripcion_foto_url": fotos_urls[0] if fotos_urls else foto_url,
+        "logo_data_uri": _logo_data_uri("core/logo_inversure_blanco.png"),
+        "inmueble": inmueble,
+        "resultado": resultado,
+        "mapa_url": mapa_url,
+        "dossier_url": dossier_url,
+        "fotos_urls": fotos_urls,
+        "semaforo_estado": semaforo_estado,
+        "semaforo_label": semaforo_label,
+        "roi_bar": roi_bar,
+    }
+
+    slug = slugify(titulo or "proyecto") or f"proyecto_{proyecto.id}"
+
+    return {
+        "context": context,
+        "formatos": formatos,
+        "anexos_docs": anexos_docs,
+        "foto_url_feed": foto_url_feed,
+        "foto_url_story": foto_url_story,
+        "titulo": titulo,
+        "descripcion": descripcion,
+        "ubicacion": ubicacion,
+        "rentabilidad": rentabilidad,
+        "plazo_meses": plazo_meses,
+        "acceso_minimo": acceso_minimo,
+        "anio": anio,
+        "estilo": estilo,
+        "foto_id": foto_id,
+        "mapa_id": mapa_id,
+        "dossier_id": dossier_id,
+        "anexos_ids": anexos_ids,
+        "slug": slug,
+    }
+
+
 # --- Helper para sanear datos para JSONField (Decimal, fechas, etc.) ---
 def _sanitize_for_json(value):
     """Convierte objetos no serializables (Decimal, fechas) a tipos JSON-safe."""
@@ -4986,186 +5190,15 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
     if request.method != "POST":
         return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-difusion")
 
-    def _post_prefixed(key: str, default=None):
-        val = request.POST.get(f"difusion.{key}")
-        if val in (None, ""):
-            return request.POST.get(key, default)
-        return val
-
-    estilo = (_post_prefixed("estilo") or "coin").strip().lower()
-    formatos = {
-        "pdf": _post_prefixed("formatos.pdf") == "on" or request.POST.get("gen_pdf") == "on",
-        "ig_feed": _post_prefixed("formatos.feed") == "on" or request.POST.get("gen_feed") == "on",
-        "ig_story": _post_prefixed("formatos.story") == "on" or request.POST.get("gen_story") == "on",
-    }
-    if not any(formatos.values()):
-        formatos["pdf"] = True
-
-    titulo = (
-        _post_prefixed("titulo")
-        or proyecto.nombre
-        or getattr(proyecto, "nombre_proyecto", "")
-        or "Proyecto"
-    ).strip()
-    descripcion = (_post_prefixed("descripcion") or "").strip()
-    ubicacion = (_post_prefixed("ubicacion") or "").strip()
-    rentabilidad = _parse_decimal(_post_prefixed("rentabilidad"))
-    plazo_meses = _parse_decimal(_post_prefixed("plazo_meses"))
-    acceso_minimo = _parse_decimal(_post_prefixed("acceso_minimo"))
-    try:
-        anio = int(_post_prefixed("anio") or timezone.now().year)
-    except Exception:
-        anio = timezone.now().year
-
-    foto_doc = None
-    foto_id = _post_prefixed("foto_id")
-    if foto_id:
-        foto_doc = DocumentoProyecto.objects.filter(
-            proyecto=proyecto, id=foto_id, categoria="fotografias"
-        ).first()
-    if not foto_doc:
-        extra = getattr(proyecto, "extra", None)
-        landing_cfg = extra.get("landing", {}) if isinstance(extra, dict) else {}
-        publicaciones_cfg = extra.get("publicaciones", {}) if isinstance(extra, dict) else {}
-        landing_img_id = landing_cfg.get("imagen_id")
-        cabecera_id = publicaciones_cfg.get("cabecera_imagen_id")
-        chosen_id = landing_img_id or cabecera_id
-        if chosen_id:
-            foto_doc = DocumentoProyecto.objects.filter(
-                proyecto=proyecto, id=chosen_id, categoria="fotografias"
-            ).first()
-    if not foto_doc:
-        foto_doc = DocumentoProyecto.objects.filter(
-            proyecto=proyecto, categoria="fotografias", es_principal=True
-        ).first()
-    if not foto_doc:
-        foto_doc = DocumentoProyecto.objects.filter(
-            proyecto=proyecto, categoria="fotografias"
-        ).first()
-
-    def _foto_por_flag(flag: str):
-        return DocumentoProyecto.objects.filter(
-            proyecto=proyecto, categoria="fotografias", **{flag: True}
-        ).order_by("-creado", "-id").first()
-
-    foto_doc_pdf = _foto_por_flag("usar_pdf") or foto_doc
-    foto_doc_feed = _foto_por_flag("usar_instagram") or foto_doc
-    foto_doc_story = _foto_por_flag("usar_story") or foto_doc
-
-    def _foto_url_for(doc):
-        if not doc:
-            return ""
-        return _documento_url(request, doc)
-
-    foto_url = _foto_url_for(foto_doc_pdf)
-    foto_url_feed = _foto_url_for(foto_doc_feed)
-    foto_url_story = _foto_url_for(foto_doc_story)
-
-    if not foto_url:
-        foto_url = request.build_absolute_uri(static("landing/assets/hero_investor.jpg"))
-    if not foto_url_feed:
-        foto_url_feed = foto_url
-    if not foto_url_story:
-        foto_url_story = foto_url
-
-    mapa_id = _post_prefixed("mapa_id") or ""
-    dossier_id = _post_prefixed("dossier_id") or ""
-    anexos_ids = request.POST.getlist("anexos")
-    if not anexos_ids:
-        anexos_ids = []
-        for key in request.POST.keys():
-            if key.startswith("difusion.anexos."):
-                doc_id = key.split("difusion.anexos.", 1)[-1]
-                if doc_id:
-                    anexos_ids.append(doc_id)
-    anexos_ids = [x for x in anexos_ids if x]
-    anexos_docs = []
-    mapa_url = ""
-    dossier_url = ""
-    lookup_ids = [x for x in [mapa_id, dossier_id, *anexos_ids] if x]
-    if lookup_ids:
-        docs = DocumentoProyecto.objects.filter(proyecto=proyecto, id__in=lookup_ids)
-        docs_map = {str(doc.id): doc for doc in docs}
-        if mapa_id:
-            mapa_doc = docs_map.get(str(mapa_id))
-            if mapa_doc:
-                mapa_url = _documento_image_url(request, mapa_doc)
-        if dossier_id:
-            dossier_doc = docs_map.get(str(dossier_id))
-            if dossier_doc:
-                dossier_url = _documento_image_url(request, dossier_doc)
-        for doc_id in anexos_ids:
-            doc = docs_map.get(str(doc_id))
-            if not doc or doc.categoria == "presentacion":
-                continue
-            anexos_docs.append(doc)
-
-    snapshot = _get_snapshot_comunicacion(proyecto)
-    inmueble_raw = snapshot.get("inmueble") if isinstance(snapshot.get("inmueble"), dict) else {}
-    inmueble = SafeAccessDict(inmueble_raw)
-    inmueble["dormitorios"] = inmueble.get("dormitorios") or inmueble.get("habitaciones") or inmueble.get("num_dormitorios")
-    inmueble["banos"] = inmueble.get("banos") or inmueble.get("baños") or inmueble.get("num_banos") or inmueble.get("num_baños")
-    inmueble["anio_construccion"] = inmueble.get("anio_construccion") or inmueble.get("ano_construccion") or inmueble.get("year_built")
-    resultado = _resultado_desde_memoria(proyecto, snapshot)
-    if rentabilidad is None and resultado.get("roi") is not None:
-        rentabilidad = resultado.get("roi")
-
-    roi_val = _safe_float(rentabilidad if rentabilidad is not None else resultado.get("roi"), 0.0)
-    if roi_val >= 15:
-        semaforo_estado = "verde"
-        semaforo_label = "Operación sólida"
-    elif roi_val >= 10:
-        semaforo_estado = "amarillo"
-        semaforo_label = "Operación viable"
-    else:
-        semaforo_estado = "rojo"
-        semaforo_label = "Revisar operación"
-    roi_bar = max(0.0, min(roi_val, 30.0)) / 30.0 * 100.0
-
-    fotos_urls = []
-    for doc in anexos_docs:
-        if doc.categoria != "fotografias":
-            continue
-        fotos_urls.append(_documento_url(request, doc))
-    if not fotos_urls:
-        fotos_docs = DocumentoProyecto.objects.filter(
-            proyecto=proyecto, categoria="fotografias", usar_dossier=True
-        ).order_by("-creado", "-id")
-        if fotos_docs.exists():
-            for doc in fotos_docs:
-                fotos_urls.append(_documento_url(request, doc))
-        else:
-            fotos_docs = DocumentoProyecto.objects.filter(
-                proyecto=proyecto, categoria="fotografias"
-            ).order_by("-es_principal", "-creado", "-id")[:2]
-            for doc in fotos_docs:
-                fotos_urls.append(_documento_url(request, doc))
-
-    context = {
-        "proyecto": proyecto,
-        "titulo": titulo,
-        "descripcion": descripcion,
-        "ubicacion": ubicacion,
-        "rentabilidad": rentabilidad,
-        "plazo_meses": plazo_meses,
-        "acceso_minimo": acceso_minimo,
-        "anio": anio,
-        "estilo": estilo,
-        "formato": "pdf",
-        "foto_url": foto_url,
-        "descripcion_foto_url": fotos_urls[0] if fotos_urls else foto_url,
-        "logo_data_uri": _logo_data_uri("core/logo_inversure_blanco.png"),
-        "inmueble": inmueble,
-        "resultado": resultado,
-        "mapa_url": mapa_url,
-        "dossier_url": dossier_url,
-        "fotos_urls": fotos_urls,
-        "semaforo_estado": semaforo_estado,
-        "semaforo_label": semaforo_label,
-        "roi_bar": roi_bar,
-    }
-
-    slug = slugify(titulo or "proyecto") or f"proyecto_{proyecto_id}"
+    payload = _build_presentacion_context(request, proyecto)
+    context = payload["context"]
+    formatos = payload["formatos"]
+    anexos_docs = payload["anexos_docs"]
+    foto_url_feed = payload["foto_url_feed"]
+    foto_url_story = payload["foto_url_story"]
+    estilo = payload["estilo"]
+    slug = payload["slug"]
+    titulo = payload["titulo"]
     created = 0
 
     if formatos.get("pdf"):
@@ -5180,7 +5213,7 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
                     proyecto=proyecto,
                     tipo="presentacion",
                     categoria="presentacion",
-                    titulo=f"Presentación RRSS (PDF) · {titulo}",
+                    titulo=f"Dossier · {titulo}",
                     archivo=ContentFile(pdf_bytes, name=nombre),
                 )
                 created += 1
@@ -5196,7 +5229,7 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
                 proyecto=proyecto,
                 tipo="presentacion",
                 categoria="presentacion",
-                titulo=f"Presentación RRSS (IG Feed) · {titulo}",
+                titulo=f"Instagram · {titulo}",
                 archivo=ContentFile(feed_bytes, name=nombre),
             )
             created += 1
@@ -5212,7 +5245,7 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
                 proyecto=proyecto,
                 tipo="presentacion",
                 categoria="presentacion",
-                titulo=f"Presentación RRSS (IG Story) · {titulo}",
+                titulo=f"Stories · {titulo}",
                 archivo=ContentFile(story_bytes, name=nombre),
             )
             created += 1
@@ -5227,23 +5260,23 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
 
     try:
         difusion_payload = {
-            "titulo": titulo,
-            "descripcion": descripcion,
-            "ubicacion": ubicacion,
-            "rentabilidad": rentabilidad,
-            "plazo_meses": plazo_meses,
-            "acceso_minimo": acceso_minimo,
-            "anio": anio,
-            "foto_id": foto_id,
-            "mapa_id": mapa_id,
-            "dossier_id": dossier_id,
-            "estilo": estilo,
+            "titulo": payload["titulo"],
+            "descripcion": payload["descripcion"],
+            "ubicacion": payload["ubicacion"],
+            "rentabilidad": payload["rentabilidad"],
+            "plazo_meses": payload["plazo_meses"],
+            "acceso_minimo": payload["acceso_minimo"],
+            "anio": payload["anio"],
+            "foto_id": payload["foto_id"],
+            "mapa_id": payload["mapa_id"],
+            "dossier_id": payload["dossier_id"],
+            "estilo": payload["estilo"],
             "formatos": {
                 "pdf": formatos.get("pdf", False),
                 "feed": formatos.get("ig_feed", False),
                 "story": formatos.get("ig_story", False),
             },
-            "anexos": {str(doc_id): True for doc_id in anexos_ids if doc_id},
+            "anexos": {str(doc_id): True for doc_id in payload["anexos_ids"] if doc_id},
         }
         extra = getattr(proyecto, "extra", None)
         if not isinstance(extra, dict):
@@ -5255,6 +5288,39 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
         pass
 
     return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-difusion")
+
+
+def proyecto_presentacion_preview(request, proyecto_id: int, formato: str):
+    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+    if request.method != "POST":
+        return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-difusion")
+
+    payload = _build_presentacion_context(request, proyecto)
+    context = payload["context"]
+    anexos_docs = payload["anexos_docs"]
+    formato_raw = (formato or "").lower()
+    if formato_raw in {"feed", "ig_feed"}:
+        context["formato"] = "ig_feed"
+        context["foto_url"] = payload["foto_url_feed"]
+        img_bytes = _build_presentacion_png(request, context)
+        if not img_bytes:
+            return HttpResponse("No se pudo generar la vista previa.", status=400)
+        return HttpResponse(img_bytes, content_type="image/png")
+    if formato_raw in {"story", "ig_story"}:
+        context["formato"] = "ig_story"
+        context["foto_url"] = payload["foto_url_story"]
+        img_bytes = _build_presentacion_png(request, context)
+        if not img_bytes:
+            return HttpResponse("No se pudo generar la vista previa.", status=400)
+        return HttpResponse(img_bytes, content_type="image/png")
+
+    context["formato"] = "pdf"
+    pdf_bytes = _build_presentacion_pdf(request, context)
+    if pdf_bytes:
+        pdf_bytes = _merge_pdf_with_documentos(pdf_bytes, anexos_docs, request=request)
+    if not pdf_bytes:
+        return HttpResponse("No se pudo generar la vista previa.", status=400)
+    return HttpResponse(pdf_bytes, content_type="application/pdf")
 
 
 @csrf_exempt

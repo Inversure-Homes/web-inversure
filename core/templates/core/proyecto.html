@@ -1459,6 +1459,37 @@
                                                 formnovalidate>
                                             Generar presentacion
                                         </button>
+                                        <div class="d-grid gap-2 mt-2">
+                                            <button type="submit"
+                                                    class="btn btn-outline-secondary"
+                                                    form="proyectoForm"
+                                                    formaction="{% url 'core:proyecto_presentacion_preview' proyecto.id 'pdf' %}"
+                                                    formmethod="post"
+                                                    formnovalidate
+                                                    formtarget="_blank">
+                                                Vista previa dossier
+                                            </button>
+                                            <div class="d-flex gap-2">
+                                                <button type="submit"
+                                                        class="btn btn-outline-secondary w-50"
+                                                        form="proyectoForm"
+                                                        formaction="{% url 'core:proyecto_presentacion_preview' proyecto.id 'feed' %}"
+                                                        formmethod="post"
+                                                        formnovalidate
+                                                        formtarget="_blank">
+                                                    Vista previa Instagram
+                                                </button>
+                                                <button type="submit"
+                                                        class="btn btn-outline-secondary w-50"
+                                                        form="proyectoForm"
+                                                        formaction="{% url 'core:proyecto_presentacion_preview' proyecto.id 'story' %}"
+                                                        formmethod="post"
+                                                        formnovalidate
+                                                        formtarget="_blank">
+                                                    Vista previa Stories
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
