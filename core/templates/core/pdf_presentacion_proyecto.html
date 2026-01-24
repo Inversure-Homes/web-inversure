@@ -249,8 +249,45 @@
       .format-ig_story .photo { width: 520px; height: 620px; }
       .format-ig_story .cover-rentabilidad { padding: 14px 22px; }
       .format-ig_story .cover-rentabilidad strong { font-size: 38px; }
+      .format-ig_feed .page { padding: 80px 80px 70px; }
       .format-ig_feed h1 { font-size: 48px; }
       .format-ig_feed .cover-rentabilidad strong { font-size: 30px; }
+      .format-ig_feed .cover-shell {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      .format-ig_feed .cover-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+        flex: 1;
+      }
+      .format-ig_feed .cover-grid > div:first-child {
+        order: 2;
+      }
+      .format-ig_feed .photo {
+        position: relative;
+        right: auto;
+        bottom: auto;
+        width: 760px;
+        height: 520px;
+        margin: 0 auto;
+      }
+      .format-ig_feed .cover-content {
+        margin-top: 10px;
+      }
+      .format-ig_feed .cover-meta {
+        margin-top: 14px;
+        color: rgba(255, 255, 255, 0.78);
+        font-size: 16px;
+        line-height: 1.35;
+      }
+      .format-ig_feed .cover-highlight {
+        margin-top: 12px;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 15px;
+      }
 
       .format-pdf .page {
         background: #ffffff;
