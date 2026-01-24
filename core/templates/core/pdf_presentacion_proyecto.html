@@ -113,6 +113,29 @@
         font-weight: 700;
         letter-spacing: 1px;
       }
+      .cover-rentabilidad {
+        margin-top: 16px;
+        display: inline-flex;
+        align-items: baseline;
+        gap: 10px;
+        padding: 10px 18px;
+        border-radius: 999px;
+        background: rgba(210, 176, 92, 0.18);
+        border: 1px solid rgba(210, 176, 92, 0.45);
+        color: var(--gold);
+        font-weight: 700;
+        letter-spacing: 0.5px;
+      }
+      .cover-rentabilidad span {
+        font-size: 14px;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.75);
+        letter-spacing: 0.12em;
+      }
+      .cover-rentabilidad strong {
+        font-size: 32px;
+        color: #ffffff;
+      }
 
       .location {
         position: absolute;
@@ -224,7 +247,10 @@
       .format-ig_story .page { padding: 110px 80px; }
       .format-ig_story h1 { font-size: 62px; }
       .format-ig_story .photo { width: 520px; height: 620px; }
+      .format-ig_story .cover-rentabilidad { padding: 14px 22px; }
+      .format-ig_story .cover-rentabilidad strong { font-size: 38px; }
       .format-ig_feed h1 { font-size: 48px; }
+      .format-ig_feed .cover-rentabilidad strong { font-size: 30px; }
 
       .format-pdf .page {
         background: #ffffff;
@@ -504,6 +530,12 @@
                 <p class="desc">{{ descripcion|truncatechars:160 }}</p>
               {% endif %}
             </div>
+            {% if rentabilidad %}
+              <div class="cover-rentabilidad">
+                <span>Rentabilidad</span>
+                <strong>{{ rentabilidad|es_number }}%</strong>
+              </div>
+            {% endif %}
             <div class="cover-meta">
               {% if plazo_meses %}
                 <div>Operacion a <strong>{{ plazo_meses }}</strong> meses</div>
