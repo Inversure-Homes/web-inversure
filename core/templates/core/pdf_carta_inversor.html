@@ -12,20 +12,22 @@
         --muted: #475569;
         --side-bg: #f3f4f6;
       }
-      body { font-family: "IBM Plex Sans", "DejaVu Sans", Arial, sans-serif; color: var(--ink); font-size: 12.5px; margin: 0; }
-      .brand-bar { height: 10px; background: var(--brand-blue); margin: -24mm -20mm 16px; }
+      body { font-family: "IBM Plex Sans", "DejaVu Sans", Arial, sans-serif; color: var(--ink); font-size: 12.8px; margin: 0; }
+      .brand-bar { height: 10px; background: var(--brand-blue); margin: -24mm -20mm 18px; }
       .brand-bar::after { content: ""; display: block; height: 4px; background: var(--brand-gold); }
       .layout { width: 100%; border-collapse: collapse; }
-      .side { width: 28mm; vertical-align: top; }
-      .main { vertical-align: top; padding-left: 8mm; }
-      .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
-      .logo { height: 38px; }
-      .title { font-size: 20px; font-weight: 700; margin: 0 0 6px; color: var(--brand-blue); }
-      .meta { color: var(--muted); font-size: 11px; margin: 0 0 2px; }
-      .card { margin-top: 12px; }
+      .side { width: 26mm; vertical-align: top; }
+      .main { vertical-align: top; padding-left: 9mm; }
+      .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 12px; }
+      .logo { height: 40px; }
+      .title { font-size: 22px; font-weight: 700; margin: 0 0 6px; color: var(--brand-blue); }
+      .meta { color: var(--muted); font-size: 11px; margin: 0; }
+      .meta-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+      .tagline { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--brand-gold); margin-top: 6px; }
+      .card { margin-top: 8px; }
       .signature { margin-top: 18px; font-size: 11px; color: var(--muted); }
-      .footer { margin-top: 22px; font-size: 10px; color: #64748b; }
-      .legal { margin-top: 12px; font-size: 9.5px; color: #94a3b8; line-height: 1.4; }
+      .footer { margin-top: 20px; font-size: 9.5px; color: #64748b; }
+      .legal { margin-top: 10px; font-size: 9px; color: #94a3b8; line-height: 1.35; }
       .side-meta {
         font-size: 9px;
         color: #64748b;
@@ -35,8 +37,21 @@
         padding-right: 6mm;
       }
       .side-meta strong { color: var(--brand-blue); font-weight: 700; }
-      .descriptor { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--brand-gold); }
-      .message { line-height: 1.6; margin-top: 10px; }
+      .descriptor { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--brand-gold); }
+      .message { line-height: 1.6; margin-top: 10px; word-break: break-word; }
+      .message p { margin: 0 0 10px; }
+      .message p:first-child { font-weight: 600; color: #1f2f4a; }
+      .message a {
+        display: inline-block;
+        margin: 8px 0;
+        padding: 8px 14px;
+        border-radius: 999px;
+        background: rgba(200, 187, 137, 0.15);
+        border: 1px solid rgba(200, 187, 137, 0.45);
+        color: var(--brand-blue);
+        font-weight: 600;
+        text-decoration: none;
+      }
     </style>
   </head>
   <body>
@@ -56,10 +71,13 @@
           <div class="header">
             <div>
               <div class="title">{{ titulo }}</div>
-              <p class="meta">Fecha: {{ fecha|date:"d/m/Y" }}</p>
-              {% if proyecto %}
-                <p class="meta">Proyecto: {{ proyecto.nombre|default:"Proyecto" }}</p>
-              {% endif %}
+              <div class="meta-row">
+                <span class="meta">Fecha: {{ fecha|date:"d/m/Y" }}</span>
+                {% if proyecto %}
+                  <span class="meta">Proyecto: {{ proyecto.nombre|default:"Proyecto" }}</span>
+                {% endif %}
+              </div>
+              <div class="tagline">Secure · Invest · Grow</div>
             </div>
             {% if logo_data_uri %}
               <img class="logo" src="{{ logo_data_uri }}" alt="Inversure">
@@ -67,7 +85,6 @@
               <img class="logo" src="{{ logo_url }}" alt="Inversure">
             {% endif %}
           </div>
-          <div class="descriptor">Secure · Invest · Grow</div>
 
           <div class="card">
             <div class="message">{{ mensaje_html|default:mensaje|linebreaksbr|safe }}</div>
