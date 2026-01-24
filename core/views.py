@@ -795,10 +795,56 @@ def _build_presentacion_png(request, context: dict) -> bytes | None:
         doc = HTML(string=html, base_url=request.build_absolute_uri("/") if request else None)
         if not hasattr(doc, "write_png"):
             logging.getLogger(__name__).warning("WeasyPrint no soporta write_png en este entorno")
+            pdf_bytes = _build_presentacion_pdf(request, context)
+            if not pdf_bytes:
+                return None
+            return _pdf_bytes_to_png(pdf_bytes)
+        png_bytes = doc.write_png()
+        if png_bytes:
+            return png_bytes
+        pdf_bytes = _build_presentacion_pdf(request, context)
+        if not pdf_bytes:
             return None
-        return doc.write_png()
+        return _pdf_bytes_to_png(pdf_bytes)
     except Exception:
         logging.getLogger(__name__).exception("Fallo al generar PNG de presentacion")
+        return None
+
+
+def _pdf_bytes_to_png(pdf_bytes: bytes, dpi: int = 150) -> bytes | None:
+    if not pdf_bytes:
+        return None
+    try:
+        import fitz  # PyMuPDF
+
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        if doc.page_count < 1:
+            return None
+        page = doc.load_page(0)
+        pix = page.get_pixmap(dpi=dpi)
+        return pix.tobytes("png")
+    except Exception:
+        logging.getLogger(__name__).exception("Fallo al convertir PDF a PNG con PyMuPDF")
+    try:
+        from io import BytesIO
+        from pdf2image import convert_from_bytes
+
+        poppler_path = getattr(settings, "POPPLER_PATH", "") or os.environ.get("POPPLER_PATH", "")
+        if not poppler_path:
+            pdftoppm_path = shutil.which("pdftoppm")
+            if pdftoppm_path:
+                poppler_path = os.path.dirname(pdftoppm_path)
+        convert_kwargs = {"first_page": 1, "last_page": 1, "dpi": dpi}
+        if poppler_path:
+            convert_kwargs["poppler_path"] = poppler_path
+        images = convert_from_bytes(pdf_bytes, **convert_kwargs)
+        if not images:
+            return None
+        buf = BytesIO()
+        images[0].save(buf, format="PNG")
+        return buf.getvalue()
+    except Exception:
+        logging.getLogger(__name__).exception("Fallo al convertir PDF a PNG con pdf2image")
         return None
 
 
