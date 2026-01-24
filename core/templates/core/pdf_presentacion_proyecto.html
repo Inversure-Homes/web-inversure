@@ -136,6 +136,9 @@
         font-size: 32px;
         color: #ffffff;
       }
+      .cover-details {
+        margin-top: 18px;
+      }
 
       .location {
         position: absolute;
@@ -266,9 +269,9 @@
         gap: 28px;
         flex: 1;
       }
-      .format-ig_feed .cover-grid > div:first-child {
-        order: 2;
-      }
+      .format-ig_feed .cover-content { order: 1; }
+      .format-ig_feed .cover-photo { order: 2; }
+      .format-ig_feed .cover-details { order: 3; margin-top: 4px; }
       .format-ig_feed .photo {
         position: relative;
         right: auto;
@@ -293,7 +296,7 @@
         color: rgba(255, 255, 255, 0.7);
         font-size: 16px;
       }
-      .format-ig_feed .shape-blob { display: none; }
+      .format-ig_feed .shape-blob { display: none !important; }
 
       .format-pdf .page {
         background: #ffffff;
@@ -562,7 +565,7 @@
           <div class="badge">{{ anio }}</div>
         </div>
         <div class="cover-grid">
-          <div>
+          <div class="cover-photo">
             <div class="photo" style="background-image: url('{{ foto_url }}');"></div>
           </div>
           <div class="cover-content">
@@ -579,6 +582,8 @@
                 <strong>{{ rentabilidad|es_number }}%</strong>
               </div>
             {% endif %}
+          </div>
+          <div class="cover-details">
             <div class="cover-meta">
               {% if plazo_meses %}
                 <div>Operacion a <strong>{{ plazo_meses }}</strong> meses</div>
