@@ -1453,6 +1453,7 @@
                                         </div>
                                         <button type="submit"
                                                 class="btn btn-inversure w-100"
+                                                form="proyectoForm"
                                                 formaction="{% url 'core:proyecto_presentacion_generar' proyecto.id %}"
                                                 formmethod="post"
                                                 formnovalidate>
@@ -1507,6 +1508,7 @@
                                                     name="accion"
                                                     value="guardar"
                                                     class="btn btn-outline-secondary"
+                                                    form="proyectoForm"
                                                     formaction="{% url 'core:proyecto_difusion' proyecto.id %}"
                                                     formmethod="post"
                                                     formnovalidate>
@@ -1516,6 +1518,7 @@
                                                     name="accion"
                                                     value="enviar"
                                                     class="btn btn-inversure"
+                                                    form="proyectoForm"
                                                     formaction="{% url 'core:proyecto_difusion' proyecto.id %}"
                                                     formmethod="post"
                                                     formnovalidate>

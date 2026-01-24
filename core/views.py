@@ -27,6 +27,7 @@ from types import SimpleNamespace
 
 import json
 import os
+import shutil
 import boto3
 import base64
 import mimetypes
@@ -668,9 +669,17 @@ def _documento_image_url(request, documento: DocumentoProyecto) -> str:
         try:
             from io import BytesIO
             from pdf2image import convert_from_bytes
+            poppler_path = getattr(settings, "POPPLER_PATH", "") or os.environ.get("POPPLER_PATH", "")
+            if not poppler_path:
+                pdftoppm_path = shutil.which("pdftoppm")
+                if pdftoppm_path:
+                    poppler_path = os.path.dirname(pdftoppm_path)
             with documento.archivo.open("rb") as f:
                 pdf_bytes = f.read()
-            images = convert_from_bytes(pdf_bytes, first_page=1, last_page=1)
+            convert_kwargs = {"first_page": 1, "last_page": 1, "dpi": 150}
+            if poppler_path:
+                convert_kwargs["poppler_path"] = poppler_path
+            images = convert_from_bytes(pdf_bytes, **convert_kwargs)
             if not images:
                 return ""
             buf = BytesIO()
@@ -678,6 +687,29 @@ def _documento_image_url(request, documento: DocumentoProyecto) -> str:
             data = base64.b64encode(buf.getvalue()).decode("ascii")
             return f"data:image/png;base64,{data}"
         except Exception:
+            logging.getLogger(__name__).exception(
+                "Fallo al convertir PDF a imagen (pdf2image) para documento %s",
+                documento.id,
+            )
+        try:
+            import fitz  # PyMuPDF
+            from io import BytesIO
+
+            with documento.archivo.open("rb") as f:
+                pdf_bytes = f.read()
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            if doc.page_count < 1:
+                return ""
+            page = doc.load_page(0)
+            pix = page.get_pixmap(dpi=150)
+            buf = BytesIO(pix.tobytes("png"))
+            data = base64.b64encode(buf.getvalue()).decode("ascii")
+            return f"data:image/png;base64,{data}"
+        except Exception:
+            logging.getLogger(__name__).exception(
+                "Fallo al convertir PDF a imagen (pymupdf) para documento %s",
+                documento.id,
+            )
             return ""
     return _documento_url(request, documento)
 
