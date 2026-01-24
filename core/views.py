@@ -3558,7 +3558,7 @@ def proyecto(request, proyecto_id: int):
         ctx["difusion_config"] = difusion_config if isinstance(difusion_config, dict) else {}
         anexos_map = difusion_config.get("anexos") if isinstance(difusion_config, dict) else {}
         if isinstance(anexos_map, dict):
-            ctx["difusion_anexos_ids"] = {str(k) for k in anexos_map.keys()}
+            ctx["difusion_anexos_ids"] = {str(k) for k, v in anexos_map.items() if v}
         else:
             ctx["difusion_anexos_ids"] = set()
     except Exception:
