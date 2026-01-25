@@ -7,7 +7,7 @@ from wagtail.documents import urls as wagtaildocs_urls
 admin.site.__class__ = AdminSiteOTPRequired
 
 urlpatterns = [
-    path('', include(('two_factor.urls', 'two_factor'), namespace='two_factor')),
+    path('account/', include('two_factor.urls')),
     path('admin/', admin.site.urls),
     path('', include(('landing.urls', 'landing'), namespace='landing')),
     path('app/', include(('accounts.urls', 'accounts'), namespace='accounts')),
