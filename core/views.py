@@ -487,7 +487,27 @@ def _build_comunicacion_context(
     escenarios = snapshot.get("escenarios") or snapshot.get("escenario") or ""
     if isinstance(escenarios, (list, tuple)):
         escenarios = "\n".join(str(x) for x in escenarios)
-    escenarios = str(escenarios or "")
+    escenarios = str(escenarios or "").strip()
+
+    if not escenarios:
+        econ = snapshot.get("economico") if isinstance(snapshot.get("economico"), dict) else {}
+        val_adq_raw = resultado_mem.get("valor_adquisicion") or econ.get("valor_adquisicion")
+        val_trans_raw = resultado_mem.get("valor_transmision") or econ.get("valor_transmision")
+        val_adq = _safe_float(val_adq_raw, 0.0)
+        val_trans = _safe_float(val_trans_raw, 0.0)
+        if val_adq and val_trans and val_trans > 0:
+            beneficio_base = val_trans - val_adq
+            if beneficio_base > 0:
+                def _fmt_esc(label, mult):
+                    benef = beneficio_base * mult
+                    trans = val_adq + benef
+                    return f"- {label}: beneficio {_fmt_eur(benef)} (transmisión {_fmt_eur(trans)})"
+
+                escenarios = "\n".join([
+                    _fmt_esc("Conservador", 1.0),
+                    _fmt_esc("Óptimo (+5%)", 1.05),
+                    _fmt_esc("Optimista (+10%)", 1.10),
+                ])
 
     ctx = {
         "inversor_nombre": getattr(part.cliente, "nombre", "") or "",
