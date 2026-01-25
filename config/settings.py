@@ -134,8 +134,8 @@ TEMPLATES = [
 ]
 
 
-LOGIN_URL = "/app/login/"
-LOGOUT_REDIRECT_URL = "/app/login/"
+LOGIN_URL = "/account/login/"
+LOGOUT_REDIRECT_URL = "/account/login/"
 
 # =========================
 # BASE DE DATOS (ÚNICA FUENTE)

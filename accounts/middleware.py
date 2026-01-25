@@ -1,4 +1,5 @@
 from django.shortcuts import redirect
+from django.urls import reverse
 from django.utils.http import urlencode
 
 from .utils import resolve_permissions, use_custom_permissions, is_admin_user
@@ -28,6 +29,14 @@ class RoleAccessMiddleware:
             if not user.is_authenticated:
                 qs = urlencode({"next": path})
                 return redirect(f"/app/login/?{qs}")
+            try:
+                is_verified = user.is_verified()
+            except Exception:
+                is_verified = False
+            if not is_verified:
+                setup_url = reverse("two_factor:setup")
+                if not path.startswith(setup_url):
+                    return redirect(setup_url)
 
             perms = resolve_permissions(user)
 

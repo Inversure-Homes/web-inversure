@@ -1,7 +1,8 @@
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import Group, User
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
 from .forms import UserCreateForm, UserEditForm
 from .utils import is_admin_user
@@ -12,18 +13,7 @@ def _is_admin(user):
 
 
 def login_view(request):
-    if request.user.is_authenticated:
-        return redirect("core:home")
-    error = ""
-    if request.method == "POST":
-        username = (request.POST.get("username") or "").strip()
-        password = (request.POST.get("password") or "").strip()
-        user = authenticate(request, username=username, password=password)
-        if user:
-            login(request, user)
-            return redirect("core:home")
-        error = "Usuario o contraseña incorrectos."
-    return render(request, "accounts/login.html", {"error": error})
+    return redirect(reverse("two_factor:login"))
 
 
 def logout_view(request):
