@@ -1329,29 +1329,51 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
             total += item
         return total
 
-    ingresos_est = _sum_importes([i.importe for i in ingresos if i.estado == "estimado"])
-    ingresos_real = _sum_importes([i.importe for i in ingresos if i.estado == "confirmado"])
+    def _importe_estimado(item):
+        estimado = getattr(item, "importe_estimado", None)
+        if estimado is not None:
+            return estimado
+        if getattr(item, "estado", "") == "estimado":
+            return item.importe
+        return Decimal("0")
+
+    def _importe_real(item):
+        if getattr(item, "estado", "") != "confirmado":
+            return Decimal("0")
+        real = getattr(item, "importe_real", None)
+        return real if real is not None else item.importe
+
+    ingresos_est = _sum_importes([_importe_estimado(i) for i in ingresos])
+    ingresos_real = _sum_importes([_importe_real(i) for i in ingresos])
     venta_est = _sum_importes(
-        [i.importe for i in ingresos if i.estado == "estimado" and i.tipo == "venta"]
+        [_importe_estimado(i) for i in ingresos if i.estado == "estimado" and i.tipo == "venta"]
     )
     venta_real = _sum_importes(
-        [i.importe for i in ingresos if i.estado == "confirmado" and i.tipo == "venta"]
+        [_importe_real(i) for i in ingresos if i.estado == "confirmado" and i.tipo == "venta"]
     )
-    gastos_est = _sum_importes([g.importe for g in gastos if g.estado == "estimado"])
-    gastos_real = _sum_importes([g.importe for g in gastos if g.estado == "confirmado"])
+    gastos_est = _sum_importes([_importe_estimado(g) for g in gastos])
+    gastos_real = _sum_importes([_importe_real(g) for g in gastos])
 
     has_real = ingresos_real > 0 or gastos_real > 0
     ingresos_base = ingresos_real if ingresos_real > 0 else ingresos_est
     venta_base = venta_real if venta_real > 0 else venta_est
-    gastos_venta_est = _sum_importes([g.importe for g in gastos if g.estado == "estimado" and g.categoria == "venta"])
-    gastos_venta_real = _sum_importes([g.importe for g in gastos if g.estado == "confirmado" and g.categoria == "venta"])
+    gastos_venta_est = _sum_importes(
+        [_importe_estimado(g) for g in gastos if g.estado == "estimado" and g.categoria == "venta"]
+    )
+    gastos_venta_real = _sum_importes(
+        [_importe_real(g) for g in gastos if g.estado == "confirmado" and g.categoria == "venta"]
+    )
     gastos_venta_base = gastos_venta_real if gastos_venta_real > 0 else gastos_venta_est
     gastos_base = gastos_real if gastos_real > 0 else gastos_est
     beneficio = ingresos_base - gastos_base
 
     cats_adq = {"adquisicion", "reforma", "seguridad", "operativos", "financieros", "legales", "otros"}
-    gastos_adq_est = _sum_importes([g.importe for g in gastos if g.estado == "estimado" and g.categoria in cats_adq])
-    gastos_adq_real = _sum_importes([g.importe for g in gastos if g.estado == "confirmado" and g.categoria in cats_adq])
+    gastos_adq_est = _sum_importes(
+        [_importe_estimado(g) for g in gastos if g.estado == "estimado" and g.categoria in cats_adq]
+    )
+    gastos_adq_real = _sum_importes(
+        [_importe_real(g) for g in gastos if g.estado == "confirmado" and g.categoria in cats_adq]
+    )
     gastos_adq_base = gastos_adq_real if gastos_adq_real > 0 else gastos_adq_est
 
     snap_econ = snapshot.get("economico") if isinstance(snapshot.get("economico"), dict) else {}
