@@ -325,7 +325,11 @@ def _comunicacion_templates() -> dict:
                 "Estimado/a {inversor_nombre},\n\n"
                 "Te informamos de que se ha completado la adquisición del proyecto {proyecto_nombre}.\n"
                 "Fecha de adquisición: {fecha_compra}.\n"
-                "Valor de adquisición: {valor_adquisicion}.\n\n"
+                "Valor de adquisición: {valor_adquisicion}.\n"
+                "Tu participación sobre el proyecto: {participacion_pct}.\n\n"
+                "Siguiente paso: {hito_siguiente}.\n\n"
+                "Consulta el detalle del proyecto en tu portal:\n"
+                "{portal_link}\n\n"
                 "Seguiremos informando de los siguientes hitos.\n\n"
                 "Atentamente,\nEquipo INVERSURE"
             ),
@@ -579,6 +583,15 @@ def _build_comunicacion_context(
     ctx["beneficio_neto_inversor"] = _fmt_eur(float(benefit.get("beneficio_neto_inversor") or 0.0))
     ctx["retencion"] = _fmt_eur(float(benefit.get("retencion") or 0.0))
     ctx["neto_cobrar"] = _fmt_eur(float(benefit.get("neto_cobrar") or 0.0))
+    participacion_pct = "—"
+    try:
+        inv = float(getattr(part, "importe_invertido", 0) or 0)
+        total = float(total_proj or 0)
+        if total > 0 and inv > 0:
+            participacion_pct = f"{_fmt_es_number(inv / total * 100.0, 2)} %"
+    except Exception:
+        participacion_pct = "—"
+    ctx["participacion_pct"] = participacion_pct
     return ctx
 
 
