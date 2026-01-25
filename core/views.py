@@ -308,8 +308,13 @@ def _comunicacion_templates() -> dict:
             "mensaje": (
                 "Estimado/a {inversor_nombre},\n\n"
                 "El proyecto {proyecto_nombre} ha pasado al estado: {proyecto_estado}.\n"
-                "Estado del inmueble: {inmueble_estado}.\n\n"
-                "Seguiremos informándote de cualquier avance relevante.\n\n"
+                "Hito alcanzado: {hito_resumen}.\n"
+                "Siguiente paso: {hito_siguiente}.\n\n"
+                "Resumen de la operación:\n"
+                "- Rentabilidad estimada: {rentabilidad_estimada}\n"
+                "- Plazo estimado: {plazo_meses} meses\n\n"
+                "Consulta el detalle y la documentación en tu portal:\n"
+                "{portal_link}\n\n"
                 "Atentamente,\nEquipo INVERSURE"
             ),
         },
@@ -509,6 +514,35 @@ def _build_comunicacion_context(
                     _fmt_esc("Optimista (+10%)", 1.10),
                 ])
 
+    econ = snapshot.get("economico") if isinstance(snapshot.get("economico"), dict) else {}
+    meses_raw = econ.get("meses") or snapshot.get("meses") or proyecto.meses
+    plazo_meses = ""
+    try:
+        plazo_meses = str(int(float(meses_raw)))
+    except Exception:
+        plazo_meses = str(meses_raw or "")
+
+    rent_est = resultado_mem.get("roi") or econ.get("roi") or ""
+    rentabilidad_estimada = ""
+    try:
+        rentabilidad_estimada = f"{_fmt_es_number(float(rent_est), 2)} %"
+    except Exception:
+        rentabilidad_estimada = str(rent_est or "")
+
+    estado_lower = (proyecto.estado or "").lower()
+    estado_hitos = {
+        "captacion": ("Apertura a inversión", "Activar captación y difusión"),
+        "comprado": ("Compra completada", "Inicio de reforma y adecuación"),
+        "comercializacion": ("Comercialización activa", "Gestión de visitas y ofertas"),
+        "reservado": ("Reserva confirmada", "Firma de arras y cierre"),
+        "vendido": ("Venta acordada", "Formalización ante notaría"),
+        "cerrado": ("Operación cerrada", "Liquidación y reparto final"),
+        "descartado": ("Operación descartada", "Revisión de alternativas"),
+    }
+    hito_resumen, hito_siguiente = estado_hitos.get(
+        estado_lower, ("Avance de proyecto", "Seguimiento de hitos")
+    )
+
     ctx = {
         "inversor_nombre": getattr(part.cliente, "nombre", "") or "",
         "proyecto_nombre": proyecto.nombre or "",
@@ -520,6 +554,10 @@ def _build_comunicacion_context(
         "inmueble_situacion": inm.get("situacion") or "",
         "valor_referencia": valor_ref,
         "escenarios": escenarios,
+        "hito_resumen": hito_resumen,
+        "hito_siguiente": hito_siguiente,
+        "rentabilidad_estimada": rentabilidad_estimada or "—",
+        "plazo_meses": plazo_meses or "—",
         "fecha_hoy": timezone.now().date().strftime("%d/%m/%Y"),
         "fecha_compra": getattr(proyecto, "fecha_compra", None) or getattr(proyecto, "fecha", None),
         "fecha_transmision": getattr(proyecto, "fecha", None),
