@@ -1,5 +1,7 @@
 from pathlib import Path
 import os
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
 
 # =========================
 # BASE
@@ -15,6 +17,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-cambia-esto-en-produccion'
 
 DEBUG = os.environ.get("DEBUG", "1") == "1"
+
+SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration()],
+        send_default_pii=True,
+    )
 
 ALLOWED_HOSTS = [
     "web-inversure-1.onrender.com",
@@ -47,6 +57,10 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.humanize',
     'axes',
+    'django_otp',
+    'django_otp.plugins.otp_totp',
+    'django_otp.plugins.otp_static',
+    'two_factor',
     'wagtail.contrib.forms',
     'wagtail.contrib.redirects',
     'wagtail.embeds',
@@ -80,6 +94,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'axes.middleware.AxesMiddleware',
+    'django_otp.middleware.OTPMiddleware',
     'config.middleware.MaintenanceModeMiddleware',
     'accounts.middleware.RoleAccessMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -272,3 +287,9 @@ AXES_LOCK_OUT_AT_FAILURE = True
 AXES_RESET_ON_SUCCESS = True
 AXES_USERNAME_FORM_FIELD = "username"
 AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
+
+# =========================
+# MFA (Admin)
+# =========================
+
+OTP_TOTP_ISSUER = "Inversure"
