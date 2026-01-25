@@ -263,6 +263,9 @@ def _estado_label(estado: str) -> str:
 
 
 def _comunicacion_templates() -> dict:
+    disclaimer = (
+        "Nota legal: Los datos son orientativos y pueden variar tanto al alza como a la baja."
+    )
     return {
         "bienvenida": {
             "label": "Carta de bienvenida",
@@ -278,6 +281,7 @@ def _comunicacion_templates() -> dict:
                 "Le agradecemos la confianza depositada en nosotros y esperamos que la información recibida "
                 "sea de su agrado. A continuación le facilitamos el enlace a su espacio.\n\n"
                 "{portal_link}\n\n"
+                f"{disclaimer}\n\n"
                 "El equipo de INVERSURE"
             ),
         },
@@ -299,6 +303,7 @@ def _comunicacion_templates() -> dict:
                 "- Valor de referencia: {valor_referencia}\n\n"
                 "Escenarios previstos:\n{escenarios}\n\n"
                 "Desde tu portal podrás seguir la evolución económica y operativa en tiempo real.\n\n"
+                f"{disclaimer}\n\n"
                 "Atentamente,\nEquipo INVERSURE"
             ),
         },
@@ -315,6 +320,7 @@ def _comunicacion_templates() -> dict:
                 "- Plazo estimado: {plazo_meses} meses\n\n"
                 "Consulta el detalle y la documentación en tu portal:\n"
                 "{portal_link}\n\n"
+                f"{disclaimer}\n\n"
                 "Atentamente,\nEquipo INVERSURE"
             ),
         },
@@ -331,6 +337,7 @@ def _comunicacion_templates() -> dict:
                 "Consulta el detalle del proyecto en tu portal:\n"
                 "{portal_link}\n\n"
                 "Seguiremos informando de los siguientes hitos.\n\n"
+                f"{disclaimer}\n\n"
                 "Atentamente,\nEquipo INVERSURE"
             ),
         },
@@ -343,6 +350,7 @@ def _comunicacion_templates() -> dict:
                 "Fecha de transmisión: {fecha_transmision}.\n"
                 "Valor de transmisión: {valor_transmision}.\n\n"
                 "En breve recibirás el cierre con el detalle económico.\n\n"
+                f"{disclaimer}\n\n"
                 "Atentamente,\nEquipo INVERSURE"
             ),
         },
@@ -356,6 +364,7 @@ def _comunicacion_templates() -> dict:
                 "Retención (19%): {retencion}\n"
                 "Neto a cobrar: {neto_cobrar}\n\n"
                 "Gracias por tu confianza.\n\n"
+                f"{disclaimer}\n\n"
                 "Atentamente,\nEquipo INVERSURE"
             ),
         },
