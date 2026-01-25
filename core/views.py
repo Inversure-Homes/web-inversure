@@ -301,6 +301,7 @@ def _comunicacion_templates() -> dict:
                 "- Estado: {inmueble_estado}\n"
                 "- Situación: {inmueble_situacion}\n"
                 "- Valor de referencia: {valor_referencia}\n\n"
+                "Resumen visual:\n{kpi_html}\n\n"
                 "Escenarios previstos:\n{escenarios}\n\n"
                 "Desde tu portal podrás seguir la evolución económica y operativa en tiempo real.\n\n"
                 f"{disclaimer}\n\n"
@@ -315,6 +316,7 @@ def _comunicacion_templates() -> dict:
                 "El proyecto {proyecto_nombre} ha pasado al estado: {proyecto_estado}.\n"
                 "Hito alcanzado: {hito_resumen}.\n"
                 "Siguiente paso: {hito_siguiente}.\n\n"
+                "Resumen visual:\n{kpi_html}\n\n"
                 "Resumen de la operación:\n"
                 "- Rentabilidad estimada: {rentabilidad_estimada}\n"
                 "- Plazo estimado: {plazo_meses} meses\n\n"
@@ -333,6 +335,7 @@ def _comunicacion_templates() -> dict:
                 "Fecha de adquisición: {fecha_compra}.\n"
                 "Valor de adquisición: {valor_adquisicion}.\n"
                 "Tu participación sobre el proyecto: {participacion_pct}.\n\n"
+                "Resumen visual:\n{kpi_html}\n\n"
                 "Siguiente paso: {hito_siguiente}.\n\n"
                 "Consulta el detalle del proyecto en tu portal:\n"
                 "{portal_link}\n\n"
@@ -349,6 +352,7 @@ def _comunicacion_templates() -> dict:
                 "Te informamos de que se ha completado la transmisión del proyecto {proyecto_nombre}.\n"
                 "Fecha de transmisión: {fecha_transmision}.\n"
                 "Valor de transmisión: {valor_transmision}.\n\n"
+                "Resumen visual:\n{kpi_html}\n\n"
                 "En breve recibirás el cierre con el detalle económico.\n\n"
                 f"{disclaimer}\n\n"
                 "Atentamente,\nEquipo INVERSURE"
@@ -363,6 +367,7 @@ def _comunicacion_templates() -> dict:
                 "Beneficio neto: {beneficio_neto_inversor}\n"
                 "Retención (19%): {retencion}\n"
                 "Neto a cobrar: {neto_cobrar}\n\n"
+                "Resumen visual:\n{kpi_html}\n\n"
                 "Gracias por tu confianza.\n\n"
                 f"{disclaimer}\n\n"
                 "Atentamente,\nEquipo INVERSURE"
@@ -381,6 +386,10 @@ def _render_comunicacion_template(key: str, context: dict) -> tuple[str, str] | 
     if not tmpl:
         return None, None
     safe_ctx = _SafeFormatDict(context)
+    if key in {"presentacion", "estado", "adquisicion", "transmision", "cierre"}:
+        safe_ctx["kpi_html"] = _kpi_html(safe_ctx)
+    else:
+        safe_ctx["kpi_html"] = ""
     titulo = (tmpl.get("titulo") or "").format_map(safe_ctx)
     mensaje = (tmpl.get("mensaje") or "").format_map(safe_ctx)
     return titulo, mensaje
@@ -552,6 +561,15 @@ def _build_comunicacion_context(
         "cerrado": ("Operación cerrada", "Liquidación y reparto final"),
         "descartado": ("Operación descartada", "Revisión de alternativas"),
     }
+    progreso_map = {
+        "captacion": 15,
+        "comprado": 35,
+        "comercializacion": 60,
+        "reservado": 75,
+        "vendido": 90,
+        "cerrado": 100,
+        "descartado": 0,
+    }
     hito_resumen, hito_siguiente = estado_hitos.get(
         estado_lower, ("Avance de proyecto", "Seguimiento de hitos")
     )
@@ -571,6 +589,8 @@ def _build_comunicacion_context(
         "hito_siguiente": hito_siguiente,
         "rentabilidad_estimada": rentabilidad_estimada or "—",
         "plazo_meses": plazo_meses or "—",
+        "progreso_pct": progreso_map.get(estado_lower, 30),
+        "progreso_label": _estado_label(proyecto.estado),
         "fecha_hoy": timezone.now().date().strftime("%d/%m/%Y"),
         "fecha_compra": getattr(proyecto, "fecha_compra", None) or getattr(proyecto, "fecha", None),
         "fecha_transmision": getattr(proyecto, "fecha", None),
@@ -1566,6 +1586,26 @@ def _fmt_eur(x: float) -> str:
 
 def _fmt_pct(x: float) -> str:
     return f"{_fmt_es_number(x, 2)} %"
+
+
+def _kpi_html(ctx: dict) -> str:
+    progreso_pct = _safe_float(ctx.get("progreso_pct"), 0.0)
+    progreso_pct = max(0.0, min(100.0, progreso_pct))
+    rent = ctx.get("rentabilidad_estimada") or "—"
+    plazo = ctx.get("plazo_meses") or "—"
+    participacion = ctx.get("participacion_pct") or "—"
+    return (
+        "<div class=\"kpi-box\">"
+        f"<div class=\"kpi-title\">Estado: {ctx.get('progreso_label') or ''}</div>"
+        "<div class=\"kpi-bar\"><span style=\"width:"
+        f"{progreso_pct:.0f}%\"></span></div>"
+        "<div class=\"kpi-grid\">"
+        f"<div><span>Rentabilidad</span><strong>{rent}</strong></div>"
+        f"<div><span>Plazo</span><strong>{plazo} meses</strong></div>"
+        f"<div><span>Participación</span><strong>{participacion}</strong></div>"
+        "</div>"
+        "</div>"
+    )
 
 
 def _metricas_desde_estudio(estudio: Estudio) -> dict:
