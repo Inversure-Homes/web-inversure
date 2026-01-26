@@ -72,14 +72,20 @@ body.landing-body {
   flex-wrap: wrap;
 }
 
+.landing-nav__actions > * {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .landing-nav__actions .btn-solid,
 .landing-nav__actions .btn-outline,
 .landing-nav__actions .landing-cta {
-  padding: 8px 14px;
+  padding: 8px 16px;
   font-size: 13px;
   border-radius: 999px;
-  min-height: 34px;
-  line-height: 1;
+  min-height: 36px;
+  line-height: 1.1;
 }
 
 .landing-nav__actions .btn-solid {
