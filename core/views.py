@@ -4011,7 +4011,7 @@ def proyecto(request, proyecto_id: int):
         if isinstance(anexos_map, dict):
             ctx["difusion_anexos_ids"] = {str(k) for k, v in anexos_map.items() if v}
         else:
-        ctx["difusion_anexos_ids"] = set()
+            ctx["difusion_anexos_ids"] = set()
     except Exception:
         ctx["landing_config"] = {}
         ctx["publicaciones_config"] = {}
