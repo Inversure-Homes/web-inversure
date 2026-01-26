@@ -1220,7 +1220,7 @@
                                             <label class="form-label">Beneficio neto (%)</label>
                                             <input type="text" name="landing.beneficio_neto_pct" class="form-control"
                                                    data-percent="true"
-                                                   value="{{ landing_config.beneficio_neto_pct|default:proyecto.roi|default:'' }}"
+                                                   value="{{ landing_config.beneficio_neto_pct|default:landing_beneficio_neto_pct_auto|default:proyecto.roi|default:'' }}"
                                                    placeholder="Ej. 11,63" {% if not editable %}disabled{% endif %}>
                                         </div>
                                         <div class="col-6">
@@ -1269,7 +1269,7 @@
                                                 <div class="landing-preview-metrics">
                                                     <div>
                                                         <span>Beneficio neto</span>
-                                                        <strong>{{ landing_config.beneficio_neto_pct|default:proyecto.roi|default:"—" }}</strong>
+                                                        <strong>{{ landing_config.beneficio_neto_pct|default:landing_beneficio_neto_pct_auto|default:proyecto.roi|default:"—" }}</strong>
                                                     </div>
                                                     <div>
                                                         <span>Plazo</span>
