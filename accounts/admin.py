@@ -1,7 +1,5 @@
 from django.contrib import admin
 
-from auditlog.models import LogEntry
-
 from .models import UserSession, UserConnectionLog
 
 
@@ -18,9 +16,3 @@ class UserConnectionLogAdmin(admin.ModelAdmin):
     search_fields = ("user__username", "ip_address")
     list_filter = ("event",)
 
-
-@admin.register(LogEntry)
-class AuditLogEntryAdmin(admin.ModelAdmin):
-    list_display = ("timestamp", "actor", "action", "content_type", "object_pk")
-    list_filter = ("action", "content_type")
-    search_fields = ("actor__username", "object_pk", "changes")
