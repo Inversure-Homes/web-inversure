@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <title>{% block title %}{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet" media="screen">
+    <script defer src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script defer src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    {% block extra_media %}{% endblock %}
+    {% load static %}
+    <style>
+      :root {
+        --inv-navy: #0b1b30;
+        --inv-navy-2: #132745;
+        --inv-gold: #c8a24a;
+        --inv-ice: #f5f7fb;
+        --inv-muted: #9fb3d1;
+      }
+
+      body {
+        background: radial-gradient(circle at 20% 0%, #1b2c4a, var(--inv-navy));
+        color: var(--inv-ice);
+        min-height: 100vh;
+      }
+
+      .inv-shell {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 32px 16px;
+      }
+
+      .inv-card {
+        width: 100%;
+        max-width: 520px;
+        background: linear-gradient(145deg, #0f213a, #0c1b30);
+        border: 1px solid #263a5b;
+        border-radius: 18px;
+        box-shadow: 0 20px 60px rgba(7, 14, 30, 0.45);
+        overflow: hidden;
+      }
+
+      .inv-header {
+        padding: 20px 28px 8px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .inv-logo {
+        height: 34px;
+        display: inline-block;
+        margin-bottom: 6px;
+        object-fit: contain;
+      }
+
+      .inv-tagline {
+        color: var(--inv-muted);
+        font-size: 12px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        margin-top: 4px;
+      }
+
+      .inv-body {
+        padding: 24px 28px 28px;
+      }
+
+      h1, h2, h3, h4, h5 {
+        color: var(--inv-ice);
+      }
+
+      a {
+        color: var(--inv-gold);
+      }
+
+      a:hover {
+        color: #e0b95f;
+      }
+
+      .form-control {
+        background: #0b1a2e;
+        border: 1px solid #2b4266;
+        color: var(--inv-ice);
+      }
+
+      .form-control:focus {
+        border-color: var(--inv-gold);
+        box-shadow: 0 0 0 0.2rem rgba(200, 162, 74, 0.25);
+        background: #0b1a2e;
+        color: var(--inv-ice);
+      }
+
+      .btn-primary {
+        background: var(--inv-gold);
+        border-color: var(--inv-gold);
+        color: var(--inv-navy);
+        font-weight: 600;
+      }
+
+      .btn-primary:hover,
+      .btn-primary:focus {
+        background: #e0b95f;
+        border-color: #e0b95f;
+        color: var(--inv-navy);
+      }
+
+      .btn-secondary {
+        background: transparent;
+        border-color: #2b4266;
+        color: var(--inv-ice);
+      }
+
+      .btn-secondary:hover,
+      .btn-secondary:focus {
+        background: #1b2c4a;
+        border-color: #2b4266;
+        color: var(--inv-ice);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="inv-shell">
+      <section class="inv-card">
+        <header class="inv-header">
+          <img class="inv-logo" src="{% static 'core/logo_inversure_blanco.png' %}" alt="Inversure">
+          <div class="inv-tagline">Secure · Invest · Grow</div>
+        </header>
+        {% block content_wrapper %}
+          <div class="inv-body">
+            {% block content %}{% endblock %}
+          </div>
+        {% endblock %}
+      </section>
+    </main>
+  </body>
+</html>
