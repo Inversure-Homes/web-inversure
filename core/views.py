@@ -1563,12 +1563,17 @@ def _beneficio_estimado_real_memoria(proyecto: Proyecto) -> dict:
 
     ingresos_estimados = _sum_importes([_importe_estimado(i) for i in ingresos])
     ingresos_reales = _sum_importes([_importe_real(i) for i in ingresos])
+    ingresos_reales_estimados = False
+    if ingresos_reales <= 0 and ingresos_estimados > 0:
+        ingresos_reales = ingresos_estimados
+        ingresos_reales_estimados = True
     gastos_estimados = _sum_importes([_importe_estimado(g) for g in gastos])
     gastos_reales = _sum_importes([_importe_real(g) for g in gastos])
 
     return {
         "beneficio_estimado": float((ingresos_estimados - gastos_estimados) or 0),
         "beneficio_real": float((ingresos_reales - gastos_reales) or 0),
+        "ingresos_reales_estimados": ingresos_reales_estimados,
         "has_movimientos": bool(ingresos or gastos),
     }
 
@@ -4874,6 +4879,10 @@ def pdf_memoria_economica(request, proyecto_id: int):
 
     ingresos_estimados = _sum_importes([_importe_estimado(i) for i in ingresos])
     ingresos_reales = _sum_importes([_importe_real(i) for i in ingresos])
+    ingresos_reales_estimados = False
+    if ingresos_reales <= 0 and ingresos_estimados > 0:
+        ingresos_reales = ingresos_estimados
+        ingresos_reales_estimados = True
     gastos_estimados = _sum_importes([_importe_estimado(g) for g in gastos])
     gastos_reales = _sum_importes([_importe_real(g) for g in gastos])
 
@@ -4924,6 +4933,7 @@ def pdf_memoria_economica(request, proyecto_id: int):
     resumen = {
         "ingresos_estimados": ingresos_estimados,
         "ingresos_reales": ingresos_reales,
+        "ingresos_reales_estimados": ingresos_reales_estimados,
         "gastos_estimados": gastos_estimados,
         "gastos_reales": gastos_reales,
         "beneficio_estimado": beneficio_estimado,

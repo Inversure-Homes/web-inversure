@@ -1491,6 +1491,12 @@ function bindMemoriaEconomica() {
       const shown = totalIngresosReales > 0 ? totalIngresosReales : totalIngresosEstimados;
       totalIngresosEl.textContent = fmtEuroLocal(shown);
     }
+    const ingresosRealesEstimados = totalIngresosReales <= 0 && totalIngresosEstimados > 0;
+    if (ingresosRealesEstimados) {
+      totalIngresosReales = totalIngresosEstimados;
+      if (ventaReal <= 0 && ventaEstimado > 0) ventaReal = ventaEstimado;
+    }
+
     if (totalIngresosEstEl) totalIngresosEstEl.textContent = `Estimado: ${fmtEuroLocal(totalIngresosEstimados)}`;
     if (balanceNetoEl) {
       const hasReal = totalIngresosReales > 0 || totalReal > 0;
@@ -1591,11 +1597,27 @@ function bindMemoriaEconomica() {
     const subGastosLabel = document.getElementById("dash_sub_gastos_label");
     const subBeneficioLabel = document.getElementById("dash_sub_beneficio_label");
     const subRoiLabel = document.getElementById("dash_sub_roi_label");
-    if (labelIngresos) labelIngresos.textContent = usarEstimados ? "Ingresos estimados" : "Ingresos reales";
+    if (labelIngresos) {
+      if (usarEstimados) {
+        labelIngresos.textContent = "Ingresos estimados";
+      } else if (ingresosRealesEstimados) {
+        labelIngresos.textContent = "Ingresos reales (estimado)";
+      } else {
+        labelIngresos.textContent = "Ingresos reales";
+      }
+    }
     if (labelGastos) labelGastos.textContent = usarEstimados ? "Gastos estimados" : "Gastos reales";
     if (labelBeneficio) labelBeneficio.textContent = usarEstimados ? "Beneficio neto estimado" : "Beneficio neto real";
     if (labelRoi) labelRoi.textContent = usarEstimados ? "ROI estimado" : "ROI real";
-    if (subIngresosLabel) subIngresosLabel.textContent = usarEstimados ? "Real:" : "Estimado:";
+    if (subIngresosLabel) {
+      if (usarEstimados) {
+        subIngresosLabel.textContent = "Real:";
+      } else if (ingresosRealesEstimados) {
+        subIngresosLabel.textContent = "Estimado (sin confirmar):";
+      } else {
+        subIngresosLabel.textContent = "Estimado:";
+      }
+    }
     if (subGastosLabel) subGastosLabel.textContent = usarEstimados ? "Real:" : "Estimado:";
     if (subBeneficioLabel) subBeneficioLabel.textContent = usarEstimados ? "Real:" : "Estimado:";
     if (subRoiLabel) subRoiLabel.textContent = usarEstimados ? "Real:" : "Estimado:";
@@ -1629,6 +1651,11 @@ function bindMemoriaEconomica() {
     setDash("dash_beneficio_estimado", display.beneficioSub);
     setDash("dash_roi_real", display.roiMain, true);
     setDash("dash_roi_estimado", display.roiSub, true);
+
+    const estimadoNote = document.getElementById("dash_real_estimado_note");
+    if (estimadoNote) {
+      estimadoNote.style.display = ingresosRealesEstimados && !usarEstimados ? "block" : "none";
+    }
 
     updateDashboardVisuals({
       ingresosReales: dash.ingresosReales,

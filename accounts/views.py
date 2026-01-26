@@ -3,8 +3,12 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import Group, User
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
+
+from auditlog.models import LogEntry
 
 from .forms import UserCreateForm, UserEditForm
+from .models import UserConnectionLog, UserSession
 from .utils import is_admin_user
 
 
@@ -64,3 +68,29 @@ def user_delete(request, user_id):
         user_obj.delete()
         return redirect("accounts:users_list")
     return render(request, "accounts/confirm_delete.html", {"user_obj": user_obj})
+
+
+@login_required
+@user_passes_test(_is_admin)
+def activity_dashboard(request):
+    now = timezone.now()
+    active_cutoff = now - timezone.timedelta(minutes=15)
+
+    sessions = (
+        UserSession.objects.select_related("user")
+        .filter(last_seen_at__gte=active_cutoff, ended_at__isnull=True)
+        .order_by("-last_seen_at")
+    )
+    recent_connections = UserConnectionLog.objects.select_related("user")[:100]
+    recent_changes = LogEntry.objects.select_related("actor", "content_type")[:100]
+
+    return render(
+        request,
+        "accounts/activity_dashboard.html",
+        {
+            "sessions": sessions,
+            "recent_connections": recent_connections,
+            "recent_changes": recent_changes,
+            "active_cutoff_minutes": 15,
+        },
+    )

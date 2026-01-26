@@ -106,7 +106,12 @@
           <div class="kpi">
             <div class="label">Ingresos</div>
             <div class="value">{{ resumen.ingresos_reales|es_number }} €</div>
-            <div class="sub">Estimado: {{ resumen.ingresos_estimados|es_number }} €</div>
+            <div class="sub">
+              Estimado: {{ resumen.ingresos_estimados|es_number }} €
+              {% if resumen.ingresos_reales_estimados %}
+              <span class="muted">(real sin confirmar)</span>
+              {% endif %}
+            </div>
           </div>
           <div class="kpi">
             <div class="label">Gastos</div>

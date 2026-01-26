@@ -124,6 +124,8 @@ def landing_home(request):
 
         ingresos_estimados = _sum_importes([_importe_estimado(i) for i in ingresos])
         ingresos_reales = _sum_importes([_importe_real(i) for i in ingresos])
+        if ingresos_reales <= 0 and ingresos_estimados > 0:
+            ingresos_reales = ingresos_estimados
         gastos_estimados = _sum_importes([_importe_estimado(g) for g in gastos])
         gastos_reales = _sum_importes([_importe_real(g) for g in gastos])
 

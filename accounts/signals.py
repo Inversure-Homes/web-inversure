@@ -1,22 +1,33 @@
-from django.contrib.auth.models import Group, User
-from django.db.models.signals import post_migrate, post_save
+from django.contrib.auth.signals import user_logged_in, user_logged_out
 from django.dispatch import receiver
 
-from .models import UserAccess
-from .utils import ROLE_ADMIN, ROLE_COMERCIAL, ROLE_MARKETING
+from .middleware import _get_client_ip
+from django.utils import timezone
+
+from .models import UserConnectionLog, UserSession
 
 
-@receiver(post_migrate)
-def ensure_role_groups(sender, **kwargs):
-    if sender.name != "accounts":
+@receiver(user_logged_in)
+def _log_login(sender, request, user, **kwargs):
+    UserConnectionLog.objects.create(
+        user=user,
+        event=UserConnectionLog.EVENT_LOGIN,
+        ip_address=_get_client_ip(request),
+        user_agent=(request.META.get("HTTP_USER_AGENT", "")[:512]),
+    )
+    if request.session.session_key:
+        UserSession.objects.filter(session_key=request.session.session_key).update(ended_at=None)
+
+
+@receiver(user_logged_out)
+def _log_logout(sender, request, user, **kwargs):
+    if not user:
         return
-    for name in (ROLE_ADMIN, ROLE_MARKETING, ROLE_COMERCIAL):
-        Group.objects.get_or_create(name=name)
-    for user in User.objects.all():
-        UserAccess.objects.get_or_create(user=user)
-
-
-@receiver(post_save, sender=User)
-def ensure_user_access(sender, instance, created, **kwargs):
-    if created:
-        UserAccess.objects.get_or_create(user=instance)
+    UserConnectionLog.objects.create(
+        user=user,
+        event=UserConnectionLog.EVENT_LOGOUT,
+        ip_address=_get_client_ip(request),
+        user_agent=(request.META.get("HTTP_USER_AGENT", "")[:512]),
+    )
+    if request.session.session_key:
+        UserSession.objects.filter(session_key=request.session.session_key).update(ended_at=timezone.now())

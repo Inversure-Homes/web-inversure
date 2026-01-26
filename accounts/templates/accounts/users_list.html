@@ -6,7 +6,10 @@
       <h3 class="mb-1">Usuarios y roles</h3>
       <p class="text-muted mb-0">Crea usuarios, asigna permisos y gestiona accesos.</p>
     </div>
-    <a href="{% url 'accounts:user_create' %}" class="btn btn-inversure">Nuevo usuario</a>
+    <div class="d-flex gap-2">
+      <a href="{% url 'accounts:activity_dashboard' %}" class="btn btn-outline-secondary">Actividad</a>
+      <a href="{% url 'accounts:user_create' %}" class="btn btn-inversure">Nuevo usuario</a>
+    </div>
   </div>
 
   <div class="card border-0 shadow-sm">

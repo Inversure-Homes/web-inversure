@@ -1,0 +1,111 @@
+{% extends "core/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="mb-1">Actividad y seguridad</h3>
+      <p class="text-muted mb-0">Sesiones activas, historial de accesos y cambios recientes.</p>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <h5 class="mb-3">Sesiones activas (últimos {{ active_cutoff_minutes }} min)</h5>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead>
+                <tr>
+                  <th>Usuario</th>
+                  <th>IP</th>
+                  <th>Último acceso</th>
+                  <th>Agente</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for session in sessions %}
+                  <tr>
+                    <td>{{ session.user.username }}</td>
+                    <td>{{ session.ip_address|default:"-" }}</td>
+                    <td>{{ session.last_seen_at }}</td>
+                    <td class="text-truncate" style="max-width: 280px;">{{ session.user_agent|default:"-" }}</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="4" class="text-muted">No hay sesiones activas.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h5 class="mb-3">Historial de accesos</h5>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead>
+                <tr>
+                  <th>Usuario</th>
+                  <th>Evento</th>
+                  <th>Fecha</th>
+                  <th>IP</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for entry in recent_connections %}
+                  <tr>
+                    <td>{{ entry.user.username }}</td>
+                    <td>{{ entry.get_event_display }}</td>
+                    <td>{{ entry.created_at }}</td>
+                    <td>{{ entry.ip_address|default:"-" }}</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="4" class="text-muted">Sin registros de acceso.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h5 class="mb-3">Cambios recientes</h5>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Usuario</th>
+                  <th>Modelo</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for entry in recent_changes %}
+                  <tr>
+                    <td>{{ entry.timestamp }}</td>
+                    <td>{{ entry.actor|default:"-" }}</td>
+                    <td>{{ entry.content_type }}</td>
+                    <td>{{ entry.get_action_display }}</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="4" class="text-muted">Sin cambios registrados.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <p class="text-muted small mt-2 mb-0">Los detalles completos están disponibles en el admin de Django.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
