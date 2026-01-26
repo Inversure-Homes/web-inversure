@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.urls import include, path
+from django.views.generic import RedirectView
 from django.urls.resolvers import URLPattern, URLResolver
 from two_factor import urls as two_factor_urls
 from two_factor.admin import AdminSiteOTPRequired
@@ -23,6 +24,10 @@ urlpatterns = [
     path(
         "",
         include((two_factor_urlpatterns, "two_factor"), namespace="two_factor"),
+    ),
+    path(
+        "account/account/login/",
+        RedirectView.as_view(pattern_name="two_factor:login", permanent=False),
     ),
     path('admin/', admin.site.urls),
     path('', include(('landing.urls', 'landing'), namespace='landing')),
