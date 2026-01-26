@@ -21,7 +21,7 @@ two_factor_urlpatterns = list(_flatten_two_factor_patterns(two_factor_urls.urlpa
 
 urlpatterns = [
     path(
-        "account/",
+        "",
         include((two_factor_urlpatterns, "two_factor"), namespace="two_factor"),
     ),
     path('admin/', admin.site.urls),
