@@ -60,9 +60,10 @@ INSTALLED_APPS = [
     'django_otp',
     'django_otp.plugins.otp_totp',
     'django_otp.plugins.otp_static',
+    'auditlog',
+    'accounts.apps.AccountsConfig',
     'two_factor',
     'two_factor.plugins.phonenumber',
-    'auditlog',
     'wagtail.contrib.forms',
     'wagtail.contrib.redirects',
     'wagtail.embeds',
@@ -79,7 +80,6 @@ INSTALLED_APPS = [
     'cms',
     'core.apps.CoreConfig',
     'landing',
-    'accounts.apps.AccountsConfig',
     'storages',
 ]
 
