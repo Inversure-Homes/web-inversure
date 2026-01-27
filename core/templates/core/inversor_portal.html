@@ -1,5 +1,127 @@
 {% extends "core/base.html" %}
-{% load humanize formatting %}
+{% load static humanize formatting %}
+{% block extra_head %}
+  <link rel="manifest" href="{% url 'core:inversor_manifest' perfil.token %}">
+  <link rel="apple-touch-icon" href="{% static 'core/pwa/icon-180.png' %}">
+  <meta name="theme-color" content="#0b1d33">
+{% endblock %}
+
+{% block extra_scripts %}
+  <script src="{% static 'core/pwa/inversor-push.js' %}"></script>
+  <script>
+    (() => {
+      if (!("serviceWorker" in navigator)) return;
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("{% url 'core:inversor_service_worker' %}").catch(() => {});
+      });
+    })();
+  </script>
+  <script>
+    (() => {
+      let deferredPrompt = null;
+      const btn = document.getElementById("inv_pwa_install_btn");
+      if (!btn) return;
+
+      window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        btn.hidden = false;
+      });
+
+      btn.addEventListener("click", async () => {
+        if (!deferredPrompt) return;
+        btn.disabled = true;
+        deferredPrompt.prompt();
+        try {
+          await deferredPrompt.userChoice;
+        } catch (err) {}
+        deferredPrompt = null;
+        btn.hidden = true;
+        btn.disabled = false;
+      });
+
+      window.addEventListener("appinstalled", () => {
+        deferredPrompt = null;
+        btn.hidden = true;
+      });
+    })();
+  </script>
+  <script>
+    (() => {
+      const forms = document.querySelectorAll(".inversor-solicitar-form");
+      if (!forms.length) return;
+      const status = document.getElementById("inv_offline_status");
+      const queueKey = "inversor_solicitudes_queue";
+
+      const readQueue = () => {
+        try {
+          return JSON.parse(localStorage.getItem(queueKey) || "[]");
+        } catch (e) {
+          return [];
+        }
+      };
+
+      const writeQueue = (items) => {
+        localStorage.setItem(queueKey, JSON.stringify(items));
+      };
+
+      const enqueue = (payload) => {
+        const items = readQueue();
+        items.push(payload);
+        writeQueue(items);
+      };
+
+      const flushQueue = async () => {
+        if (!navigator.onLine) return;
+        const items = readQueue();
+        if (!items.length) return;
+        const remaining = [];
+        for (const item of items) {
+          try {
+            const body = new URLSearchParams(item.fields);
+            const resp = await fetch(item.action, {
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+              body: body.toString(),
+              credentials: "same-origin",
+            });
+            if (!resp.ok) throw new Error("request failed");
+          } catch (err) {
+            remaining.push(item);
+          }
+        }
+        writeQueue(remaining);
+        if (status) status.hidden = !remaining.length;
+      };
+
+      const updateOfflineStatus = () => {
+        if (!status) return;
+        status.hidden = navigator.onLine && readQueue().length === 0;
+      };
+
+      forms.forEach((form) => {
+        form.addEventListener("submit", (e) => {
+          if (navigator.onLine) return;
+          e.preventDefault();
+          const fields = {};
+          const data = new FormData(form);
+          for (const [key, value] of data.entries()) {
+            fields[key] = value;
+          }
+          enqueue({ action: form.action, fields });
+          updateOfflineStatus();
+          alert("Solicitud guardada. Se enviará cuando recuperes conexión.");
+        });
+      });
+
+      window.addEventListener("online", () => {
+        flushQueue().finally(updateOfflineStatus);
+      });
+
+      updateOfflineStatus();
+    })();
+  </script>
+{% endblock %}
 {% block content %}
 
 <style>
@@ -120,6 +242,17 @@
     min-width: 120px;
     height: 34px;
   }
+  .portal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+  .portal-status {
+    font-size: 12px;
+    color: #e2e8f0;
+    opacity: 0.9;
+  }
   .portal-beneficios-table .input-group {
     width: 100%;
   }
@@ -183,12 +316,27 @@
 
   <div class="container mt-4 mb-5">
   <div class="portal-wrap mb-4">
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div class="d-flex flex-column flex-lg-row align-items-start align-items-lg-center justify-content-between gap-3">
       <div>
         <div class="portal-title">Portal del inversor</div>
         <div class="small text-light">{{ perfil.cliente.nombre }} · {{ perfil.cliente.email|default:"" }}</div>
+        <div class="portal-status">Acceso directo a proyectos, documentación y solicitudes.</div>
+        <div class="portal-status" id="inv_offline_status" hidden>Modo sin conexión: las solicitudes se enviarán cuando vuelvas a estar online.</div>
       </div>
-      <span class="badge badge-soft">Acceso privado</span>
+      <div class="portal-actions">
+        <button type="button" class="btn btn-outline-light btn-sm" id="inv_pwa_install_btn" hidden>
+          Instalar app
+        </button>
+        <button type="button"
+                class="btn btn-outline-light btn-sm"
+                id="inv_push_btn"
+                data-public-key-url="{% url 'core:inversor_push_public_key' perfil.token %}"
+                data-subscribe-url="{% url 'core:inversor_push_subscribe' perfil.token %}"
+                data-unsubscribe-url="{% url 'core:inversor_push_unsubscribe' perfil.token %}">
+          Notificaciones
+        </button>
+        <span class="badge badge-soft">Acceso privado</span>
+      </div>
     </div>
   </div>
 
@@ -609,7 +757,7 @@
                 {% endif %}
               </div>
             </div>
-            <form method="post" action="{% url 'core:inversor_solicitar' perfil.token p.id %}" class="mt-2">
+            <form method="post" action="{% url 'core:inversor_solicitar' perfil.token p.id %}" class="mt-2 inversor-solicitar-form">
               {% csrf_token %}
               <div class="row g-2">
                 <div class="col-6">

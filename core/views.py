@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.csrf import ensure_csrf_cookie
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 from django.urls import reverse
 from django.utils.http import urlencode
 from django.db import transaction
@@ -39,7 +39,7 @@ from datetime import date, datetime
 from .models import Estudio, Proyecto
 from .models import EstudioSnapshot, ProyectoSnapshot
 from .models import GastoProyecto, IngresoProyecto, ChecklistItem
-from .models import Cliente, Participacion, InversorPerfil, SolicitudParticipacion, ComunicacionInversor, DocumentoProyecto, DocumentoInversor, FacturaGasto
+from .models import Cliente, Participacion, InversorPerfil, InversorPushSubscription, SolicitudParticipacion, ComunicacionInversor, DocumentoProyecto, DocumentoInversor, FacturaGasto
 from accounts.utils import is_admin_user, is_comercial_user, is_marketing_user, resolve_permissions, use_custom_permissions
 
 # --- SafeAccessDict helper and _safe_template_obj ---
@@ -95,6 +95,92 @@ def pwa_service_worker(request):
     resp = HttpResponse(data, content_type="application/javascript")
     resp["Service-Worker-Allowed"] = "/"
     return resp
+
+
+@require_GET
+def inversor_service_worker(request):
+    sw_path = finders.find("core/pwa/inversor-sw.js")
+    if not sw_path:
+        return HttpResponse("", content_type="application/javascript")
+    try:
+        with open(sw_path, "rb") as fh:
+            data = fh.read()
+    except Exception:
+        return HttpResponse("", content_type="application/javascript")
+    resp = HttpResponse(data, content_type="application/javascript")
+    resp["Service-Worker-Allowed"] = "/app/inversor/"
+    return resp
+
+
+@require_GET
+def inversor_manifest(request, token: str):
+    perfil = get_object_or_404(InversorPerfil, token=token, activo=True)
+    manifest = {
+        "name": "Inversure · Portal inversor",
+        "short_name": "Inversure",
+        "start_url": reverse("core:inversor_portal", args=[perfil.token]),
+        "scope": "/app/inversor/",
+        "display": "standalone",
+        "background_color": "#0b1626",
+        "theme_color": "#0b1d33",
+        "icons": [
+            {"src": static("core/pwa/icon-192.png"), "sizes": "192x192", "type": "image/png"},
+            {"src": static("core/pwa/icon-512.png"), "sizes": "512x512", "type": "image/png"},
+        ],
+    }
+    return JsonResponse(manifest)
+
+
+@require_GET
+def inversor_push_public_key(request, token: str):
+    get_object_or_404(InversorPerfil, token=token, activo=True)
+    if not settings.VAPID_PUBLIC_KEY:
+        return JsonResponse({"ok": False, "error": "VAPID public key missing"}, status=500)
+    return JsonResponse({"ok": True, "publicKey": settings.VAPID_PUBLIC_KEY})
+
+
+@require_POST
+def inversor_push_subscribe(request, token: str):
+    perfil = get_object_or_404(InversorPerfil, token=token, activo=True)
+    try:
+        data = json.loads(request.body or "{}")
+    except Exception:
+        data = {}
+    subscription = data.get("subscription") if isinstance(data, dict) else {}
+    if not subscription:
+        subscription = data if isinstance(data, dict) else {}
+    endpoint = subscription.get("endpoint")
+    keys = subscription.get("keys") or {}
+    p256dh = keys.get("p256dh")
+    auth = keys.get("auth")
+    if not endpoint or not p256dh or not auth:
+        return JsonResponse({"ok": False, "error": "Subscription incomplete"}, status=400)
+
+    InversorPushSubscription.objects.update_or_create(
+        endpoint=endpoint,
+        defaults={
+            "inversor": perfil,
+            "p256dh": p256dh,
+            "auth": auth,
+            "user_agent": request.META.get("HTTP_USER_AGENT", "")[:500],
+            "is_active": True,
+        },
+    )
+    return JsonResponse({"ok": True})
+
+
+@require_POST
+def inversor_push_unsubscribe(request, token: str):
+    perfil = get_object_or_404(InversorPerfil, token=token, activo=True)
+    try:
+        data = json.loads(request.body or "{}")
+    except Exception:
+        data = {}
+    endpoint = data.get("endpoint")
+    if not endpoint:
+        return JsonResponse({"ok": False, "error": "Endpoint missing"}, status=400)
+    InversorPushSubscription.objects.filter(endpoint=endpoint, inversor=perfil).update(is_active=False)
+    return JsonResponse({"ok": True})
 
 
 
@@ -3487,12 +3573,14 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
 def inversor_portal(request, token: str):
     perfil = get_object_or_404(InversorPerfil, token=token, activo=True)
     ctx = _build_inversor_portal_context(perfil, internal_view=False)
+    ctx["is_inversor_portal"] = True
     return render(request, "core/inversor_portal.html", ctx)
 
 
 def inversor_portal_admin(request, perfil_id: int):
     perfil = get_object_or_404(InversorPerfil, id=perfil_id)
     ctx = _build_inversor_portal_context(perfil, internal_view=True)
+    ctx["is_inversor_portal"] = False
     return render(request, "core/inversor_portal.html", ctx)
 
 

@@ -78,6 +78,11 @@ urlpatterns = [
     ),
 
     # Portal inversor (token)
+    path("inversor/sw.js", views.inversor_service_worker, name="inversor_service_worker"),
+    path("inversor/<str:token>/manifest.json", views.inversor_manifest, name="inversor_manifest"),
+    path("inversor/<str:token>/push/public-key/", views.inversor_push_public_key, name="inversor_push_public_key"),
+    path("inversor/<str:token>/push/subscribe/", views.inversor_push_subscribe, name="inversor_push_subscribe"),
+    path("inversor/<str:token>/push/unsubscribe/", views.inversor_push_unsubscribe, name="inversor_push_unsubscribe"),
     path("inversor/<str:token>/", views.inversor_portal, name="inversor_portal"),
     path("inversor/<str:token>/solicitar/<int:proyecto_id>/", views.inversor_solicitar, name="inversor_solicitar"),
     path("inversor/<str:token>/beneficio/<int:participacion_id>/", views.inversor_beneficio_update, name="inversor_beneficio_update"),

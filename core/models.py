@@ -1085,6 +1085,30 @@ class InversorPerfil(models.Model):
 
 
 # =========================
+# PUSH SUSCRIPTIONS (INVERSOR)
+# =========================
+class InversorPushSubscription(models.Model):
+    inversor = models.ForeignKey(
+        InversorPerfil,
+        on_delete=models.CASCADE,
+        related_name="push_subscriptions",
+    )
+    endpoint = models.URLField(unique=True)
+    p256dh = models.CharField(max_length=255)
+    auth = models.CharField(max_length=255)
+    user_agent = models.CharField(max_length=500, blank=True, default="")
+    is_active = models.BooleanField(default=True)
+    creado = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-actualizado", "-creado", "-id"]
+
+    def __str__(self):
+        return f"Push inversor · {self.inversor.cliente.nombre}"
+
+
+# =========================
 # SOLICITUDES DE PARTICIPACIÓN
 # =========================
 class SolicitudParticipacion(models.Model):

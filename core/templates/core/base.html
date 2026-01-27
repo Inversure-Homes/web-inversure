@@ -7,8 +7,10 @@
     <meta name="theme-color" content="#0b1d33">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    {% if not is_inversor_portal %}
     <link rel="manifest" href="{% static 'core/pwa/manifest.json' %}">
     <link rel="apple-touch-icon" href="{% static 'core/pwa/icon-180.png' %}">
+    {% endif %}
     <title>Inversure · Simulador de Operaciones</title>
 
     <!-- Bootstrap 5 -->
@@ -100,7 +102,10 @@
     <script>
       window.APP_BASE = "{% url 'core:home' %}";
     </script>
+    {% if not is_inversor_portal %}
     <script src="{% static 'core/pwa/push.js' %}"></script>
+    {% endif %}
+    {% if not is_inversor_portal %}
     <script>
       (() => {
         let deferredPrompt = null;
@@ -138,6 +143,7 @@
         });
       }
     </script>
+    {% endif %}
 
     {% block extra_scripts %}{% endblock %}
  </body>
