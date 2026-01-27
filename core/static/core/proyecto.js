@@ -1361,6 +1361,7 @@ function bindMemoriaEconomica() {
   const btnCancel = document.getElementById("eco_cancel_btn");
 
   if (!tabla || !btnAdd) return;
+  window.__memoriaEconomicaBound = true;
 
   const urlGastos = window.PROYECTO_GASTOS_URL || "";
   const urlIngresos = window.PROYECTO_INGRESOS_URL || "";
@@ -2020,7 +2021,144 @@ function bindMemoriaEconomica() {
         </tr>
       `;
     }).join("");
+    bindRowActions();
     renderTotals();
+  }
+
+  function bindRowActions() {
+    if (!tabla) return;
+    tabla.querySelectorAll(".eco-factura").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const tr = btn.closest("tr");
+        const id = tr ? tr.getAttribute("data-id") : null;
+        if (!id || !urlFacturaBase) return;
+        const usarExistente = facturaDocs && facturaDocs.length
+          ? confirm("¿Quieres usar una factura ya subida en Documentación?")
+          : false;
+        if (usarExistente) {
+          const lista = facturaDocs.map(doc => {
+            const fecha = doc.fecha ? doc.fecha.split("-").reverse().join("/") : "—";
+            const importe = Number.isFinite(doc.importe) ? formatEuro(doc.importe) : "—";
+            return `${doc.id} · ${doc.titulo} · ${fecha} · ${importe}`;
+          }).join("\n");
+          const raw = prompt(`Introduce el ID de la factura:\n${lista}`);
+          if (!raw) return;
+          const docId = raw.trim();
+          if (!docId) return;
+          const url = urlFacturaBase.replace("/0/", `/${id}/`);
+          const fd = new FormData();
+          fd.append("documento_id", docId);
+          fetch(url, {
+            method: "POST",
+            headers: { ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}) },
+            body: fd,
+          }).then(async (resp) => {
+            const data = await resp.json();
+            if (!resp.ok || !data.ok) {
+              alert((data && data.error) || "No se pudo asociar la factura.");
+              return;
+            }
+            rows = rows.map(r => {
+              if (String(r.id) !== String(id)) return r;
+              return { ...r, has_factura: true, factura_url: data.factura_url };
+            });
+            renderTable();
+          }).catch(() => {
+            alert("No se pudo asociar la factura.");
+          });
+          return;
+        }
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "application/pdf,image/*";
+        input.onchange = async () => {
+          const file = input.files && input.files[0];
+          if (!file) return;
+          const url = urlFacturaBase.replace("/0/", `/${id}/`);
+          const fd = new FormData();
+          fd.append("factura", file);
+          try {
+            const resp = await fetch(url, {
+              method: "POST",
+              headers: { ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}) },
+              body: fd,
+            });
+            const data = await resp.json();
+            if (!resp.ok || !data.ok) {
+              alert((data && data.error) || "No se pudo subir la factura.");
+              return;
+            }
+            rows = rows.map(r => {
+              if (String(r.id) !== String(id)) return r;
+              return { ...r, has_factura: true, factura_url: data.factura_url };
+            });
+            renderTable();
+          } catch (err) {
+            alert("No se pudo subir la factura.");
+          }
+        };
+        input.click();
+      });
+    });
+
+    tabla.querySelectorAll(".eco-factura-remove").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const tr = btn.closest("tr");
+        const id = tr ? tr.getAttribute("data-id") : null;
+        if (!id || !urlFacturaBase) return;
+        if (!confirm("¿Quitar la factura asociada?")) return;
+        const url = urlFacturaBase.replace("/0/", `/${id}/`);
+        try {
+          const resp = await fetch(url, {
+            method: "DELETE",
+            headers: { ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}) },
+          });
+          const data = await resp.json();
+          if (!resp.ok || !data.ok) {
+            alert((data && data.error) || "No se pudo quitar la factura.");
+            return;
+          }
+          rows = rows.map(r => {
+            if (String(r.id) !== String(id)) return r;
+            return { ...r, has_factura: false, factura_url: null };
+          });
+          renderTable();
+        } catch (err) {
+          alert("No se pudo quitar la factura.");
+        }
+      });
+    });
+
+    tabla.querySelectorAll(".eco-confirm").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const tr = btn.closest("tr");
+        confirmRow(tr);
+      });
+    });
+
+    tabla.querySelectorAll(".eco-edit").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const tr = btn.closest("tr");
+        editRow(tr);
+      });
+    });
+
+    tabla.querySelectorAll(".eco-del").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const tr = btn.closest("tr");
+        deleteRow(tr);
+      });
+    });
   }
 
   async function loadRows() {
@@ -2275,126 +2413,6 @@ function bindMemoriaEconomica() {
   btnAdd.addEventListener("click", addRow);
   if (btnCancel) btnCancel.addEventListener("click", () => clearForm());
   if (elTipo) elTipo.addEventListener("change", toggleTipoFields);
-  tabla.addEventListener("click", async (e) => {
-    const btn = e.target.closest(".eco-del");
-    const btnEdit = e.target.closest(".eco-edit");
-    const btnConfirm = e.target.closest(".eco-confirm");
-    const btnFactura = e.target.closest(".eco-factura");
-    const btnFacturaRemove = e.target.closest(".eco-factura-remove");
-    if (btnFactura) {
-      const tr = btnFactura.closest("tr");
-      const id = tr ? tr.getAttribute("data-id") : null;
-      if (!id || !urlFacturaBase) return;
-      const usarExistente = facturaDocs && facturaDocs.length
-        ? confirm("¿Quieres usar una factura ya subida en Documentación?")
-        : false;
-      if (usarExistente) {
-        const lista = facturaDocs.map(doc => {
-          const fecha = doc.fecha ? doc.fecha.split("-").reverse().join("/") : "—";
-          const importe = Number.isFinite(doc.importe) ? formatEuro(doc.importe) : "—";
-          return `${doc.id} · ${doc.titulo} · ${fecha} · ${importe}`;
-        }).join("\n");
-        const raw = prompt(`Introduce el ID de la factura:\n${lista}`);
-        if (!raw) return;
-        const docId = raw.trim();
-        if (!docId) return;
-        const url = urlFacturaBase.replace("/0/", `/${id}/`);
-        const fd = new FormData();
-        fd.append("documento_id", docId);
-        try {
-          const resp = await fetch(url, {
-            method: "POST",
-            headers: { ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}) },
-            body: fd,
-          });
-          const data = await resp.json();
-          if (!resp.ok || !data.ok) {
-            alert((data && data.error) || "No se pudo asociar la factura.");
-            return;
-          }
-          rows = rows.map(r => {
-            if (String(r.id) !== String(id)) return r;
-            return { ...r, has_factura: true, factura_url: data.factura_url };
-          });
-          renderTable();
-        } catch (err) {
-          alert("No se pudo asociar la factura.");
-        }
-        return;
-      }
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "application/pdf,image/*";
-      input.onchange = async () => {
-        const file = input.files && input.files[0];
-        if (!file) return;
-        const url = urlFacturaBase.replace("/0/", `/${id}/`);
-        const fd = new FormData();
-        fd.append("factura", file);
-        try {
-          const resp = await fetch(url, {
-            method: "POST",
-            headers: { ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}) },
-            body: fd,
-          });
-          const data = await resp.json();
-          if (!resp.ok || !data.ok) {
-            alert((data && data.error) || "No se pudo subir la factura.");
-            return;
-          }
-          rows = rows.map(r => {
-            if (String(r.id) !== String(id)) return r;
-            return { ...r, has_factura: true, factura_url: data.factura_url };
-          });
-          renderTable();
-        } catch (err) {
-          alert("No se pudo subir la factura.");
-        }
-      };
-      input.click();
-      return;
-    }
-    if (btnFacturaRemove) {
-      const tr = btnFacturaRemove.closest("tr");
-      const id = tr ? tr.getAttribute("data-id") : null;
-      if (!id || !urlFacturaBase) return;
-      if (!confirm("¿Quitar la factura asociada?")) return;
-      const url = urlFacturaBase.replace("/0/", `/${id}/`);
-      try {
-        const resp = await fetch(url, {
-          method: "DELETE",
-          headers: { ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}) },
-        });
-        const data = await resp.json();
-        if (!resp.ok || !data.ok) {
-          alert((data && data.error) || "No se pudo quitar la factura.");
-          return;
-        }
-        rows = rows.map(r => {
-          if (String(r.id) !== String(id)) return r;
-          return { ...r, has_factura: false, factura_url: null };
-        });
-        renderTable();
-      } catch (err) {
-        alert("No se pudo quitar la factura.");
-      }
-      return;
-    }
-    if (btnConfirm) {
-      const tr = btnConfirm.closest("tr");
-      confirmRow(tr);
-      return;
-    }
-    if (btnEdit) {
-      const tr = btnEdit.closest("tr");
-      editRow(tr);
-      return;
-    }
-    if (!btn) return;
-    const tr = btn.closest("tr");
-    deleteRow(tr);
-  });
-
   // Recalcular si cambia compra/venta base
   ["precio_propiedad", "precio_escritura", "venta_estimada"].forEach((name) => {
     const el = document.querySelector(`[name='${name}']`);
