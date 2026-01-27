@@ -3992,6 +3992,7 @@ def proyecto(request, proyecto_id: int):
         "capital_objetivo": captacion_ctx.get("capital_objetivo"),
         "capital_captado": captacion_ctx.get("capital_captado"),
         "pct_captado": captacion_ctx.get("pct_captado"),
+        "landing_beneficio_neto_pct_auto": None,
     }
     try:
         extra = getattr(proyecto_obj, "extra", None)
