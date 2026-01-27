@@ -5140,7 +5140,20 @@ def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
     except GastoProyecto.DoesNotExist:
         return JsonResponse({"ok": False, "error": "Gasto no encontrado"}, status=404)
 
-    if request.method == "GET":
+    req_method = request.method
+    override_method = None
+    if request.method == "POST":
+        override_method = request.META.get("HTTP_X_HTTP_METHOD_OVERRIDE") or ""
+        if not override_method:
+            try:
+                payload = json.loads(request.body or "{}")
+                override_method = payload.get("_method") if isinstance(payload, dict) else None
+            except Exception:
+                override_method = None
+        if override_method:
+            req_method = str(override_method).upper()
+
+    if req_method == "GET":
         factura_url = None
         if _can_preview_facturas(request.user) and hasattr(gasto, "factura") and gasto.factura:
             try:
@@ -5166,11 +5179,11 @@ def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
             },
         })
 
-    if request.method == "DELETE":
+    if req_method == "DELETE":
         gasto.delete()
         return JsonResponse({"ok": True})
 
-    if request.method not in ("PUT", "PATCH"):
+    if req_method not in ("PUT", "PATCH"):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
     try:
@@ -5319,7 +5332,20 @@ def proyecto_ingreso_detalle(request, proyecto_id: int, ingreso_id: int):
     except IngresoProyecto.DoesNotExist:
         return JsonResponse({"ok": False, "error": "Ingreso no encontrado"}, status=404)
 
-    if request.method == "GET":
+    req_method = request.method
+    override_method = None
+    if request.method == "POST":
+        override_method = request.META.get("HTTP_X_HTTP_METHOD_OVERRIDE") or ""
+        if not override_method:
+            try:
+                payload = json.loads(request.body or "{}")
+                override_method = payload.get("_method") if isinstance(payload, dict) else None
+            except Exception:
+                override_method = None
+        if override_method:
+            req_method = str(override_method).upper()
+
+    if req_method == "GET":
         return JsonResponse({
             "ok": True,
             "ingreso": {
@@ -5334,11 +5360,11 @@ def proyecto_ingreso_detalle(request, proyecto_id: int, ingreso_id: int):
             },
         })
 
-    if request.method == "DELETE":
+    if req_method == "DELETE":
         ingreso.delete()
         return JsonResponse({"ok": True})
 
-    if request.method not in ("PUT", "PATCH"):
+    if req_method not in ("PUT", "PATCH"):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
     try:

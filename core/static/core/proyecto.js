@@ -2365,8 +2365,22 @@ function bindMemoriaEconomica() {
 
     const url = (tipo === "gasto") ? `${urlGastos}${id}/` : `${urlIngresos}${id}/`;
     const csrf = getCsrfToken();
-    const resp = await fetch(url, { method: "DELETE", headers: { ...(csrf ? { "X-CSRFToken": csrf } : {}) } });
+    let resp = await fetch(url, { method: "DELETE", headers: { ...(csrf ? { "X-CSRFToken": csrf } : {}) } });
     if (!resp.ok) {
+      // Fallback si el servidor bloquea DELETE
+      try {
+        resp = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-HTTP-Method-Override": "DELETE",
+            ...(csrf ? { "X-CSRFToken": csrf } : {}),
+          },
+          body: JSON.stringify({ _method: "DELETE" }),
+        });
+      } catch (e) {}
+    }
+    if (!resp || !resp.ok) {
       alert("No se pudo borrar el asiento.");
       return;
     }
@@ -2392,7 +2406,7 @@ function bindMemoriaEconomica() {
     if (obs === null) return;
     const url = (tipo === "gasto") ? `${urlGastos}${id}/` : `${urlIngresos}${id}/`;
     const csrf = getCsrfToken();
-    const resp = await fetch(url, {
+    let resp = await fetch(url, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -2405,6 +2419,25 @@ function bindMemoriaEconomica() {
       }),
     });
     if (!resp.ok) {
+      // Fallback si el servidor bloquea PATCH
+      try {
+        resp = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-HTTP-Method-Override": "PATCH",
+            ...(csrf ? { "X-CSRFToken": csrf } : {}),
+          },
+          body: JSON.stringify({
+            _method: "PATCH",
+            estado: "confirmado",
+            importe,
+            observaciones: obs || "",
+          }),
+        });
+      } catch (e) {}
+    }
+    if (!resp || !resp.ok) {
       alert("No se pudo confirmar el asiento.");
       return;
     }
