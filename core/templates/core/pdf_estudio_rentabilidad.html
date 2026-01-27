@@ -367,8 +367,8 @@
             <div class="kpi">
               <div class="label">Valor de adquisición</div>
               <div class="value money value--xl">
-                {% if snapshot.economico.valor_adquisicion %}
-                {{ snapshot.economico.valor_adquisicion|es_number }} €
+                {% if snapshot.economico.valor_adquisicion_total or snapshot.economico.valor_adquisicion or snapshot.kpis.metricas.valor_adquisicion_total or snapshot.kpis.metricas.valor_adquisicion %}
+                {{ snapshot.economico.valor_adquisicion_total|default:snapshot.economico.valor_adquisicion|default:snapshot.kpis.metricas.valor_adquisicion_total|default:snapshot.kpis.metricas.valor_adquisicion|es_number }} €
                 {% else %}—{% endif %}
               </div>
             </div>
@@ -467,8 +467,8 @@
             <div class="kv">
               <div class="k">Compra</div>
               <div class="v money">
-                {% if snapshot.economico.valor_adquisicion %}
-                  {{ snapshot.economico.valor_adquisicion|es_number }} €
+                {% if snapshot.economico.valor_adquisicion_total or snapshot.economico.valor_adquisicion or snapshot.kpis.metricas.valor_adquisicion_total or snapshot.kpis.metricas.valor_adquisicion %}
+                  {{ snapshot.economico.valor_adquisicion_total|default:snapshot.economico.valor_adquisicion|default:snapshot.kpis.metricas.valor_adquisicion_total|default:snapshot.kpis.metricas.valor_adquisicion|es_number }} €
                 {% else %}—{% endif %}
               </div>
 
