@@ -1985,6 +1985,13 @@ function bindMemoriaEconomica() {
       otro: "Otro ingreso",
     };
 
+    const escapeAttr = (val) => String(val ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
     tabla.innerHTML = rows.map(r => {
       const catLabel = (r.tipo === "ingreso")
         ? (ingresoLabels[r.categoria] || ingresoLabels[r.tipo_ingreso] || r.categoria || "")
@@ -2003,7 +2010,13 @@ function bindMemoriaEconomica() {
         ? `<button type="button" class="btn btn-sm btn-outline-warning me-1 eco-factura-remove" title="Quitar factura" aria-label="Quitar factura"><i class="bi bi-arrow-counterclockwise"></i></button>`
         : "";
       return `
-        <tr data-id="${r.id}" data-tipo="${r.tipo}" class="${r.has_factura ? "eco-row-factura" : ""}">
+        <tr data-id="${r.id}"
+            data-tipo="${escapeAttr(r.tipo)}"
+            data-fecha="${escapeAttr(r.fecha)}"
+            data-categoria="${escapeAttr(r.categoria)}"
+            data-concepto="${escapeAttr(r.concepto)}"
+            data-importe="${Number(r.importe) || 0}"
+            class="${r.has_factura ? "eco-row-factura" : ""}">
           <td>${r.fecha || ""}</td>
           <td>${_capFirst(r.tipo)}</td>
           <td>${r.tipo === "ingreso" ? catLabel : _capFirst(catLabel)}</td>
@@ -2023,6 +2036,30 @@ function bindMemoriaEconomica() {
     }).join("");
     bindRowActions();
     renderTotals();
+  }
+
+  function rowSignatureFromTr(tr) {
+    if (!tr) return null;
+    return {
+      tipo: (tr.getAttribute("data-tipo") || "").trim().toLowerCase(),
+      fecha: (tr.getAttribute("data-fecha") || "").trim(),
+      categoria: (tr.getAttribute("data-categoria") || "").trim().toLowerCase(),
+      concepto: (tr.getAttribute("data-concepto") || "").trim().toLowerCase(),
+      importe: parseEuro(tr.getAttribute("data-importe")) ?? 0,
+    };
+  }
+
+  function findRowBySignature(sig) {
+    if (!sig) return null;
+    const norm = (v) => (v || "").toString().trim().toLowerCase();
+    const sameImporte = (a, b) => Math.abs((a || 0) - (b || 0)) < 0.01;
+    return rows.find(r =>
+      norm(r.tipo) === sig.tipo &&
+      (r.fecha || "") === sig.fecha &&
+      norm(r.categoria) === sig.categoria &&
+      norm(r.concepto) === sig.concepto &&
+      sameImporte(Number(r.importe) || 0, sig.importe || 0)
+    );
   }
 
   function bindRowActions() {
@@ -2358,7 +2395,7 @@ function bindMemoriaEconomica() {
 
   async function deleteRow(tr) {
     if (!tr) return;
-    const id = tr.getAttribute("data-id");
+    let id = tr.getAttribute("data-id");
     const tipo = tr.getAttribute("data-tipo");
     if (!id || !tipo) return;
     if (!confirm("¿Borrar asiento?")) return;
@@ -2366,6 +2403,18 @@ function bindMemoriaEconomica() {
     const url = (tipo === "gasto") ? `${urlGastos}${id}/` : `${urlIngresos}${id}/`;
     const csrf = getCsrfToken();
     let resp = await fetch(url, { method: "DELETE", headers: { ...(csrf ? { "X-CSRFToken": csrf } : {}) } });
+    if (resp && resp.status === 404) {
+      try {
+        await loadRows();
+        const sig = rowSignatureFromTr(tr);
+        const match = findRowBySignature(sig);
+        if (match && match.id) {
+          id = match.id;
+          const urlRetry = (tipo === "gasto") ? `${urlGastos}${id}/` : `${urlIngresos}${id}/`;
+          resp = await fetch(urlRetry, { method: "DELETE", headers: { ...(csrf ? { "X-CSRFToken": csrf } : {}) } });
+        }
+      } catch (e) {}
+    }
     if (!resp.ok) {
       // Fallback si el servidor bloquea DELETE
       try {
@@ -2389,10 +2438,21 @@ function bindMemoriaEconomica() {
 
   async function confirmRow(tr) {
     if (!tr) return;
-    const id = tr.getAttribute("data-id");
+    let id = tr.getAttribute("data-id");
     const tipo = tr.getAttribute("data-tipo");
     if (!id || !tipo) return;
-    const row = rows.find(r => String(r.id) === String(id) && r.tipo === tipo);
+    let row = rows.find(r => String(r.id) === String(id) && r.tipo === tipo);
+    if (!row) {
+      try {
+        await loadRows();
+        const sig = rowSignatureFromTr(tr);
+        const match = findRowBySignature(sig);
+        if (match && match.id) {
+          id = match.id;
+          row = match;
+        }
+      } catch (e) {}
+    }
     if (!row) return;
     const actual = fmtEuroLocal(row.importe || 0);
     const input = prompt("Importe final confirmado:", actual);
