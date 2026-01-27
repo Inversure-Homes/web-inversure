@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.http import require_GET
 from django.urls import reverse
 from django.utils.http import urlencode
 from django.db import transaction
@@ -79,6 +80,21 @@ def _s3_presigned_url(key: str, expires_seconds: int = 300) -> str:
         )
     except Exception:
         return ""
+
+
+@require_GET
+def pwa_service_worker(request):
+    sw_path = finders.find("core/pwa/sw.js")
+    if not sw_path:
+        return HttpResponse("", content_type="application/javascript")
+    try:
+        with open(sw_path, "rb") as fh:
+            data = fh.read()
+    except Exception:
+        return HttpResponse("", content_type="application/javascript")
+    resp = HttpResponse(data, content_type="application/javascript")
+    resp["Service-Worker-Allowed"] = "/"
+    return resp
 
 
 

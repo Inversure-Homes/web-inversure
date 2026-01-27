@@ -4,6 +4,11 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0b1d33">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="{% static 'core/pwa/manifest.json' %}">
+    <link rel="apple-touch-icon" href="{% static 'core/pwa/icon-180.png' %}">
     <title>Inversure Homes</title>
     <link rel="stylesheet" href="{% static 'landing/landing-card.css' %}">
     <link rel="stylesheet" href="{% static 'landing/landing.css' %}">
@@ -64,6 +69,13 @@
     </div>
 
     <script src="{% static 'landing/landing.js' %}"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("/sw.js").catch(() => {});
+        });
+      }
+    </script>
     {% block extra_scripts %}{% endblock %}
   </body>
 </html>

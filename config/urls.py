@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.urls import include, path
 from django.views.generic import RedirectView
+from core import views as core_views
 from django.urls.resolvers import URLPattern, URLResolver
 from two_factor import urls as two_factor_urls
 from two_factor.admin import AdminSiteOTPRequired
@@ -21,6 +22,7 @@ def _flatten_two_factor_patterns(patterns):
 two_factor_urlpatterns = list(_flatten_two_factor_patterns(two_factor_urls.urlpatterns))
 
 urlpatterns = [
+    path("sw.js", core_views.pwa_service_worker, name="pwa_service_worker"),
     path(
         "",
         include((two_factor_urlpatterns, "two_factor"), namespace="two_factor"),

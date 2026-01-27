@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sin conexión · Inversure</title>
+  <style>
+    :root { color-scheme: light; }
+    body { margin: 0; font-family: "IBM Plex Sans", "Inter", system-ui, sans-serif; background: #0b1d33; color: #f5f7fb; }
+    .wrap { min-height: 100vh; display: grid; place-items: center; padding: 32px; }
+    .card { max-width: 520px; text-align: center; background: #112743; border-radius: 16px; padding: 32px; box-shadow: 0 20px 40px rgba(0,0,0,0.35); }
+    .title { font-size: 24px; margin: 0 0 12px; }
+    .text { font-size: 16px; opacity: 0.9; margin: 0 0 20px; }
+    .btn { display: inline-block; padding: 10px 18px; border-radius: 999px; background: #f3c46b; color: #0b1d33; font-weight: 600; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1 class="title">Estás sin conexión</h1>
+      <p class="text">La app está en modo offline. Cuando recuperes Internet se actualizarán los datos.</p>
+      <a class="btn" href="/app/">Reintentar</a>
+    </div>
+  </div>
+</body>
+</html>
