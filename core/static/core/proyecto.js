@@ -2161,6 +2161,39 @@ function bindMemoriaEconomica() {
     });
   }
 
+  function bindGlobalEcoActions() {
+    if (window.__ecoActionsBound) return;
+    window.__ecoActionsBound = true;
+    document.addEventListener(
+      "click",
+      (e) => {
+        const btnConfirm = e.target.closest(".eco-confirm");
+        const btnDelete = e.target.closest(".eco-del");
+        const btnEdit = e.target.closest(".eco-edit");
+        if (!btnConfirm && !btnDelete && !btnEdit) return;
+        if (!tabla || !tabla.contains(btnConfirm || btnDelete || btnEdit)) return;
+        if (btnConfirm) {
+          e.preventDefault();
+          e.stopPropagation();
+          confirmRow(btnConfirm.closest("tr"));
+          return;
+        }
+        if (btnEdit) {
+          e.preventDefault();
+          e.stopPropagation();
+          editRow(btnEdit.closest("tr"));
+          return;
+        }
+        if (btnDelete) {
+          e.preventDefault();
+          e.stopPropagation();
+          deleteRow(btnDelete.closest("tr"));
+        }
+      },
+      true
+    );
+  }
+
   async function loadRows() {
     rows = [];
     try {
@@ -2428,6 +2461,7 @@ function bindMemoriaEconomica() {
   }
 
   toggleTipoFields();
+  bindGlobalEcoActions();
   loadRows();
 }
 
