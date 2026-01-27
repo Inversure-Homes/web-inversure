@@ -307,3 +307,11 @@ AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
 # =========================
 
 OTP_TOTP_ISSUER = "Inversure"
+
+# =========================
+# WEB PUSH (PWA)
+# =========================
+
+VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "")
+VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "mailto:comunicacion@inversurehomes.es")

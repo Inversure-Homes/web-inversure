@@ -1,14 +1,21 @@
+import json
+import logging
+
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import Group, User
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.http import require_GET, require_POST
+from django.conf import settings
 
 from auditlog.models import LogEntry
+from pywebpush import webpush, WebPushException
 
 from .forms import UserCreateForm, UserEditForm
-from .models import UserConnectionLog, UserSession
+from .models import UserConnectionLog, UserSession, WebPushSubscription
 from .utils import is_admin_user
 
 
@@ -94,3 +101,99 @@ def activity_dashboard(request):
             "active_cutoff_minutes": 15,
         },
     )
+
+
+@login_required
+@require_GET
+def push_public_key(request):
+    if not settings.VAPID_PUBLIC_KEY:
+        return JsonResponse({"ok": False, "error": "VAPID public key missing"}, status=500)
+    return JsonResponse({"ok": True, "publicKey": settings.VAPID_PUBLIC_KEY})
+
+
+@login_required
+@require_POST
+def push_subscribe(request):
+    try:
+        data = json.loads(request.body or "{}")
+    except Exception:
+        data = {}
+    subscription = data.get("subscription") if isinstance(data, dict) else {}
+    if not subscription:
+        subscription = data if isinstance(data, dict) else {}
+    endpoint = subscription.get("endpoint")
+    keys = subscription.get("keys") or {}
+    p256dh = keys.get("p256dh")
+    auth = keys.get("auth")
+    if not endpoint or not p256dh or not auth:
+        return JsonResponse({"ok": False, "error": "Subscription incomplete"}, status=400)
+
+    WebPushSubscription.objects.update_or_create(
+        endpoint=endpoint,
+        defaults={
+            "user": request.user,
+            "p256dh": p256dh,
+            "auth": auth,
+            "user_agent": request.META.get("HTTP_USER_AGENT", "")[:500],
+            "is_active": True,
+        },
+    )
+    return JsonResponse({"ok": True})
+
+
+@login_required
+@require_POST
+def push_unsubscribe(request):
+    try:
+        data = json.loads(request.body or "{}")
+    except Exception:
+        data = {}
+    endpoint = data.get("endpoint")
+    if not endpoint:
+        return JsonResponse({"ok": False, "error": "Endpoint missing"}, status=400)
+    WebPushSubscription.objects.filter(endpoint=endpoint, user=request.user).update(is_active=False)
+    return JsonResponse({"ok": True})
+
+
+def _webpush_send(subscription: WebPushSubscription, payload: dict) -> bool:
+    if not settings.VAPID_PRIVATE_KEY or not settings.VAPID_PUBLIC_KEY:
+        return False
+    sub_info = {
+        "endpoint": subscription.endpoint,
+        "keys": {"p256dh": subscription.p256dh, "auth": subscription.auth},
+    }
+    try:
+        webpush(
+            subscription_info=sub_info,
+            data=json.dumps(payload),
+            vapid_private_key=settings.VAPID_PRIVATE_KEY,
+            vapid_claims={"sub": settings.VAPID_SUBJECT},
+        )
+        return True
+    except WebPushException:
+        logging.getLogger(__name__).exception("WebPush failed")
+        return False
+
+
+@login_required
+@user_passes_test(_is_admin)
+@require_POST
+def push_send_test(request):
+    try:
+        data = json.loads(request.body or "{}")
+    except Exception:
+        data = {}
+    title = (data.get("title") or "Inversure").strip()
+    body = (data.get("body") or "Notificación de prueba.").strip()
+    url = (data.get("url") or "/app/").strip()
+
+    subs = WebPushSubscription.objects.filter(user=request.user, is_active=True)
+    if not subs.exists():
+        return JsonResponse({"ok": False, "error": "No active subscriptions"}, status=400)
+
+    payload = {"title": title, "body": body, "url": url}
+    sent = 0
+    for sub in subs:
+        if _webpush_send(sub, payload):
+            sent += 1
+    return JsonResponse({"ok": True, "sent": sent})

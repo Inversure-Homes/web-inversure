@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import UserSession, UserConnectionLog
+from .models import UserSession, UserConnectionLog, WebPushSubscription
 
 
 @admin.register(UserSession)
@@ -16,3 +16,9 @@ class UserConnectionLogAdmin(admin.ModelAdmin):
     search_fields = ("user__username", "ip_address")
     list_filter = ("event",)
 
+
+@admin.register(WebPushSubscription)
+class WebPushSubscriptionAdmin(admin.ModelAdmin):
+    list_display = ("user", "is_active", "updated_at", "endpoint")
+    search_fields = ("user__username", "endpoint")
+    list_filter = ("is_active",)

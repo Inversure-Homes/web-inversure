@@ -40,6 +40,21 @@
         </a>
         {% if user.is_authenticated %}
         <div class="d-flex align-items-center gap-2">
+            <button type="button"
+                    class="btn btn-outline-light btn-sm"
+                    id="pwa_install_btn"
+                    hidden>
+              Instalar app
+            </button>
+            <button type="button"
+                    class="btn btn-outline-light btn-sm"
+                    id="push_enable_btn"
+                    data-public-key-url="{% url 'accounts:push_public_key' %}"
+                    data-subscribe-url="{% url 'accounts:push_subscribe' %}"
+                    data-unsubscribe-url="{% url 'accounts:push_unsubscribe' %}"
+                    data-test-url="{% url 'accounts:push_send_test' %}">
+              Notificaciones
+            </button>
             {% if pending_solicitudes_count %}
             <a href="{% url 'core:inversores_list' %}" class="btn btn-outline-light btn-sm position-relative" aria-label="Solicitudes pendientes">
                 <i class="bi bi-bell"></i>
@@ -84,6 +99,37 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
       window.APP_BASE = "{% url 'core:home' %}";
+    </script>
+    <script src="{% static 'core/pwa/push.js' %}"></script>
+    <script>
+      (() => {
+        let deferredPrompt = null;
+        const btn = document.getElementById("pwa_install_btn");
+        if (!btn) return;
+
+        window.addEventListener("beforeinstallprompt", (e) => {
+          e.preventDefault();
+          deferredPrompt = e;
+          btn.hidden = false;
+        });
+
+        btn.addEventListener("click", async () => {
+          if (!deferredPrompt) return;
+          btn.disabled = true;
+          deferredPrompt.prompt();
+          try {
+            await deferredPrompt.userChoice;
+          } catch (err) {}
+          deferredPrompt = null;
+          btn.hidden = true;
+          btn.disabled = false;
+        });
+
+        window.addEventListener("appinstalled", () => {
+          deferredPrompt = null;
+          btn.hidden = true;
+        });
+      })();
     </script>
     <script>
       if ("serviceWorker" in navigator) {

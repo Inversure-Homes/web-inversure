@@ -25,3 +25,5 @@ django-otp==1.5.0
 django-two-factor-auth==1.15.2
 phonenumbers==8.13.29
 django-auditlog==2.3.0
+
+pywebpush==1.14.0
