@@ -1450,6 +1450,8 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
         valor_adquisicion = snap_valor_adq
     else:
         valor_adquisicion = base_precio + gastos_adq_base
+    if snap_valor_adq is not None and snap_valor_adq > 0 and snap_valor_adq > valor_adquisicion:
+        valor_adquisicion = snap_valor_adq
 
     venta_snapshot = (
         snap_valor_trans
