@@ -6247,11 +6247,14 @@ def proyecto_documento_ficha_catastral(request, proyecto_id: int):
     if not _user_can_edit_project(request.user, proyecto):
         return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
 
-    ref_catastral = (
-        getattr(proyecto, "ref_catastral", None)
-        or getattr(proyecto, "referencia_catastral", None)
-        or ""
-    )
+    ref_catastral = getattr(proyecto, "ref_catastral", None) or getattr(proyecto, "referencia_catastral", None)
+    if not ref_catastral:
+        extra = getattr(proyecto, "extra", None)
+        snap = getattr(proyecto, "snapshot_datos", None)
+        for key in ("ref_catastral", "referencia_catastral", "ref_catastral_inmueble"):
+            ref_catastral = _find_key_recursive(extra, key) or _find_key_recursive(snap, key)
+            if ref_catastral:
+                break
     ref_catastral = (ref_catastral or "").strip()
     if not ref_catastral:
         return JsonResponse({"ok": False, "error": "Falta la referencia catastral."}, status=400)
