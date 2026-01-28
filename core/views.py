@@ -1002,7 +1002,10 @@ def _catastro_coords_from_refcat(refcat: str):
     refcat = (refcat or "").replace(" ", "").strip().upper()
     if not refcat:
         return None
-    base_url = "https://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCoordenadas.svc/json/Consulta_CPMRC"
+    base_urls = [
+        "https://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCoordenadas.svc/json/Consulta_CPMRC",
+        "http://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCoordenadas.svc/json/Consulta_CPMRC",
+    ]
     candidates = [refcat]
     if len(refcat) >= 14:
         candidates.append(refcat[:14])
@@ -1013,21 +1016,32 @@ def _catastro_coords_from_refcat(refcat: str):
         if not candidate or candidate in seen:
             continue
         seen.add(candidate)
-        qs = urlencode({"RefCat": candidate, "SRS": "EPSG:4326"})
-        url = f"{base_url}?{qs}"
-        try:
-            req = Request(url, headers={"User-Agent": "Inversure/1.0"})
-            with urlopen(req, timeout=8) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            xcen = _find_key_recursive(data, "xcen")
-            ycen = _find_key_recursive(data, "ycen")
-            if xcen is None or ycen is None:
-                continue
-            xcen = str(xcen).replace(",", ".")
-            ycen = str(ycen).replace(",", ".")
-            return float(xcen), float(ycen)
-        except Exception:
-            continue
+        rc14 = candidate[:14] if len(candidate) >= 14 else ""
+        rc1 = rc14[:7] if len(rc14) == 14 else ""
+        rc2 = rc14[7:14] if len(rc14) == 14 else ""
+        query_variants = [
+            {"RefCat": candidate, "SRS": "EPSG:4326"},
+        ]
+        if rc1 and rc2:
+            query_variants.append({"RC1": rc1, "RC2": rc2, "SRS": "EPSG:4326"})
+            query_variants.append({"RC": rc14, "SRS": "EPSG:4326"})
+        for base_url in base_urls:
+            for params in query_variants:
+                qs = urlencode(params)
+                url = f"{base_url}?{qs}"
+                try:
+                    req = Request(url, headers={"User-Agent": "Inversure/1.0"})
+                    with urlopen(req, timeout=8) as resp:
+                        data = json.loads(resp.read().decode("utf-8"))
+                    xcen = _find_key_recursive(data, "xcen")
+                    ycen = _find_key_recursive(data, "ycen")
+                    if xcen is None or ycen is None:
+                        continue
+                    xcen = str(xcen).replace(",", ".")
+                    ycen = str(ycen).replace(",", ".")
+                    return float(xcen), float(ycen)
+                except Exception:
+                    continue
     return None
 
 
