@@ -66,9 +66,11 @@ class SafeAccessDict(dict):
         return dict.get(self, key, default)
 
 
-def _s3_presigned_url(key: str, expires_seconds: int = 300) -> str:
+def _s3_presigned_url(key: str, expires_seconds: int | None = None) -> str:
     if not key:
         return ""
+    if expires_seconds is None:
+        expires_seconds = int(getattr(settings, "S3_PRESIGNED_EXPIRES", 3600))
     bucket = getattr(settings, "AWS_STORAGE_BUCKET_NAME", None)
     access_key = getattr(settings, "AWS_ACCESS_KEY_ID", None)
     secret_key = getattr(settings, "AWS_SECRET_ACCESS_KEY", None)
@@ -1031,7 +1033,7 @@ def _catastro_coords_from_refcat(refcat: str):
                 url = f"{base_url}?{qs}"
                 try:
                     req = Request(url, headers={"User-Agent": "Inversure/1.0"})
-                    with urlopen(req, timeout=8) as resp:
+                    with urlopen(req, timeout=4) as resp:
                         data = json.loads(resp.read().decode("utf-8"))
                     xcen = _find_key_recursive(data, "xcen")
                     ycen = _find_key_recursive(data, "ycen")
@@ -6260,10 +6262,13 @@ def proyecto_documento_ficha_catastral(request, proyecto_id: int):
 
     try:
         req = Request(catastro_url, headers={"User-Agent": "Inversure/1.0"})
-        with urlopen(req, timeout=10) as resp:
-            img_bytes = resp.read()
+        with urlopen(req, timeout=5) as resp:
+            max_bytes = 5 * 1024 * 1024
+            img_bytes = resp.read(max_bytes + 1)
         if not img_bytes:
             return JsonResponse({"ok": False, "error": "El Catastro no devolvió imagen."}, status=400)
+        if len(img_bytes) > max_bytes:
+            return JsonResponse({"ok": False, "error": "La imagen del Catastro es demasiado grande."}, status=400)
     except Exception:
         return JsonResponse({"ok": False, "error": "No se pudo descargar el plano catastral."}, status=400)
 
