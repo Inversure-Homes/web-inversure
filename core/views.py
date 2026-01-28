@@ -5424,6 +5424,8 @@ def proyecto_gastos(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": "Proyecto no encontrado"}, status=404)
 
     if request.method == "GET":
+        if not _user_can_view_project(request.user, proyecto):
+            return JsonResponse({"ok": False, "error": "No tienes permisos para ver este proyecto."}, status=403)
         can_preview = _can_preview_facturas(request.user)
         facturas_docs = {}
         try:
@@ -5480,6 +5482,9 @@ def proyecto_gastos(request, proyecto_id: int):
     if request.method != "POST":
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
+    if not _user_can_edit_project(request.user, proyecto):
+        return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
+
     try:
         data = json.loads(request.body or "{}")
         fecha = _parse_date(data.get("fecha"))
@@ -5516,6 +5521,7 @@ def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
     except GastoProyecto.DoesNotExist:
         return JsonResponse({"ok": False, "error": "Gasto no encontrado"}, status=404)
 
+    proyecto = gasto.proyecto
     req_method = request.method
     override_method = None
     if request.method == "POST":
@@ -5530,6 +5536,8 @@ def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
             req_method = str(override_method).upper()
 
     if req_method == "GET":
+        if not _user_can_view_project(request.user, proyecto):
+            return JsonResponse({"ok": False, "error": "No tienes permisos para ver este proyecto."}, status=403)
         factura_url = None
         if _can_preview_facturas(request.user) and hasattr(gasto, "factura") and gasto.factura:
             try:
@@ -5556,11 +5564,16 @@ def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
         })
 
     if req_method == "DELETE":
+        if not _user_can_edit_project(request.user, proyecto):
+            return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
         gasto.delete()
         return JsonResponse({"ok": True})
 
     if req_method not in ("PUT", "PATCH"):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+    if not _user_can_edit_project(request.user, proyecto):
+        return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
 
     try:
         prev_importe = gasto.importe
@@ -5656,6 +5669,8 @@ def proyecto_ingresos(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": "Proyecto no encontrado"}, status=404)
 
     if request.method == "GET":
+        if not _user_can_view_project(request.user, proyecto):
+            return JsonResponse({"ok": False, "error": "No tienes permisos para ver este proyecto."}, status=403)
         ingresos = []
         for i in IngresoProyecto.objects.filter(proyecto=proyecto).order_by("fecha", "id"):
             ingresos.append({
@@ -5672,6 +5687,9 @@ def proyecto_ingresos(request, proyecto_id: int):
 
     if request.method != "POST":
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+    if not _user_can_edit_project(request.user, proyecto):
+        return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
 
     try:
         data = json.loads(request.body or "{}")
@@ -5708,6 +5726,7 @@ def proyecto_ingreso_detalle(request, proyecto_id: int, ingreso_id: int):
     except IngresoProyecto.DoesNotExist:
         return JsonResponse({"ok": False, "error": "Ingreso no encontrado"}, status=404)
 
+    proyecto = ingreso.proyecto
     req_method = request.method
     override_method = None
     if request.method == "POST":
@@ -5722,6 +5741,8 @@ def proyecto_ingreso_detalle(request, proyecto_id: int, ingreso_id: int):
             req_method = str(override_method).upper()
 
     if req_method == "GET":
+        if not _user_can_view_project(request.user, proyecto):
+            return JsonResponse({"ok": False, "error": "No tienes permisos para ver este proyecto."}, status=403)
         return JsonResponse({
             "ok": True,
             "ingreso": {
@@ -5737,11 +5758,16 @@ def proyecto_ingreso_detalle(request, proyecto_id: int, ingreso_id: int):
         })
 
     if req_method == "DELETE":
+        if not _user_can_edit_project(request.user, proyecto):
+            return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
         ingreso.delete()
         return JsonResponse({"ok": True})
 
     if req_method not in ("PUT", "PATCH"):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+    if not _user_can_edit_project(request.user, proyecto):
+        return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
 
     try:
         prev_importe = ingreso.importe
