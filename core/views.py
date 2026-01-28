@@ -1282,7 +1282,7 @@ def _build_presentacion_context(request, proyecto: Proyecto) -> dict:
             if mapa_doc:
                 mapa_url = _documento_image_url(request, mapa_doc)
         if dossier_id:
-                dossier_doc = docs_map.get(str(dossier_id))
+            dossier_doc = docs_map.get(str(dossier_id))
             if dossier_doc:
                 dossier_url = _documento_image_url(request, dossier_doc)
         for doc_id in anexos_ids:
