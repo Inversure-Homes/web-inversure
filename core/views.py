@@ -999,23 +999,36 @@ def _find_key_recursive(obj, key):
 
 
 def _catastro_coords_from_refcat(refcat: str):
-    refcat = (refcat or "").replace(" ", "").strip()
+    refcat = (refcat or "").replace(" ", "").strip().upper()
     if not refcat:
         return None
     base_url = "https://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCoordenadas.svc/json/Consulta_CPMRC"
-    qs = urlencode({"RefCat": refcat, "SRS": "EPSG:4326"})
-    url = f"{base_url}?{qs}"
-    try:
-        req = Request(url, headers={"User-Agent": "Inversure/1.0"})
-        with urlopen(req, timeout=8) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        xcen = _find_key_recursive(data, "xcen")
-        ycen = _find_key_recursive(data, "ycen")
-        if xcen is None or ycen is None:
-            return None
-        return float(xcen), float(ycen)
-    except Exception:
-        return None
+    candidates = [refcat]
+    if len(refcat) >= 14:
+        candidates.append(refcat[:14])
+    if len(refcat) >= 18:
+        candidates.append(refcat[:18])
+    seen = set()
+    for candidate in candidates:
+        if not candidate or candidate in seen:
+            continue
+        seen.add(candidate)
+        qs = urlencode({"RefCat": candidate, "SRS": "EPSG:4326"})
+        url = f"{base_url}?{qs}"
+        try:
+            req = Request(url, headers={"User-Agent": "Inversure/1.0"})
+            with urlopen(req, timeout=8) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            xcen = _find_key_recursive(data, "xcen")
+            ycen = _find_key_recursive(data, "ycen")
+            if xcen is None or ycen is None:
+                continue
+            xcen = str(xcen).replace(",", ".")
+            ycen = str(ycen).replace(",", ".")
+            return float(xcen), float(ycen)
+        except Exception:
+            continue
+    return None
 
 
 def _catastro_wms_url_from_refcat(refcat: str, width=1200, height=900):
@@ -1030,7 +1043,7 @@ def _catastro_wms_url_from_refcat(refcat: str, width=1200, height=900):
         "SERVICE": "WMS",
         "VERSION": "1.1.1",
         "REQUEST": "GetMap",
-        "LAYERS": "CP.CadastralParcel",
+        "LAYERS": "CP.CadastralParcel,CP.CadastralBuilding",
         "STYLES": "",
         "SRS": "EPSG:4326",
         "BBOX": f"{minx},{miny},{maxx},{maxy}",
