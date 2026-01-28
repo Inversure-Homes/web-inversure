@@ -22,6 +22,7 @@ from django.templatetags.static import static
 from django.utils.safestring import mark_safe
 from django.contrib.staticfiles import finders
 from django.utils.text import slugify
+from django.contrib.auth.models import User
 
 from copy import deepcopy
 from types import SimpleNamespace
@@ -40,7 +41,14 @@ from .models import Estudio, Proyecto
 from .models import EstudioSnapshot, ProyectoSnapshot
 from .models import GastoProyecto, IngresoProyecto, ChecklistItem
 from .models import Cliente, Participacion, InversorPerfil, InversorPushSubscription, SolicitudParticipacion, ComunicacionInversor, DocumentoProyecto, DocumentoInversor, FacturaGasto
-from accounts.utils import is_admin_user, is_comercial_user, is_marketing_user, resolve_permissions, use_custom_permissions
+from accounts.utils import (
+    is_admin_user,
+    is_comercial_user,
+    is_marketing_user,
+    is_direccion_user,
+    resolve_permissions,
+    use_custom_permissions,
+)
 
 # --- SafeAccessDict helper and _safe_template_obj ---
 class SafeAccessDict(dict):
@@ -193,6 +201,62 @@ def _safe_template_obj(obj):
     if isinstance(obj, (list, tuple)):
         return [_safe_template_obj(v) for v in obj]
     return obj
+
+
+def _user_is_admin_or_direccion(user) -> bool:
+    return bool(is_admin_user(user) or is_direccion_user(user))
+
+
+def _user_matches_responsable(user, proyecto: Proyecto) -> bool:
+    if not user or not user.is_authenticated:
+        return False
+    if getattr(proyecto, "responsable_user_id", None) == user.id:
+        return True
+    responsable_raw = (getattr(proyecto, "responsable", "") or "").strip().lower()
+    if not responsable_raw:
+        return False
+    username = (getattr(user, "username", "") or "").strip().lower()
+    full_name = f"{getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')}".strip().lower()
+    return responsable_raw in {username, full_name}
+
+
+def _user_can_view_project(user, proyecto: Proyecto) -> bool:
+    if _user_is_admin_or_direccion(user):
+        return True
+    if is_marketing_user(user):
+        return True
+    if is_comercial_user(user):
+        return _user_matches_responsable(user, proyecto)
+    if use_custom_permissions(user):
+        perms = resolve_permissions(user)
+        return bool(perms.get("can_proyectos"))
+    return False
+
+
+def _user_can_edit_project(user, proyecto: Proyecto) -> bool:
+    if _user_is_admin_or_direccion(user):
+        return True
+    if is_marketing_user(user):
+        return False
+    if is_comercial_user(user):
+        return _user_matches_responsable(user, proyecto)
+    if use_custom_permissions(user):
+        perms = resolve_permissions(user)
+        return bool(perms.get("can_proyectos"))
+    return False
+
+
+def _user_can_edit_estudio(user) -> bool:
+    if _user_is_admin_or_direccion(user):
+        return True
+    if is_marketing_user(user):
+        return False
+    if is_comercial_user(user):
+        return True
+    if use_custom_permissions(user):
+        perms = resolve_permissions(user)
+        return bool(perms.get("can_estudios"))
+    return False
 
 
 def _notificar_inversores_habilitado(proyecto: Proyecto, snapshot: dict | None = None) -> bool:
@@ -676,6 +740,7 @@ def _build_comunicacion_context(
         estado_lower, ("Avance de proyecto", "Seguimiento de hitos")
     )
 
+    usuarios_responsables = User.objects.filter(is_active=True).order_by("first_name", "last_name", "username")
     ctx = {
         "inversor_nombre": getattr(part.cliente, "nombre", "") or "",
         "proyecto_nombre": proyecto.nombre or "",
@@ -2441,6 +2506,8 @@ def _build_dashboard_context(user):
 
     today = timezone.now().date()
     checklist_qs = ChecklistItem.objects.select_related("proyecto").exclude(estado="hecho")
+    if is_comercial_user(user) and not _user_is_admin_or_direccion(user):
+        checklist_qs = checklist_qs.filter(responsable_user=user)
     checklist_overdue_qs = checklist_qs.filter(fecha_objetivo__lt=today)
     checklist_items = []
     for it in checklist_qs.order_by("fecha_objetivo", "id")[:6]:
@@ -2547,6 +2614,8 @@ def checklist_pendientes(request):
         qs = qs.filter(proyecto__nombre__icontains=proyecto_q)
     if responsable_q:
         qs = qs.filter(responsable__icontains=responsable_q)
+    if is_comercial_user(request.user) and not _user_is_admin_or_direccion(request.user):
+        qs = qs.filter(responsable_user=request.user)
 
     qs = qs.order_by("fecha_objetivo", "id")
 
@@ -2565,6 +2634,8 @@ def checklist_pendientes(request):
 
 def nuevo_estudio(request):
     """Crea un estudio nuevo, limpia la sesión del estudio anterior y redirige al simulador."""
+    if not _user_can_edit_estudio(request.user):
+        return JsonResponse({"ok": False, "error": "No tienes permisos para crear estudios."}, status=403)
     # Crear un estudio vacío como BORRADOR (no debe aparecer en lista hasta que se guarde)
     estudio = Estudio.objects.create(
         nombre="",
@@ -2669,6 +2740,7 @@ def simulador(request):
         "estudio": estudio,
         "ESTUDIO_ID": str(estudio_obj.id) if estudio_obj is not None else "",
         "ESTADO_INICIAL_JSON": json.dumps(estado_inicial, ensure_ascii=False),
+        "is_admin": is_admin_user(request.user),
     }
 
     return render(request, "core/simulador.html", ctx)
@@ -2725,8 +2797,8 @@ def lista_estudio(request):
 def lista_proyectos(request):
     estados_cerrados = {"cerrado", "descartado"}
     proyectos = Proyecto.objects.exclude(estado__in=estados_cerrados).order_by("-id")
-    if is_comercial_user(request.user) and not is_admin_user(request.user) and not use_custom_permissions(request.user):
-        proyectos = proyectos.filter(acceso_comercial=True)
+    if is_comercial_user(request.user) and not _user_is_admin_or_direccion(request.user) and not use_custom_permissions(request.user):
+        proyectos = proyectos.filter(responsable_user=request.user)
     proyectos_ids = list(proyectos.values_list("id", flat=True))
 
     def _as_float(val, default=0.0):
@@ -2822,8 +2894,8 @@ def lista_proyectos(request):
 def lista_proyectos_cerrados(request):
     estados_cerrados = {"cerrado", "descartado"}
     proyectos = Proyecto.objects.filter(estado__in=estados_cerrados).order_by("-id")
-    if is_comercial_user(request.user) and not is_admin_user(request.user) and not use_custom_permissions(request.user):
-        proyectos = proyectos.filter(acceso_comercial=True)
+    if is_comercial_user(request.user) and not _user_is_admin_or_direccion(request.user) and not use_custom_permissions(request.user):
+        proyectos = proyectos.filter(responsable_user=request.user)
     proyectos_ids = list(proyectos.values_list("id", flat=True))
 
     def _as_float(val, default=0.0):
@@ -3792,10 +3864,9 @@ def inversor_solicitar(request, token: str, proyecto_id: int):
 def proyecto(request, proyecto_id: int):
     """Vista única del Proyecto (pestañas), heredando el snapshot del estudio convertido."""
     proyecto_obj = get_object_or_404(Proyecto, id=proyecto_id)
-    if is_comercial_user(request.user) and not is_admin_user(request.user) and not use_custom_permissions(request.user):
-        if not getattr(proyecto_obj, "acceso_comercial", False):
-            messages.error(request, "Este proyecto no está habilitado para el equipo comercial.")
-            return redirect("core:lista_proyectos")
+    if not _user_can_view_project(request.user, proyecto_obj):
+        messages.error(request, "No tienes acceso a este proyecto.")
+        return redirect("core:lista_proyectos")
 
     # --- Compatibilidad de plantilla: algunos campos pueden no existir en el modelo Proyecto ---
     # Django templates fallan con VariableDoesNotExist si se accede a un atributo inexistente.
@@ -3818,6 +3889,16 @@ def proyecto(request, proyecto_id: int):
     for _f in _tpl_expected_fields:
         if not hasattr(proyecto_obj, _f):
             setattr(proyecto_obj, _f, "")
+    try:
+        if getattr(proyecto_obj, "responsable_user", None) and not getattr(proyecto_obj, "responsable", ""):
+            responsable_user = proyecto_obj.responsable_user
+            setattr(
+                proyecto_obj,
+                "responsable",
+                (responsable_user.get_full_name() or responsable_user.username or "").strip(),
+            )
+    except Exception:
+        pass
 
     # Snapshot efectivo del proyecto (prioridad):
     # 1) Último ProyectoSnapshot (guardados/versionado)
@@ -3971,9 +4052,8 @@ def proyecto(request, proyecto_id: int):
         estado_inicial = {}
 
     # --- Editabilidad del proyecto ---
-    # En proyecto (fase operativa) el formulario debe ser editable por defecto.
-    # Solo lo bloqueamos si existe un campo de estado/cierre que indique finalización.
-    editable = True
+    # Restringir por rol/responsable y bloquear si el estado indica cierre.
+    editable = _user_can_edit_project(request.user, proyecto_obj)
     try:
         username = (getattr(request.user, "username", "") or "").strip().lower()
         if username == "mperez":
@@ -4082,6 +4162,7 @@ def proyecto(request, proyecto_id: int):
         "is_admin": is_admin_user(request.user),
         "can_manage_difusion": is_admin_user(request.user) or use_custom_permissions(request.user),
         "acceso_comercial": bool(getattr(proyecto_obj, "acceso_comercial", False)),
+        "usuarios_responsables": usuarios_responsables,
         "proyecto": proyecto_obj,
         "notificar_inversores": notify_flag,
         "snapshot": _safe_template_obj(snapshot),
@@ -4100,6 +4181,16 @@ def proyecto(request, proyecto_id: int):
         "pct_captado": captacion_ctx.get("pct_captado"),
         "landing_beneficio_neto_pct_auto": None,
     }
+    try:
+        ctx["checklist_users"] = [
+            {
+                "id": u.id,
+                "label": (u.get_full_name() or u.username or "").strip(),
+            }
+            for u in usuarios_responsables
+        ]
+    except Exception:
+        ctx["checklist_users"] = []
     try:
         extra = getattr(proyecto_obj, "extra", None)
         landing_config = extra.get("landing", {}) if isinstance(extra, dict) else {}
@@ -4310,6 +4401,8 @@ def proyecto(request, proyecto_id: int):
 
 @csrf_exempt
 def guardar_estudio(request):
+    if not _user_can_edit_estudio(request.user):
+        return JsonResponse({"ok": False, "error": "No tienes permisos para editar estudios."}, status=403)
     if request.method != "POST":
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
@@ -4622,6 +4715,8 @@ def guardar_proyecto(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
     proyecto_obj = get_object_or_404(Proyecto, id=proyecto_id)
+    if not _user_can_edit_project(request.user, proyecto_obj):
+        return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
 
     try:
         payload = json.loads(request.body or "{}")
@@ -4676,12 +4771,35 @@ def guardar_proyecto(request, proyecto_id: int):
 
     responsable = (payload.get("responsable") or payload_proyecto.get("responsable") or "").strip()
     if responsable:
+        proyecto_obj.responsable = responsable
+        update_fields.append("responsable")
+
+    responsable_user_id = payload.get("responsable_user_id") or payload_proyecto.get("responsable_user_id")
+    if responsable_user_id not in (None, ""):
         try:
-            setattr(proyecto_obj, "responsable", responsable)
-            update_fields.append("responsable")
+            responsable_user_id = int(responsable_user_id)
         except Exception:
-            # si el campo no existe en el modelo, lo guardamos en extra
+            responsable_user_id = None
+    if responsable_user_id:
+        try:
+            responsable_user = User.objects.get(id=responsable_user_id, is_active=True)
+            proyecto_obj.responsable_user = responsable_user
+            if not responsable and responsable_user:
+                proyecto_obj.responsable = (responsable_user.get_full_name() or responsable_user.username or "").strip()
+                update_fields.append("responsable")
+            update_fields.append("responsable_user")
+        except Exception:
             pass
+    elif not proyecto_obj.responsable_user_id and is_comercial_user(request.user) and not _user_is_admin_or_direccion(request.user):
+        proyecto_obj.responsable_user = request.user
+        proyecto_obj.responsable = (request.user.get_full_name() or request.user.username or "").strip()
+        update_fields.extend(["responsable_user", "responsable"])
+
+    if not proyecto_obj.responsable_user_id and _user_is_admin_or_direccion(request.user):
+        return JsonResponse(
+            {"ok": False, "error": "Debes seleccionar un responsable para el proyecto."},
+            status=400,
+        )
 
     codigo_raw = payload.get("codigo_proyecto") or payload_proyecto.get("codigo_proyecto")
     if codigo_raw not in (None, ""):
@@ -4809,6 +4927,8 @@ def guardar_proyecto(request, proyecto_id: int):
 
 
 def borrar_estudio(request, estudio_id: int):
+    if not _user_can_edit_estudio(request.user):
+        return JsonResponse({"ok": False, "error": "No tienes permisos para borrar estudios."}, status=403)
     estudio = get_object_or_404(Estudio, id=estudio_id)
     estudio.delete()
     # si se borró el activo en sesión, limpiar
@@ -4833,7 +4953,7 @@ def convertir_a_proyecto(request, estudio_id: int):
 
     if request.method not in ("POST", "GET"):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
-    if not is_admin_user(request.user):
+    if not _user_can_edit_estudio(request.user):
         return JsonResponse({"ok": False, "error": "No tienes permisos para convertir estudios."}, status=403)
 
     estudio = get_object_or_404(Estudio, id=estudio_id)
@@ -4851,6 +4971,67 @@ def convertir_a_proyecto(request, estudio_id: int):
             return True
         except Exception:
             return False
+
+    approve_flag = False
+    try:
+        if request.method == "POST":
+            payload = json.loads(request.body or "{}")
+        else:
+            payload = {}
+    except Exception:
+        payload = {}
+    approve_flag = payload.get("approve") if isinstance(payload, dict) else None
+    if approve_flag is None:
+        approve_flag = request.GET.get("approve")
+    if isinstance(approve_flag, str):
+        approve_flag = approve_flag.strip().lower() in {"1", "true", "si", "sí", "ok", "approve"}
+    approve_flag = bool(approve_flag)
+
+    # Si no es admin, registrar solicitud y salir
+    if not is_admin_user(request.user):
+        update_fields = []
+        if _has_field(Estudio, "conversion_solicitada_en") and not getattr(estudio, "conversion_solicitada_en", None):
+            estudio.conversion_solicitada_en = timezone.now()
+            update_fields.append("conversion_solicitada_en")
+        if _has_field(Estudio, "conversion_solicitada_por") and not getattr(estudio, "conversion_solicitada_por_id", None):
+            estudio.conversion_solicitada_por = request.user
+            update_fields.append("conversion_solicitada_por")
+        if update_fields:
+            estudio.save(update_fields=update_fields)
+        return JsonResponse(
+            {
+                "ok": True,
+                "status": "pending_approval",
+                "message": "Solicitud enviada. Un administrador debe aprobar la conversión.",
+            },
+            status=202,
+        )
+
+    # Si es admin, exigir aprobación explícita cuando exista el campo
+    if _has_field(Estudio, "conversion_aprobada_en"):
+        if not getattr(estudio, "conversion_aprobada_en", None):
+            if not approve_flag:
+                return JsonResponse(
+                    {
+                        "ok": False,
+                        "error": "La conversión requiere aprobación de un administrador.",
+                        "requires_approval": True,
+                    },
+                    status=409,
+                )
+            update_fields = []
+            if _has_field(Estudio, "conversion_aprobada_por"):
+                estudio.conversion_aprobada_por = request.user
+                update_fields.append("conversion_aprobada_por")
+            estudio.conversion_aprobada_en = timezone.now()
+            update_fields.append("conversion_aprobada_en")
+            if _has_field(Estudio, "conversion_solicitada_en") and not getattr(estudio, "conversion_solicitada_en", None):
+                estudio.conversion_solicitada_en = estudio.conversion_aprobada_en
+                update_fields.append("conversion_solicitada_en")
+            if _has_field(Estudio, "conversion_solicitada_por") and not getattr(estudio, "conversion_solicitada_por_id", None):
+                estudio.conversion_solicitada_por = request.user
+                update_fields.append("conversion_solicitada_por")
+            estudio.save(update_fields=list(set(update_fields)))
 
     with transaction.atomic():
         # 1) Snapshot del estudio
@@ -4922,6 +5103,10 @@ def convertir_a_proyecto(request, estudio_id: int):
         if _has_field(Proyecto, "estado"):
             # estado inicial del proyecto
             proyecto_kwargs["estado"] = "captacion"
+        if _has_field(Proyecto, "responsable_user"):
+            proyecto_kwargs["responsable_user"] = request.user
+        if _has_field(Proyecto, "responsable"):
+            proyecto_kwargs["responsable"] = (request.user.get_full_name() or request.user.username or "").strip()
         proyecto = Proyecto.objects.create(**proyecto_kwargs)
 
         # 3) Bloquear el estudio
@@ -5728,12 +5913,17 @@ def proyecto_checklist(request, proyecto_id: int):
         _ensure_checklist_defaults(proyecto)
         items = []
         for it in ChecklistItem.objects.filter(proyecto=proyecto).order_by("fase", "fecha_objetivo", "id"):
+            responsable_label = it.responsable
+            if not responsable_label and getattr(it, "responsable_user", None):
+                responsable_user = it.responsable_user
+                responsable_label = (responsable_user.get_full_name() or responsable_user.username or "").strip()
             items.append({
                 "id": it.id,
                 "fase": it.fase,
                 "titulo": it.titulo,
                 "descripcion": it.descripcion,
-                "responsable": it.responsable,
+                "responsable": responsable_label or "",
+                "responsable_user_id": it.responsable_user_id,
                 "fecha_objetivo": it.fecha_objetivo.isoformat() if it.fecha_objetivo else "",
                 "estado": it.estado,
                 "gasto_id": it.gasto_id,
@@ -5757,6 +5947,9 @@ def proyecto_checklist_detalle(request, proyecto_id: int, item_id: int):
     except ChecklistItem.DoesNotExist:
         return JsonResponse({"ok": False, "error": "Item no encontrado"}, status=404)
 
+    if not _user_can_edit_project(request.user, item.proyecto):
+        return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
+
     if request.method == "DELETE":
         return JsonResponse({"ok": False, "error": "No se permite borrar tareas"}, status=405)
 
@@ -5767,14 +5960,37 @@ def proyecto_checklist_detalle(request, proyecto_id: int, item_id: int):
         data = json.loads(request.body or "{}")
         if "descripcion" in data:
             item.descripcion = (data.get("descripcion") or "").strip() or None
-        if "responsable" in data:
+        if "responsable_user_id" in data:
+            responsable_user_id = data.get("responsable_user_id")
+            if responsable_user_id in ("", None):
+                item.responsable_user = None
+                item.responsable = None
+            else:
+                try:
+                    responsable_user = User.objects.get(id=int(responsable_user_id), is_active=True)
+                except (User.DoesNotExist, ValueError, TypeError):
+                    responsable_user = None
+                item.responsable_user = responsable_user
+                if responsable_user:
+                    item.responsable = (responsable_user.get_full_name() or responsable_user.username or "").strip()
+        if "responsable" in data and "responsable_user_id" not in data:
             item.responsable = (data.get("responsable") or "").strip() or None
         if "fecha_objetivo" in data:
             item.fecha_objetivo = _parse_date(data.get("fecha_objetivo")) or item.fecha_objetivo
         if "estado" in data:
             item.estado = (data.get("estado") or item.estado)
-            if item.estado == "hecho" and not item.fecha_objetivo:
-                item.fecha_objetivo = timezone.now().date()
+            if item.estado == "hecho":
+                if not item.fecha_objetivo:
+                    item.fecha_objetivo = timezone.now().date()
+                if hasattr(item, "cerrado_por_id") and not getattr(item, "cerrado_por_id", None):
+                    item.cerrado_por = request.user
+                if hasattr(item, "cerrado_en"):
+                    item.cerrado_en = timezone.now()
+            else:
+                if hasattr(item, "cerrado_por"):
+                    item.cerrado_por = None
+                if hasattr(item, "cerrado_en"):
+                    item.cerrado_en = None
 
         item.save()
         return JsonResponse({"ok": True})

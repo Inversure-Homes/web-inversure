@@ -10,6 +10,7 @@
 #}
 <script>
   window.ES_MODO_PROYECTO = true;
+  window.PROYECTO_EDITABLE = {% if editable %}true{% else %}false{% endif %};
   window.PROYECTO_ID = {% if proyecto and proyecto.id %}{{ proyecto.id }}{% else %}null{% endif %};
   window.ESTUDIO_ORIGEN_ID = {% if snapshot and snapshot.meta and snapshot.meta.estudio_id %}{{ snapshot.meta.estudio_id }}{% else %}null{% endif %};
   window.PROYECTO_GASTOS_URL = "{% url 'core:proyecto_gastos' proyecto.id %}";
@@ -22,6 +23,7 @@
 {% if snapshot %}{{ snapshot|json_script:"snapshotData" }}{% endif %}
 {% if facturas_docs %}{{ facturas_docs|json_script:"facturasDocsData" }}{% endif %}
 {% if fotos_docs %}{{ fotos_docs|json_script:"fotosDocsData" }}{% endif %}
+{% if checklist_users %}{{ checklist_users|json_script:"checklistUsersData" }}{% endif %}
 
 <script>
   document.addEventListener("DOMContentLoaded", () => {
@@ -319,9 +321,17 @@
             <div class="row">
                 <div class="col-md-6 mb-0">
                     <label class="form-label text-muted">Responsable</label>
-                    <input type="text" name="responsable" class="form-control form-control-lg"
-                           value="{{ proyecto.responsable|default:'' }}" placeholder="Ej.: Miguel Ángel" {% if not editable %}disabled{% endif %}>
-                    <div class="form-text">Campo preparatorio (se integrará con usuarios/permisos).</div>
+                    <select name="responsable_user_id" class="form-select form-select-lg"
+                            {% if not editable %}disabled{% endif %} {% if editable %}required{% endif %}>
+                        <option value="">Selecciona un usuario</option>
+                        {% for u in usuarios_responsables %}
+                          {% with label=u.get_full_name|default:u.username %}
+                          <option value="{{ u.id }}" {% if proyecto.responsable_user_id == u.id %}selected{% endif %}>{{ label }}</option>
+                          {% endwith %}
+                        {% endfor %}
+                    </select>
+                    <input type="hidden" name="responsable" id="responsable_nombre" value="{{ proyecto.responsable|default:'' }}">
+                    <div class="form-text">Obligatorio para asignar responsabilidad del proyecto.</div>
                 </div>
             </div>
             <script>
@@ -622,7 +632,17 @@
                           <tr data-id="{{ it.id }}">
                               <td>{{ it.get_fase_display }}</td>
                               <td>{{ it.titulo }}</td>
-                              <td><input type="text" class="form-control form-control-sm chk-resp" value="{{ it.responsable|default:'' }}"></td>
+                              <td>
+                                  <select class="form-select form-select-sm chk-resp-user" {% if not editable %}disabled{% endif %}>
+                                      <option value="">Sin asignar</option>
+                                      {% for u in usuarios_responsables %}
+                                        {% with label=u.get_full_name|default:u.username %}
+                                        <option value="{{ u.id }}" {% if it.responsable_user_id == u.id %}selected{% endif %}>{{ label }}</option>
+                                        {% endwith %}
+                                      {% endfor %}
+                                  </select>
+                                  <input type="hidden" class="chk-resp" value="{{ it.responsable|default:'' }}">
+                              </td>
                               <td><input type="date" class="form-control form-control-sm chk-fecha" value="{{ it.fecha_objetivo|date:'Y-m-d' }}"></td>
                               <td>
                                   <select class="form-select form-select-sm chk-estado">

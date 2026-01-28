@@ -1543,6 +1543,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const url = (formEstudio && (formEstudio.dataset.guardarUrl || formEstudio.getAttribute("action"))) || (getAppBase() + "guardar-estudio/");
     const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || "";
+    const isAdmin = formEstudio && formEstudio.dataset && formEstudio.dataset.isAdmin === "1";
 
     const resp = await fetch(url, {
       method: "POST",
@@ -1587,10 +1588,18 @@ document.addEventListener("DOMContentLoaded", () => {
         "Content-Type": "application/json",
         ...(csrf ? { "X-CSRFToken": csrf } : {})
       },
-      body: JSON.stringify({ estudio_id: parseInt(id, 10) })
+      body: JSON.stringify({ estudio_id: parseInt(id, 10), approve: isAdmin })
     });
 
     const data = await resp.json().catch(() => ({}));
+    if (resp.status === 202 && data && data.status === "pending_approval") {
+      alert(data.message || "Solicitud enviada. Un administrador debe aprobar la conversión.");
+      return;
+    }
+    if (resp.status === 409 && data && data.requires_approval) {
+      alert(data.error || "Se requiere aprobación de administrador.");
+      return;
+    }
     if (!resp.ok || data.ok === false) {
       console.error("Error convirtiendo a proyecto:", resp.status, data);
       alert("No se pudo convertir este estudio en proyecto.");

@@ -11,6 +11,11 @@ class UserCreateForm(forms.ModelForm):
         required=False,
         widget=forms.CheckboxSelectMultiple,
     )
+    role = forms.ChoiceField(
+        required=False,
+        choices=[("", "— Selecciona rol —")] + UserAccess.ROLE_CHOICES,
+        label="Rol",
+    )
     use_custom_perms = forms.BooleanField(required=False, label="Usar permisos individuales")
     can_simulador = forms.BooleanField(required=False, label="Acceso a Simulador")
     can_estudios = forms.BooleanField(required=False, label="Acceso a Estudios")
@@ -49,6 +54,8 @@ class UserCreateForm(forms.ModelForm):
         ):
             if name in self.fields:
                 self.fields[name].widget = forms.CheckboxInput()
+        if "role" in self.fields:
+            self.fields["role"].widget = forms.Select()
 
     def clean(self):
         cleaned = super().clean()
@@ -65,6 +72,7 @@ class UserCreateForm(forms.ModelForm):
             user.save()
             self.save_m2m()
             access, _ = UserAccess.objects.get_or_create(user=user)
+            access.role = (self.cleaned_data.get("role") or "").strip()
             access.use_custom_perms = bool(self.cleaned_data.get("use_custom_perms"))
             access.can_simulador = bool(self.cleaned_data.get("can_simulador"))
             access.can_estudios = bool(self.cleaned_data.get("can_estudios"))
@@ -85,6 +93,11 @@ class UserEditForm(forms.ModelForm):
         queryset=Group.objects.all(),
         required=False,
         widget=forms.CheckboxSelectMultiple,
+    )
+    role = forms.ChoiceField(
+        required=False,
+        choices=[("", "— Selecciona rol —")] + UserAccess.ROLE_CHOICES,
+        label="Rol",
     )
     use_custom_perms = forms.BooleanField(required=False, label="Usar permisos individuales")
     can_simulador = forms.BooleanField(required=False, label="Acceso a Simulador")
@@ -124,10 +137,13 @@ class UserEditForm(forms.ModelForm):
         ):
             if name in self.fields:
                 self.fields[name].widget = forms.CheckboxInput()
+        if "role" in self.fields:
+            self.fields["role"].widget = forms.Select()
         if not user:
             return
         access = getattr(user, "user_access", None)
         if access:
+            self.fields["role"].initial = access.role or ""
             self.fields["use_custom_perms"].initial = access.use_custom_perms
             self.fields["can_simulador"].initial = access.can_simulador
             self.fields["can_estudios"].initial = access.can_estudios
@@ -155,6 +171,7 @@ class UserEditForm(forms.ModelForm):
             user.save()
             self.save_m2m()
             access, _ = UserAccess.objects.get_or_create(user=user)
+            access.role = (self.cleaned_data.get("role") or "").strip()
             access.use_custom_perms = bool(self.cleaned_data.get("use_custom_perms"))
             access.can_simulador = bool(self.cleaned_data.get("can_simulador"))
             access.can_estudios = bool(self.cleaned_data.get("can_estudios"))

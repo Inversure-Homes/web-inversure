@@ -4,7 +4,25 @@ from django.utils import timezone
 
 
 class UserAccess(models.Model):
+    ROLE_ADMIN = "administracion"
+    ROLE_DIRECCION = "direccion"
+    ROLE_COMERCIAL = "comercial"
+    ROLE_MARKETING = "marketing"
+    ROLE_CHOICES = [
+        (ROLE_ADMIN, "Administracion"),
+        (ROLE_DIRECCION, "Direccion"),
+        (ROLE_COMERCIAL, "Comercial"),
+        (ROLE_MARKETING, "Marketing"),
+    ]
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="user_access")
+    role = models.CharField(
+        max_length=20,
+        choices=ROLE_CHOICES,
+        blank=True,
+        default="",
+        help_text="Rol principal del usuario",
+    )
     use_custom_perms = models.BooleanField(
         default=False,
         help_text="Si está activo, se usan los permisos individuales y se ignoran los roles.",

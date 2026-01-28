@@ -667,7 +667,7 @@ function buildOverlayPayloadFromDOM() {
     if (!el || !name) return false;
     // En proyecto.html el selector de estado del proyecto tiene id="estado_proyecto"
     if (name === "estado" && el.id === "estado_proyecto") return true;
-    if (name === "fecha" || name === "responsable" || name === "codigo_proyecto") return true;
+    if (name === "fecha" || name === "responsable" || name === "responsable_user_id" || name === "codigo_proyecto") return true;
     if (name === "notificar_inversores" || name === "acceso_comercial" || name === "mostrar_en_landing") return true;
     // Resultado del cierre: id="resultado_cierre" (solo visible si estado=cerrado)
     if (name === "resultado_cierre" && el.id === "resultado_cierre") return true;
@@ -2576,6 +2576,19 @@ function bindChecklistOperativo() {
     post_venta: "Post-venta",
   };
 
+  let checklistUsers = [];
+  try {
+    const dataEl = document.getElementById("checklistUsersData");
+    if (dataEl && dataEl.textContent) {
+      checklistUsers = JSON.parse(dataEl.textContent) || [];
+    }
+  } catch (e) {
+    checklistUsers = [];
+  }
+  const checklistUsersById = new Map(
+    checklistUsers.map(u => [String(u.id), u.label || ""])
+  );
+
   let rows = [];
 
   function renderTable() {
@@ -2590,19 +2603,39 @@ function bindChecklistOperativo() {
         return `<option value="${v}" ${selected}>${label}</option>`;
       }).join("");
       const fechaVal = r.fecha_objetivo || "";
+      const disabledAttr = window.PROYECTO_EDITABLE === false ? "disabled" : "";
+      let responsableCell = "";
+      if (Array.isArray(checklistUsers) && checklistUsers.length) {
+        const options = [
+          `<option value="">Sin asignar</option>`,
+          ...checklistUsers.map(u => {
+            const selected = String(r.responsable_user_id || "") === String(u.id) ? "selected" : "";
+            const label = u.label || "";
+            return `<option value="${u.id}" ${selected}>${label}</option>`;
+          }),
+        ].join("");
+        responsableCell = `
+          <select class="form-select form-select-sm chk-resp-user" ${disabledAttr}>
+            ${options}
+          </select>
+          <input type="hidden" class="chk-resp" value="${r.responsable || ""}">
+        `;
+      } else {
+        responsableCell = `<input type="text" class="form-control form-control-sm chk-resp" value="${r.responsable || ""}" ${disabledAttr}>`;
+      }
       return `
         <tr data-id="${r.id}">
           <td>${faseLabel[r.fase] || r.fase || ""}</td>
           <td>${r.titulo || ""}</td>
-          <td><input type="text" class="form-control form-control-sm chk-resp" value="${r.responsable || ""}"></td>
-          <td><input type="date" class="form-control form-control-sm chk-fecha" value="${fechaVal}"></td>
+          <td>${responsableCell}</td>
+          <td><input type="date" class="form-control form-control-sm chk-fecha" value="${fechaVal}" ${disabledAttr}></td>
           <td>
-            <select class="form-select form-select-sm chk-estado">
+            <select class="form-select form-select-sm chk-estado" ${disabledAttr}>
               ${estadoOptions}
             </select>
           </td>
           <td class="text-end">
-            <button type="button" class="btn btn-sm btn-outline-secondary chk-save">Guardar</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary chk-save" ${disabledAttr}>Guardar</button>
           </td>
         </tr>
       `;
@@ -2632,14 +2665,27 @@ function bindChecklistOperativo() {
     const id = tr.getAttribute("data-id");
     if (!id) return;
     const respInput = tr.querySelector(".chk-resp");
+    const respSelect = tr.querySelector(".chk-resp-user");
     const fechaInput = tr.querySelector(".chk-fecha");
     const estadoInput = tr.querySelector(".chk-estado");
     const todayIso = new Date().toISOString().slice(0, 10);
     if (estadoInput && estadoInput.value === "hecho" && fechaInput && !fechaInput.value) {
       fechaInput.value = todayIso;
     }
+    let responsableUserId = "";
+    let responsableLabel = "";
+    if (respSelect) {
+      responsableUserId = respSelect.value || "";
+      responsableLabel = checklistUsersById.get(String(responsableUserId)) || "";
+      if (respInput) {
+        respInput.value = responsableLabel;
+      }
+    } else if (respInput) {
+      responsableLabel = respInput.value || "";
+    }
     const payload = {
-      responsable: respInput ? respInput.value : "",
+      responsable: responsableLabel,
+      responsable_user_id: responsableUserId,
       fecha_objetivo: fechaInput ? fechaInput.value : "",
       estado: estadoInput ? estadoInput.value : "pendiente",
     };
@@ -2659,6 +2705,18 @@ function bindChecklistOperativo() {
   });
 
   loadRows();
+}
+
+function bindResponsableProyecto() {
+  const select = document.querySelector("select[name='responsable_user_id']");
+  const hidden = document.getElementById("responsable_nombre");
+  if (!select || !hidden) return;
+  const update = () => {
+    const opt = select.options[select.selectedIndex];
+    hidden.value = opt ? String(opt.text || "").trim() : "";
+  };
+  select.addEventListener("change", update);
+  update();
 }
 
 function updateChecklistDashboard(rows) {
@@ -3313,6 +3371,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindAutocalcBeneficios();
   bindMemoriaEconomica();
   bindChecklistOperativo();
+  bindResponsableProyecto();
   bindParticipaciones();
   bindSolicitudes();
   bindComunicaciones();

@@ -1,24 +1,38 @@
-ROLE_ADMIN = "Administrador"
-ROLE_MARKETING = "Marketing"
-ROLE_COMERCIAL = "Comercial"
+ROLE_ADMIN = "administracion"
+ROLE_DIRECCION = "direccion"
+ROLE_MARKETING = "marketing"
+ROLE_COMERCIAL = "comercial"
 
 
-def _has_group(user, name: str) -> bool:
-    if not user.is_authenticated:
-        return False
-    return user.groups.filter(name=name).exists()
+def _get_role(user):
+    access = get_user_access(user)
+    return (access.role or "").strip().lower() if access else ""
 
 
 def is_admin_user(user) -> bool:
-    return bool(user.is_authenticated and (user.is_superuser or _has_group(user, ROLE_ADMIN)))
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    return _get_role(user) == ROLE_ADMIN
+
+
+def is_direccion_user(user) -> bool:
+    if not user or not user.is_authenticated:
+        return False
+    return _get_role(user) == ROLE_DIRECCION
 
 
 def is_marketing_user(user) -> bool:
-    return bool(user.is_authenticated and _has_group(user, ROLE_MARKETING))
+    if not user or not user.is_authenticated:
+        return False
+    return _get_role(user) == ROLE_MARKETING
 
 
 def is_comercial_user(user) -> bool:
-    return bool(user.is_authenticated and _has_group(user, ROLE_COMERCIAL))
+    if not user or not user.is_authenticated:
+        return False
+    return _get_role(user) == ROLE_COMERCIAL
 
 
 def get_user_access(user):
@@ -62,11 +76,28 @@ def resolve_permissions(user) -> dict:
             "can_facturas_preview": bool(access.can_facturas_preview),
         }
 
-    if is_marketing_user(user):
+    role = _get_role(user)
+    if role == ROLE_DIRECCION:
+        perms.update(
+            {
+                "can_simulador": True,
+                "can_estudios": True,
+                "can_proyectos": True,
+                "can_clientes": True,
+                "can_inversores": True,
+                "can_cms": True,
+                "can_facturas_preview": True,
+            }
+        )
+        return perms
+
+    if role == ROLE_MARKETING:
+        perms["can_estudios"] = True
+        perms["can_proyectos"] = True
         perms["can_cms"] = True
         return perms
 
-    if is_comercial_user(user):
+    if role == ROLE_COMERCIAL:
         perms["can_simulador"] = True
         perms["can_estudios"] = True
         perms["can_proyectos"] = True

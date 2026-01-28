@@ -36,6 +36,32 @@ class Estudio(models.Model):
         blank=True,
         help_text="Fecha/hora en que el estudio se bloqueó (conversión a proyecto)"
     )
+    conversion_solicitada_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="estudios_conversion_solicitada",
+        help_text="Usuario que solicitó la conversión a proyecto"
+    )
+    conversion_solicitada_en = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Fecha/hora en que se solicitó la conversión a proyecto"
+    )
+    conversion_aprobada_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="estudios_conversion_aprobada",
+        help_text="Administrador que aprobó la conversión a proyecto"
+    )
+    conversion_aprobada_en = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Fecha/hora de aprobación de la conversión a proyecto"
+    )
     valor_adquisicion = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True
     )
@@ -170,6 +196,20 @@ class Proyecto(models.Model):
         null=True,
         blank=True,
         help_text="Código interno visible del proyecto (contador propio)"
+    )
+    responsable_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="proyectos_responsable",
+        help_text="Usuario responsable del proyecto",
+    )
+    responsable = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Nombre visible del responsable (compatibilidad)",
     )
     acceso_comercial = models.BooleanField(
         default=False,
@@ -864,8 +904,23 @@ class ChecklistItem(models.Model):
     titulo = models.CharField(max_length=255)
     descripcion = models.TextField(blank=True, null=True)
     responsable = models.CharField(max_length=255, blank=True, null=True)
+    responsable_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="checklist_items_asignados",
+    )
     fecha_objetivo = models.DateField(blank=True, null=True)
     estado = models.CharField(max_length=15, choices=ESTADOS, default="pendiente")
+    cerrado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="checklist_items_cerrados",
+    )
+    cerrado_en = models.DateTimeField(null=True, blank=True)
     coste_estimado = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     coste_real = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     gasto = models.ForeignKey(
