@@ -35,6 +35,7 @@ import base64
 import mimetypes
 from decimal import Decimal
 from datetime import date, datetime
+from urllib.request import Request, urlopen
 
 
 from .models import Estudio, Proyecto
@@ -981,6 +982,66 @@ def _documento_image_url(request, documento: DocumentoProyecto) -> str:
     return _documento_url(request, documento)
 
 
+def _find_key_recursive(obj, key):
+    if isinstance(obj, dict):
+        if key in obj:
+            return obj.get(key)
+        for v in obj.values():
+            found = _find_key_recursive(v, key)
+            if found is not None:
+                return found
+    elif isinstance(obj, list):
+        for item in obj:
+            found = _find_key_recursive(item, key)
+            if found is not None:
+                return found
+    return None
+
+
+def _catastro_coords_from_refcat(refcat: str):
+    refcat = (refcat or "").replace(" ", "").strip()
+    if not refcat:
+        return None
+    base_url = "https://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCoordenadas.svc/json/Consulta_CPMRC"
+    qs = urlencode({"RefCat": refcat, "SRS": "EPSG:4326"})
+    url = f"{base_url}?{qs}"
+    try:
+        req = Request(url, headers={"User-Agent": "Inversure/1.0"})
+        with urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        xcen = _find_key_recursive(data, "xcen")
+        ycen = _find_key_recursive(data, "ycen")
+        if xcen is None or ycen is None:
+            return None
+        return float(xcen), float(ycen)
+    except Exception:
+        return None
+
+
+def _catastro_wms_url_from_refcat(refcat: str, width=1200, height=900):
+    coords = _catastro_coords_from_refcat(refcat)
+    if not coords:
+        return ""
+    x, y = coords
+    delta = 0.0015
+    minx, maxx = x - delta, x + delta
+    miny, maxy = y - delta, y + delta
+    params = {
+        "SERVICE": "WMS",
+        "VERSION": "1.1.1",
+        "REQUEST": "GetMap",
+        "LAYERS": "CP.CadastralParcel",
+        "STYLES": "",
+        "SRS": "EPSG:4326",
+        "BBOX": f"{minx},{miny},{maxx},{maxy}",
+        "WIDTH": str(width),
+        "HEIGHT": str(height),
+        "FORMAT": "image/png",
+        "TRANSPARENT": "TRUE",
+    }
+    return "https://ovc.catastro.meh.es/cartografia/INSPIRE/spadgcwms.aspx?" + urlencode(params)
+
+
 def _documento_pdf_bytes(request, documento: DocumentoProyecto) -> bytes | None:
     nombre = (documento.archivo.name or "").lower()
     if nombre.endswith(".pdf"):
@@ -1221,7 +1282,7 @@ def _build_presentacion_context(request, proyecto: Proyecto) -> dict:
             if mapa_doc:
                 mapa_url = _documento_image_url(request, mapa_doc)
         if dossier_id:
-            dossier_doc = docs_map.get(str(dossier_id))
+                dossier_doc = docs_map.get(str(dossier_id))
             if dossier_doc:
                 dossier_url = _documento_image_url(request, dossier_doc)
         for doc_id in anexos_ids:
@@ -1237,6 +1298,16 @@ def _build_presentacion_context(request, proyecto: Proyecto) -> dict:
     inmueble["banos"] = inmueble.get("banos") or inmueble.get("baños") or inmueble.get("num_banos") or inmueble.get("num_baños")
     inmueble["anio_construccion"] = inmueble.get("anio_construccion") or inmueble.get("ano_construccion") or inmueble.get("year_built")
     resultado = _resultado_desde_memoria(proyecto, snapshot)
+
+    if not dossier_url:
+        ref_catastral = (
+            inmueble.get("ref_catastral")
+            or inmueble.get("referencia_catastral")
+            or getattr(proyecto, "ref_catastral", None)
+            or getattr(proyecto, "referencia_catastral", None)
+            or ""
+        )
+        dossier_url = _catastro_wms_url_from_refcat(ref_catastral)
     if rentabilidad is None and resultado.get("roi") is not None:
         rentabilidad = resultado.get("roi")
 
@@ -4155,6 +4226,11 @@ def proyecto(request, proyecto_id: int):
     except Exception:
         notify_flag = True
 
+    try:
+        usuarios_responsables = User.objects.filter(is_active=True).order_by("first_name", "last_name", "username")
+    except Exception:
+        usuarios_responsables = []
+
     ctx = {
         "PROYECTO_ID": str(proyecto_obj.id),
         "ESTADO_INICIAL_JSON": json.dumps(estado_inicial, ensure_ascii=False),
@@ -6108,6 +6184,47 @@ def proyecto_participacion_detalle(request, proyecto_id: int, participacion_id: 
         return JsonResponse({"ok": True})
 
     return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+
+@require_POST
+def proyecto_documento_ficha_catastral(request, proyecto_id: int):
+    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+    if not _user_can_edit_project(request.user, proyecto):
+        return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
+
+    ref_catastral = (
+        getattr(proyecto, "ref_catastral", None)
+        or getattr(proyecto, "referencia_catastral", None)
+        or ""
+    )
+    ref_catastral = (ref_catastral or "").strip()
+    if not ref_catastral:
+        return JsonResponse({"ok": False, "error": "Falta la referencia catastral."}, status=400)
+
+    catastro_url = _catastro_wms_url_from_refcat(ref_catastral)
+    if not catastro_url:
+        return JsonResponse({"ok": False, "error": "No se pudo obtener el plano catastral."}, status=400)
+
+    try:
+        req = Request(catastro_url, headers={"User-Agent": "Inversure/1.0"})
+        with urlopen(req, timeout=10) as resp:
+            img_bytes = resp.read()
+        if not img_bytes:
+            return JsonResponse({"ok": False, "error": "El Catastro no devolvió imagen."}, status=400)
+    except Exception:
+        return JsonResponse({"ok": False, "error": "No se pudo descargar el plano catastral."}, status=400)
+
+    titulo = "Ficha catastral"
+    filename = f"ficha_catastral_{proyecto.id}.png"
+    doc = DocumentoProyecto(
+        proyecto=proyecto,
+        titulo=titulo,
+        categoria="inmueble",
+        tipo="inmueble",
+        usar_dossier=True,
+    )
+    doc.archivo.save(filename, ContentFile(img_bytes), save=True)
+    return JsonResponse({"ok": True, "documento_id": doc.id})
 
 
 @csrf_exempt

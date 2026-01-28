@@ -989,7 +989,9 @@
                 <div class="card-body">
                     <h5 class="mb-2 inversure-form-header">Documentación</h5>
                     <p class="text-muted mb-4">Archiva documentos clave del proyecto con trazabilidad y categorías.</p>
-                    <div class="row g-3" id="doc_upload_wrap" data-upload-url="{% url 'core:proyecto_documentos' proyecto.id %}">
+                    <div class="row g-3" id="doc_upload_wrap"
+                         data-upload-url="{% url 'core:proyecto_documentos' proyecto.id %}"
+                         data-catastro-url="{% url 'core:proyecto_documento_ficha_catastral' proyecto.id %}">
                         <div class="col-lg-5">
                             <div class="card border-0 shadow-sm">
                                 <div class="card-body">
@@ -1043,6 +1045,12 @@
                                                     </div>
                                                     <div class="small text-muted mb-2" id="doc_upload_status"></div>
                                                     <button type="button" class="btn btn-inversure w-100 text-nowrap" id="doc_upload_btn">Subir documento</button>
+                                                    <div class="mt-3">
+                                                        <button type="button" class="btn btn-outline-secondary w-100 text-nowrap" id="doc_catastro_btn">
+                                                            Generar ficha catastral
+                                                        </button>
+                                                        <div class="small text-muted mt-2" id="doc_catastro_status"></div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

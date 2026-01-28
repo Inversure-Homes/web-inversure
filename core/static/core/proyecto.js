@@ -3060,9 +3060,12 @@ function bindDocumentos() {
   const elFacturaFecha = document.getElementById("doc_factura_fecha");
   const elFacturaImporte = document.getElementById("doc_factura_importe");
   const status = document.getElementById("doc_upload_status");
+  const btnCatastro = document.getElementById("doc_catastro_btn");
+  const statusCatastro = document.getElementById("doc_catastro_status");
   if (!wrap || !btn || !elArchivo) return;
 
   const url = wrap.getAttribute("data-upload-url") || "";
+  const catastroUrl = wrap.getAttribute("data-catastro-url") || "";
   if (!url) return;
 
   const toggleOtro = () => {
@@ -3124,6 +3127,32 @@ function bindDocumentos() {
       if (status) status.textContent = "No se pudo subir el documento.";
     }
   });
+
+  if (btnCatastro && catastroUrl) {
+    btnCatastro.addEventListener("click", async () => {
+      if (statusCatastro) statusCatastro.textContent = "Generando ficha catastral...";
+      const csrf = getCsrfToken();
+      try {
+        const resp = await fetch(catastroUrl, {
+          method: "POST",
+          headers: {
+            ...(csrf ? { "X-CSRFToken": csrf } : {}),
+          },
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || !data.ok) {
+          if (statusCatastro) {
+            statusCatastro.textContent = data.error || "No se pudo generar la ficha catastral.";
+          }
+          return;
+        }
+        window.location.hash = "vista-documentacion";
+        window.location.reload();
+      } catch (e) {
+        if (statusCatastro) statusCatastro.textContent = "No se pudo generar la ficha catastral.";
+      }
+    });
+  }
 
   document.querySelectorAll(".doc-delete-btn").forEach(btnDel => {
     if (btnDel.dataset.bindDocDelete === "1") return;

@@ -41,6 +41,11 @@ urlpatterns = [
     path("proyectos/<int:proyecto_id>/ingresos/", views.proyecto_ingresos, name="proyecto_ingresos"),
     path("proyectos/<int:proyecto_id>/ingresos/<int:ingreso_id>/", views.proyecto_ingreso_detalle, name="proyecto_ingreso_detalle"),
     path("proyectos/<int:proyecto_id>/documentos/", views.proyecto_documentos, name="proyecto_documentos"),
+    path(
+        "proyectos/<int:proyecto_id>/documentos/ficha-catastral/",
+        views.proyecto_documento_ficha_catastral,
+        name="proyecto_documento_ficha_catastral",
+    ),
     path("proyectos/<int:proyecto_id>/documentos/<int:documento_id>/borrar/", views.proyecto_documento_borrar, name="proyecto_documento_borrar"),
     path("proyectos/<int:proyecto_id>/documentos/<int:documento_id>/principal/", views.proyecto_documento_principal, name="proyecto_documento_principal"),
     path("proyectos/<int:proyecto_id>/documentos/<int:documento_id>/flag/", views.proyecto_documento_flag, name="proyecto_documento_flag"),
