@@ -3408,3 +3408,10 @@ document.addEventListener("DOMContentLoaded", () => {
   bindDocumentos();
   bindDifusion();
 });
+
+// Bind documentos en un listener independiente para que no se rompa si otra sección falla
+document.addEventListener("DOMContentLoaded", () => {
+  try {
+    bindDocumentos();
+  } catch (e) {}
+});
