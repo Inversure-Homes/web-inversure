@@ -3062,71 +3062,75 @@ function bindDocumentos() {
   const status = document.getElementById("doc_upload_status");
   const btnCatastro = document.getElementById("doc_catastro_btn");
   const statusCatastro = document.getElementById("doc_catastro_status");
-  if (!wrap || !btn || !elArchivo) return;
+  if (!wrap) return;
 
   const url = wrap.getAttribute("data-upload-url") || "";
   const catastroUrl = wrap.getAttribute("data-catastro-url") || "";
-  if (!url) return;
 
-  const toggleOtro = () => {
-    if (!elTituloOtro || !elTitulo) return;
-    if ((elTitulo.value || "").trim() === "otros") {
-      elTituloOtro.classList.remove("d-none");
-    } else {
-      elTituloOtro.classList.add("d-none");
-      elTituloOtro.value = "";
+  const canUpload = Boolean(btn && elArchivo && url);
+  if (canUpload) {
+    const toggleOtro = () => {
+      if (!elTituloOtro || !elTitulo) return;
+      if ((elTitulo.value || "").trim() === "otros") {
+        elTituloOtro.classList.remove("d-none");
+      } else {
+        elTituloOtro.classList.add("d-none");
+        elTituloOtro.value = "";
+      }
+    };
+    if (elTitulo) {
+      elTitulo.addEventListener("change", toggleOtro);
+      toggleOtro();
     }
-  };
-  if (elTitulo) {
-    elTitulo.addEventListener("change", toggleOtro);
-    toggleOtro();
   }
 
-  btn.addEventListener("click", async () => {
-    const files = elArchivo.files ? Array.from(elArchivo.files) : [];
-    if (!files.length) {
-      if (status) status.textContent = "Selecciona un archivo para subir.";
-      return;
-    }
-    if (status) status.textContent = "Subiendo documento...";
-    const fd = new FormData();
-    files.forEach(file => fd.append("archivo", file));
-    let titulo = (elTitulo && elTitulo.value || "").trim();
-    if (titulo === "otros") {
-      titulo = (elTituloOtro && elTituloOtro.value || "").trim();
-    } else if (elTitulo && elTitulo.selectedOptions && elTitulo.selectedOptions.length) {
-      titulo = (elTitulo.selectedOptions[0].textContent || titulo).trim();
-    }
-    fd.append("titulo", titulo);
-    const categoria = (elCategoria && elCategoria.value || "otros").trim();
-    fd.append("categoria", categoria);
-    if (categoria === "facturas") {
-      if (elFacturaFecha && elFacturaFecha.value) {
-        fd.append("factura_fecha", elFacturaFecha.value);
-      }
-      if (elFacturaImporte && elFacturaImporte.value) {
-        fd.append("factura_importe", elFacturaImporte.value);
-      }
-    }
-    const csrf = getCsrfToken();
-    try {
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: {
-          ...(csrf ? { "X-CSRFToken": csrf } : {}),
-        },
-        body: fd,
-      });
-      if (!resp.ok) {
-        if (status) status.textContent = "No se pudo subir el documento.";
+  if (canUpload) {
+    btn.addEventListener("click", async () => {
+      const files = elArchivo.files ? Array.from(elArchivo.files) : [];
+      if (!files.length) {
+        if (status) status.textContent = "Selecciona un archivo para subir.";
         return;
       }
-      window.location.hash = "vista-documentacion";
-      window.location.reload();
-    } catch (e) {
-      if (status) status.textContent = "No se pudo subir el documento.";
-    }
-  });
+      if (status) status.textContent = "Subiendo documento...";
+      const fd = new FormData();
+      files.forEach(file => fd.append("archivo", file));
+      let titulo = (elTitulo && elTitulo.value || "").trim();
+      if (titulo === "otros") {
+        titulo = (elTituloOtro && elTituloOtro.value || "").trim();
+      } else if (elTitulo && elTitulo.selectedOptions && elTitulo.selectedOptions.length) {
+        titulo = (elTitulo.selectedOptions[0].textContent || titulo).trim();
+      }
+      fd.append("titulo", titulo);
+      const categoria = (elCategoria && elCategoria.value || "otros").trim();
+      fd.append("categoria", categoria);
+      if (categoria === "facturas") {
+        if (elFacturaFecha && elFacturaFecha.value) {
+          fd.append("factura_fecha", elFacturaFecha.value);
+        }
+        if (elFacturaImporte && elFacturaImporte.value) {
+          fd.append("factura_importe", elFacturaImporte.value);
+        }
+      }
+      const csrf = getCsrfToken();
+      try {
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: {
+            ...(csrf ? { "X-CSRFToken": csrf } : {}),
+          },
+          body: fd,
+        });
+        if (!resp.ok) {
+          if (status) status.textContent = "No se pudo subir el documento.";
+          return;
+        }
+        window.location.hash = "vista-documentacion";
+        window.location.reload();
+      } catch (e) {
+        if (status) status.textContent = "No se pudo subir el documento.";
+      }
+    });
+  }
 
   if (btnCatastro && catastroUrl) {
     btnCatastro.addEventListener("click", async () => {
