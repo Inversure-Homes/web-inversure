@@ -1,0 +1,35 @@
+{% extends "two_factor/_base.html" %}
+{% load i18n %}
+
+{% block content %}
+  <h1 class="mb-3">{% trans "Iniciar sesión" %}</h1>
+
+  <form method="post">
+    {% csrf_token %}
+    {{ wizard.management_form }}
+
+    {% if wizard.form.errors %}
+      <div class="alert alert-danger">
+        {% trans "Revisa los campos e inténtalo de nuevo." %}
+      </div>
+    {% endif %}
+
+    {% if wizard.steps.current == "auth" %}
+      {{ wizard.form.as_p }}
+      <div class="d-flex gap-2 align-items-center mt-3">
+        <button type="submit" class="btn btn-primary">{% trans "Siguiente" %}</button>
+      </div>
+    {% else %}
+      {{ wizard.form.as_p }}
+      <div class="d-flex gap-2 align-items-center mt-3">
+        <button type="submit" class="btn btn-primary">{% trans "Verificar" %}</button>
+        <button type="submit"
+                class="btn btn-outline-secondary"
+                name="wizard_goto_step"
+                value="{{ wizard.steps.current }}">
+          {% trans "Reenviar código" %}
+        </button>
+      </div>
+    {% endif %}
+  </form>
+{% endblock %}
