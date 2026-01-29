@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <style>
+      @page { margin: 20mm; size: A4; }
+      body {
+        font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+        color: #0f1d2e;
+        font-size: 12px;
+      }
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+      }
+      .header img {
+        height: 28px;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0;
+        font-weight: 700;
+      }
+      .meta {
+        color: #64748b;
+        font-size: 11px;
+        margin-top: 4px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+      }
+      th, td {
+        text-align: left;
+        padding: 8px 10px;
+        border-bottom: 1px solid #e2e8f0;
+        vertical-align: top;
+      }
+      th {
+        width: 38%;
+        color: #334155;
+        font-weight: 600;
+        background: #f8fafc;
+      }
+      .note {
+        margin-top: 18px;
+        font-size: 10.5px;
+        color: #64748b;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div>
+        <h1>{{ titulo }}</h1>
+        <div class="meta">Fecha: {{ fecha }}</div>
+      </div>
+      {% if logo_data_uri %}
+        <img src="{{ logo_data_uri }}" alt="Inversure">
+      {% endif %}
+    </div>
+
+    <table>
+      <tbody>
+        {% for label, value in datos.items %}
+          <tr>
+            <th>{{ label }}</th>
+            <td>{{ value|default:"—" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="note">{{ nota }}</div>
+  </body>
+</html>

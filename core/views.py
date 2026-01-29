@@ -1000,6 +1000,14 @@ def _find_key_recursive(obj, key):
     return None
 
 
+def _find_first_key_recursive(obj, keys):
+    for key in keys:
+        found = _find_key_recursive(obj, key)
+        if found is not None:
+            return found
+    return None
+
+
 def _catastro_coords_from_refcat(refcat: str):
     refcat = (refcat or "").replace(" ", "").strip().upper()
     if not refcat:
@@ -1069,6 +1077,86 @@ def _catastro_wms_url_from_refcat(refcat: str, width=1200, height=900):
         "TRANSPARENT": "TRUE",
     }
     return "https://ovc.catastro.meh.es/cartografia/INSPIRE/spadgcwms.aspx?" + urlencode(params)
+
+
+def _catastro_datos_no_protegidos(refcat: str):
+    refcat = (refcat or "").replace(" ", "").strip().upper()
+    if not refcat:
+        return None
+    candidates = [refcat]
+    if len(refcat) >= 14:
+        candidates.append(refcat[:14])
+    if len(refcat) >= 18:
+        candidates.append(refcat[:18])
+    base_urls = [
+        "https://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCallejero.svc/json/Consulta_DNPRC",
+        "http://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCallejero.svc/json/Consulta_DNPRC",
+        "https://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCallejeroCodigos.svc/json/Consulta_DNPRC_Codigos",
+        "http://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCallejeroCodigos.svc/json/Consulta_DNPRC_Codigos",
+    ]
+    for candidate in candidates:
+        if not candidate:
+            continue
+        for base_url in base_urls:
+            url = f"{base_url}?{urlencode({'RefCat': candidate})}"
+            try:
+                req = Request(url, headers={"User-Agent": "Inversure/1.0"})
+                with urlopen(req, timeout=4) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+            except Exception:
+                continue
+            luso = _find_key_recursive(data, "luso")
+            ant = _find_key_recursive(data, "ant")
+            sfc = _find_key_recursive(data, "sfc")
+            ss = _find_first_key_recursive(data, ["ssf", "ss"])
+            cpt = _find_first_key_recursive(data, ["cpt", "cup"])
+            ldt = _find_first_key_recursive(data, ["ldt", "dir", "ldir"])
+            np = _find_key_recursive(data, "np")
+            nm = _find_key_recursive(data, "nm")
+            nombre_provincia = _find_first_key_recursive(data, ["npn", "npv", "provincia"])
+            if any(v is not None for v in (luso, ant, sfc, ss, ldt, nm, np)):
+                return {
+                    "ref_catastral": candidate,
+                    "uso": luso,
+                    "antiguedad": ant,
+                    "superficie_construida": sfc,
+                    "superficie_solar": ss,
+                    "coef_participacion": cpt,
+                    "direccion": ldt,
+                    "municipio": nm,
+                    "provincia": nombre_provincia,
+                    "numero": np,
+                    "raw": data,
+                }
+    return None
+
+
+def _catastro_datos_pdf_bytes(request, datos: dict):
+    try:
+        html = render_to_string(
+            "core/pdf_ficha_catastral.html",
+            {
+                "fecha": timezone.now().date().strftime("%d/%m/%Y"),
+                "titulo": "Ficha catastral (datos no protegidos)",
+                "logo_data_uri": _logo_data_uri(),
+                "datos": {
+                    "Referencia catastral": datos.get("ref_catastral") or "",
+                    "Dirección": datos.get("direccion") or "",
+                    "Municipio": datos.get("municipio") or "",
+                    "Provincia": datos.get("provincia") or "",
+                    "Uso": datos.get("uso") or "",
+                    "Superficie construida (m²)": datos.get("superficie_construida") or "",
+                    "Superficie solar (m²)": datos.get("superficie_solar") or "",
+                    "Año/antigüedad": datos.get("antiguedad") or "",
+                    "Coef. participación": datos.get("coef_participacion") or "",
+                },
+                "nota": "Datos no protegidos del Catastro. Uso informativo; pueden variar.",
+            },
+        )
+        from weasyprint import HTML  # defer import
+        return HTML(string=html, base_url=request.build_absolute_uri("/") if request else None).write_pdf()
+    except Exception:
+        return None
 
 
 def _documento_pdf_bytes(request, documento: DocumentoProyecto) -> bytes | None:
@@ -6259,24 +6347,16 @@ def proyecto_documento_ficha_catastral(request, proyecto_id: int):
     if not ref_catastral:
         return JsonResponse({"ok": False, "error": "Falta la referencia catastral."}, status=400)
 
-    catastro_url = _catastro_wms_url_from_refcat(ref_catastral)
-    if not catastro_url:
-        return JsonResponse({"ok": False, "error": "No se pudo obtener el plano catastral."}, status=400)
+    datos = _catastro_datos_no_protegidos(ref_catastral)
+    if not datos:
+        return JsonResponse({"ok": False, "error": "No se pudo obtener la ficha catastral (datos no protegidos)."}, status=400)
 
-    try:
-        req = Request(catastro_url, headers={"User-Agent": "Inversure/1.0"})
-        with urlopen(req, timeout=5) as resp:
-            max_bytes = 5 * 1024 * 1024
-            img_bytes = resp.read(max_bytes + 1)
-        if not img_bytes:
-            return JsonResponse({"ok": False, "error": "El Catastro no devolvió imagen."}, status=400)
-        if len(img_bytes) > max_bytes:
-            return JsonResponse({"ok": False, "error": "La imagen del Catastro es demasiado grande."}, status=400)
-    except Exception:
-        return JsonResponse({"ok": False, "error": "No se pudo descargar el plano catastral."}, status=400)
+    pdf_bytes = _catastro_datos_pdf_bytes(request, datos)
+    if not pdf_bytes:
+        return JsonResponse({"ok": False, "error": "No se pudo generar la ficha catastral."}, status=400)
 
     titulo = "Ficha catastral"
-    filename = f"ficha_catastral_{proyecto.id}.png"
+    filename = f"ficha_catastral_{proyecto.id}.pdf"
     doc = DocumentoProyecto(
         proyecto=proyecto,
         titulo=titulo,
@@ -6284,7 +6364,7 @@ def proyecto_documento_ficha_catastral(request, proyecto_id: int):
         tipo="inmueble",
         usar_dossier=True,
     )
-    doc.archivo.save(filename, ContentFile(img_bytes), save=True)
+    doc.archivo.save(filename, ContentFile(pdf_bytes), save=True)
     return JsonResponse({"ok": True, "documento_id": doc.id})
 
 
