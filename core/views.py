@@ -4,6 +4,7 @@ import logging
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
+from django.contrib.auth.hashers import check_password, make_password
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -3586,6 +3587,7 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
 
     participaciones_conf = participaciones.filter(estado="confirmada")
     proyectos_ids = list(participaciones_conf.values_list("proyecto_id", flat=True))
+    proyectos_ids_all = list(participaciones.values_list("proyecto_id", flat=True))
 
     proyectos_participados = []
     proyectos_seen = set()
@@ -3650,6 +3652,28 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
             .annotate(total=Sum("importe_invertido"))
         ):
             totales_proyecto[row["proyecto_id"]] = float(row.get("total") or 0)
+
+    totales_proyecto_all = {}
+    if proyectos_ids_all:
+        for row in (
+            Participacion.objects.filter(proyecto_id__in=proyectos_ids_all)
+            .values("proyecto_id")
+            .annotate(total=Sum("importe_invertido"))
+        ):
+            totales_proyecto_all[row["proyecto_id"]] = float(row.get("total") or 0)
+
+    for part in participaciones:
+        proyecto = part.proyecto
+        if not proyecto:
+            continue
+        total_proj = totales_proyecto.get(proyecto.id, 0.0)
+        if total_proj <= 0:
+            total_proj = totales_proyecto_all.get(proyecto.id, 0.0)
+        if total_proj > 0 and part.importe_invertido:
+            try:
+                part.porcentaje_participacion = (Decimal(str(part.importe_invertido)) / Decimal(str(total_proj))) * Decimal("100")
+            except Exception:
+                part.porcentaje_participacion = None
 
     beneficios_por_proyecto = []
     total_beneficio = 0.0
@@ -3833,12 +3857,34 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
         "documentos_por_proyecto": documentos_por_proyecto,
         "documentos_personales": documentos_personales,
         "logo_url": reverse("core:inversores_list"),
+        "portal_pin_set": bool(perfil.portal_pin_hash),
         "internal_view": internal_view,
     }
 
 
 def inversor_portal(request, token: str):
     perfil = get_object_or_404(InversorPerfil, token=token, activo=True)
+    session_key = f"inversor_portal_ok_{perfil.id}"
+    if perfil.portal_pin_hash and not request.session.get(session_key):
+        pin_error = None
+        if request.method == "POST" and request.POST.get("portal_pin_submit"):
+            pin = (request.POST.get("portal_pin") or "").strip()
+            if pin and check_password(pin, perfil.portal_pin_hash):
+                request.session[session_key] = True
+                if request.POST.get("portal_pin_remember"):
+                    request.session.set_expiry(60 * 60 * 24 * 30)
+                else:
+                    request.session.set_expiry(0)
+                return redirect("core:inversor_portal", token=token)
+            pin_error = "PIN incorrecto. Inténtalo de nuevo."
+        ctx = {
+            "perfil": perfil,
+            "portal_pin_required": True,
+            "portal_pin_error": pin_error,
+            "is_inversor_portal": True,
+        }
+        return render(request, "core/inversor_portal.html", ctx)
+
     ctx = _build_inversor_portal_context(perfil, internal_view=False)
     ctx["is_inversor_portal"] = True
     return render(request, "core/inversor_portal.html", ctx)
@@ -3880,9 +3926,33 @@ def inversor_portal_config(request, perfil_id: int):
                 return redirect("core:inversor_portal_admin", perfil_id=perfil_id)
         updated_fields.append("aportacion_inicial_override")
 
+    if request.POST.get("portal_pin_submit"):
+        if request.POST.get("portal_pin_clear"):
+            perfil.portal_pin_hash = ""
+            perfil.portal_pin_set_at = None
+            updated_fields.extend(["portal_pin_hash", "portal_pin_set_at"])
+            messages.success(request, "PIN del portal eliminado.")
+        else:
+            pin = (request.POST.get("portal_pin") or "").strip()
+            pin_confirm = (request.POST.get("portal_pin_confirm") or "").strip()
+            if not pin:
+                messages.error(request, "Debes indicar un PIN para el portal.")
+                return redirect("core:inversor_portal_admin", perfil_id=perfil_id)
+            if pin != pin_confirm:
+                messages.error(request, "El PIN y su confirmación no coinciden.")
+                return redirect("core:inversor_portal_admin", perfil_id=perfil_id)
+            if not pin.isdigit() or len(pin) < 4 or len(pin) > 6:
+                messages.error(request, "El PIN debe tener entre 4 y 6 dígitos.")
+                return redirect("core:inversor_portal_admin", perfil_id=perfil_id)
+            perfil.portal_pin_hash = make_password(pin)
+            perfil.portal_pin_set_at = timezone.now()
+            updated_fields.extend(["portal_pin_hash", "portal_pin_set_at"])
+            messages.success(request, "PIN del portal actualizado.")
+
     if updated_fields:
         perfil.save(update_fields=updated_fields)
-        messages.success(request, "Ajustes del portal actualizados.")
+        if not request.POST.get("portal_pin_submit"):
+            messages.success(request, "Ajustes del portal actualizados.")
     return redirect("core:inversor_portal_admin", perfil_id=perfil_id)
 
 
