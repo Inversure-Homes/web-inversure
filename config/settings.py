@@ -60,10 +60,12 @@ INSTALLED_APPS = [
     'django_otp',
     'django_otp.plugins.otp_totp',
     'django_otp.plugins.otp_static',
+    'django_otp.plugins.otp_email',
     'auditlog',
     'accounts.apps.AccountsConfig',
     'two_factor',
     'two_factor.plugins.phonenumber',
+    'two_factor.plugins.email',
     'wagtail.contrib.forms',
     'wagtail.contrib.redirects',
     'wagtail.embeds',
@@ -307,6 +309,8 @@ AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
 # =========================
 
 OTP_TOTP_ISSUER = "Inversure"
+OTP_EMAIL_SENDER = DEFAULT_FROM_EMAIL
+OTP_EMAIL_TOKEN_VALIDITY = 600
 
 # =========================
 # WEB PUSH (PWA)
