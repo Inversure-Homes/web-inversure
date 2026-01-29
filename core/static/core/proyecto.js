@@ -1396,6 +1396,7 @@ function bindMemoriaEconomica() {
   let rows = [];
   let editState = null;
   let facturaDocs = [];
+  let lastFetchAt = 0;
 
   try {
     const data = document.getElementById("facturasDocsData");
@@ -2231,11 +2232,34 @@ function bindMemoriaEconomica() {
     );
   }
 
-  async function loadRows() {
+  function shouldSkipAutoRefresh() {
+    if (editState) return true;
+    const active = document.activeElement;
+    if (!active) return false;
+    const inputs = [elFecha, elTipo, elCategoria, elTipoIngreso, elConcepto, elImporte, elObs];
+    return inputs.includes(active);
+  }
+
+  async function fetchJsonNoCache(url) {
+    const sep = url.includes("?") ? "&" : "?";
+    const freshUrl = `${url}${sep}_ts=${Date.now()}`;
+    return fetch(freshUrl, {
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+      cache: "no-store",
+    });
+  }
+
+  async function loadRows(force = false) {
     rows = [];
     try {
+      const now = Date.now();
+      if (!force && now - lastFetchAt < 3000) {
+        renderTable();
+        return;
+      }
+      lastFetchAt = now;
       if (urlGastos) {
-        const rg = await fetch(urlGastos, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+        const rg = await fetchJsonNoCache(urlGastos);
         const dg = await rg.json();
         if (dg && dg.ok && Array.isArray(dg.gastos)) {
           dg.gastos.forEach(g => {
@@ -2257,7 +2281,7 @@ function bindMemoriaEconomica() {
       }
 
       if (urlIngresos) {
-        const ri = await fetch(urlIngresos, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+        const ri = await fetchJsonNoCache(urlIngresos);
         const di = await ri.json();
         if (di && di.ok && Array.isArray(di.ingresos)) {
           di.ingresos.forEach(i => {
@@ -2556,6 +2580,23 @@ function bindMemoriaEconomica() {
   toggleTipoFields();
   bindGlobalEcoActions();
   loadRows();
+
+  if (!window.__ecoPollHandle) {
+    window.__ecoPollHandle = setInterval(() => {
+      if (document.hidden || shouldSkipAutoRefresh()) return;
+      loadRows();
+    }, 15000);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && !shouldSkipAutoRefresh()) {
+        loadRows(true);
+      }
+    });
+    window.addEventListener("focus", () => {
+      if (!shouldSkipAutoRefresh()) {
+        loadRows(true);
+      }
+    });
+  }
 }
 
 // -----------------------------
