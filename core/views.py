@@ -37,6 +37,7 @@ from decimal import Decimal
 from datetime import date, datetime
 from urllib.request import Request, urlopen
 
+import requests
 
 from .models import Estudio, Proyecto
 from .models import EstudioSnapshot, ProyectoSnapshot
@@ -1090,19 +1091,22 @@ def _catastro_datos_no_protegidos(refcat: str):
         candidates.append(refcat[:18])
     base_urls = [
         "https://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCallejero.svc/json/Consulta_DNPRC",
-        "http://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCallejero.svc/json/Consulta_DNPRC",
         "https://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCallejeroCodigos.svc/json/Consulta_DNPRC_Codigos",
-        "http://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCallejeroCodigos.svc/json/Consulta_DNPRC_Codigos",
     ]
     for candidate in candidates:
         if not candidate:
             continue
         for base_url in base_urls:
-            url = f"{base_url}?{urlencode({'RefCat': candidate})}"
             try:
-                req = Request(url, headers={"User-Agent": "Inversure/1.0"})
-                with urlopen(req, timeout=4) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
+                resp = requests.get(
+                    base_url,
+                    params={"RefCat": candidate},
+                    headers={"User-Agent": "Inversure/1.0"},
+                    timeout=(2, 2),
+                )
+                if resp.status_code != 200:
+                    continue
+                data = resp.json()
             except Exception:
                 continue
             luso = _find_key_recursive(data, "luso")
