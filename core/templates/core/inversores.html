@@ -172,6 +172,24 @@
             {% endfor %}
           </select>
         </div>
+        <div class="col-md-3">
+          <label class="form-label">Rango</label>
+          <select class="form-select" id="com_rango">
+            <option value="7">Últimos 7 días</option>
+            <option value="30" selected>Últimos 30 días</option>
+            <option value="90">Últimos 90 días</option>
+            <option value="all">Todo</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Vista</label>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary w-100" id="com_toggle_all">Ver todo</button>
+          </div>
+        </div>
+        <div class="col-md-2 text-md-end">
+          <div class="inv-meta" id="com_count">—</div>
+        </div>
       </div>
       <div class="table-responsive mt-3">
         <table class="table table-sm align-middle">
@@ -389,14 +407,32 @@
 <script>
   (function () {
     const proyectoEl = document.getElementById("com_proyecto");
+    const rangoEl = document.getElementById("com_rango");
+    const toggleAllBtn = document.getElementById("com_toggle_all");
+    const countEl = document.getElementById("com_count");
     const tabla = document.getElementById("inv_comunicaciones_rows");
     if (!proyectoEl || !tabla) return;
 
     const baseUrl = "{% url 'core:proyecto_comunicaciones' 0 %}";
+    let showAll = false;
 
     function getUrl() {
       const id = proyectoEl.value;
       return baseUrl.replace("/0/", "/" + id + "/");
+    }
+
+    function filterByRange(rows) {
+      const rango = rangoEl ? rangoEl.value : "30";
+      if (rango === "all") return rows;
+      const dias = parseInt(rango, 10);
+      if (!dias) return rows;
+      const now = new Date();
+      const limit = new Date(now.getTime() - dias * 24 * 60 * 60 * 1000);
+      return rows.filter(r => {
+        if (!r.fecha) return true;
+        const dt = new Date(r.fecha);
+        return !isNaN(dt) && dt >= limit;
+      });
     }
 
     async function loadRows() {
@@ -405,12 +441,22 @@
         const resp = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
         const data = await resp.json();
         if (!data || !data.ok) return;
-        const rows = data.comunicaciones || [];
+        let rows = data.comunicaciones || [];
         if (!rows.length) {
           tabla.innerHTML = "<tr><td colspan=\"4\" class=\"text-muted\">Sin comunicaciones todavía.</td></tr>";
+          if (countEl) countEl.textContent = "0";
           return;
         }
-        tabla.innerHTML = rows.map(r => {
+        rows = rows.slice().sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+        const filtered = filterByRange(rows);
+        const visible = showAll ? filtered : filtered.slice(0, 5);
+        if (countEl) countEl.textContent = `${visible.length} de ${filtered.length}`;
+        if (toggleAllBtn) toggleAllBtn.textContent = showAll ? "Ver menos" : "Ver todo";
+        if (!visible.length) {
+          tabla.innerHTML = "<tr><td colspan=\"4\" class=\"text-muted\">Sin comunicaciones en este rango.</td></tr>";
+          return;
+        }
+        tabla.innerHTML = visible.map(r => {
           const fecha = r.fecha ? r.fecha.slice(0, 10).split("-").reverse().join("/") : "";
           return `
             <tr>
@@ -424,7 +470,22 @@
       } catch (e) {}
     }
 
-    proyectoEl.addEventListener("change", loadRows);
+    proyectoEl.addEventListener("change", () => {
+      showAll = false;
+      loadRows();
+    });
+    if (rangoEl) {
+      rangoEl.addEventListener("change", () => {
+        showAll = false;
+        loadRows();
+      });
+    }
+    if (toggleAllBtn) {
+      toggleAllBtn.addEventListener("click", () => {
+        showAll = !showAll;
+        loadRows();
+      });
+    }
     loadRows();
   })();
 </script>
