@@ -81,6 +81,11 @@ urlpatterns = [
         views.inversor_comunicacion_preview,
         name="inversor_comunicacion_preview",
     ),
+    path(
+        "inversores/<int:perfil_id>/comunicaciones/send/",
+        views.inversor_comunicacion_send,
+        name="inversor_comunicacion_send",
+    ),
 
     # Portal inversor (token)
     path("inversor/sw.js", views.inversor_service_worker, name="inversor_service_worker"),

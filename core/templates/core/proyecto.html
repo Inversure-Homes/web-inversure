@@ -19,6 +19,7 @@
   window.PROYECTO_CHECKLIST_URL = "{% url 'core:proyecto_checklist' proyecto.id %}";
   window.PROYECTO_PARTICIPACIONES_URL = "{% url 'core:proyecto_participaciones' proyecto.id %}";
   window.PROYECTO_SOLICITUDES_URL = "{% url 'core:proyecto_solicitudes' proyecto.id %}";
+  window.PROYECTO_COMUNICACIONES_URL = "{% url 'core:proyecto_comunicaciones' proyecto.id %}";
 </script>
 {% if snapshot %}{{ snapshot|json_script:"snapshotData" }}{% endif %}
 {% if facturas_docs %}{{ facturas_docs|json_script:"facturasDocsData" }}{% endif %}
@@ -1587,6 +1588,41 @@
                                         <div class="form-text mt-2">
                                             Se enviará la presentación PDF más reciente y el proyecto quedará disponible para los seleccionados.
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card border-0 shadow-sm mt-3">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="mb-0">Comunicaciones</h6>
+                                        <span class="badge bg-light text-muted">Proyecto</span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label">Título</label>
+                                        <input type="text" class="form-control" id="com_titulo" placeholder="Actualización de proyecto">
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label">Mensaje</label>
+                                        <textarea class="form-control" id="com_mensaje" rows="3" placeholder="Resumen breve para inversores"></textarea>
+                                    </div>
+                                    <button type="button" class="btn btn-inversure w-100" id="com_send_btn">Enviar comunicación</button>
+                                    <div class="form-text mt-2">
+                                        Se enviará a los inversores confirmados del proyecto.
+                                    </div>
+                                    <div class="table-responsive mt-3">
+                                        <table class="table table-sm align-middle">
+                                            <thead>
+                                                <tr>
+                                                    <th>Cliente</th>
+                                                    <th>Título</th>
+                                                    <th>Mensaje</th>
+                                                    <th>Fecha</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="inv_comunicaciones_rows">
+                                                <tr><td colspan="4" class="text-muted">Sin comunicaciones todavía.</td></tr>
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </div>
                             </div>

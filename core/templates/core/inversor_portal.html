@@ -651,7 +651,7 @@
     <h5 class="mb-3">Comunicaciones (vista previa)</h5>
     {% if proyectos_participados %}
       <div class="row g-3 align-items-end">
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label">Proyecto</label>
           <select class="form-select" id="inv_com_proyecto">
             {% for p in proyectos_participados %}
@@ -659,7 +659,7 @@
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label">Plantilla</label>
           <select class="form-select" id="inv_com_template">
             <option value="">— Manual —</option>
@@ -670,6 +670,9 @@
         </div>
         <div class="col-md-2">
           <button type="button" class="btn btn-portal btn-sm w-100 text-nowrap" id="inv_com_preview_btn">Vista previa PDF</button>
+        </div>
+        <div class="col-md-2">
+          <button type="button" class="btn btn-portal btn-sm w-100 text-nowrap" id="inv_com_send_btn">Enviar</button>
         </div>
       </div>
       <div class="row g-3 mt-2">
@@ -792,6 +795,7 @@
     const templateEl = document.getElementById("inv_com_template");
     const btnGenerate = document.getElementById("inv_com_generate_btn");
     const btnPreview = document.getElementById("inv_com_preview_btn");
+    const btnSend = document.getElementById("inv_com_send_btn");
     const elTitulo = document.getElementById("inv_com_titulo");
     const elMensaje = document.getElementById("inv_com_mensaje");
     const anexosWrap = document.getElementById("inv_com_anexos");
@@ -799,6 +803,7 @@
 
     const baseUrl = "{% url 'core:proyecto_comunicaciones' 0 %}";
     const previewUrl = "{% url 'core:inversor_comunicacion_preview' perfil.id %}";
+    const sendUrl = "{% url 'core:inversor_comunicacion_send' perfil.id %}";
 
     function getCsrfToken() {
       const match = document.cookie.match(/csrftoken=([^;]+)/);
@@ -876,7 +881,7 @@
       });
     }
 
-    btnPreview.addEventListener("click", async () => {
+    function buildPayload() {
       const templateKey = (templateEl && templateEl.value || "").trim();
       const titulo = (elTitulo && elTitulo.value || "").trim();
       const mensaje = (elMensaje && elMensaje.value || "").trim();
@@ -886,7 +891,7 @@
 
       if (!templateKey && (!titulo || !mensaje)) {
         alert("Título y mensaje son obligatorios.");
-        return;
+        return null;
       }
       const payload = { proyecto_id: proyectoEl.value };
       if (templateKey) {
@@ -896,6 +901,12 @@
         payload.mensaje = mensaje;
       }
       if (docIds.length) payload.doc_ids = docIds;
+      return payload;
+    }
+
+    btnPreview.addEventListener("click", async () => {
+      const payload = buildPayload();
+      if (!payload) return;
 
       const resp = await fetch(previewUrl, {
         method: "POST",
@@ -923,6 +934,33 @@
       const url = URL.createObjectURL(blob);
       window.open(url, "_blank", "noopener");
     });
+
+    if (btnSend) {
+      btnSend.addEventListener("click", async () => {
+        const payload = buildPayload();
+        if (!payload) return;
+        const resp = await fetch(sendUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}),
+          },
+          body: JSON.stringify(payload),
+        });
+        if (!resp.ok) {
+          let err = "No se pudo enviar la comunicación.";
+          try {
+            const data = await resp.json();
+            if (data && data.error) err = data.error;
+          } catch (e) {}
+          alert(err);
+          return;
+        }
+        alert("Comunicación enviada.");
+        if (elTitulo) elTitulo.value = "";
+        if (elMensaje) elMensaje.value = "";
+      });
+    }
 
     proyectoEl.addEventListener("change", loadTemplatesDocs);
     loadTemplatesDocs();

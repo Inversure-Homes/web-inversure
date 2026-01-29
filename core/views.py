@@ -6767,3 +6767,82 @@ def inversor_comunicacion_preview(request, perfil_id: int):
         return response
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+
+def inversor_comunicacion_send(request, perfil_id: int):
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "error": "No autorizado"}, status=403)
+    perfil = get_object_or_404(InversorPerfil, id=perfil_id)
+    try:
+        data = json.loads(request.body or "{}")
+        proyecto_id = data.get("proyecto_id")
+        if not proyecto_id:
+            return JsonResponse({"ok": False, "error": "Proyecto requerido"}, status=400)
+        proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+
+        template_key = (data.get("template_key") or "").strip()
+        titulo = (data.get("titulo") or "").strip()
+        mensaje = (data.get("mensaje") or "").strip()
+
+        part = (
+            Participacion.objects.filter(
+                cliente=perfil.cliente,
+                proyecto=proyecto,
+                estado="confirmada",
+            )
+            .order_by("creado", "id")
+            .first()
+        )
+        if not part:
+            return JsonResponse(
+                {"ok": False, "error": "El inversor no tiene participación confirmada en este proyecto."},
+                status=400,
+            )
+
+        snapshot = _get_snapshot_comunicacion(proyecto)
+        resultado_mem = _resultado_desde_memoria(proyecto, snapshot) if isinstance(snapshot, dict) else {}
+        total_proj = (
+            Participacion.objects.filter(proyecto=proyecto, estado="confirmada")
+            .aggregate(total=Sum("importe_invertido"))
+            .get("total")
+            or 0
+        )
+        total_proj = float(total_proj or 0)
+        ctx = _build_comunicacion_context(proyecto, part, snapshot, resultado_mem, total_proj)
+        if request is not None:
+            try:
+                portal_url = request.build_absolute_uri(reverse("core:inversor_portal", args=[perfil.token]))
+                ctx["portal_link"] = portal_url
+            except Exception:
+                ctx["portal_link"] = ""
+        else:
+            ctx["portal_link"] = ""
+
+        if template_key:
+            titulo, mensaje = _render_comunicacion_template(template_key, ctx)
+        if not titulo or not mensaje:
+            return JsonResponse({"ok": False, "error": "Título y mensaje son obligatorios"}, status=400)
+
+        doc_ids = data.get("doc_ids") or []
+        if not isinstance(doc_ids, list):
+            doc_ids = []
+        anexos = list(
+            DocumentoProyecto.objects.filter(
+                proyecto=proyecto,
+                categoria="inmueble",
+                id__in=doc_ids,
+            )
+        )
+
+        attachments = None
+        carta_pdf = _build_carta_pdf(request, titulo, mensaje, perfil, proyecto)
+        merged_pdf = _merge_pdf_with_anexos(carta_pdf, anexos, request=request) if carta_pdf else None
+        if merged_pdf:
+            attachments = [("carta_inversure.pdf", merged_pdf, "application/pdf")]
+
+        _crear_comunicacion(request, perfil, proyecto, titulo, mensaje, attachments=attachments)
+        return JsonResponse({"ok": True})
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)
