@@ -1015,7 +1015,6 @@ def _catastro_coords_from_refcat(refcat: str):
         return None
     base_urls = [
         "https://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCoordenadas.svc/json/Consulta_CPMRC",
-        "http://ovc.catastro.meh.es/OVCServWeb/OVCWcfCallejero/COVCCoordenadas.svc/json/Consulta_CPMRC",
     ]
     candidates = [refcat]
     if len(refcat) >= 14:
@@ -1038,12 +1037,16 @@ def _catastro_coords_from_refcat(refcat: str):
             query_variants.append({"RC": rc14, "SRS": "EPSG:4326"})
         for base_url in base_urls:
             for params in query_variants:
-                qs = urlencode(params)
-                url = f"{base_url}?{qs}"
                 try:
-                    req = Request(url, headers={"User-Agent": "Inversure/1.0"})
-                    with urlopen(req, timeout=4) as resp:
-                        data = json.loads(resp.read().decode("utf-8"))
+                    resp = requests.get(
+                        base_url,
+                        params=params,
+                        headers={"User-Agent": "Inversure/1.0"},
+                        timeout=(2, 2),
+                    )
+                    if resp.status_code != 200:
+                        continue
+                    data = resp.json()
                     xcen = _find_key_recursive(data, "xcen")
                     ycen = _find_key_recursive(data, "ycen")
                     if xcen is None or ycen is None:
