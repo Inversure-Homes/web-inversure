@@ -3185,7 +3185,7 @@ def clientes(request):
 
 
 def _normalizar_dni_cif(value: str) -> str:
-    return (value or "").strip().upper().replace(" ", "")
+    return Cliente.normalize_dni_cif(value)
 
 
 def _validar_dni_cif(value: str) -> bool:
@@ -3506,7 +3506,8 @@ def clientes_import(request):
                 omitidos += 1
                 continue
 
-            if Cliente.objects.filter(dni_cif=dni_cif).exists():
+            dni_hash = Cliente.hash_dni_cif(dni_cif)
+            if Cliente.objects.filter(dni_cif_hash=dni_hash).exists():
                 omitidos += 1
                 continue
 
@@ -3552,9 +3553,11 @@ def inversor_buscar(request):
     cliente = None
     if dni_cif:
         dni_cif = _normalizar_dni_cif(dni_cif)
-        cliente = Cliente.objects.filter(dni_cif=dni_cif).first()
+        dni_hash = Cliente.hash_dni_cif(dni_cif)
+        cliente = Cliente.objects.filter(dni_cif_hash=dni_hash).first()
     if not cliente and email:
-        cliente = Cliente.objects.filter(email__iexact=email).first()
+        email_hash = Cliente.hash_email(email)
+        cliente = Cliente.objects.filter(email_hash=email_hash).first()
 
     if cliente:
         return redirect("core:cliente_inversor_link", cliente_id=cliente.id)

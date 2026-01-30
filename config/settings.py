@@ -151,6 +151,9 @@ import dj_database_url
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
+SENSITIVE_DATA_KEY = os.environ.get("SENSITIVE_DATA_KEY", "")
+SENSITIVE_DATA_HMAC_KEY = os.environ.get("SENSITIVE_DATA_HMAC_KEY", "")
+
 if DATABASE_URL:
     DATABASES = {
         "default": dj_database_url.config(

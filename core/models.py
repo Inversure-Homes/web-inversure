@@ -2,6 +2,15 @@ from django.conf import settings
 from django.db import models
 from django.utils.timezone import now
 
+from .fields import EncryptedCharField, EncryptedTextField
+from .security import (
+    hash_value,
+    normalize_dni_cif,
+    normalize_email,
+    normalize_iban,
+    normalize_phone,
+)
+
 
 class Estudio(models.Model):
     codigo_estudio = models.PositiveIntegerField(
@@ -964,33 +973,51 @@ class Cliente(models.Model):
         help_text="Nombre completo o razón social"
     )
 
-    dni_cif = models.CharField(
-        max_length=20,
-        unique=True
+    dni_cif = EncryptedCharField()
+    dni_cif_hash = models.CharField(
+        max_length=64,
+        unique=True,
+        db_index=True,
     )
 
     # =========================
     # CONTACTO
     # =========================
-    email = models.EmailField(
+    email = EncryptedTextField(
         blank=True,
-        null=True
+        null=True,
+    )
+    email_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        null=True,
+        db_index=True,
     )
 
-    telefono = models.CharField(
-        max_length=30,
+    telefono = EncryptedCharField(
         blank=True,
-        null=True
+        null=True,
+    )
+    telefono_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        null=True,
+        db_index=True,
     )
 
     # =========================
     # DATOS BANCARIOS
     # =========================
-    iban = models.CharField(
-        max_length=34,
+    iban = EncryptedCharField(
         blank=True,
         null=True,
-        help_text="IBAN del cliente (opcional)"
+        help_text="IBAN del cliente (opcional)",
+    )
+    iban_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        null=True,
+        db_index=True,
     )
 
     # =========================
@@ -1009,7 +1036,7 @@ class Cliente(models.Model):
         help_text="Fecha de alta del cliente en el sistema"
     )
 
-    direccion_postal = models.TextField(
+    direccion_postal = EncryptedTextField(
         blank=True,
         null=True,
         help_text="Dirección postal completa del cliente"
@@ -1027,6 +1054,60 @@ class Cliente(models.Model):
 
     creado = models.DateTimeField(auto_now_add=True)
     actualizado = models.DateTimeField(auto_now=True)
+
+    @staticmethod
+    def normalize_dni_cif(value: str) -> str:
+        return normalize_dni_cif(value)
+
+    @staticmethod
+    def normalize_email(value: str) -> str:
+        return normalize_email(value)
+
+    @staticmethod
+    def normalize_phone(value: str) -> str:
+        return normalize_phone(value)
+
+    @staticmethod
+    def normalize_iban(value: str) -> str:
+        return normalize_iban(value)
+
+    @classmethod
+    def hash_dni_cif(cls, value: str) -> str:
+        return hash_value(cls.normalize_dni_cif(value), "dni_cif")
+
+    @classmethod
+    def hash_email(cls, value: str) -> str:
+        return hash_value(cls.normalize_email(value), "email")
+
+    @classmethod
+    def hash_phone(cls, value: str) -> str:
+        return hash_value(cls.normalize_phone(value), "telefono")
+
+    @classmethod
+    def hash_iban(cls, value: str) -> str:
+        return hash_value(cls.normalize_iban(value), "iban")
+
+    def _sync_hashes(self):
+        dni = self.dni_cif or ""
+        self.dni_cif_hash = self.hash_dni_cif(dni) if dni else ""
+
+        email = self.email or ""
+        self.email_hash = self.hash_email(email) if email else None
+
+        tel = self.telefono or ""
+        self.telefono_hash = self.hash_phone(tel) if tel else None
+
+        iban = self.iban or ""
+        self.iban_hash = self.hash_iban(iban) if iban else None
+
+    def save(self, *args, **kwargs):
+        self._sync_hashes()
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            update_set = set(update_fields)
+            update_set.update({"dni_cif_hash", "email_hash", "telefono_hash", "iban_hash"})
+            kwargs["update_fields"] = list(update_set)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.nombre} ({self.dni_cif})"
