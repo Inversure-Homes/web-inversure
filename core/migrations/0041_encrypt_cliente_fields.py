@@ -96,7 +96,7 @@ class Migration(migrations.Migration):
             model_name="cliente",
             name="dni_cif_hash",
             field=models.CharField(
-                blank=True, max_length=64, null=True, db_index=True
+                blank=True, max_length=64, null=True, unique=True, db_index=True
             ),
         ),
         migrations.AddField(
@@ -121,11 +121,4 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.RunPython(_encrypt_cliente_data, migrations.RunPython.noop),
-        migrations.AlterField(
-            model_name="cliente",
-            name="dni_cif_hash",
-            field=models.CharField(
-                max_length=64, unique=True, db_index=True
-            ),
-        ),
     ]
