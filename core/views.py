@@ -3573,6 +3573,7 @@ def inversor_buscar(request):
 
 
 def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) -> dict:
+    portal_pin_hash = getattr(perfil, "portal_pin_hash", "")
     participaciones = Participacion.objects.filter(cliente=perfil.cliente).select_related("proyecto").order_by("-creado")
     comunicaciones = ComunicacionInversor.objects.filter(inversor=perfil)
     proyectos_candidatos = Proyecto.objects.filter(
@@ -3857,19 +3858,20 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
         "documentos_por_proyecto": documentos_por_proyecto,
         "documentos_personales": documentos_personales,
         "logo_url": reverse("core:inversores_list"),
-        "portal_pin_set": bool(perfil.portal_pin_hash),
+        "portal_pin_set": bool(portal_pin_hash),
         "internal_view": internal_view,
     }
 
 
 def inversor_portal(request, token: str):
     perfil = get_object_or_404(InversorPerfil, token=token, activo=True)
+    portal_pin_hash = getattr(perfil, "portal_pin_hash", "")
     session_key = f"inversor_portal_ok_{perfil.id}"
-    if perfil.portal_pin_hash and not request.session.get(session_key):
+    if portal_pin_hash and not request.session.get(session_key):
         pin_error = None
         if request.method == "POST" and request.POST.get("portal_pin_submit"):
             pin = (request.POST.get("portal_pin") or "").strip()
-            if pin and check_password(pin, perfil.portal_pin_hash):
+            if pin and check_password(pin, portal_pin_hash):
                 request.session[session_key] = True
                 if request.POST.get("portal_pin_remember"):
                     request.session.set_expiry(60 * 60 * 24 * 30)
@@ -3901,6 +3903,7 @@ def inversor_portal_config(request, perfil_id: int):
     if request.method != "POST":
         return redirect("core:inversor_portal_admin", perfil_id=perfil_id)
     perfil = get_object_or_404(InversorPerfil, id=perfil_id)
+    portal_pin_supported = hasattr(perfil, "portal_pin_hash")
     updated_fields = []
 
     if request.POST.get("visibilidad_submit"):
@@ -3927,6 +3930,9 @@ def inversor_portal_config(request, perfil_id: int):
         updated_fields.append("aportacion_inicial_override")
 
     if request.POST.get("portal_pin_submit"):
+        if not portal_pin_supported:
+            messages.error(request, "La función de PIN del portal no está disponible.")
+            return redirect("core:inversor_portal_admin", perfil_id=perfil_id)
         if request.POST.get("portal_pin_clear"):
             perfil.portal_pin_hash = ""
             perfil.portal_pin_set_at = None

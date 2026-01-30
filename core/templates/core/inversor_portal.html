@@ -314,6 +314,42 @@
   }
 </style>
 
+  {% if portal_pin_required %}
+  <div class="container mt-4 mb-5">
+    <div class="portal-wrap mb-4">
+      <div class="d-flex flex-column flex-lg-row align-items-start align-items-lg-center justify-content-between gap-3">
+        <div>
+          <div class="portal-title">Acceso protegido</div>
+          <div class="portal-status">Introduce el PIN para continuar en el portal del inversor.</div>
+        </div>
+      </div>
+    </div>
+    <div class="portal-card">
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="portal_pin_submit" value="1">
+        <div class="row g-2 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label">PIN</label>
+            <input type="password" inputmode="numeric" pattern="[0-9]*" name="portal_pin" class="form-control" placeholder="••••">
+          </div>
+          <div class="col-md-4">
+            <div class="form-check mt-4">
+              <input class="form-check-input" type="checkbox" name="portal_pin_remember" id="portal_pin_remember">
+              <label class="form-check-label" for="portal_pin_remember">Recordar 30 días</label>
+            </div>
+          </div>
+          <div class="col-md-2">
+            <button type="submit" class="btn btn-portal btn-sm w-100">Acceder</button>
+          </div>
+        </div>
+        {% if portal_pin_error %}
+          <div class="text-danger small mt-2">{{ portal_pin_error }}</div>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+  {% else %}
   <div class="container mt-4 mb-5">
   <div class="portal-wrap mb-4">
     <div class="d-flex flex-column flex-lg-row align-items-start align-items-lg-center justify-content-between gap-3">
@@ -647,6 +683,38 @@
   </div>
 
   {% if internal_view %}
+  <div class="portal-card mt-3">
+    <h5 class="mb-3">Seguridad del portal</h5>
+    <form method="post" action="{% url 'core:inversor_portal_config' perfil.id %}">
+      {% csrf_token %}
+      <input type="hidden" name="portal_pin_submit" value="1">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label">PIN nuevo</label>
+          <input type="password" inputmode="numeric" pattern="[0-9]*" name="portal_pin" class="form-control" placeholder="4-6 dígitos">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Confirmar PIN</label>
+          <input type="password" inputmode="numeric" pattern="[0-9]*" name="portal_pin_confirm" class="form-control" placeholder="Repite el PIN">
+        </div>
+        <div class="col-md-3">
+          <div class="form-check mt-4">
+            <input class="form-check-input" type="checkbox" name="portal_pin_clear" id="portal_pin_clear">
+            <label class="form-check-label" for="portal_pin_clear">Eliminar PIN actual</label>
+          </div>
+          {% if portal_pin_set %}
+            <div class="form-text text-muted">PIN activo en el portal.</div>
+          {% else %}
+            <div class="form-text text-muted">Sin PIN configurado.</div>
+          {% endif %}
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-portal btn-sm w-100">Guardar</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
   <div class="portal-card mt-3" id="com_preview_card">
     <h5 class="mb-3">Comunicaciones (vista previa)</h5>
     {% if proyectos_participados %}
@@ -787,6 +855,7 @@
     {% endif %}
   </div>
 </div>
+  {% endif %}
 
 {% if internal_view %}
 <script>

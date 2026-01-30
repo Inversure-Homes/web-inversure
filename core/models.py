@@ -1126,6 +1126,17 @@ class InversorPerfil(models.Model):
         blank=True,
         help_text="Ajuste manual de la aportación inicial para operaciones históricas",
     )
+    portal_pin_hash = models.CharField(
+        max_length=128,
+        blank=True,
+        default="",
+        help_text="PIN de acceso al portal del inversor (hash)",
+    )
+    portal_pin_set_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Fecha de última actualización del PIN del portal",
+    )
     creado = models.DateTimeField(auto_now_add=True)
     actualizado = models.DateTimeField(auto_now=True)
 
