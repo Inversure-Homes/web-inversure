@@ -404,6 +404,131 @@
         <div class="tab-pane fade" id="vista-economicos" role="tabpanel" aria-labelledby="tab-economicos">
 
     <!-- ===============================
+         MEMORIA ECONÓMICA (ASIENTOS)
+    ================================ -->
+    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <h5 class="mb-0 inversure-form-header">
+            <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">1</span>
+            Memoria económica
+          </h5>
+          <a class="btn btn-sm btn-outline-secondary"
+             href="{% url 'core:pdf_memoria_economica' proyecto.id %}"
+             target="_blank" rel="noopener noreferrer">
+            PDF memoria
+          </a>
+        </div>
+
+        <div class="row g-3 align-items-end">
+          <div class="col-md-2">
+            <label class="form-label">Fecha</label>
+            <input type="date" class="form-control" id="eco_fecha">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Tipo</label>
+            <select class="form-select" id="eco_tipo">
+              <option value="gasto" selected>Gasto</option>
+              <option value="ingreso">Ingreso</option>
+            </select>
+          </div>
+          <div class="col-md-2 eco-only-gasto">
+            <label class="form-label">Categoría</label>
+            <select class="form-select" id="eco_categoria">
+              <option value="adquisicion">Adquisición</option>
+              <option value="reforma">Reforma</option>
+              <option value="seguridad">Seguridad</option>
+              <option value="operativos">Operativos</option>
+              <option value="financieros">Financieros</option>
+              <option value="legales">Legales</option>
+              <option value="venta">Venta</option>
+              <option value="otros">Otros</option>
+            </select>
+          </div>
+          <div class="col-md-2 eco-only-ingreso d-none">
+            <label class="form-label">Tipo ingreso</label>
+            <select class="form-select" id="eco_tipo_ingreso">
+              <option value="senal">Señal / Arras</option>
+              <option value="venta" selected>Venta</option>
+              <option value="anticipo">Anticipo</option>
+              <option value="devolucion">Devolución</option>
+              <option value="indemnizacion">Indemnización</option>
+              <option value="otro">Otro ingreso</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Concepto</label>
+            <input type="text" class="form-control" id="eco_concepto" placeholder="Ej.: Notaría escritura">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Importe</label>
+            <input type="text" class="form-control" id="eco_importe" data-euro="true">
+          </div>
+          <div class="col-md-2">
+            <button type="button" class="btn btn-inversure btn-sm w-100 text-nowrap" id="eco_add_btn">Añadir</button>
+            <button type="button" class="btn btn-link btn-sm w-100 text-nowrap d-none" id="eco_cancel_btn">Cancelar</button>
+          </div>
+          <input type="hidden" id="eco_estado" value="estimado">
+          <div class="col-md-2">
+            <label class="form-label">Imputable inversores</label>
+            <select class="form-select" id="eco_imputable">
+              <option value="1" selected>Sí</option>
+              <option value="0">No</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Observaciones</label>
+            <input type="text" class="form-control" id="eco_obs" placeholder="Opcional">
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <div class="row g-3">
+            <div class="col-md-3">
+              <div class="small text-muted">Total estimado</div>
+              <div class="fw-bold" id="eco_total_estimado">—</div>
+            </div>
+            <div class="col-md-3">
+              <div class="small text-muted">Total real</div>
+              <div class="fw-bold" id="eco_total_real">—</div>
+            </div>
+            <div class="col-md-3">
+              <div class="small text-muted">Ingresos reales</div>
+              <div class="fw-bold" id="eco_total_ingresos">—</div>
+              <div class="small text-muted" id="eco_total_ingresos_estimado">Estimado: —</div>
+            </div>
+            <div class="col-md-3">
+              <div class="small text-muted">Balance neto</div>
+              <div class="fw-bold" id="eco_balance_neto">—</div>
+            </div>
+          </div>
+        </div>
+        <div class="small text-muted mt-2">
+          Todos los asientos se crean como estimados. Usa “Confirmar” en la tabla para marcar el importe final.
+        </div>
+
+        <div class="table-responsive mt-3">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Categoría</th>
+                <th>Concepto</th>
+                <th class="text-end">Importe</th>
+                <th>Estado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="eco_tabla_rows">
+              <tr><td colspan="7" class="text-muted">Sin asientos todavía.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===============================
          DATOS PRINCIPALES
     ================================ -->
     <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
