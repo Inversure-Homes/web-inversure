@@ -2,6 +2,7 @@ ROLE_ADMIN = "administracion"
 ROLE_DIRECCION = "direccion"
 ROLE_MARKETING = "marketing"
 ROLE_COMERCIAL = "comercial"
+ROLE_MODERATORS = "moderators"
 
 
 def _get_role(user):
@@ -33,6 +34,12 @@ def is_comercial_user(user) -> bool:
     if not user or not user.is_authenticated:
         return False
     return _get_role(user) == ROLE_COMERCIAL
+
+
+def is_moderators_user(user) -> bool:
+    if not user or not user.is_authenticated:
+        return False
+    return _get_role(user) == ROLE_MODERATORS
 
 
 def get_user_access(user):
@@ -100,6 +107,10 @@ def resolve_permissions(user) -> dict:
     if role == ROLE_COMERCIAL:
         perms["can_simulador"] = True
         perms["can_estudios"] = True
+        perms["can_proyectos"] = True
+        return perms
+
+    if role == ROLE_MODERATORS:
         perms["can_proyectos"] = True
         return perms
 

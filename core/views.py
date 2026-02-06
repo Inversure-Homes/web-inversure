@@ -49,6 +49,7 @@ from accounts.utils import (
     is_comercial_user,
     is_marketing_user,
     is_direccion_user,
+    is_moderators_user,
     resolve_permissions,
     use_custom_permissions,
 )
@@ -229,6 +230,8 @@ def _user_can_view_project(user, proyecto: Proyecto) -> bool:
     if _user_is_admin_or_direccion(user):
         return True
     if is_marketing_user(user):
+        return True
+    if is_moderators_user(user):
         return True
     if is_comercial_user(user):
         return _user_matches_responsable(user, proyecto)

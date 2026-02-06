@@ -8,11 +8,13 @@ class UserAccess(models.Model):
     ROLE_DIRECCION = "direccion"
     ROLE_COMERCIAL = "comercial"
     ROLE_MARKETING = "marketing"
+    ROLE_MODERATORS = "moderators"
     ROLE_CHOICES = [
         (ROLE_ADMIN, "Administracion"),
         (ROLE_DIRECCION, "Direccion"),
         (ROLE_COMERCIAL, "Comercial"),
         (ROLE_MARKETING, "Marketing"),
+        (ROLE_MODERATORS, "Moderators"),
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="user_access")
