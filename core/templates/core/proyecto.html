@@ -760,8 +760,50 @@
         <div class="tab-pane fade" id="vista-inversores" role="tabpanel" aria-labelledby="tab-inversores">
             <div class="card mb-4 shadow-sm border-0">
                 <div class="card-body">
-                    <h5 class="mb-2 inversure-form-header">Inversores</h5>
-                    <p class="text-muted mb-0">Pendiente: alta de inversores, participaciones, aportaciones y distribución.</p>
+                    <h5 class="mb-3 inversure-form-header">Inversores</h5>
+                    <div class="row">
+                        <div class="col-md-4 mb-3 mb-md-0">
+                            <div class="text-muted small">Total inversores</div>
+                            <div class="h4 mb-0">{{ total_inversores_proyecto|default:0 }}</div>
+                        </div>
+                        <div class="col-md-4 mb-3 mb-md-0">
+                            <div class="text-muted small">Capital invertido</div>
+                            <div class="h4 mb-0">{{ total_invertido_proyecto|es_number }} €</div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-muted small">Capital objetivo</div>
+                            <div class="h4 mb-0">{{ captacion.capital_objetivo_fmt|default:"0 €" }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-0">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Inversor</th>
+                                <th class="text-end">Importe</th>
+                                <th class="text-end">%</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in participaciones_proyecto %}
+                              <tr>
+                                <td>{{ p.cliente.nombre }}</td>
+                                <td class="text-end">{{ p.importe_invertido|es_number }} €</td>
+                                <td class="text-end">{{ p.porcentaje|es_number }} %</td>
+                              </tr>
+                            {% empty %}
+                              <tr>
+                                <td colspan="3" class="text-center text-muted py-4">
+                                  No hay inversores confirmados en este proyecto
+                                </td>
+                              </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -878,10 +920,56 @@
         <div class="tab-pane fade" id="vista-dashboard" role="tabpanel" aria-labelledby="tab-dashboard">
             <div class="card mb-4 shadow-sm border-0">
                 <div class="card-body">
-                    <h5 class="mb-2 inversure-form-header">Dashboard</h5>
-                    <p class="text-muted mb-0">Pendiente: KPIs en tiempo real del proyecto (coste real vs estimado, ROI, margen, hitos y alertas).</p>
+                    <h5 class="mb-3 inversure-form-header">Dashboard</h5>
+                    <div class="row text-center">
+                        <div class="col-md-3 mb-3 mb-md-0">
+                            <div class="text-muted small">Capital objetivo</div>
+                            <div class="h5 mb-0">{{ captacion.capital_objetivo_fmt|default:"0 €" }}</div>
+                        </div>
+                        <div class="col-md-3 mb-3 mb-md-0">
+                            <div class="text-muted small">Capital captado</div>
+                            <div class="h5 mb-0">{{ captacion.capital_captado_fmt|default:"0 €" }}</div>
+                        </div>
+                        <div class="col-md-3 mb-3 mb-md-0">
+                            <div class="text-muted small">% captado</div>
+                            <div class="h5 mb-0">{{ captacion.pct_captado_fmt|default:"0 %" }}</div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-muted small">Restante</div>
+                            <div class="h5 mb-0">{{ captacion.restante_fmt|default:"0 €" }}</div>
+                        </div>
+                    </div>
                 </div>
             </div>
+
+            {% if resultado %}
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-4 mb-3 mb-md-0">
+                            <div class="text-muted small">ROI</div>
+                            <div class="h5 mb-0">
+                                <span class="fmt-percent" data-percent="true" data-decimals="2">{{ resultado.roi }}</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3 mb-md-0">
+                            <div class="text-muted small">Beneficio neto</div>
+                            <div class="h5 mb-0">
+                                <span class="fmt-euro" data-euro="true">{{ resultado.beneficio_neto }}</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-muted small">Margen neto</div>
+                            <div class="h5 mb-0">
+                                <span class="fmt-percent" data-percent="true" data-decimals="2">{{ resultado.margen_neto }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="text-muted">No hay KPIs calculados todavía.</div>
+            {% endif %}
         </div>
 
     </div> <!-- /tab-content -->
