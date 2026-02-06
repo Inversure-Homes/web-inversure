@@ -2002,7 +2002,7 @@ function bindMemoriaEconomica() {
         ? ' <span class="badge bg-success">Factura</span>'
         : "";
       const pagadoBadge = (r.tipo === "gasto" && r.pagado)
-        ? ' <i class="bi bi-check-circle-fill text-success" title="Pagado" aria-label="Pagado"></i>'
+        ? ' <i class="bi bi-currency-dollar text-success" title="Pagado" aria-label="Pagado"></i>'
         : "";
       const facturaView = (r.tipo === "gasto" && r.factura_url)
         ? `<a class="btn btn-sm btn-outline-success me-1" href="${r.factura_url}" target="_blank" rel="noopener noreferrer" title="Ver factura" aria-label="Ver factura"><i class="bi bi-eye"></i></a>`
@@ -2014,7 +2014,7 @@ function bindMemoriaEconomica() {
         ? `<button type="button" class="btn btn-sm btn-outline-warning me-1 eco-factura-remove" title="Quitar factura" aria-label="Quitar factura"><i class="bi bi-arrow-counterclockwise"></i></button>`
         : "";
       const pagadoBtn = (r.tipo === "gasto")
-        ? `<button type="button" class="btn btn-sm ${r.pagado ? "btn-outline-success" : "btn-outline-secondary"} me-1 eco-paid" title="${r.pagado ? "Marcar como no pagado" : "Marcar como pagado"}" aria-label="Pagado"><i class="bi ${r.pagado ? "bi-check-circle-fill" : "bi-check-circle"}"></i></button>`
+        ? `<button type="button" class="btn btn-sm ${r.pagado ? "btn-outline-success" : "btn-outline-secondary"} me-1 eco-paid" title="${r.pagado ? "Marcar como no pagado" : "Marcar como pagado"}" aria-label="Pagado"><i class="bi ${r.pagado ? "bi-currency-dollar" : "bi-currency-dollar"}"></i></button>`
         : "";
       return `
         <tr data-id="${r.id}"
