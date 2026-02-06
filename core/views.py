@@ -5003,8 +5003,7 @@ def guardar_proyecto(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
     proyecto_obj = get_object_or_404(Proyecto, id=proyecto_id)
-    if not _user_can_edit_project(request.user, proyecto_obj):
-        return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
+    can_edit = _user_can_edit_project(request.user, proyecto_obj)
 
     try:
         payload = json.loads(request.body or "{}")
@@ -5015,6 +5014,20 @@ def guardar_proyecto(request, proyecto_id: int):
         payload = {}
     if isinstance(payload.get("payload"), dict):
         payload = payload.get("payload") or {}
+
+    # Permitir cambiar solo estado/resultado_cierre aunque el proyecto esté cerrado.
+    if not can_edit:
+        allowed_keys = {"estado", "resultado_cierre"}
+        allowed_nested = {"proyecto"}
+        top_keys = {k for k in payload.keys() if k in allowed_keys or k in allowed_nested}
+        nested_ok = True
+        proyecto_payload = payload.get("proyecto") if isinstance(payload.get("proyecto"), dict) else {}
+        if proyecto_payload:
+            nested_ok = all(k in allowed_keys for k in proyecto_payload.keys())
+        only_estado_changes = (top_keys == set(payload.keys())) and nested_ok
+        username = (getattr(request.user, "username", "") or "").strip().lower()
+        if not only_estado_changes or (not is_admin_user(request.user) and not is_direccion_user(request.user) and username != "mperez"):
+            return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
 
     update_fields = []
 
