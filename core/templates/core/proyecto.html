@@ -1,8 +1,6 @@
 {% extends "core/base.html" %}
-{% load static formatting %}
+{% load static %}
 {% block content %}
-
-<link rel="stylesheet" href="{% static 'landing/landing-card.css' %}">
 
 {#
   Proyecto usa su propio JS (proyecto.js). Mantenemos flags globales para que cualquier lógica compartida
@@ -10,84 +8,10 @@
 #}
 <script>
   window.ES_MODO_PROYECTO = true;
-  window.PROYECTO_EDITABLE = {% if editable %}true{% else %}false{% endif %};
   window.PROYECTO_ID = {% if proyecto and proyecto.id %}{{ proyecto.id }}{% else %}null{% endif %};
   window.ESTUDIO_ORIGEN_ID = {% if snapshot and snapshot.meta and snapshot.meta.estudio_id %}{{ snapshot.meta.estudio_id }}{% else %}null{% endif %};
-  window.PROYECTO_GASTOS_URL = "{% url 'core:proyecto_gastos' proyecto.id %}";
-  window.PROYECTO_INGRESOS_URL = "{% url 'core:proyecto_ingresos' proyecto.id %}";
-  window.PROYECTO_GASTO_FACTURA_URL = "{% url 'core:proyecto_gasto_factura' proyecto.id 0 %}";
-  window.PROYECTO_CHECKLIST_URL = "{% url 'core:proyecto_checklist' proyecto.id %}";
-  window.PROYECTO_PARTICIPACIONES_URL = "{% url 'core:proyecto_participaciones' proyecto.id %}";
-  window.PROYECTO_SOLICITUDES_URL = "{% url 'core:proyecto_solicitudes' proyecto.id %}";
-  window.PROYECTO_COMUNICACIONES_URL = "{% url 'core:proyecto_comunicaciones' proyecto.id %}";
 </script>
 {% if snapshot %}{{ snapshot|json_script:"snapshotData" }}{% endif %}
-{% if facturas_docs %}{{ facturas_docs|json_script:"facturasDocsData" }}{% endif %}
-{% if fotos_docs %}{{ fotos_docs|json_script:"fotosDocsData" }}{% endif %}
-{% if checklist_users %}{{ checklist_users|json_script:"checklistUsersData" }}{% endif %}
-
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const catSelect = document.getElementById("doc_categoria");
-    const facturaFields = document.getElementById("doc_factura_fields");
-    const toggleFacturaFields = () => {
-      if (!catSelect || !facturaFields) return;
-      facturaFields.classList.toggle("d-none", catSelect.value !== "facturas");
-    };
-    if (catSelect && facturaFields) {
-      catSelect.addEventListener("change", toggleFacturaFields);
-      toggleFacturaFields();
-    }
-
-    const previewCard = document.getElementById("landing_preview");
-    const previewMedia = document.getElementById("landing_preview_media");
-    const previewFullBtn = document.getElementById("landing_preview_full_btn");
-    const landingSelect = document.querySelector("[name='landing.imagen_id']");
-    const focusX = document.querySelector("[name='landing.imagen_focus_x']");
-    const focusY = document.querySelector("[name='landing.imagen_focus_y']");
-    let fotos = [];
-    try {
-      const data = document.getElementById("fotosDocsData");
-      if (data && data.textContent) {
-        fotos = JSON.parse(data.textContent) || [];
-      }
-    } catch (e) {
-      fotos = [];
-    }
-
-    const getFotoUrl = (id) => {
-      if (!id) return "";
-      const found = fotos.find(item => String(item.id) === String(id));
-      return found ? (found.archivo_url || "") : "";
-    };
-
-    const updatePreview = () => {
-      if (!previewMedia) return;
-      const selectedId = landingSelect ? landingSelect.value : "";
-      const url = getFotoUrl(selectedId) || previewCard.dataset.defaultUrl || "";
-      const x = focusX && focusX.value ? focusX.value : "50";
-      const y = focusY && focusY.value ? focusY.value : "50";
-      previewMedia.style.backgroundImage = `url('${url}')`;
-      previewMedia.style.backgroundPosition = `${x}% ${y}%`;
-    };
-
-    if (previewCard && previewMedia) {
-      if (landingSelect) landingSelect.addEventListener("change", updatePreview);
-      if (focusX) focusX.addEventListener("input", updatePreview);
-      if (focusY) focusY.addEventListener("input", updatePreview);
-      updatePreview();
-    }
-
-    if (previewFullBtn && previewMedia) {
-      previewFullBtn.addEventListener("click", () => {
-        previewMedia.classList.toggle("landing-preview-media--contain");
-        previewFullBtn.textContent = previewMedia.classList.contains("landing-preview-media--contain")
-          ? "Ver recorte"
-          : "Ver completa";
-      });
-    }
-  });
-</script>
 
 <style>
   /* Estilos corporativos Inversure (solo para esta vista) */
@@ -129,62 +53,6 @@
   .btn-inversure-outline:hover .arrow {
     color: #d7b04c;
   }
-
-  .landing-preview-card {
-    border-radius: var(--landing-card-radius);
-    overflow: hidden;
-    width: var(--landing-card-width);
-    height: var(--landing-card-height);
-    box-shadow: var(--landing-card-shadow);
-    position: relative;
-  }
-
-  .landing-preview-media {
-    background-size: cover;
-    background-position: 50% 50%;
-    background-repeat: no-repeat;
-    height: 100%;
-  }
-
-  .landing-preview-media--contain {
-    background-size: contain;
-    background-position: center;
-    background-repeat: no-repeat;
-  }
-
-  .landing-preview-body {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(180deg, rgba(11, 19, 36, 0), rgba(11, 19, 36, 0.7) 45%, rgba(11, 19, 36, 0.92));
-    color: #f8fafc;
-    padding: var(--landing-card-padding);
-  }
-
-  .landing-preview-title {
-    font-weight: 700;
-    font-size: 15px;
-    margin-bottom: 6px;
-  }
-
-  .landing-preview-metrics {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px;
-    font-size: 9px;
-  }
-
-  .landing-preview-metrics span {
-    display: block;
-    color: #cbd3e1;
-    margin-bottom: 4px;
-  }
-
-  .landing-preview-metrics strong {
-    font-size: 13px;
-    color: #f8fafc;
-  }
 </style>
 
 <div class="main-container simulador-page" data-fase="proyecto" data-modo="proyecto">
@@ -194,16 +62,7 @@
     <div class="card card-inversure shadow-sm border-0 mb-4">
       <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
         <div>
-          <div class="d-flex align-items-center gap-3 flex-wrap">
-            {% if foto_principal_url %}
-            <div class="text-center">
-              <img src="{{ foto_principal_url }}" alt="{{ foto_principal_titulo|default:'Foto principal' }}" style="width:120px;height:80px;object-fit:cover;border-radius:10px;border:1px solid #e5e7eb;">
-              <div class="small text-muted mt-1">Foto principal</div>
-            </div>
-            {% endif %}
-
-            <h1 class="mb-1">Proyecto{% if proyecto and proyecto.nombre %} · {{ proyecto.nombre }}{% endif %}</h1>
-          </div>
+          <h1 class="mb-1">Proyecto{% if proyecto and proyecto.nombre %} · {{ proyecto.nombre }}{% endif %}</h1>
 
           {% if proyecto and proyecto.id %}
             <div class="mt-2">
@@ -258,28 +117,26 @@
         </div>
         <div class="card-body">
             <div class="row">
-                <div class="col-md-5 mb-3">
+                <div class="col-md-6 mb-3">
                     <label class="form-label text-muted">Nombre del proyecto</label>
                     <input type="text" name="nombre" class="form-control form-control-lg"
-                           value="{{ proyecto.nombre|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-
-                <div class="col-md-2 mb-3">
-                    <label class="form-label text-muted">Código</label>
-                    <input type="text" name="codigo_proyecto" class="form-control form-control-lg"
-                           value="{{ proyecto.codigo_proyecto|default:'' }}" {% if not editable %}disabled{% endif %}>
+                           value="{{ proyecto.nombre|default:inm.nombre_proyecto|default:'' }}" {% if not editable %}disabled{% endif %}>
                 </div>
 
                 <div class="col-md-3 mb-3">
                     <label class="form-label text-muted">Estado</label>
                     <select name="estado" id="estado_proyecto" class="form-select form-select-lg" {% if not editable %}disabled{% endif %}>
-                        <option value="captacion" {% if proyecto.estado == "captacion" or proyecto.estado == "estudio" or not proyecto.estado %}selected{% endif %}>Captación</option>
+                        <option value="estudio" {% if proyecto.estado == "estudio" or not proyecto.estado %}selected{% endif %}>Estudio (captación)</option>
                         <option value="comprado" {% if proyecto.estado == "comprado" %}selected{% endif %}>Comprado</option>
                         <option value="comercializacion" {% if proyecto.estado == "comercializacion" %}selected{% endif %}>Comercialización</option>
-                        <option value="reservado" {% if proyecto.estado == "reservado" %}selected{% endif %}>Reservado</option>
                         <option value="vendido" {% if proyecto.estado == "vendido" %}selected{% endif %}>Vendido</option>
                         <option value="cerrado" {% if proyecto.estado == "cerrado" %}selected{% endif %}>Cerrado</option>
-                        <option value="descartado" {% if proyecto.estado == "descartado" %}selected{% endif %}>Descartado</option>
+
+                        <optgroup label="(Legacy)">
+                          <option value="reservado" {% if proyecto.estado == "reservado" %}selected{% endif %}>(Legacy) Reservado</option>
+                          <option value="operacion" {% if proyecto.estado == "operacion" %}selected{% endif %}>(Legacy) En operación</option>
+                          <option value="descartado" {% if proyecto.estado == "descartado" %}selected{% endif %}>(Legacy) Descartado</option>
+                        </optgroup>
                     </select>
 
                     <!-- Resultado de cierre: solo aplica cuando estado = 'cerrado' -->
@@ -292,27 +149,9 @@
                       </select>
                       <div class="form-text">Solo se utiliza si el estado es <strong>Cerrado</strong>.</div>
                     </div>
-                    <div class="form-check mt-2">
-                      <input class="form-check-input" type="checkbox" id="notificar_inversores"
-                             name="notificar_inversores" {% if notificar_inversores %}checked{% endif %}
-                             {% if not editable %}disabled{% endif %}>
-                      <label class="form-check-label small text-muted" for="notificar_inversores">
-                        Notificar automáticamente a inversores
-                      </label>
-                    </div>
-                    {% if can_manage_difusion %}
-                    <div class="form-check mt-2">
-                      <input class="form-check-input" type="checkbox" id="acceso_comercial"
-                             name="acceso_comercial" {% if proyecto.acceso_comercial or acceso_comercial %}checked{% endif %}
-                             {% if not editable %}disabled{% endif %}>
-                      <label class="form-check-label small text-muted" for="acceso_comercial">
-                        Acceso comercial habilitado
-                      </label>
-                    </div>
-                    {% endif %}
                 </div>
 
-                <div class="col-md-2 mb-3">
+                <div class="col-md-3 mb-3">
                     <label class="form-label text-muted">Fecha</label>
                     <input type="date" name="fecha" class="form-control form-control-lg"
                            value="{{ proyecto.fecha|date:'Y-m-d'|default:'' }}" {% if not editable %}disabled{% endif %}>
@@ -322,19 +161,57 @@
             <div class="row">
                 <div class="col-md-6 mb-0">
                     <label class="form-label text-muted">Responsable</label>
-                    <select name="responsable_user_id" class="form-select form-select-lg"
-                            {% if not editable %}disabled{% endif %} {% if editable %}required{% endif %}>
-                        <option value="">Selecciona un usuario</option>
-                        {% for u in usuarios_responsables %}
-                          {% with label=u.get_full_name|default:u.username %}
-                          <option value="{{ u.id }}" {% if proyecto.responsable_user_id == u.id %}selected{% endif %}>{{ label }}</option>
-                          {% endwith %}
-                        {% endfor %}
-                    </select>
-                    <input type="hidden" name="responsable" id="responsable_nombre" value="{{ proyecto.responsable|default:'' }}">
-                    <div class="form-text">Obligatorio para asignar responsabilidad del proyecto.</div>
+                    <input type="text" name="responsable" class="form-control form-control-lg"
+                           value="{{ proyecto.responsable|default:'' }}" placeholder="Ej.: Miguel Ángel" {% if not editable %}disabled{% endif %}>
+                    <div class="form-text">Campo preparatorio (se integrará con usuarios/permisos).</div>
                 </div>
             </div>
+
+            <!-- ===============================
+                 CAPTACIÓN (progreso de inversión)
+                 Se alimenta desde views.py: ctx["captacion"]
+            ================================ -->
+            {% if captacion and captacion.capital_objetivo %}
+            <div class="mt-4">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2">
+                    <div>
+                        <div class="fw-semibold">Captación</div>
+                        <div class="small text-muted">
+                            <span class="fw-semibold">{{ captacion.capital_captado_fmt }}</span> captados ·
+                            objetivo <span class="fw-semibold">{{ captacion.capital_objetivo_fmt }}</span>
+                            {% if captacion.restante and captacion.restante > 0 %}
+                                · faltan <span class="fw-semibold">{{ captacion.restante_fmt }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-light text-dark fw-semibold">{{ captacion.pct_captado_fmt }}</span>
+                        <span class="small text-muted">% de inversión cubierta</span>
+                    </div>
+                </div>
+
+                <div class="progress mt-2" style="height: 12px; border-radius: 999px;">
+                    {% with pct=captacion.pct_captado|floatformat:0 %}
+                    <div
+                        class="progress-bar
+                            {% if captacion.pct_captado >= 80 %}bg-success
+                            {% elif captacion.pct_captado >= 50 %}bg-warning
+                            {% else %}bg-danger{% endif %}"
+                        role="progressbar"
+                        style="width: {{ pct }}%; border-radius: 999px;"
+                        aria-valuenow="{{ pct }}"
+                        aria-valuemin="0"
+                        aria-valuemax="100">
+                    </div>
+                    {% endwith %}
+                </div>
+
+                <div class="form-text mt-2">
+                    Este indicador se actualizará automáticamente cuando integremos el módulo de inversores (aportaciones y participaciones).
+                </div>
+            </div>
+            {% endif %}
             <script>
               (function () {
                 function toggleResultadoCierre() {
@@ -379,23 +256,13 @@
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="tab-documentacion" data-bs-toggle="tab" data-bs-target="#vista-documentacion" type="button" role="tab" aria-controls="vista-documentacion" aria-selected="false">
-                Documentación
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
             <button class="nav-link" id="tab-inversores" data-bs-toggle="tab" data-bs-target="#vista-inversores" type="button" role="tab" aria-controls="vista-inversores" aria-selected="false">
                 Inversores
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="tab-publicacion" data-bs-toggle="tab" data-bs-target="#vista-publicacion" type="button" role="tab" aria-controls="vista-publicacion" aria-selected="false">
-                Publicación
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="tab-difusion" data-bs-toggle="tab" data-bs-target="#vista-difusion" type="button" role="tab" aria-controls="vista-difusion" aria-selected="false">
-                Difusión
+            <button class="nav-link" id="tab-documentacion" data-bs-toggle="tab" data-bs-target="#vista-documentacion" type="button" role="tab" aria-controls="vista-documentacion" aria-selected="false">
+                Documentación
             </button>
         </li>
         <li class="nav-item" role="presentation">
@@ -480,29 +347,6 @@
             </div>
 
             <div class="row">
-                <div class="col-lg-3 col-md-6 mb-3">
-                    <label class="form-label">Dormitorios</label>
-                    <input type="number" name="dormitorios" class="form-control" data-number="true"
-                           value="{{ inm.dormitorios|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-lg-3 col-md-6 mb-3">
-                    <label class="form-label">Baños</label>
-                    <input type="number" name="banos" class="form-control" data-number="true"
-                           value="{{ inm.banos|default:inm.baños|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-lg-3 col-md-6 mb-3">
-                    <label class="form-label">Superficie (m²)</label>
-                    <input type="number" name="superficie_m2" class="form-control" data-number="true"
-                           value="{{ inm.superficie_m2|default:inm.superficie|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-lg-3 col-md-6 mb-3">
-                    <label class="form-label">Plazo estimado (meses)</label>
-                    <input type="number" name="meses" class="form-control" data-number="true"
-                           value="{{ eco.meses|default:proyecto.meses|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-            </div>
-
-            <div class="row">
                 <div class="col-md-6 mb-3">
                     <label class="form-label">
                         Valor de adquisición
@@ -513,24 +357,14 @@
                            data-euro="true"
                            readonly
                            value="{{ eco.valor_adquisicion|default:met.valor_adquisicion_total|default:met.valor_adquisicion|default:proyecto.precio_compra_inmueble|default:'' }}" {% if not editable %}disabled{% endif %}>
-                    <div class="form-text">
-                      Estimado: <span id="valor_adq_estimado">—</span> · Real: <span id="valor_adq_real">—</span>
-                    </div>
                 </div>
 
                 <div class="col-md-6 mb-3">
-                    <label class="form-label">
-                        Valor de transmisión
-                        <span class="ms-1 text-muted" title="Calculado desde la memoria económica">ℹ️</span>
-                    </label>
+                    <label class="form-label">Valor de transmisión</label>
                     <input type="text" name="precio_venta_estimado"
                            class="form-control form-control-lg"
                            data-euro="true"
-                           readonly
                            value="{{ eco.valor_transmision|default:met.valor_transmision|default:met.precio_transmision|default:proyecto.precio_venta_estimado|default:'' }}" {% if not editable %}disabled{% endif %}>
-                    <div class="form-text">
-                      Estimado: <span id="valor_trans_estimado">—</span> · Real: <span id="valor_trans_real">—</span>
-                    </div>
                 </div>
             </div>
 
@@ -547,123 +381,6 @@
                 </div>
             </div>
 
-        </div>
-    </div>
-
-    <!-- ===============================
-         VALORACIONES (Vista técnica)
-    ================================ -->
-    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
-        <div class="card-body">
-            <h5 class="mb-3 inversure-form-header">Valoraciones</h5>
-
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Idealista</label>
-                    <input type="text" name="val_idealista" class="form-control" data-euro="true" data-valuation="true"
-                           value="{{ eco.val_idealista|default:met.val_idealista|default:proyecto.val_idealista|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Fotocasa</label>
-                    <input type="text" name="val_fotocasa" class="form-control" data-euro="true" data-valuation="true"
-                           value="{{ eco.val_fotocasa|default:met.val_fotocasa|default:proyecto.val_fotocasa|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-4 mb-3">
-                    <label class="form-label">Registradores</label>
-                    <input type="text" name="val_registradores" class="form-control" data-euro="true" data-valuation="true"
-                           value="{{ eco.val_registradores|default:met.val_registradores|default:proyecto.val_registradores|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Casafari</label>
-                    <input type="text" name="val_casafari" class="form-control" data-euro="true" data-valuation="true"
-                           value="{{ eco.val_casafari|default:met.val_casafari|default:proyecto.val_casafari|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Tasación</label>
-                    <input type="text" name="val_tasacion" class="form-control" data-euro="true" data-valuation="true"
-                           value="{{ eco.val_tasacion|default:met.val_tasacion|default:proyecto.val_tasacion|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-            </div>
-
-            <div class="row mt-3">
-                <div class="col-md-12">
-                    <label class="form-label fw-semibold">
-                      Media de valoraciones
-                      <span class="ms-1 text-muted" title="Calculado automáticamente en base a los datos introducidos">ℹ️</span>
-                    </label>
-                    <input type="text" name="media_valoraciones" class="form-control form-control-lg" data-euro="true" readonly title="Calculado automáticamente en base a los datos introducidos"
-                           value="{{ eco.media_valoraciones|default:met.media_valoraciones|default:proyecto.media_valoraciones|default:'' }}" {% if not editable %}disabled{% endif %}>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===============================
-         CHECKLIST OPERATIVO (Vista técnica)
-    ================================ -->
-    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
-        <div class="card-body">
-            <div class="d-flex align-items-center justify-content-between mb-3">
-                <h5 class="mb-0 inversure-form-header">Checklist operativo</h5>
-                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#checklistCollapse" aria-expanded="true" aria-controls="checklistCollapse">
-                    <span>Ver checklist</span>
-                    <span class="badge bg-light text-dark ms-2">{{ checklist_items|length }}</span>
-                </button>
-            </div>
-
-            <div class="collapse show" id="checklistCollapse">
-              <div class="table-responsive">
-                  <table class="table table-sm align-middle">
-                    <thead>
-                        <tr>
-                            <th>Fase</th>
-                            <th>Tarea</th>
-                            <th>Responsable</th>
-                            <th>Fecha realizada</th>
-                            <th>Estado</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody id="chk_tabla_rows">
-                        {% if checklist_items %}
-                          {% for it in checklist_items %}
-                          <tr data-id="{{ it.id }}">
-                              <td>{{ it.get_fase_display }}</td>
-                              <td>{{ it.titulo }}</td>
-                              <td>
-                                  <select class="form-select form-select-sm chk-resp-user" {% if not editable %}disabled{% endif %}>
-                                      <option value="">Sin asignar</option>
-                                      {% for u in usuarios_responsables %}
-                                        {% with label=u.get_full_name|default:u.username %}
-                                        <option value="{{ u.id }}" {% if it.responsable_user_id == u.id %}selected{% endif %}>{{ label }}</option>
-                                        {% endwith %}
-                                      {% endfor %}
-                                  </select>
-                                  <input type="hidden" class="chk-resp" value="{{ it.responsable|default:'' }}">
-                              </td>
-                              <td><input type="date" class="form-control form-control-sm chk-fecha" value="{{ it.fecha_objetivo|date:'Y-m-d' }}"></td>
-                              <td>
-                                  <select class="form-select form-select-sm chk-estado">
-                                      <option value="pendiente" {% if it.estado == "pendiente" %}selected{% endif %}>Pendiente</option>
-                                      <option value="en_curso" {% if it.estado == "en_curso" %}selected{% endif %}>En curso</option>
-                                      <option value="hecho" {% if it.estado == "hecho" %}selected{% endif %}>Hecho</option>
-                                  </select>
-                              </td>
-                              <td class="text-end">
-                                  <button type="button" class="btn btn-sm btn-outline-secondary chk-save">Guardar</button>
-                              </td>
-                          </tr>
-                          {% endfor %}
-                        {% else %}
-                          <tr><td colspan="6" class="text-muted">Sin tareas todavía.</td></tr>
-                        {% endif %}
-                    </tbody>
-                  </table>
-              </div>
-            </div>
         </div>
     </div>
 
@@ -684,131 +401,372 @@
 
         </div>
 
-    <div class="tab-pane fade" id="vista-economicos" role="tabpanel" aria-labelledby="tab-economicos">
+        <div class="tab-pane fade" id="vista-economicos" role="tabpanel" aria-labelledby="tab-economicos">
 
     <!-- ===============================
-         MEMORIA ECONÓMICA (ASIENTOS)
+         DATOS PRINCIPALES
     ================================ -->
     <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
-      <div class="card-body">
-        <div class="d-flex align-items-center justify-content-between mb-3">
-          <h5 class="mb-0 inversure-form-header">
-            <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">1</span>
-            Memoria económica
-          </h5>
-          <a class="btn btn-sm btn-outline-secondary"
-             href="{% url 'core:pdf_memoria_economica' proyecto.id %}"
-             target="_blank" rel="noopener noreferrer">
-            PDF memoria
-          </a>
-        </div>
+        <div class="card-body">
+            <h5 class="mb-3 inversure-form-header">
+                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">1</span>
+                Datos principales
+            </h5>
 
-        <div class="row g-3 align-items-end">
-          <div class="col-md-2">
-            <label class="form-label">Fecha</label>
-            <input type="date" class="form-control" id="eco_fecha">
-          </div>
-          <div class="col-md-2">
-            <label class="form-label">Tipo</label>
-            <select class="form-select" id="eco_tipo">
-              <option value="gasto" selected>Gasto</option>
-              <option value="ingreso">Ingreso</option>
-            </select>
-          </div>
-          <div class="col-md-2 eco-only-gasto">
-            <label class="form-label">Categoría</label>
-            <select class="form-select" id="eco_categoria">
-              <option value="adquisicion">Adquisición</option>
-              <option value="reforma">Reforma</option>
-              <option value="seguridad">Seguridad</option>
-              <option value="operativos">Operativos</option>
-              <option value="financieros">Financieros</option>
-              <option value="legales">Legales</option>
-              <option value="venta">Venta</option>
-              <option value="otros">Otros</option>
-            </select>
-          </div>
-          <div class="col-md-2 eco-only-ingreso d-none">
-            <label class="form-label">Tipo ingreso</label>
-            <select class="form-select" id="eco_tipo_ingreso">
-              <option value="senal">Señal / Arras</option>
-              <option value="venta" selected>Venta</option>
-              <option value="anticipo">Anticipo</option>
-              <option value="devolucion">Devolución</option>
-              <option value="indemnizacion">Indemnización</option>
-              <option value="otro">Otro ingreso</option>
-            </select>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">Concepto</label>
-            <input type="text" class="form-control" id="eco_concepto" placeholder="Ej.: Notaría escritura">
-          </div>
-          <div class="col-md-2">
-            <label class="form-label">Importe</label>
-            <input type="text" class="form-control" id="eco_importe" data-euro="true">
-          </div>
-          <div class="col-md-2">
-            <button type="button" class="btn btn-inversure btn-sm w-100 text-nowrap" id="eco_add_btn">Añadir</button>
-            <button type="button" class="btn btn-link btn-sm w-100 text-nowrap d-none" id="eco_cancel_btn">Cancelar</button>
-          </div>
-          <input type="hidden" id="eco_estado" value="estimado">
-          <div class="col-md-2">
-            <label class="form-label">Imputable inversores</label>
-            <select class="form-select" id="eco_imputable">
-              <option value="1" selected>Sí</option>
-              <option value="0">No</option>
-            </select>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Observaciones</label>
-            <input type="text" class="form-control" id="eco_obs" placeholder="Opcional">
-          </div>
-        </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Precio de escritura</label>
+                    <input type="text" name="precio_propiedad"
+                           class="form-control form-control-lg"
+                           data-euro="true"
+                           value="{{ met.precio_escritura|default:proyecto.precio_propiedad|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
 
-        <div class="mt-4">
-          <div class="row g-3">
-            <div class="col-md-3">
-              <div class="small text-muted">Total estimado</div>
-              <div class="fw-bold" id="eco_total_estimado">—</div>
-            </div>
-            <div class="col-md-3">
-              <div class="small text-muted">Total real</div>
-              <div class="fw-bold" id="eco_total_real">—</div>
-            </div>
-            <div class="col-md-3">
-              <div class="small text-muted">Ingresos reales</div>
-              <div class="fw-bold" id="eco_total_ingresos">—</div>
-              <div class="small text-muted" id="eco_total_ingresos_estimado">Estimado: —</div>
-            </div>
-            <div class="col-md-3">
-              <div class="small text-muted">Balance neto</div>
-              <div class="fw-bold" id="eco_balance_neto">—</div>
-            </div>
-          </div>
-        </div>
-        <div class="small text-muted mt-2">
-          Todos los asientos se crean como estimados. Usa “Confirmar” en la tabla para marcar el importe final.
-        </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Venta estimada</label>
+                    <input type="text" name="venta_estimada"
+                           class="form-control form-control-lg"
+                           data-euro="true"
+                           value="{{ eco.valor_transmision|default:met.valor_transmision|default:met.precio_transmision|default:proyecto.venta_estimada|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
 
-        <div class="table-responsive mt-3">
-          <table class="table table-sm align-middle">
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Tipo</th>
-                <th>Categoría</th>
-                <th>Concepto</th>
-                <th class="text-end">Importe</th>
-                <th>Estado</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="eco_tabla_rows">
-              <tr><td colspan="7" class="text-muted">Sin asientos todavía.</td></tr>
-            </tbody>
-          </table>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Tiempo estimado de operación (meses)</label>
+                    <input type="text" name="meses"
+                           class="form-control"
+                           data-number="true"
+                           value="{{ proyecto.meses|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">% Financiación</label>
+                    <input type="text" name="financiacion_pct"
+                           class="form-control"
+                           data-number="true"
+                           value="{{ proyecto.financiacion_pct|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+            </div>
         </div>
-      </div>
+    </div>
+
+    <!-- ===============================
+         GASTOS DE ADQUISICIÓN
+    ================================ -->
+    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
+        <div class="card-body">
+            <h5 class="mb-3 inversure-form-header">
+                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">2</span>
+                Gastos de adquisición
+            </h5>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">
+                      Notaría
+                      <span class="ms-1 text-muted" title="Calculado automáticamente en base a los datos introducidos">ℹ️</span>
+                    </label>
+                    <input type="text" name="notaria" class="form-control form-control-lg" data-euro="true"
+                           value="{{ met.notaria|default:proyecto.notaria|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">
+                      Registro
+                      <span class="ms-1 text-muted" title="Calculado automáticamente en base a los datos introducidos">ℹ️</span>
+                    </label>
+                    <input type="text" name="registro" class="form-control form-control-lg" data-euro="true"
+                           value="{{ met.registro|default:proyecto.registro|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">
+                      ITP
+                      <span class="ms-1 text-muted" title="Calculado automáticamente en base a los datos introducidos">ℹ️</span>
+                    </label>
+                    <input type="text" name="itp" class="form-control form-control-lg" data-euro="true"
+                           value="{{ met.itp|default:proyecto.itp|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Otros gastos</label>
+                    <input type="text" name="otros_gastos_compra" class="form-control" data-euro="true"
+                           value="{{ proyecto.otros_gastos_compra|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===============================
+         INVERSIÓN INICIAL
+    ================================ -->
+    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
+        <div class="card-body">
+            <h5 class="mb-3 inversure-form-header">
+                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">4</span>
+                Inversión inicial
+            </h5>
+
+            <div class="row">
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">Reforma</label>
+                    <input type="text" name="reforma" class="form-control form-control-lg" data-euro="true"
+                           value="{{ proyecto.reforma|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">Limpieza inicial</label>
+                    <input type="text" name="limpieza_inicial" class="form-control form-control-lg" data-euro="true"
+                           value="{{ proyecto.limpieza_inicial|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">Mobiliario</label>
+                    <input type="text" name="mobiliario" class="form-control form-control-lg" data-euro="true"
+                           value="{{ proyecto.mobiliario|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">Otros puesta en marcha</label>
+                    <input type="text" name="otros_puesta_marcha" class="form-control form-control-lg" data-euro="true"
+                           value="{{ proyecto.otros_puesta_marcha|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ===============================
+         OBRA (DETALLE POR PARTIDAS)
+    ================================ -->
+    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
+        <div class="card-body">
+            <h5 class="mb-3 inversure-form-header">
+                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">4A</span>
+                Obra (detalle por partidas)
+            </h5>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Demoliciones / desescombro</label>
+                    <input type="text" name="obra_demoliciones" class="form-control" data-euro="true"
+                        value="{{ proyecto.obra_demoliciones|default:'' }}">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Albañilería</label>
+                    <input type="text" name="obra_albanileria" class="form-control" data-euro="true"
+                        value="{{ proyecto.obra_albanileria|default:'' }}">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Fontanería</label>
+                    <input type="text" name="obra_fontaneria" class="form-control" data-euro="true"
+                        value="{{ proyecto.obra_fontaneria|default:'' }}">
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Electricidad</label>
+                    <input type="text" name="obra_electricidad" class="form-control" data-euro="true"
+                        value="{{ proyecto.obra_electricidad|default:'' }}">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Carpintería interior</label>
+                    <input type="text" name="obra_carpinteria_interior" class="form-control" data-euro="true"
+                        value="{{ proyecto.obra_carpinteria_interior|default:'' }}">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Carpintería exterior</label>
+                    <input type="text" name="obra_carpinteria_exterior" class="form-control" data-euro="true"
+                        value="{{ proyecto.obra_carpinteria_exterior|default:'' }}">
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Cocina</label>
+                    <input type="text" name="obra_cocina" class="form-control" data-euro="true"
+                        value="{{ proyecto.obra_cocina|default:'' }}">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Baños</label>
+                    <input type="text" name="obra_banos" class="form-control" data-euro="true"
+                        value="{{ proyecto.obra_banos|default:'' }}">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Pintura</label>
+                    <input type="text" name="obra_pintura" class="form-control" data-euro="true"
+                        value="{{ proyecto.obra_pintura|default:'' }}">
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-12 mb-3">
+                    <label class="form-label">Otros trabajos de obra</label>
+                    <input type="text" name="obra_otros" class="form-control" data-euro="true"
+                        value="{{ proyecto.obra_otros|default:'' }}">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===============================
+         SEGURIDAD Y CONTROL
+    ================================ -->
+    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
+        <div class="card-body">
+            <h5 class="mb-3 inversure-form-header">
+                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">4B</span>
+                Seguridad y control
+            </h5>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Cerrajero</label>
+                    <input type="text" name="cerrajero" class="form-control" data-euro="true"
+                        value="{{ proyecto.cerrajero|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Alarma</label>
+                    <input type="text" name="alarma" class="form-control" data-euro="true"
+                        value="{{ proyecto.alarma|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===============================
+         GASTOS RECURRENTES
+    ================================ -->
+    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
+        <div class="card-body">
+            <h5 class="mb-3 inversure-form-header">
+                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">5</span>
+                Gastos recurrentes
+            </h5>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Comunidad</label>
+                    <input type="text" name="comunidad" class="form-control" data-euro="true"
+                           value="{{ proyecto.comunidad|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">IBI</label>
+                    <input type="text" name="ibi" class="form-control" data-euro="true"
+                           value="{{ proyecto.ibi|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Seguros</label>
+                    <input type="text" name="seguros" class="form-control" data-euro="true"
+                           value="{{ proyecto.seguros|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Suministros</label>
+                    <input type="text" name="suministros" class="form-control" data-euro="true"
+                           value="{{ proyecto.suministros|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Limpieza periódica</label>
+                    <input type="text" name="limpieza_periodica" class="form-control" data-euro="true"
+                           value="{{ proyecto.limpieza_periodica|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Ocupas</label>
+                    <input type="text" name="ocupas" class="form-control" data-euro="true"
+                           value="{{ proyecto.ocupas|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===============================
+         GASTOS DE VENTA
+    ================================ -->
+    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
+        <div class="card-body">
+            <h5 class="mb-3 inversure-form-header">
+                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">6</span>
+                Gastos de venta
+            </h5>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Plusvalía</label>
+                    <input type="text" name="plusvalia" class="form-control" data-euro="true"
+                           value="{{ proyecto.plusvalia|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Inmobiliaria</label>
+                    <input type="text" name="inmobiliaria" class="form-control" data-euro="true"
+                           value="{{ proyecto.inmobiliaria|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Gestión comercial</label>
+                    <input type="text" name="gestion_comercial" class="form-control" data-euro="true"
+                           value="{{ proyecto.gestion_comercial|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Gestión administración</label>
+                    <input type="text" name="gestion_administracion" class="form-control" data-euro="true"
+                           value="{{ proyecto.gestion_administracion|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===============================
+         VALORACIONES
+    ================================ -->
+    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
+        <div class="card-body">
+            <h5 class="mb-3 inversure-form-header">
+                <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">7</span>
+                Valoraciones
+            </h5>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Idealista</label>
+                    <input type="text" name="val_idealista" class="form-control" data-euro="true" data-valuation="true"
+                           value="{{ proyecto.val_idealista|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Fotocasa</label>
+                    <input type="text" name="val_fotocasa" class="form-control" data-euro="true" data-valuation="true"
+                           value="{{ proyecto.val_fotocasa|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Registradores</label>
+                    <input type="text" name="val_registradores" class="form-control" data-euro="true" data-valuation="true"
+                           value="{{ proyecto.val_registradores|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Casafari</label>
+                    <input type="text" name="val_casafari" class="form-control" data-euro="true" data-valuation="true"
+                           value="{{ proyecto.val_casafari|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Tasación</label>
+                    <input type="text" name="val_tasacion" class="form-control" data-euro="true" data-valuation="true"
+                           value="{{ proyecto.val_tasacion|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-12">
+                    <label class="form-label fw-semibold">
+                      Media de valoraciones
+                      <span class="ms-1 text-muted" title="Calculado automáticamente en base a los datos introducidos">ℹ️</span>
+                    </label>
+                    <input type="text" name="media_valoraciones" class="form-control form-control-lg" data-euro="true" readonly title="Calculado automáticamente en base a los datos introducidos"
+                           value="{{ proyecto.media_valoraciones|default:'' }}" {% if not editable %}disabled{% endif %}>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- ===============================
@@ -822,11 +780,217 @@
 
     <div class="card mb-4 shadow-sm border-0">
         <div class="card-body d-flex justify-content-between align-items-center">
-            <div class="text-muted small">
-                La información se guarda automáticamente al editar.
+            <div class="d-flex gap-2">
+                <button type="submit"
+                        name="accion"
+                        value="calcular"
+                        class="btn btn-outline-secondary"
+                        {% if not editable %}disabled{% endif %}>
+                    Calcular
+                </button>
+
+                <button type="submit"
+                        name="accion"
+                        value="guardar"
+                        class="btn btn-outline-primary"
+                        {% if not editable %}disabled{% endif %}>
+                    💾 Guardar proyecto
+                </button>
             </div>
         </div>
     </div>
+
+    <div class="d-flex justify-content-center my-5">
+        <button type="submit"
+                name="accion"
+                value="analizar"
+                class="btn btn-primary btn-lg px-5 shadow">
+            Analizar viabilidad
+        </button>
+    </div>
+
+    <!-- ===============================
+         RESULTADOS
+    ================================ -->
+{% if resultado %}
+<div class="card mb-5 shadow-sm border-0 resultado-inversor
+     {% if resultado.viable %}resultado-viable{% elif resultado.ajustada %}resultado-ajustada{% else %}resultado-no-viable{% endif %}">
+    <div class="card-body">
+
+        <!-- VEREDICTO -->
+        <div class="mb-4">
+            {% if resultado.viable %}
+                <h3 class="text-success fw-bold">✔ OPERACIÓN VIABLE</h3>
+                <p class="text-muted mb-0">
+                    Cumple los criterios mínimos exigidos por Inversure
+                </p>
+                <div class="mt-2 small text-muted">
+                    <strong>Criterios aplicados:</strong>
+                    ROI mínimo ≥ 15 % · Beneficio mínimo ≥ 30.000 €
+                </div>
+            {% elif resultado.ajustada %}
+                <h3 class="text-warning fw-bold">⚠ OPERACIÓN AJUSTADA</h3>
+                <p class="text-muted mb-0">
+                    ROI correcto, pero beneficio inferior al objetivo
+                </p>
+                <div class="mt-2 small text-muted">
+                    <strong>Criterios aplicados:</strong>
+                    ROI mínimo ≥ 15 % · Beneficio mínimo ≥ 30.000 €
+                </div>
+            {% else %}
+                <h3 class="text-danger fw-bold">✖ OPERACIÓN NO VIABLE</h3>
+                <p class="text-muted mb-0">
+                    No alcanza los criterios mínimos de rentabilidad
+                </p>
+                <div class="mt-2 small text-muted">
+                    <strong>Criterios aplicados:</strong>
+                    ROI mínimo ≥ 15 % · Beneficio mínimo ≥ 30.000 €
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- TARJETA VISUAL DE RENTABILIDAD -->
+        <div class="card mb-4 border-0 shadow-sm">
+            <div class="card-body">
+                <div class="row align-items-center text-center">
+                    <div class="col-md-4 mb-3 mb-md-0">
+                        <div class="fw-semibold text-muted">Rentabilidad global</div>
+                        <div class="fs-3 fw-bold
+                            {% if resultado.viable %}text-success
+                            {% elif resultado.ajustada %}text-warning
+                            {% else %}text-danger{% endif %}">
+                            <span class="fmt-percent" data-percent="true" data-decimals="2">{{ resultado.roi }}</span>
+                        </div>
+                        <small class="text-muted">Objetivo ≥ 15 %</small>
+                    </div>
+
+                    <div class="col-md-4 mb-3 mb-md-0">
+                        <div class="fw-semibold text-muted">Beneficio esperado</div>
+                        <div class="fs-3 fw-bold
+                            {% if resultado.beneficio_neto >= 30000 %}text-success
+                            {% elif resultado.beneficio_neto > 0 %}text-warning
+                            {% else %}text-danger{% endif %}">
+                            <span class="fmt-euro" data-euro="true">{{ resultado.beneficio_neto }}</span>
+                        </div>
+                        <small class="text-muted">Objetivo ≥ 30.000 €</small>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="fw-semibold text-muted">Decisión Inversure</div>
+                        <div class="fs-5 fw-semibold">
+                            {% if resultado.viable %}
+                                ✅ Apta para inversión
+                            {% elif resultado.ajustada %}
+                                ⚠ Requiere ajuste
+                            {% else %}
+                                ❌ No invertir
+                            {% endif %}
+                        </div>
+                        <small class="text-muted">
+                            Basado en ROI y beneficio absoluto
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TARJETA DE AJUSTES NECESARIOS -->
+        {% if not resultado.viable %}
+        <div class="card mb-4 border-0 shadow-sm">
+            <div class="card-body">
+                <h5 class="fw-bold mb-3">🔧 Qué habría que ajustar para que sea viable</h5>
+
+                <div class="row text-center">
+                    <div class="col-md-4 mb-3">
+                        <div class="fw-semibold text-muted">Incrementar precio de venta</div>
+                        <div class="fs-5 fw-bold text-warning">
+                            <span class="fmt-euro" data-euro="true">{{ resultado.ajuste_precio_venta }}</span>
+                        </div>
+                        <small class="text-muted">Manteniendo gastos actuales</small>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <div class="fw-semibold text-muted">Reducir gastos totales</div>
+                        <div class="fs-5 fw-bold text-warning">
+                            <span class="fmt-euro" data-euro="true">{{ resultado.ajuste_gastos }}</span>
+                        </div>
+                        <small class="text-muted">Manteniendo precio de venta</small>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <div class="fw-semibold text-muted">Escenario combinado</div>
+                        <div class="fs-6 fw-semibold">
+                            Ajuste parcial en precio y gastos
+                        </div>
+                        <small class="text-muted">
+                            Recomendado para negociación
+                        </small>
+                    </div>
+                </div>
+
+                <div class="alert alert-light border mt-3 mb-0 small">
+                    <strong>Nota:</strong> Estos ajustes son orientativos. No modifican el proyecto ni sus datos guardados.
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <hr class="my-4">
+
+        <!-- KPIs PRINCIPALES -->
+        <div class="row text-center mb-4">
+            <div class="col-md-3">
+                <div class="fw-semibold text-muted">Beneficio neto</div>
+                <div class="fs-4 fw-bold">
+                    <span class="fmt-euro" data-euro="true">{{ resultado.beneficio_neto }}</span>
+                </div>
+                <small class="text-muted">Objetivo ≥ 30.000 €</small>
+            </div>
+
+            <div class="col-md-3">
+                <div class="fw-semibold text-muted">ROI</div>
+                <div class="fs-4 fw-bold"><span class="fmt-percent" data-percent="true" data-decimals="2">{{ resultado.roi }}</span></div>
+                <small class="text-muted">Objetivo ≥ 15 %</small>
+            </div>
+
+            <div class="col-md-3">
+                <div class="fw-semibold text-muted">Capital invertido</div>
+                <div class="fs-5 fw-semibold">
+                    <span class="fmt-euro" data-euro="true">{{ resultado.valor_adquisicion }}</span>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="fw-semibold text-muted">€ ganados / € invertido</div>
+                <div class="fs-5 fw-semibold">
+                    <span class="fmt-number" data-number="true" data-decimals="2">{{ resultado.ratio_euro }}</span> €
+                </div>
+            </div>
+        </div>
+
+        <hr class="my-4">
+
+        <!-- MÉTRICAS INVERSOR -->
+        <div class="row">
+            <div class="col-md-4">
+                <strong>Precio mínimo de venta</strong><br>
+                <span class="fmt-euro" data-euro="true">{{ resultado.precio_minimo_venta }}</span>
+            </div>
+
+            <div class="col-md-4">
+                <strong>Colchón de seguridad</strong><br>
+                <span class="fmt-percent" data-percent="true" data-decimals="2">{{ resultado.colchon_seguridad }}</span>
+            </div>
+
+            <div class="col-md-4">
+                <strong>Margen neto</strong><br>
+                <span class="fmt-percent" data-percent="true" data-decimals="2">{{ resultado.margen_neto }}</span>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endif %}
 
         </div> <!-- /vista-operacion -->
 
@@ -834,153 +998,7 @@
             <div class="card mb-4 shadow-sm border-0">
                 <div class="card-body">
                     <h5 class="mb-2 inversure-form-header">Inversores</h5>
-                    <div class="card border-0 shadow-sm mb-4">
-                        <div class="card-body">
-                            <div class="row g-3 align-items-end">
-                                <div class="col-md-3">
-                                    <label class="form-label">Comisión Inversure (%)</label>
-                                    <input type="text"
-                                           class="form-control"
-                                           id="inv_comision_pct"
-                                           name="inversor.comision_inversure_pct"
-                                           data-number="true"
-                                           data-decimals="2"
-                                           value="{{ inv.comision_inversure_pct|default:inv.comision_pct|default:metricas.comision_inversure_pct|default:metricas.comision_pct|default:'' }}">
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">Comisión Inversure (€)</label>
-                                    <input type="text"
-                                           class="form-control"
-                                           id="inv_comision_eur"
-                                           name="inversor.comision_inversure_eur"
-                                           data-euro="true"
-                                           readonly
-                                           value="{{ inv.comision_inversure_eur|default:inv.comision_eur|default:metricas.comision_inversure_eur|default:metricas.comision_eur|default:'' }}">
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">Beneficio neto inversor (€)</label>
-                                    <input type="text"
-                                           class="form-control"
-                                           id="inv_beneficio_neto"
-                                           data-euro="true"
-                                           readonly
-                                           value="{{ inv.beneficio_neto_inversor|default:inv.beneficio_neto|default:'' }}">
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">ROI neto inversor (%)</label>
-                                    <input type="text"
-                                           class="form-control"
-                                           id="inv_roi_neto"
-                                           data-number="true"
-                                           data-decimals="2"
-                                           readonly
-                                           value="{{ inv.roi_neto_inversor|default:inv.roi_neto|default:'' }}">
-                                </div>
-                            </div>
-                            <input type="hidden" name="inversor.beneficio_neto_inversor" id="inv_beneficio_neto_hidden" value="{{ inv.beneficio_neto_inversor|default:inv.beneficio_neto|default:'' }}">
-                            <input type="hidden" name="inversor.roi_neto_inversor" id="inv_roi_neto_hidden" value="{{ inv.roi_neto_inversor|default:inv.roi_neto|default:'' }}">
-                            <input type="hidden" name="inversor.beneficio_neto" id="inv_beneficio_neto_base" value="{{ inv.beneficio_neto|default:'' }}">
-                            <input type="hidden" name="inversor.roi_neto" id="inv_roi_neto_base" value="{{ inv.roi_neto|default:'' }}">
-                            <div class="form-text mt-2">
-                                La comisión se calcula sobre el beneficio bruto y se descuenta del beneficio del inversor.
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row g-3 align-items-end">
-                        <div class="col-md-5">
-                            <label class="form-label">Cliente</label>
-                            <select class="form-select" id="inv_cliente">
-                                <option value="">— Selecciona cliente —</option>
-                                {% for c in clientes %}
-                                    <option value="{{ c.id }}">{{ c.nombre }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Importe invertido</label>
-                            <input type="text" class="form-control" id="inv_importe" data-euro="true">
-                        </div>
-                        <div class="col-md-2">
-                            <button type="button" class="btn btn-inversure btn-sm w-100 text-nowrap" id="inv_add_btn">Añadir</button>
-                        </div>
-                    </div>
-
-                    <div class="table-responsive mt-3">
-                        <table class="table table-sm align-middle">
-                            <thead>
-                                <tr>
-                                    <th>Cliente</th>
-                                    <th class="text-end">Importe</th>
-                                    <th class="text-end">% Participación</th>
-                                    <th>Fecha</th>
-                                    <th>Estado</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody id="inv_tabla_rows">
-                                {% if participaciones %}
-                                  {% for p in participaciones %}
-                                  <tr data-id="{{ p.id }}">
-                                      <td>{{ p.cliente.nombre }}</td>
-                                      <td class="text-end">{{ p.importe_invertido|es_number }} €</td>
-                                      <td class="text-end">
-                                        {% if p.porcentaje_participacion %}{{ p.porcentaje_participacion|es_number }} %{% else %}—{% endif %}
-                                      </td>
-                                      <td>{{ p.creado|date:"d/m/Y" }}</td>
-                                      <td>
-                                        <select class="form-select form-select-sm inv-estado">
-                                          <option value="pendiente" {% if p.estado == "pendiente" %}selected{% endif %}>Pendiente</option>
-                                          <option value="confirmada" {% if p.estado == "confirmada" %}selected{% endif %}>Confirmada</option>
-                                          <option value="cancelada" {% if p.estado == "cancelada" %}selected{% endif %}>Cancelada</option>
-                                        </select>
-                                      </td>
-                                      <td class="text-end">
-                                          <button type="button" class="btn btn-sm btn-outline-secondary inv-save">Guardar</button>
-                                          <button type="button" class="btn btn-sm btn-outline-danger inv-del">Borrar</button>
-                                      </td>
-                                  </tr>
-                                  {% endfor %}
-                                {% else %}
-                                  <tr><td colspan="7" class="text-muted">No hay participaciones todavía.</td></tr>
-                                {% endif %}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {% if is_admin %}
-                    <div class="card border-0 shadow-sm mt-4 d-none" id="difusion_block_placeholder">
-                        <div class="card-body text-muted">Difusión movida a la pestaña de Publicación / Difusión.</div>
-                    </div>
-                    {% endif %}
-                    <div class="mt-4">
-                        <h6 class="mb-2">Solicitudes pendientes</h6>
-                        {% if solicitudes_pendientes_count %}
-                            <div class="alert alert-warning d-flex align-items-center justify-content-between py-2" role="alert">
-                                <div>
-                                    <strong>{{ solicitudes_pendientes_count }}</strong> solicitudes esperando revisión.
-                                </div>
-                                <a class="btn btn-sm btn-outline-dark" href="{% url 'core:inversores_list' %}">Ver inversores</a>
-                            </div>
-                        {% endif %}
-                        <div class="table-responsive">
-                            <table class="table table-sm align-middle">
-                                <thead>
-                                    <tr>
-                                        <th>Cliente</th>
-                                        <th class="text-end">Importe solicitado</th>
-                                        <th>Fecha</th>
-                                        <th>Estado</th>
-                                        <th>Decisión</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="inv_solicitudes_rows">
-                                    <tr><td colspan="6" class="text-muted">Sin solicitudes todavía.</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
+                    <p class="text-muted mb-0">Pendiente: alta de inversores, participaciones, aportaciones y distribución.</p>
                 </div>
             </div>
         </div>
@@ -989,828 +1007,118 @@
             <div class="card mb-4 shadow-sm border-0">
                 <div class="card-body">
                     <h5 class="mb-2 inversure-form-header">Documentación</h5>
-                    <p class="text-muted mb-4">Archiva documentos clave del proyecto con trazabilidad y categorías.</p>
-                    <div class="row g-3" id="doc_upload_wrap"
+                    <div id="doc_upload_wrap"
                          data-upload-url="{% url 'core:proyecto_documentos' proyecto.id %}"
                          data-catastro-url="{% url 'core:proyecto_documento_ficha_catastral' proyecto.id %}">
-                        <div class="col-lg-5">
-                            <div class="card border-0 shadow-sm">
-                                <div class="card-body">
-                                    <h6 class="mb-3">Herramientas de documentación</h6>
-                                    <div class="accordion" id="docToolsAccordion">
-                                        <div class="accordion-item">
-                                            <h2 class="accordion-header" id="docToolsUploadHeading">
-                                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#docToolsUpload" aria-expanded="true">
-                                                    Subir documento
-                                                </button>
-                                            </h2>
-                                            <div id="docToolsUpload" class="accordion-collapse collapse show" data-bs-parent="#docToolsAccordion">
-                                                <div class="accordion-body">
-                                                    <div class="mb-3">
-                                                        <label class="form-label">Tipo de documento</label>
-                                                        <select id="doc_titulo" class="form-select">
-                                                            <option value="escritura">Escritura</option>
-                                                            <option value="ficha_catastral">Ficha catastral</option>
-                                                            <option value="certificado_valor">Certificado valor escritura</option>
-                                                            <option value="comunidad">Comunidad</option>
-                                                            <option value="ibi">IBI</option>
-                                                            <option value="nota_simple">Nota simple</option>
-                                                            <option value="otros">Otros</option>
-                                                        </select>
-                                                        <input type="text" id="doc_titulo_otro" class="form-control mt-2 d-none" placeholder="Especifica el nombre del documento">
-                                                    </div>
-                                                    <div class="mb-3">
-                                                        <label class="form-label">Categoría</label>
-                                                        <select id="doc_categoria" class="form-select">
-                                                            <option value="inmueble">Documentación inmueble</option>
-                                                            <option value="facturas">Facturas</option>
-                                                            <option value="fotografias">Fotografías</option>
-                                                            <option value="presentacion">Presentación</option>
-                                                            <option value="otros">Otros</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="row g-2 mb-3 d-none" id="doc_factura_fields">
-                                                        <div class="col-6">
-                                                            <label class="form-label">Fecha de factura</label>
-                                                            <input type="date" id="doc_factura_fecha" class="form-control">
-                                                        </div>
-                                                        <div class="col-6">
-                                                            <label class="form-label">Importe factura</label>
-                                                            <input type="text" id="doc_factura_importe" class="form-control" data-euro="true" placeholder="Ej. 320,50">
-                                                        </div>
-                                                    </div>
-                                                    <div class="mb-3">
-                                                        <label class="form-label">Archivo</label>
-                                                        <input type="file" id="doc_archivo" class="form-control" multiple>
-                                                        <div class="form-text">Formatos: PDF, imágenes, hojas de cálculo. Puedes seleccionar varias (útil para fotografías).</div>
-                                                    </div>
-                                                    <div class="small text-muted mb-2" id="doc_upload_status"></div>
-                                                    <button type="button" class="btn btn-inversure w-100 text-nowrap" id="doc_upload_btn">Subir documento</button>
-                                                    <div class="mt-3">
-                                                        <button type="button" class="btn btn-outline-secondary w-100 text-nowrap" id="doc_catastro_btn">
-                                                            Generar ficha catastral
-                                                        </button>
-                                                        <div class="small text-muted mt-2" id="doc_catastro_status"></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                      <div class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                          <label class="form-label">Título</label>
+                          <select id="doc_titulo" class="form-select">
+                            <option value="escritura">Escritura</option>
+                            <option value="nota_simple">Nota simple</option>
+                            <option value="contrato">Contrato</option>
+                            <option value="presupuesto">Presupuesto</option>
+                            <option value="fotografias">Fotografías</option>
+                            <option value="factura">Factura</option>
+                            <option value="otros" selected>Otros</option>
+                          </select>
+                          <input type="text" id="doc_titulo_otro" class="form-control mt-2 d-none" placeholder="Especifica el nombre del documento">
                         </div>
-                        <div class="col-lg-6">
-                            <div class="card border-0 shadow-sm">
-                                <div class="card-body">
-                                    <h6 class="mb-3">Documentos por carpeta</h6>
-                                    <div class="accordion" id="docAccordion">
-                                        {% for cat, docs in documentos_por_categoria.items %}
-                                            <div class="accordion-item">
-                                                <h2 class="accordion-header" id="heading-{{ cat }}">
-                                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ cat }}">
-                                                        {{ docs.0.get_categoria_display|default:"Otros" }} ({{ docs|length }})
-                                                    </button>
-                                                </h2>
-                                                <div id="collapse-{{ cat }}" class="accordion-collapse collapse" data-bs-parent="#docAccordion">
-                                                    <div class="accordion-body">
-                                                        <div class="table-responsive">
-                                                            <table class="table table-sm align-middle">
-                                                                <thead>
-                                                                    <tr>
-                                                                        <th>Título</th>
-                                                                        <th>Fecha</th>
-                                                                        <th class="text-end">Acciones</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    {% for doc in docs %}
-                                                                        <tr>
-                                                                            <td class="fw-semibold">
-                                                                                {{ doc.titulo }}
-                                                                                {% if doc.categoria == "fotografias" and doc.es_principal %}
-                                                                                    <span class="badge bg-success ms-2 doc-principal-badge">Principal</span>
-                                                                                {% endif %}
-                                                                                {% if doc.categoria == "fotografias" %}
-                                                                                    <div class="mt-2 d-flex flex-wrap gap-2">
-                                                                                        <button type="button"
-                                                                                                class="btn btn-sm {% if doc.es_principal %}btn-inversure{% else %}btn-outline-secondary{% endif %} doc-principal-btn"
-                                                                                                data-url="{% url 'core:proyecto_documento_principal' proyecto.id doc.id %}"
-                                                                                                aria-label="Marcar como portada"
-                                                                                                style="padding: 2px 8px; font-size: 12px;">
-                                                                                            Portada
-                                                                                        </button>
-                                                                                        <button type="button"
-                                                                                                class="btn btn-sm {% if doc.usar_pdf %}btn-inversure{% else %}btn-outline-secondary{% endif %} doc-flag-btn"
-                                                                                                data-url="{% url 'core:proyecto_documento_flag' proyecto.id doc.id %}"
-                                                                                                data-field="usar_pdf"
-                                                                                                data-active="{% if doc.usar_pdf %}1{% else %}0{% endif %}"
-                                                                                                aria-label="Usar en PDF"
-                                                                                                style="padding: 2px 8px; font-size: 12px;">
-                                                                                            PDF
-                                                                                        </button>
-                                                                                        <button type="button"
-                                                                                                class="btn btn-sm {% if doc.usar_story %}btn-inversure{% else %}btn-outline-secondary{% endif %} doc-flag-btn"
-                                                                                                data-url="{% url 'core:proyecto_documento_flag' proyecto.id doc.id %}"
-                                                                                                data-field="usar_story"
-                                                                                                data-active="{% if doc.usar_story %}1{% else %}0{% endif %}"
-                                                                                                aria-label="Usar en Story"
-                                                                                                style="padding: 2px 8px; font-size: 12px;">
-                                                                                            Story
-                                                                                        </button>
-                                                                                        <button type="button"
-                                                                                                class="btn btn-sm {% if doc.usar_instagram %}btn-inversure{% else %}btn-outline-secondary{% endif %} doc-flag-btn"
-                                                                                                data-url="{% url 'core:proyecto_documento_flag' proyecto.id doc.id %}"
-                                                                                                data-field="usar_instagram"
-                                                                                                data-active="{% if doc.usar_instagram %}1{% else %}0{% endif %}"
-                                                                                                aria-label="Usar en Instagram"
-                                                                                                style="padding: 2px 8px; font-size: 12px;">
-                                                                                            Instagram
-                                                                                        </button>
-                                                                                        <button type="button"
-                                                                                                class="btn btn-sm {% if doc.usar_dossier %}btn-inversure{% else %}btn-outline-secondary{% endif %} doc-flag-btn"
-                                                                                                data-url="{% url 'core:proyecto_documento_flag' proyecto.id doc.id %}"
-                                                                                                data-field="usar_dossier"
-                                                                                                data-active="{% if doc.usar_dossier %}1{% else %}0{% endif %}"
-                                                                                                aria-label="Integrar en dossier"
-                                                                                                style="padding: 2px 8px; font-size: 12px;">
-                                                                                            Dossier
-                                                                                        </button>
-                                                                                    </div>
-                                                                                {% endif %}
-                                                                            </td>
-                                                                            <td>{{ doc.creado|date:"d/m/Y" }}</td>
-                                                                            <td class="text-end">
-                                                                                <a href="{{ doc.signed_url|default:doc.archivo.url }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" aria-label="Ver documento">
-                                                                                    <i class="bi bi-eye"></i>
-                                                                                </a>
-                                                                                <button type="button" class="btn btn-sm btn-outline-danger doc-delete-btn" data-url="{% url 'core:proyecto_documento_borrar' proyecto.id doc.id %}" aria-label="Borrar documento">
-                                                                                    <i class="bi bi-trash"></i>
-                                                                                </button>
-                                                                            </td>
-                                                                        </tr>
-                                                                    {% empty %}
-                                                                        <tr>
-                                                                            <td colspan="3" class="text-muted">Sin documentos en esta carpeta.</td>
-                                                                        </tr>
-                                                                    {% endfor %}
-                                                                </tbody>
-                                                            </table>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        {% empty %}
-                                            <div class="text-muted">No hay documentos todavía.</div>
-                                        {% endfor %}
-                                        <div class="accordion-item">
-                                            <h2 class="accordion-header" id="heading-facturas-gasto">
-                                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-facturas-gasto">
-                                                    Facturas (gastos) {% if facturas_gasto %}({{ facturas_gasto|length }}){% endif %}
-                                                </button>
-                                            </h2>
-                                            <div id="collapse-facturas-gasto" class="accordion-collapse collapse" data-bs-parent="#docAccordion">
-                                                <div class="accordion-body">
-                                                    {% if facturas_gasto %}
-                                                        <div class="table-responsive">
-                                                            <table class="table table-sm align-middle">
-                                                                <thead>
-                                                                    <tr>
-                                                                        <th>Concepto</th>
-                                                                        <th>Fecha</th>
-                                                                        <th class="text-end">Importe</th>
-                                                                        <th class="text-end">Archivo</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    {% for factura in facturas_gasto %}
-                                                                        <tr>
-                                                                            <td class="fw-semibold">{{ factura.concepto }}</td>
-                                                                            <td>{% if factura.fecha %}{{ factura.fecha|date:"d/m/Y" }}{% else %}—{% endif %}</td>
-                                                                            <td class="text-end">{% if factura.importe %}{{ factura.importe|es_number }} €{% else %}—{% endif %}</td>
-                                                                            <td class="text-end">
-                                                                                {% if factura.archivo_url %}
-                                                                                    <a href="{{ factura.archivo_url }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">Ver</a>
-                                                                                {% else %}
-                                                                                    <span class="text-muted">Sin archivo</span>
-                                                                                {% endif %}
-                                                                            </td>
-                                                                        </tr>
-                                                                    {% endfor %}
-                                                                </tbody>
-                                                            </table>
-                                                        </div>
-                                                    {% else %}
-                                                        <div class="text-muted">No hay facturas asociadas a gastos.</div>
-                                                    {% endif %}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="col-md-3">
+                          <label class="form-label">Categoría</label>
+                          <select id="doc_categoria" class="form-select">
+                            {% for key, label in documento_categorias %}
+                              <option value="{{ key }}">{{ label }}</option>
+                            {% endfor %}
+                          </select>
                         </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+                        <div class="col-md-2">
+                          <label class="form-label">Fecha factura</label>
+                          <input type="date" id="doc_factura_fecha" class="form-control">
+                        </div>
+                        <div class="col-md-2">
+                          <label class="form-label">Importe factura</label>
+                          <input type="number" step="0.01" id="doc_factura_importe" class="form-control">
+                        </div>
+                        <div class="col-md-2">
+                          <label class="form-label">Archivo</label>
+                          <input type="file" id="doc_archivo" class="form-control" multiple>
+                        </div>
+                      </div>
 
-        <div class="tab-pane fade" id="vista-publicacion" role="tabpanel" aria-labelledby="tab-publicacion">
-            <div class="card mb-4 shadow-sm border-0">
-                <div class="card-body">
-                    <h5 class="mb-2 inversure-form-header">Publicación</h5>
-                    <p class="text-muted mb-4">Configura la ficha que se muestra en la landing pública.</p>
-                    <div class="row g-3">
-                        <div class="col-lg-6">
-                            <div class="card border-0 shadow-sm h-100">
-                                <div class="card-body">
-                                    <h6 class="mb-3">Card en landing</h6>
-                                    <div class="form-check mb-3">
-                                        <input class="form-check-input" type="checkbox" id="mostrar_en_landing"
-                                               name="mostrar_en_landing" {% if proyecto.mostrar_en_landing %}checked{% endif %}
-                                               {% if not editable %}disabled{% endif %}>
-                                        <label class="form-check-label" for="mostrar_en_landing">
-                                            Mostrar en landing
-                                        </label>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Título</label>
-                                        <input type="text" name="landing.titulo" class="form-control"
-                                               value="{{ landing_config.titulo|default:proyecto.nombre|default:'' }}"
-                                               placeholder="Ej. COÍN" {% if not editable %}disabled{% endif %}>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Ubicación</label>
-                                        <input type="text" name="landing.ubicacion" class="form-control"
-                                               value="{{ landing_config.ubicacion|default:proyecto.direccion|default:'' }}"
-                                               placeholder="Ej. Málaga" {% if not editable %}disabled{% endif %}>
-                                    </div>
-                                    <div class="row g-2">
-                                        <div class="col-6">
-                                            <label class="form-label">Beneficio neto (%)</label>
-                                            <input type="text" name="landing.beneficio_neto_pct" class="form-control"
-                                                   data-percent="true"
-                                                   value="{{ landing_config.beneficio_neto_pct|default:landing_beneficio_neto_pct_auto|default:proyecto.roi|default:'' }}"
-                                                   placeholder="Ej. 11,63" {% if not editable %}disabled{% endif %}>
-                                        </div>
-                                        <div class="col-6">
-                                            <label class="form-label">Plazo (meses)</label>
-                                            <input type="number" name="landing.plazo_meses" class="form-control"
-                                                   value="{{ landing_config.plazo_meses|default:proyecto.meses|default:'' }}"
-                                                   placeholder="Ej. 3" {% if not editable %}disabled{% endif %}>
-                                        </div>
-                                    </div>
-                                    <div class="mb-3 mt-2">
-                                        <label class="form-label">Imagen (foto del proyecto)</label>
-                                        <select name="landing.imagen_id" class="form-select" {% if not editable %}disabled{% endif %}>
-                                            <option value="">Usar principal</option>
-                                            {% for doc in documentos %}
-                                                {% if doc.categoria == "fotografias" %}
-                                                    <option value="{{ doc.id }}" {% if landing_config.imagen_id and landing_config.imagen_id|stringformat:"s" == doc.id|stringformat:"s" %}selected{% endif %}>
-                                                        {{ doc.titulo }}
-                                                    </option>
-                                                {% endif %}
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-                                    <div class="row g-2 mb-3">
-                                        <div class="col-6">
-                                            <label class="form-label">Encuadre horizontal</label>
-                                            <input type="range" min="0" max="100" step="1" name="landing.imagen_focus_x" class="form-range"
-                                                   data-number="true"
-                                                   value="{{ landing_config.imagen_focus_x|default:50 }}" {% if not editable %}disabled{% endif %}>
-                                        </div>
-                                        <div class="col-6">
-                                            <label class="form-label">Encuadre vertical</label>
-                                            <input type="range" min="0" max="100" step="1" name="landing.imagen_focus_y" class="form-range"
-                                                   data-number="true"
-                                                   value="{{ landing_config.imagen_focus_y|default:50 }}" {% if not editable %}disabled{% endif %}>
-                                        </div>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Vista previa</label>
-                                        <div class="landing-preview-card" id="landing_preview"
-                                             data-default-url="{{ landing_preview_url|default:'' }}"
-                                             style="background-color: #0b1324;">
-                                            <div class="landing-preview-media" id="landing_preview_media"
-                                                 style="background-image: url('{{ landing_preview_url|default:'' }}');"></div>
-                                            <div class="landing-preview-body">
-                                                <div class="landing-preview-title">{{ landing_config.titulo|default:proyecto.nombre|default:'' }}</div>
-                                                <div class="landing-preview-metrics">
-                                                    <div>
-                                                        <span>Beneficio neto</span>
-                                                        <strong>{{ landing_config.beneficio_neto_pct|default:landing_beneficio_neto_pct_auto|default:proyecto.roi|default:"—" }}</strong>
-                                                    </div>
-                                                    <div>
-                                                        <span>Plazo</span>
-                                                        <strong>{{ landing_config.plazo_meses|default:proyecto.meses|default:"—" }} {% if landing_config.plazo_meses or proyecto.meses %}meses{% endif %}</strong>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="d-flex gap-2 flex-wrap mt-2">
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="landing_preview_full_btn">Ver completa</button>
-                                            <a class="btn btn-sm btn-outline-primary" href="https://www.inversurehomes.es/#proyectos" target="_blank" rel="noopener">Ver en landing</a>
-                                        </div>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Foto cabecera (proyecto)</label>
-                                        <select name="publicaciones.cabecera_imagen_id" class="form-select" {% if not editable %}disabled{% endif %}>
-                                            <option value="">Usar principal</option>
-                                            {% for doc in documentos %}
-                                                {% if doc.categoria == "fotografias" %}
-                                                    <option value="{{ doc.id }}" {% if publicaciones_config.cabecera_imagen_id and publicaciones_config.cabecera_imagen_id|stringformat:"s" == doc.id|stringformat:"s" %}selected{% endif %}>
-                                                        {{ doc.titulo }}
-                                                    </option>
-                                                {% endif %}
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-                                    <div class="form-text">Estos campos se muestran en la landing pública.</div>
-                                </div>
-                            </div>
-                        </div>
+                      <div class="d-flex align-items-center gap-2 mt-3">
+                        <button type="button" class="btn btn-primary" id="doc_upload_btn">Subir documento</button>
+                        <button type="button" class="btn btn-outline-secondary" id="doc_catastro_btn">Generar ficha catastral</button>
+                        <span class="text-muted small" id="doc_upload_status"></span>
+                        <span class="text-muted small" id="doc_catastro_status"></span>
+                      </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="tab-pane fade" id="vista-difusion" role="tabpanel" aria-labelledby="tab-difusion">
-            <div class="card mb-4 shadow-sm border-0">
+            <div class="card shadow-sm border-0">
                 <div class="card-body">
-                    <h5 class="mb-2 inversure-form-header">Difusión</h5>
-                    <p class="text-muted mb-4">Genera la presentación del proyecto y selecciona los destinatarios.</p>
-                    <div class="row g-3">
-                        <div class="col-lg-7">
-                            <div class="card border-0 shadow-sm">
-                                <div class="card-body">
-                                    <h6 class="mb-3">Presentación de proyecto</h6>
-                                    <div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Nombre para portada</label>
-                                            <input type="text" name="difusion.titulo" class="form-control" placeholder="Ej. COIN"
-                                                   value="{{ difusion_config.titulo|default:proyecto.nombre|default:'' }}">
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Descripcion breve</label>
-                                            <textarea name="difusion.descripcion" class="form-control" rows="3"
-                                                      placeholder="Describe la oportunidad en 2-3 lineas">{{ difusion_config.descripcion|default:'' }}</textarea>
-                                        </div>
-                                        <div class="row g-2">
-                                            <div class="col-6">
-                                                <label class="form-label">Rentabilidad neta (%)</label>
-                                                <input type="text" name="difusion.rentabilidad" class="form-control" placeholder="Ej. 11,63"
-                                                       value="{{ difusion_config.rentabilidad|default:resultado.roi|default:'' }}">
-                                            </div>
-                                            <div class="col-6">
-                                                <label class="form-label">Plazo (meses)</label>
-                                                <input type="number" name="difusion.plazo_meses" class="form-control" placeholder="Ej. 3"
-                                                       value="{{ difusion_config.plazo_meses|default:proyecto.meses|default:'' }}">
-                                            </div>
-                                        </div>
-                                        <div class="row g-2 mt-1">
-                                            <div class="col-6">
-                                                <label class="form-label">Acceso minimo (€)</label>
-                                                <input type="text" name="difusion.acceso_minimo" class="form-control" placeholder="Ej. 10.000"
-                                                       value="{{ difusion_config.acceso_minimo|default:'' }}">
-                                            </div>
-                                            <div class="col-6">
-                                                <label class="form-label">Ano</label>
-                                                <input type="number" name="difusion.anio" class="form-control" placeholder="2026"
-                                                       value="{{ difusion_config.anio|default:'' }}">
-                                            </div>
-                                        </div>
-                                        <div class="mb-3 mt-2">
-                                            <label class="form-label">Ubicacion</label>
-                                            <input type="text" name="difusion.ubicacion" class="form-control" placeholder="Ej. Plaza Mayor, Madrid"
-                                                   value="{{ difusion_config.ubicacion|default:proyecto.direccion|default:'' }}">
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Foto principal</label>
-                                            <select name="difusion.foto_id" class="form-select">
-                                                <option value="">Usar principal</option>
-                                                {% for doc in documentos %}
-                                                    {% if doc.categoria == "fotografias" %}
-                                                        <option value="{{ doc.id }}" {% if difusion_config.foto_id and difusion_config.foto_id|stringformat:"s" == doc.id|stringformat:"s" %}selected{% endif %}>
-                                                            {{ doc.titulo }}
-                                                        </option>
-                                                    {% endif %}
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Mapa (PDF o imagen)</label>
-                                            <select name="difusion.mapa_id" class="form-select">
-                                                <option value="">No incluir</option>
-                                                {% for doc in documentos %}
-                                                    {% if doc.categoria != "presentacion" %}
-                                                        <option value="{{ doc.id }}" {% if difusion_config.mapa_id and difusion_config.mapa_id|stringformat:"s" == doc.id|stringformat:"s" %}selected{% endif %}>
-                                                            {{ doc.titulo }}
-                                                        </option>
-                                                    {% endif %}
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Dossier / catastro (PDF o imagen)</label>
-                                            <select name="difusion.dossier_id" class="form-select">
-                                                <option value="">No incluir</option>
-                                                {% for doc in documentos %}
-                                                    {% if doc.categoria != "presentacion" %}
-                                                        <option value="{{ doc.id }}" {% if difusion_config.dossier_id and difusion_config.dossier_id|stringformat:"s" == doc.id|stringformat:"s" %}selected{% endif %}>
-                                                            {{ doc.titulo }}
-                                                        </option>
-                                                    {% endif %}
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Anexos extra (PDF o imagen)</label>
-                                            <div class="small text-muted mb-2">Se anexan al PDF final.</div>
-                                            <div class="small mb-2">
-                                                <button type="button"
-                                                        class="btn btn-sm btn-outline-secondary"
-                                                        data-bs-toggle="collapse"
-                                                        data-bs-target="#anexos_extra_list">
-                                                    Mostrar anexos
-                                                </button>
-                                            </div>
-                                            <div class="d-flex flex-column gap-1 collapse" id="anexos_extra_list" style="max-height: 140px; overflow:auto;">
-                                                {% for doc in documentos %}
-                                                    {% if doc.categoria != "presentacion" %}
-                                                        <label class="form-check">
-                                                            <input class="form-check-input" type="checkbox" name="difusion.anexos.{{ doc.id }}" value="on"
-                                                                   {% if doc.id|stringformat:"s" in difusion_anexos_ids %}checked{% endif %}>
-                                                            <span class="form-check-label">{{ doc.titulo }}</span>
-                                                        </label>
-                                                    {% endif %}
-                                                {% empty %}
-                                                    <span class="text-muted">No hay documentos disponibles.</span>
-                                                {% endfor %}
-                                            </div>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Estilo visual</label>
-                                            <select name="difusion.estilo" class="form-select">
-                                                <option value="coin" {% if difusion_config.estilo == "coin" or not difusion_config.estilo %}selected{% endif %}>Coin</option>
-                                                <option value="madrid" {% if difusion_config.estilo == "madrid" %}selected{% endif %}>Madrid</option>
-                                                <option value="mijas" {% if difusion_config.estilo == "mijas" %}selected{% endif %}>Mijas</option>
-                                                <option value="sotogrande" {% if difusion_config.estilo == "sotogrande" %}selected{% endif %}>Sotogrande</option>
-                                                <option value="torremolinos" {% if difusion_config.estilo == "torremolinos" %}selected{% endif %}>Torremolinos</option>
-                                                <option value="martinez" {% if difusion_config.estilo == "martinez" %}selected{% endif %}>Martinez</option>
-                                                <option value="aurora" {% if difusion_config.estilo == "aurora" %}selected{% endif %}>Aurora</option>
-                                            </select>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Formatos</label>
-                                            <div class="d-flex gap-3 flex-wrap">
-                                                <label class="form-check">
-                                                    <input class="form-check-input" type="checkbox" name="difusion.formatos.pdf"
-                                                           {% if difusion_config.formatos %}{% if difusion_config.formatos.pdf %}checked{% endif %}{% else %}checked{% endif %}>
-                                                    <span class="form-check-label">PDF A4</span>
-                                                </label>
-                                                <label class="form-check">
-                                                    <input class="form-check-input" type="checkbox" name="difusion.formatos.feed"
-                                                           {% if difusion_config.formatos %}{% if difusion_config.formatos.feed %}checked{% endif %}{% else %}checked{% endif %}>
-                                                    <span class="form-check-label">Instagram Feed (1080x1350)</span>
-                                                </label>
-                                                <label class="form-check">
-                                                    <input class="form-check-input" type="checkbox" name="difusion.formatos.story"
-                                                           {% if difusion_config.formatos %}{% if difusion_config.formatos.story %}checked{% endif %}{% else %}checked{% endif %}>
-                                                    <span class="form-check-label">Instagram Story (1080x1920)</span>
-                                                </label>
-                                            </div>
-                                        </div>
-                                        <button type="submit"
-                                                class="btn btn-inversure w-100"
-                                                form="proyectoForm"
-                                                formaction="{% url 'core:proyecto_presentacion_generar' proyecto.id %}"
-                                                formmethod="post"
-                                                formnovalidate>
-                                            Generar presentacion
-                                        </button>
-                                        <div class="d-grid gap-2 mt-2">
-                                            <button type="submit"
-                                                    class="btn btn-outline-secondary"
-                                                    form="proyectoForm"
-                                                    formaction="{% url 'core:proyecto_presentacion_preview' proyecto.id 'pdf' %}"
-                                                    formmethod="post"
-                                                    formnovalidate
-                                                    formtarget="_blank">
-                                                Vista previa dossier
-                                            </button>
-                                            <div class="d-flex gap-2">
-                                                <button type="submit"
-                                                        class="btn btn-outline-secondary w-50"
-                                                        form="proyectoForm"
-                                                        formaction="{% url 'core:proyecto_presentacion_preview' proyecto.id 'feed' %}"
-                                                        formmethod="post"
-                                                        formnovalidate
-                                                        formtarget="_blank">
-                                                    Vista previa Instagram
-                                                </button>
-                                                <button type="submit"
-                                                        class="btn btn-outline-secondary w-50"
-                                                        form="proyectoForm"
-                                                        formaction="{% url 'core:proyecto_presentacion_preview' proyecto.id 'story' %}"
-                                                        formmethod="post"
-                                                        formnovalidate
-                                                        formtarget="_blank">
-                                                    Vista previa Stories
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        {% if is_admin %}
-                        <div class="col-lg-5">
-                            <div class="card border-0 shadow-sm">
-                                <div class="card-body">
-                                    <div id="difusion_form">
-                                        <div class="d-flex justify-content-between align-items-center mb-2">
-                                            <h6 class="mb-0">Difusión del proyecto</h6>
-                                            <span class="badge bg-light text-muted" id="difusion_count">0 seleccionados</span>
-                                        </div>
-                                        <p class="text-muted small mb-3">
-                                            Selecciona los clientes a los que quieres enviar el dossier y habilitar la inversión en su portal.
-                                        </p>
-                                        <details class="difusion-dropdown">
-                                            <summary class="difusion-summary">
-                                                Ver destinatarios
-                                                <span class="text-muted small">({{ clientes|length }} disponibles)</span>
-                                            </summary>
-                                            <div class="mt-3">
-                                                <input type="search" class="form-control form-control-sm difusion-search" id="difusion_search" placeholder="Buscar cliente...">
-                                                <div class="form-check mt-2">
-                                                    <input class="form-check-input" type="checkbox" id="difusion_select_all">
-                                                    <label class="form-check-label" for="difusion_select_all">Seleccionar todos</label>
-                                                </div>
-                                                <div class="border rounded p-2 mt-2 difusion-list">
-                                                    {% for c in clientes %}
-                                                        <div class="form-check difusion-item" data-label="{{ c.nombre|lower }}">
-                                                            <input class="form-check-input difusion-check"
-                                                                   type="checkbox"
-                                                                   name="difusion_clientes"
-                                                                   id="difusion_cli_{{ c.id }}"
-                                                                   value="{{ c.id }}"
-                                                                   {% if c.id in difusion_clientes_ids %}checked{% endif %}>
-                                                            <label class="form-check-label" for="difusion_cli_{{ c.id }}">{{ c.nombre }}</label>
-                                                        </div>
-                                                    {% empty %}
-                                                        <span class="text-muted">No hay clientes disponibles.</span>
-                                                    {% endfor %}
-                                                </div>
-                                            </div>
-                                        </details>
-                                        <div class="d-grid gap-2 mt-3">
-                                            <button type="submit"
-                                                    name="accion"
-                                                    value="guardar"
-                                                    class="btn btn-outline-secondary"
-                                                    form="proyectoForm"
-                                                    formaction="{% url 'core:proyecto_difusion' proyecto.id %}"
-                                                    formmethod="post"
-                                                    formnovalidate>
-                                                Guardar destinatarios
-                                            </button>
-                                            <button type="submit"
-                                                    name="accion"
-                                                    value="enviar"
-                                                    class="btn btn-inversure"
-                                                    form="proyectoForm"
-                                                    formaction="{% url 'core:proyecto_difusion' proyecto.id %}"
-                                                    formmethod="post"
-                                                    formnovalidate>
-                                                Enviar dossier y habilitar inversión
-                                            </button>
-                                        </div>
-                                        <div class="form-text mt-2">
-                                            Se enviará la presentación PDF más reciente y el proyecto quedará disponible para los seleccionados.
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="card border-0 shadow-sm mt-3">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <h6 class="mb-0">Comunicaciones</h6>
-                                        <span class="badge bg-light text-muted">Proyecto</span>
-                                    </div>
-                                    <div class="mb-2">
-                                        <label class="form-label">Título</label>
-                                        <input type="text" class="form-control" id="com_titulo" placeholder="Actualización de proyecto">
-                                    </div>
-                                    <div class="mb-2">
-                                        <label class="form-label">Mensaje</label>
-                                        <textarea class="form-control" id="com_mensaje" rows="3" placeholder="Resumen breve para inversores"></textarea>
-                                    </div>
-                                    <button type="button" class="btn btn-inversure w-100" id="com_send_btn">Enviar comunicación</button>
-                                    <div class="form-text mt-2">
-                                        Se enviará a los inversores confirmados del proyecto.
-                                    </div>
-                                    <div class="table-responsive mt-3">
-                                        <table class="table table-sm align-middle">
-                                            <thead>
-                                                <tr>
-                                                    <th>Cliente</th>
-                                                    <th>Título</th>
-                                                    <th>Mensaje</th>
-                                                    <th>Fecha</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="inv_comunicaciones_rows">
-                                                <tr><td colspan="4" class="text-muted">Sin comunicaciones todavía.</td></tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
+                    <h6 class="mb-3">Documentos subidos</h6>
+                    {% if documentos %}
+                      <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                          <thead>
+                            <tr>
+                              <th>Título</th>
+                              <th>Categoría</th>
+                              <th>Fecha factura</th>
+                              <th class="text-end">Importe</th>
+                              <th>Archivo</th>
+                              <th class="text-end">Acciones</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {% for doc in documentos %}
+                              <tr>
+                                <td class="fw-semibold">
+                                  {{ doc.titulo }}
+                                </td>
+                                <td>{{ doc.get_categoria_display }}</td>
+                                <td>{% if doc.fecha_factura %}{{ doc.fecha_factura|date:"d/m/Y" }}{% else %}-{% endif %}</td>
+                                <td class="text-end">
+                                  {% if doc.importe_factura %}{{ doc.importe_factura|es_number }} €{% else %}-{% endif %}
+                                </td>
+                                <td>
+                                  {% if doc.signed_url %}
+                                    <a href="{{ doc.signed_url }}" target="_blank" rel="noopener noreferrer">Ver</a>
+                                  {% else %}
+                                    <a href="{{ doc.archivo.url }}" target="_blank" rel="noopener noreferrer">Ver</a>
+                                  {% endif %}
+                                </td>
+                                <td class="text-end">
+                                  <button type="button"
+                                          class="btn btn-sm btn-outline-danger doc-delete-btn"
+                                          data-url="{% url 'core:proyecto_documento_borrar' proyecto.id doc.id %}"
+                                          title="Borrar documento"
+                                          aria-label="Borrar documento">
+                                    <i class="bi bi-trash"></i>
+                                  </button>
+                                </td>
+                              </tr>
+                            {% endfor %}
+                          </tbody>
+                        </table>
+                      </div>
+                    {% else %}
+                      <div class="text-muted">No hay documentos subidos.</div>
+                    {% endif %}
                 </div>
             </div>
+            {{ facturas_docs|json_script:"facturasDocsData" }}
         </div>
 
         <div class="tab-pane fade" id="vista-dashboard" role="tabpanel" aria-labelledby="tab-dashboard">
-            <style>
-              .dash-hero {
-                background: linear-gradient(135deg, #0f1d2e 0%, #142b45 60%, #1a3654 100%);
-                color: #fff;
-                border-radius: 16px;
-              }
-              .dash-kpi {
-                background: #fff;
-                border: 1px solid #e2e8f0;
-                border-radius: 14px;
-                padding: 14px 16px;
-                box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
-              }
-              .dash-kpi .label { color: #64748b; font-size: 12px; }
-              .dash-kpi .value { font-size: 20px; font-weight: 800; }
-              .dash-sub { color: #94a3b8; font-size: 11px; }
-              .dash-bar {
-                height: 10px;
-                border-radius: 999px;
-                background: #e2e8f0;
-                overflow: hidden;
-              }
-              .dash-bar > span {
-                display: block;
-                height: 100%;
-                background: linear-gradient(90deg, #0ea5e9 0%, #38bdf8 100%);
-                width: 0%;
-              }
-              .dash-bar.warn > span { background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%); }
-              .dash-bar.good > span { background: linear-gradient(90deg, #16a34a 0%, #22c55e 100%); }
-              .dash-list { list-style: none; padding: 0; margin: 0; }
-              .dash-list li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px dashed #e2e8f0; }
-              .dash-list li:last-child { border-bottom: 0; }
-              .dash-pill {
-                font-size: 11px; padding: 2px 8px; border-radius: 999px;
-                background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0;
-              }
-            </style>
-
-            <div class="card mb-4 shadow-sm border-0 dash-hero">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h5 class="mb-1">Dashboard operativo</h5>
-                            <div class="dash-sub">Visión rápida del estado económico y trazabilidad del proyecto</div>
-                        </div>
-                        <div class="dash-pill">Equipo Inversure</div>
-                    </div>
-                </div>
-            </div>
-
             <div class="card mb-4 shadow-sm border-0">
                 <div class="card-body">
-                    <h5 class="mb-3 inversure-form-header">Indicadores clave</h5>
-                    <div class="row g-3">
-                        <div class="col-md-3">
-                            <div class="dash-kpi">
-                                <div class="label" id="dash_label_ingresos">Ingresos reales</div>
-                                <div class="value" id="dash_ingresos_reales">—</div>
-                                <div class="dash-sub"><span id="dash_sub_ingresos_label">Estimado:</span> <span id="dash_ingresos_estimados">—</span></div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="dash-kpi">
-                                <div class="label" id="dash_label_gastos">Gastos reales</div>
-                                <div class="value" id="dash_gastos_reales">—</div>
-                                <div class="dash-sub"><span id="dash_sub_gastos_label">Estimado:</span> <span id="dash_gastos_estimados">—</span></div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="dash-kpi">
-                                <div class="label" id="dash_label_beneficio">Beneficio neto real</div>
-                                <div class="value" id="dash_beneficio_real">—</div>
-                                <div class="dash-sub"><span id="dash_sub_beneficio_label">Estimado:</span> <span id="dash_beneficio_estimado">—</span></div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="dash-kpi">
-                                <div class="label" id="dash_label_roi">ROI real</div>
-                                <div class="value" id="dash_roi_real">—</div>
-                                <div class="dash-sub"><span id="dash_sub_roi_label">Estimado:</span> <span id="dash_roi_estimado">—</span></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="small text-muted mt-2" id="dash_real_estimado_note" style="display:none;">
-                        Real sin confirmar: se usa el estimado hasta cerrar la venta.
-                    </div>
-
-                    <div class="row g-3 mt-2">
-                        <div class="col-md-6">
-                            <div class="dash-kpi">
-                                <div class="label">Captación de inversión</div>
-                                <div class="value" id="dash_captado_val">{{ captacion.capital_captado_fmt }}</div>
-                                <div class="dash-sub">Objetivo: <span id="dash_captado_obj">{{ captacion.capital_objetivo_fmt }}</span></div>
-                                <div class="dash-bar good mt-2"><span id="dash_captado_bar" style="width: {{ captacion.pct_captado|floatformat:0 }}%;"></span></div>
-                                <div class="dash-sub mt-2">Captado: <span id="dash_captado_pct">{{ captacion.pct_captado_fmt }}</span></div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="dash-kpi">
-                                <div class="label">Pendiente de captar</div>
-                                <div class="value" id="dash_restante_val">{{ captacion.restante_fmt }}</div>
-                                <div class="dash-sub">Falta: <span id="dash_restante_pct">{{ captacion.pct_restante_fmt }}</span></div>
-                                <div class="dash-bar warn mt-2"><span id="dash_restante_bar" style="width: {{ captacion.pct_restante|floatformat:0 }}%;"></span></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row g-3 mt-2">
-                        <div class="col-md-4">
-                            <div class="dash-kpi">
-                                <div class="label">Comisión Inversure</div>
-                                <div class="value" id="dash_comision_inversure">—</div>
-                                <div class="dash-sub">Sobre beneficio bruto</div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="dash-kpi">
-                                <div class="label">Beneficio neto inversor</div>
-                                <div class="value" id="dash_beneficio_neto_inversor">—</div>
-                                <div class="dash-sub">Después de comisión</div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="dash-kpi">
-                                <div class="label">ROI neto inversor</div>
-                                <div class="value" id="dash_roi_neto_inversor">—</div>
-                                <div class="dash-sub">Sobre inversión</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row g-3 mt-2">
-                        <div class="col-md-6">
-                            <div class="dash-kpi">
-                                <div class="label">Comparativa ingresos/gastos</div>
-                                <div class="small text-muted mt-2">Ingresos (real)</div>
-                                <div class="dash-bar good" id="dash_bar_ingresos"><span></span></div>
-                                <div class="small text-muted mt-2">Gastos (real)</div>
-                                <div class="dash-bar warn" id="dash_bar_gastos"><span></span></div>
-                                <div class="small text-muted mt-3">Balance neto</div>
-                                <div class="dash-bar" id="dash_bar_balance"><span></span></div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="dash-kpi">
-                                <div class="label">Distribución de gastos por categoría</div>
-                                <div class="mt-2" id="dash_categorias_rows">
-                                    <div class="small text-muted">Sin datos todavía.</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row g-3 mt-2">
-                        <div class="col-md-12">
-                            <div class="dash-kpi">
-                                <div class="label">Últimos movimientos</div>
-                                <ul class="dash-list mt-2" id="dash_ultimos_movimientos">
-                                    <li><span class="text-muted">Sin movimientos aún.</span><span></span></li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
+                    <h5 class="mb-2 inversure-form-header">Dashboard</h5>
+                    <p class="text-muted mb-0">Pendiente: KPIs en tiempo real del proyecto (coste real vs estimado, ROI, margen, hitos y alertas).</p>
                 </div>
             </div>
-
-            <div class="card mb-4 shadow-sm border-0">
-                <div class="card-body">
-                    <h5 class="mb-3 inversure-form-header">Progreso operativo</h5>
-                    <div id="dash_checklist_rows">
-                        <div class="small text-muted">Sin tareas todavía.</div>
-                    </div>
-                </div>
-            </div>
-
-
         </div>
 
     </div> <!-- /tab-content -->
@@ -1822,4 +1130,4 @@
 </div>
 
 <script src="{% static 'core/proyecto.js' %}"></script>
-{% endblock %}
+{% endblock %

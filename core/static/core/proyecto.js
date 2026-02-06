@@ -2001,6 +2001,9 @@ function bindMemoriaEconomica() {
       const facturaBadge = (r.tipo === "gasto" && r.has_factura)
         ? ' <span class="badge bg-success">Factura</span>'
         : "";
+      const pagadoBadge = (r.tipo === "gasto" && r.pagado)
+        ? ' <i class="bi bi-check-circle-fill text-success" title="Pagado" aria-label="Pagado"></i>'
+        : "";
       const facturaView = (r.tipo === "gasto" && r.factura_url)
         ? `<a class="btn btn-sm btn-outline-success me-1" href="${r.factura_url}" target="_blank" rel="noopener noreferrer" title="Ver factura" aria-label="Ver factura"><i class="bi bi-eye"></i></a>`
         : "";
@@ -2009,6 +2012,9 @@ function bindMemoriaEconomica() {
         : "";
       const facturaUndo = (r.tipo === "gasto" && r.has_factura)
         ? `<button type="button" class="btn btn-sm btn-outline-warning me-1 eco-factura-remove" title="Quitar factura" aria-label="Quitar factura"><i class="bi bi-arrow-counterclockwise"></i></button>`
+        : "";
+      const pagadoBtn = (r.tipo === "gasto")
+        ? `<button type="button" class="btn btn-sm ${r.pagado ? "btn-outline-success" : "btn-outline-secondary"} me-1 eco-paid" title="${r.pagado ? "Marcar como no pagado" : "Marcar como pagado"}" aria-label="Pagado"><i class="bi ${r.pagado ? "bi-check-circle-fill" : "bi-check-circle"}"></i></button>`
         : "";
       return `
         <tr data-id="${r.id}"
@@ -2023,11 +2029,12 @@ function bindMemoriaEconomica() {
           <td>${r.tipo === "ingreso" ? catLabel : _capFirst(catLabel)}</td>
           <td>${r.concepto || ""}</td>
           <td class="text-end">${fmtEuroLocal(r.importe)}</td>
-          <td>${r.estado ? _capFirst(r.estado) : "-"}${facturaBadge}</td>
+          <td>${r.estado ? _capFirst(r.estado) : "-"}${facturaBadge} ${pagadoBadge}</td>
           <td class="text-end">
             ${facturaBtn}
             ${facturaUndo}
             ${facturaView}
+            ${pagadoBtn}
             ${canConfirm ? `<button type="button" class="btn btn-sm btn-outline-success me-1 eco-confirm" title="Confirmar" aria-label="Confirmar"><i class="bi bi-check2-circle"></i></button>` : ""}
             <button type="button" class="btn btn-sm btn-outline-secondary me-1 eco-edit" title="Editar" aria-label="Editar"><i class="bi bi-pencil"></i></button>
             <button type="button" class="btn btn-sm btn-outline-danger eco-del" title="Borrar" aria-label="Borrar"><i class="bi bi-trash"></i></button>
@@ -2171,6 +2178,52 @@ function bindMemoriaEconomica() {
       });
     });
 
+    tabla.querySelectorAll(".eco-paid").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const tr = btn.closest("tr");
+        const id = tr ? tr.getAttribute("data-id") : null;
+        const tipo = tr ? tr.getAttribute("data-tipo") : null;
+        if (!id || tipo !== "gasto") return;
+        const row = rows.find(r => String(r.id) === String(id) && r.tipo === "gasto");
+        if (!row) return;
+        const nextValue = !row.pagado;
+        const url = `${urlGastos}${id}/`;
+        const csrf = getCsrfToken();
+        let resp = await fetch(url, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...(csrf ? { "X-CSRFToken": csrf } : {}),
+          },
+          body: JSON.stringify({ pagado: nextValue }),
+        });
+        if (!resp.ok) {
+          try {
+            resp = await fetch(url, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-HTTP-Method-Override": "PATCH",
+                ...(csrf ? { "X-CSRFToken": csrf } : {}),
+              },
+              body: JSON.stringify({ _method: "PATCH", pagado: nextValue }),
+            });
+          } catch (err) {}
+        }
+        if (!resp || !resp.ok) {
+          alert("No se pudo actualizar el estado de pago.");
+          return;
+        }
+        rows = rows.map(r => {
+          if (String(r.id) !== String(id)) return r;
+          return { ...r, pagado: nextValue };
+        });
+        renderTable();
+      });
+    });
+
     tabla.querySelectorAll(".eco-confirm").forEach(btn => {
       btn.addEventListener("click", (e) => {
         e.preventDefault();
@@ -2273,6 +2326,7 @@ function bindMemoriaEconomica() {
               estado: g.estado,
               imputable_inversores: g.imputable_inversores,
               observaciones: g.observaciones,
+              pagado: !!g.pagado,
               factura_url: g.factura_url,
               has_factura: !!g.has_factura,
             });
@@ -3126,10 +3180,17 @@ function bindDocumentos() {
   }
 
   if (canUpload) {
-    btn.addEventListener("click", async () => {
+    btn.addEventListener("click", async (event) => {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      if (btn.disabled) return;
+      btn.disabled = true;
       const files = elArchivo.files ? Array.from(elArchivo.files) : [];
       if (!files.length) {
         if (status) status.textContent = "Selecciona un archivo para subir.";
+        btn.disabled = false;
         return;
       }
       if (status) status.textContent = "Subiendo documento...";
@@ -3163,12 +3224,14 @@ function bindDocumentos() {
         });
         if (!resp.ok) {
           if (status) status.textContent = "No se pudo subir el documento.";
+          btn.disabled = false;
           return;
         }
         window.location.hash = "vista-documentacion";
         window.location.reload();
       } catch (e) {
         if (status) status.textContent = "No se pudo subir el documento.";
+        btn.disabled = false;
       }
     });
   }

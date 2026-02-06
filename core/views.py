@@ -4675,6 +4675,8 @@ def proyecto(request, proyecto_id: int):
     except Exception:
         ctx["facturas_gasto"] = []
 
+    ctx["documento_categorias"] = DocumentoProyecto.CATEGORIAS
+
     return render(request, "core/proyecto.html", ctx)
 
 
@@ -5650,6 +5652,7 @@ def proyecto_gastos(request, proyecto_id: int):
                 "imputable_inversores": g.imputable_inversores,
                 "estado": g.estado,
                 "observaciones": g.observaciones,
+                "pagado": bool(getattr(g, "pagado", False)),
                 "factura_url": factura_url,
                 "has_factura": bool(factura_url),
             })
@@ -5734,6 +5737,7 @@ def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
                 "imputable_inversores": gasto.imputable_inversores,
                 "estado": gasto.estado,
                 "observaciones": gasto.observaciones,
+                "pagado": bool(getattr(gasto, "pagado", False)),
                 "factura_url": factura_url,
                 "has_factura": bool(factura_url),
             },
@@ -5771,6 +5775,8 @@ def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
             gasto.estado = (data.get("estado") or gasto.estado)
         if "observaciones" in data:
             gasto.observaciones = (data.get("observaciones") or "").strip() or None
+        if "pagado" in data:
+            gasto.pagado = bool(data.get("pagado"))
 
         if gasto.estado == "estimado":
             gasto.importe_estimado = gasto.importe

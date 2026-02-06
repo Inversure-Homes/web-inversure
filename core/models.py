@@ -761,6 +761,11 @@ class GastoProyecto(models.Model):
         null=True
     )
 
+    pagado = models.BooleanField(
+        default=False,
+        help_text="Indica si el gasto está pagado"
+    )
+
     creado = models.DateTimeField(auto_now_add=True)
     actualizado = models.DateTimeField(auto_now=True)
 
