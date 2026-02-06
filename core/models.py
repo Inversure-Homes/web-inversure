@@ -882,6 +882,11 @@ class IngresoProyecto(models.Model):
         null=True
     )
 
+    pagado = models.BooleanField(
+        default=False,
+        help_text="Indica si el ingreso está cobrado",
+    )
+
     creado = models.DateTimeField(auto_now_add=True)
     actualizado = models.DateTimeField(auto_now=True)
 
@@ -1789,6 +1794,33 @@ class MovimientoEconomicoProyecto(models.Model):
 
     def __str__(self):
         return f"{self.proyecto} · {self.concepto} · {self.importe} €"
+
+
+# =========================
+# JUSTIFICANTE DE INGRESO
+# =========================
+class JustificanteIngreso(models.Model):
+
+    ingreso = models.OneToOneField(
+        IngresoProyecto,
+        on_delete=models.CASCADE,
+        related_name="justificante"
+    )
+
+    archivo = models.FileField(
+        upload_to="justificantes_ingresos/%Y/%m/"
+    )
+
+    nombre_original = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True
+    )
+
+    fecha_subida = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Justificante · {self.ingreso.concepto}"
 
 # =========================
 # MODELO MOVIMIENTO REAL DE PROYECTO (TRAZABILIDAD)

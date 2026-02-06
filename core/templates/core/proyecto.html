@@ -13,6 +13,7 @@
   window.PROYECTO_GASTOS_URL = "{% if proyecto and proyecto.id %}{% url 'core:proyecto_gastos' proyecto.id %}{% endif %}";
   window.PROYECTO_INGRESOS_URL = "{% if proyecto and proyecto.id %}{% url 'core:proyecto_ingresos' proyecto.id %}{% endif %}";
   window.PROYECTO_GASTO_FACTURA_URL = "{% if proyecto and proyecto.id %}{% url 'core:proyecto_gasto_factura' proyecto.id 0 %}{% endif %}";
+  window.PROYECTO_INGRESO_JUSTIFICANTE_URL = "{% if proyecto and proyecto.id %}{% url 'core:proyecto_ingreso_justificante' proyecto.id 0 %}{% endif %}";
 </script>
 {% if snapshot %}{{ snapshot|json_script:"snapshotData" }}{% endif %}
 

@@ -40,6 +40,7 @@ urlpatterns = [
     path("proyectos/<int:proyecto_id>/gastos/<int:gasto_id>/factura/", views.proyecto_gasto_factura, name="proyecto_gasto_factura"),
     path("proyectos/<int:proyecto_id>/ingresos/", views.proyecto_ingresos, name="proyecto_ingresos"),
     path("proyectos/<int:proyecto_id>/ingresos/<int:ingreso_id>/", views.proyecto_ingreso_detalle, name="proyecto_ingreso_detalle"),
+    path("proyectos/<int:proyecto_id>/ingresos/<int:ingreso_id>/justificante/", views.proyecto_ingreso_justificante, name="proyecto_ingreso_justificante"),
     path("proyectos/<int:proyecto_id>/documentos/", views.proyecto_documentos, name="proyecto_documentos"),
     path(
         "proyectos/<int:proyecto_id>/documentos/ficha-catastral/",

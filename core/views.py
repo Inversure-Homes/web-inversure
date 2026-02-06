@@ -43,7 +43,7 @@ import requests
 from .models import Estudio, Proyecto
 from .models import EstudioSnapshot, ProyectoSnapshot
 from .models import GastoProyecto, IngresoProyecto, ChecklistItem
-from .models import Cliente, Participacion, InversorPerfil, InversorPushSubscription, SolicitudParticipacion, ComunicacionInversor, DocumentoProyecto, DocumentoInversor, FacturaGasto
+from .models import Cliente, Participacion, InversorPerfil, InversorPushSubscription, SolicitudParticipacion, ComunicacionInversor, DocumentoProyecto, DocumentoInversor, FacturaGasto, JustificanteIngreso
 from accounts.utils import (
     is_admin_user,
     is_comercial_user,
@@ -5858,6 +5858,14 @@ def proyecto_ingresos(request, proyecto_id: int):
             return JsonResponse({"ok": False, "error": "No tienes permisos para ver este proyecto."}, status=403)
         ingresos = []
         for i in IngresoProyecto.objects.filter(proyecto=proyecto).order_by("fecha", "id"):
+            justificante_url = None
+            if hasattr(i, "justificante") and getattr(i.justificante, "archivo", None):
+                try:
+                    key = getattr(i.justificante.archivo, "name", "") or ""
+                    signed = _s3_presigned_url(key)
+                    justificante_url = signed if signed else i.justificante.archivo.url
+                except Exception:
+                    justificante_url = None
             ingresos.append({
                 "id": i.id,
                 "fecha": i.fecha.isoformat(),
@@ -5867,6 +5875,9 @@ def proyecto_ingresos(request, proyecto_id: int):
                 "estado": i.estado,
                 "imputable_inversores": i.imputable_inversores,
                 "observaciones": i.observaciones,
+                "pagado": bool(getattr(i, "pagado", False)),
+                "justificante_url": justificante_url,
+                "has_justificante": bool(justificante_url),
             })
         return JsonResponse({"ok": True, "ingresos": ingresos})
 
@@ -5928,6 +5939,14 @@ def proyecto_ingreso_detalle(request, proyecto_id: int, ingreso_id: int):
     if req_method == "GET":
         if not _user_can_view_project(request.user, proyecto):
             return JsonResponse({"ok": False, "error": "No tienes permisos para ver este proyecto."}, status=403)
+        justificante_url = None
+        if hasattr(ingreso, "justificante") and getattr(ingreso.justificante, "archivo", None):
+            try:
+                key = getattr(ingreso.justificante.archivo, "name", "") or ""
+                signed = _s3_presigned_url(key)
+                justificante_url = signed if signed else ingreso.justificante.archivo.url
+            except Exception:
+                justificante_url = None
         return JsonResponse({
             "ok": True,
             "ingreso": {
@@ -5939,6 +5958,9 @@ def proyecto_ingreso_detalle(request, proyecto_id: int, ingreso_id: int):
                 "estado": ingreso.estado,
                 "imputable_inversores": ingreso.imputable_inversores,
                 "observaciones": ingreso.observaciones,
+                "pagado": bool(getattr(ingreso, "pagado", False)),
+                "justificante_url": justificante_url,
+                "has_justificante": bool(justificante_url),
             },
         })
 
@@ -5972,6 +5994,8 @@ def proyecto_ingreso_detalle(request, proyecto_id: int, ingreso_id: int):
             ingreso.imputable_inversores = bool(data.get("imputable_inversores"))
         if "observaciones" in data:
             ingreso.observaciones = (data.get("observaciones") or "").strip() or None
+        if "pagado" in data:
+            ingreso.pagado = bool(data.get("pagado"))
 
         if ingreso.estado == "estimado":
             ingreso.importe_estimado = ingreso.importe
@@ -5986,6 +6010,48 @@ def proyecto_ingreso_detalle(request, proyecto_id: int, ingreso_id: int):
         return JsonResponse({"ok": True})
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+
+@csrf_exempt
+def proyecto_ingreso_justificante(request, proyecto_id: int, ingreso_id: int):
+    try:
+        ingreso = IngresoProyecto.objects.select_related("proyecto").get(id=ingreso_id, proyecto_id=proyecto_id)
+    except IngresoProyecto.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Ingreso no encontrado"}, status=404)
+
+    if request.method == "DELETE":
+        if not _user_can_edit_project(request.user, ingreso.proyecto):
+            return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
+        try:
+            JustificanteIngreso.objects.filter(ingreso=ingreso).delete()
+            return JsonResponse({"ok": True})
+        except Exception as e:
+            return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+    if not _user_can_edit_project(request.user, ingreso.proyecto):
+        return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
+
+    archivo = request.FILES.get("justificante") or request.FILES.get("archivo")
+    if not archivo:
+        return JsonResponse({"ok": False, "error": "Archivo requerido"}, status=400)
+
+    just_obj, _ = JustificanteIngreso.objects.get_or_create(ingreso=ingreso)
+    just_obj.archivo = archivo
+    just_obj.nombre_original = getattr(archivo, "name", "") or just_obj.nombre_original
+    just_obj.save()
+
+    justificante_url = None
+    try:
+        key = getattr(just_obj.archivo, "name", "") or ""
+        signed = _s3_presigned_url(key)
+        justificante_url = signed if signed else just_obj.archivo.url
+    except Exception:
+        justificante_url = None
+
+    return JsonResponse({"ok": True, "justificante_url": justificante_url})
 
 
 def proyecto_documentos(request, proyecto_id: int):
