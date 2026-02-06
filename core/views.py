@@ -4331,10 +4331,12 @@ def proyecto(request, proyecto_id: int):
     # --- Editabilidad del proyecto ---
     # Restringir por rol/responsable y bloquear si el estado indica cierre.
     editable = _user_can_edit_project(request.user, proyecto_obj)
+    editable_estado = editable
     try:
         username = (getattr(request.user, "username", "") or "").strip().lower()
         if username == "mperez":
             editable = True
+            editable_estado = True
         else:
             estado = (getattr(proyecto_obj, "estado", "") or "").strip().lower()
             # Estados típicos de cierre (ajústalos si tu modelo usa otros nombres)
@@ -4342,6 +4344,7 @@ def proyecto(request, proyecto_id: int):
                 editable = False
     except Exception:
         editable = True
+        editable_estado = True
 
     # --- Captación / Progreso de inversión (robusto) ---
     # Objetivo: lo que se pretende captar (normalmente la inversión total)
@@ -4441,6 +4444,7 @@ def proyecto(request, proyecto_id: int):
         "PROYECTO_ID": str(proyecto_obj.id),
         "ESTADO_INICIAL_JSON": json.dumps(estado_inicial, ensure_ascii=False),
         "editable": editable,
+        "editable_estado": editable_estado,
         "is_admin": is_admin_user(request.user),
         "can_manage_difusion": is_admin_user(request.user) or use_custom_permissions(request.user),
         "acceso_comercial": bool(getattr(proyecto_obj, "acceso_comercial", False)),

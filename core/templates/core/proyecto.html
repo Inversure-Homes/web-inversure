@@ -129,7 +129,7 @@
 
                 <div class="col-md-3 mb-3">
                     <label class="form-label text-muted">Estado</label>
-                    <select name="estado" id="estado_proyecto" class="form-select form-select-lg" {% if not editable %}disabled{% endif %}>
+                    <select name="estado" id="estado_proyecto" class="form-select form-select-lg" {% if not editable_estado %}disabled{% endif %}>
                         <option value="estudio" {% if proyecto.estado == "estudio" or not proyecto.estado %}selected{% endif %}>Estudio (captación)</option>
                         <option value="comprado" {% if proyecto.estado == "comprado" %}selected{% endif %}>Comprado</option>
                         <option value="comercializacion" {% if proyecto.estado == "comercializacion" %}selected{% endif %}>Comercialización</option>
@@ -146,7 +146,7 @@
                     <!-- Resultado de cierre: solo aplica cuando estado = 'cerrado' -->
                     <div id="resultadoCierreWrap" class="mt-2" style="display:none;">
                       <label class="form-label text-muted mb-1">Resultado del cierre</label>
-                      <select name="resultado_cierre" id="resultado_cierre" class="form-select" {% if not editable %}disabled{% endif %}>
+                      <select name="resultado_cierre" id="resultado_cierre" class="form-select" {% if not editable_estado %}disabled{% endif %}>
                         <option value="" {% if not proyecto.resultado_cierre %}selected{% endif %}>— Seleccionar —</option>
                         <option value="positivo" {% if proyecto.resultado_cierre == "positivo" %}selected{% endif %}>Cierre positivo</option>
                         <option value="negativo" {% if proyecto.resultado_cierre == "negativo" %}selected{% endif %}>Cierre negativo</option>
