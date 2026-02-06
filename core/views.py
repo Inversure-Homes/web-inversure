@@ -4437,21 +4437,6 @@ def proyecto(request, proyecto_id: int):
     except Exception:
         usuarios_responsables = []
 
-    try:
-        participaciones_qs = (
-            Participacion.objects.filter(proyecto=proyecto_obj, estado="confirmada")
-            .select_related("cliente")
-            .order_by("-importe_invertido", "id")
-        )
-        total_inversores_proyecto = participaciones_qs.values("cliente_id").distinct().count()
-        total_invertido_proyecto = (
-            participaciones_qs.aggregate(total=Sum("importe_invertido")).get("total") or 0
-        )
-    except Exception:
-        participaciones_qs = []
-        total_inversores_proyecto = 0
-        total_invertido_proyecto = 0
-
     ctx = {
         "PROYECTO_ID": str(proyecto_obj.id),
         "ESTADO_INICIAL_JSON": json.dumps(estado_inicial, ensure_ascii=False),
@@ -4476,9 +4461,6 @@ def proyecto(request, proyecto_id: int):
         "capital_objetivo": captacion_ctx.get("capital_objetivo"),
         "capital_captado": captacion_ctx.get("capital_captado"),
         "pct_captado": captacion_ctx.get("pct_captado"),
-        "participaciones_proyecto": participaciones_qs,
-        "total_inversores_proyecto": total_inversores_proyecto,
-        "total_invertido_proyecto": total_invertido_proyecto,
         "landing_beneficio_neto_pct_auto": None,
     }
     try:

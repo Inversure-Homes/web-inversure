@@ -760,50 +760,154 @@
         <div class="tab-pane fade" id="vista-inversores" role="tabpanel" aria-labelledby="tab-inversores">
             <div class="card mb-4 shadow-sm border-0">
                 <div class="card-body">
-                    <h5 class="mb-3 inversure-form-header">Inversores</h5>
-                    <div class="row">
-                        <div class="col-md-4 mb-3 mb-md-0">
-                            <div class="text-muted small">Total inversores</div>
-                            <div class="h4 mb-0">{{ total_inversores_proyecto|default:0 }}</div>
-                        </div>
-                        <div class="col-md-4 mb-3 mb-md-0">
-                            <div class="text-muted small">Capital invertido</div>
-                            <div class="h4 mb-0">{{ total_invertido_proyecto|es_number }} €</div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="text-muted small">Capital objetivo</div>
-                            <div class="h4 mb-0">{{ captacion.capital_objetivo_fmt|default:"0 €" }}</div>
+                    <h5 class="mb-2 inversure-form-header">Inversores</h5>
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-body">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-3">
+                                    <label class="form-label">Comisión Inversure (%)</label>
+                                    <input type="text"
+                                           class="form-control"
+                                           id="inv_comision_pct"
+                                           name="inversor.comision_inversure_pct"
+                                           data-number="true"
+                                           data-decimals="2"
+                                           value="{{ inv.comision_inversure_pct|default:inv.comision_pct|default:metricas.comision_inversure_pct|default:metricas.comision_pct|default:'' }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Comisión Inversure (€)</label>
+                                    <input type="text"
+                                           class="form-control"
+                                           id="inv_comision_eur"
+                                           name="inversor.comision_inversure_eur"
+                                           data-euro="true"
+                                           readonly
+                                           value="{{ inv.comision_inversure_eur|default:inv.comision_eur|default:metricas.comision_inversure_eur|default:metricas.comision_eur|default:'' }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Beneficio neto inversor (€)</label>
+                                    <input type="text"
+                                           class="form-control"
+                                           id="inv_beneficio_neto"
+                                           data-euro="true"
+                                           readonly
+                                           value="{{ inv.beneficio_neto_inversor|default:inv.beneficio_neto|default:'' }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">ROI neto inversor (%)</label>
+                                    <input type="text"
+                                           class="form-control"
+                                           id="inv_roi_neto"
+                                           data-number="true"
+                                           data-decimals="2"
+                                           readonly
+                                           value="{{ inv.roi_neto_inversor|default:inv.roi_neto|default:'' }}">
+                                </div>
+                            </div>
+                            <input type="hidden" name="inversor.beneficio_neto_inversor" id="inv_beneficio_neto_hidden" value="{{ inv.beneficio_neto_inversor|default:inv.beneficio_neto|default:'' }}">
+                            <input type="hidden" name="inversor.roi_neto_inversor" id="inv_roi_neto_hidden" value="{{ inv.roi_neto_inversor|default:inv.roi_neto|default:'' }}">
+                            <input type="hidden" name="inversor.beneficio_neto" id="inv_beneficio_neto_base" value="{{ inv.beneficio_neto|default:'' }}">
+                            <input type="hidden" name="inversor.roi_neto" id="inv_roi_neto_base" value="{{ inv.roi_neto|default:'' }}">
+                            <div class="form-text mt-2">
+                                La comisión se calcula sobre el beneficio bruto y se descuenta del beneficio del inversor.
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-5">
+                            <label class="form-label">Cliente</label>
+                            <select class="form-select" id="inv_cliente">
+                                <option value="">— Selecciona cliente —</option>
+                                {% for c in clientes %}
+                                    <option value="{{ c.id }}">{{ c.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Importe invertido</label>
+                            <input type="text" class="form-control" id="inv_importe" data-euro="true">
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-inversure btn-sm w-100 text-nowrap" id="inv_add_btn">Añadir</button>
+                        </div>
+                    </div>
 
-            <div class="card shadow-sm border-0">
-                <div class="card-body p-0">
-                    <table class="table table-sm table-hover mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Inversor</th>
-                                <th class="text-end">Importe</th>
-                                <th class="text-end">%</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for p in participaciones_proyecto %}
-                              <tr>
-                                <td>{{ p.cliente.nombre }}</td>
-                                <td class="text-end">{{ p.importe_invertido|es_number }} €</td>
-                                <td class="text-end">{{ p.porcentaje|es_number }} %</td>
-                              </tr>
-                            {% empty %}
-                              <tr>
-                                <td colspan="3" class="text-center text-muted py-4">
-                                  No hay inversores confirmados en este proyecto
-                                </td>
-                              </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                    <div class="table-responsive mt-3">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Cliente</th>
+                                    <th class="text-end">Importe</th>
+                                    <th class="text-end">% Participación</th>
+                                    <th>Fecha</th>
+                                    <th>Estado</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="inv_tabla_rows">
+                                {% if participaciones %}
+                                  {% for p in participaciones %}
+                                  <tr data-id="{{ p.id }}">
+                                      <td>{{ p.cliente.nombre }}</td>
+                                      <td class="text-end">{{ p.importe_invertido|es_number }} €</td>
+                                      <td class="text-end">
+                                        {% if p.porcentaje_participacion %}{{ p.porcentaje_participacion|es_number }} %{% else %}—{% endif %}
+                                      </td>
+                                      <td>{{ p.creado|date:"d/m/Y" }}</td>
+                                      <td>
+                                        <select class="form-select form-select-sm inv-estado">
+                                          <option value="pendiente" {% if p.estado == "pendiente" %}selected{% endif %}>Pendiente</option>
+                                          <option value="confirmada" {% if p.estado == "confirmada" %}selected{% endif %}>Confirmada</option>
+                                          <option value="cancelada" {% if p.estado == "cancelada" %}selected{% endif %}>Cancelada</option>
+                                        </select>
+                                      </td>
+                                      <td class="text-end">
+                                          <button type="button" class="btn btn-sm btn-outline-secondary inv-save">Guardar</button>
+                                          <button type="button" class="btn btn-sm btn-outline-danger inv-del">Borrar</button>
+                                      </td>
+                                  </tr>
+                                  {% endfor %}
+                                {% else %}
+                                  <tr><td colspan="7" class="text-muted">No hay participaciones todavía.</td></tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {% if is_admin %}
+                    <div class="card border-0 shadow-sm mt-4 d-none" id="difusion_block_placeholder">
+                        <div class="card-body text-muted">Difusión movida a la pestaña de Publicación / Difusión.</div>
+                    </div>
+                    {% endif %}
+                    <div class="mt-4">
+                        <h6 class="mb-2">Solicitudes pendientes</h6>
+                        {% if solicitudes_pendientes_count %}
+                            <div class="alert alert-warning d-flex align-items-center justify-content-between py-2" role="alert">
+                                <div>
+                                    <strong>{{ solicitudes_pendientes_count }}</strong> solicitudes esperando revisión.
+                                </div>
+                                <a class="btn btn-sm btn-outline-dark" href="{% url 'core:inversores_list' %}">Ver inversores</a>
+                            </div>
+                        {% endif %}
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Cliente</th>
+                                        <th class="text-end">Importe solicitado</th>
+                                        <th>Fecha</th>
+                                        <th>Estado</th>
+                                        <th>Decisión</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inv_solicitudes_rows">
+                                    <tr><td colspan="6" class="text-muted">Sin solicitudes todavía.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -918,58 +1022,181 @@
         </div>
 
         <div class="tab-pane fade" id="vista-dashboard" role="tabpanel" aria-labelledby="tab-dashboard">
+            <style>
+              .dash-hero {
+                background: linear-gradient(135deg, #0f1d2e 0%, #142b45 60%, #1a3654 100%);
+                color: #fff;
+                border-radius: 16px;
+              }
+              .dash-kpi {
+                background: #fff;
+                border: 1px solid #e2e8f0;
+                border-radius: 14px;
+                padding: 14px 16px;
+                box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+              }
+              .dash-kpi .label { color: #64748b; font-size: 12px; }
+              .dash-kpi .value { font-size: 20px; font-weight: 800; }
+              .dash-sub { color: #94a3b8; font-size: 11px; }
+              .dash-bar {
+                height: 10px;
+                border-radius: 999px;
+                background: #e2e8f0;
+                overflow: hidden;
+              }
+              .dash-bar > span {
+                display: block;
+                height: 100%;
+                background: linear-gradient(90deg, #0ea5e9 0%, #38bdf8 100%);
+                width: 0%;
+              }
+              .dash-bar.warn > span { background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%); }
+              .dash-bar.good > span { background: linear-gradient(90deg, #16a34a 0%, #22c55e 100%); }
+              .dash-list { list-style: none; padding: 0; margin: 0; }
+              .dash-list li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px dashed #e2e8f0; }
+              .dash-list li:last-child { border-bottom: 0; }
+              .dash-pill {
+                font-size: 11px; padding: 2px 8px; border-radius: 999px;
+                background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0;
+              }
+            </style>
+
+            <div class="card mb-4 shadow-sm border-0 dash-hero">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-1">Dashboard operativo</h5>
+                            <div class="dash-sub">Visión rápida del estado económico y trazabilidad del proyecto</div>
+                        </div>
+                        <div class="dash-pill">Equipo Inversure</div>
+                    </div>
+                </div>
+            </div>
+
             <div class="card mb-4 shadow-sm border-0">
                 <div class="card-body">
-                    <h5 class="mb-3 inversure-form-header">Dashboard</h5>
-                    <div class="row text-center">
-                        <div class="col-md-3 mb-3 mb-md-0">
-                            <div class="text-muted small">Capital objetivo</div>
-                            <div class="h5 mb-0">{{ captacion.capital_objetivo_fmt|default:"0 €" }}</div>
-                        </div>
-                        <div class="col-md-3 mb-3 mb-md-0">
-                            <div class="text-muted small">Capital captado</div>
-                            <div class="h5 mb-0">{{ captacion.capital_captado_fmt|default:"0 €" }}</div>
-                        </div>
-                        <div class="col-md-3 mb-3 mb-md-0">
-                            <div class="text-muted small">% captado</div>
-                            <div class="h5 mb-0">{{ captacion.pct_captado_fmt|default:"0 %" }}</div>
+                    <h5 class="mb-3 inversure-form-header">Indicadores clave</h5>
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <div class="dash-kpi">
+                                <div class="label" id="dash_label_ingresos">Ingresos reales</div>
+                                <div class="value" id="dash_ingresos_reales">—</div>
+                                <div class="dash-sub"><span id="dash_sub_ingresos_label">Estimado:</span> <span id="dash_ingresos_estimados">—</span></div>
+                            </div>
                         </div>
                         <div class="col-md-3">
-                            <div class="text-muted small">Restante</div>
-                            <div class="h5 mb-0">{{ captacion.restante_fmt|default:"0 €" }}</div>
+                            <div class="dash-kpi">
+                                <div class="label" id="dash_label_gastos">Gastos reales</div>
+                                <div class="value" id="dash_gastos_reales">—</div>
+                                <div class="dash-sub"><span id="dash_sub_gastos_label">Estimado:</span> <span id="dash_gastos_estimados">—</span></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="dash-kpi">
+                                <div class="label" id="dash_label_beneficio">Beneficio neto real</div>
+                                <div class="value" id="dash_beneficio_real">—</div>
+                                <div class="dash-sub"><span id="dash_sub_beneficio_label">Estimado:</span> <span id="dash_beneficio_estimado">—</span></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="dash-kpi">
+                                <div class="label" id="dash_label_roi">ROI real</div>
+                                <div class="value" id="dash_roi_real">—</div>
+                                <div class="dash-sub"><span id="dash_sub_roi_label">Estimado:</span> <span id="dash_roi_estimado">—</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="small text-muted mt-2" id="dash_real_estimado_note" style="display:none;">
+                        Real sin confirmar: se usa el estimado hasta cerrar la venta.
+                    </div>
+
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-6">
+                            <div class="dash-kpi">
+                                <div class="label">Captación de inversión</div>
+                                <div class="value" id="dash_captado_val">{{ captacion.capital_captado_fmt }}</div>
+                                <div class="dash-sub">Objetivo: <span id="dash_captado_obj">{{ captacion.capital_objetivo_fmt }}</span></div>
+                                <div class="dash-bar good mt-2"><span id="dash_captado_bar" style="width: {{ captacion.pct_captado|floatformat:0 }}%;"></span></div>
+                                <div class="dash-sub mt-2">Captado: <span id="dash_captado_pct">{{ captacion.pct_captado_fmt }}</span></div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="dash-kpi">
+                                <div class="label">Pendiente de captar</div>
+                                <div class="value" id="dash_restante_val">{{ captacion.restante_fmt }}</div>
+                                <div class="dash-sub">Falta: <span id="dash_restante_pct">{{ captacion.pct_restante_fmt }}</span></div>
+                                <div class="dash-bar warn mt-2"><span id="dash_restante_bar" style="width: {{ captacion.pct_restante|floatformat:0 }}%;"></span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-4">
+                            <div class="dash-kpi">
+                                <div class="label">Comisión Inversure</div>
+                                <div class="value" id="dash_comision_inversure">—</div>
+                                <div class="dash-sub">Sobre beneficio bruto</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="dash-kpi">
+                                <div class="label">Beneficio neto inversor</div>
+                                <div class="value" id="dash_beneficio_neto_inversor">—</div>
+                                <div class="dash-sub">Después de comisión</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="dash-kpi">
+                                <div class="label">ROI neto inversor</div>
+                                <div class="value" id="dash_roi_neto_inversor">—</div>
+                                <div class="dash-sub">Sobre inversión</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-6">
+                            <div class="dash-kpi">
+                                <div class="label">Comparativa ingresos/gastos</div>
+                                <div class="small text-muted mt-2">Ingresos (real)</div>
+                                <div class="dash-bar good" id="dash_bar_ingresos"><span></span></div>
+                                <div class="small text-muted mt-2">Gastos (real)</div>
+                                <div class="dash-bar warn" id="dash_bar_gastos"><span></span></div>
+                                <div class="small text-muted mt-3">Balance neto</div>
+                                <div class="dash-bar" id="dash_bar_balance"><span></span></div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="dash-kpi">
+                                <div class="label">Distribución de gastos por categoría</div>
+                                <div class="mt-2" id="dash_categorias_rows">
+                                    <div class="small text-muted">Sin datos todavía.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-12">
+                            <div class="dash-kpi">
+                                <div class="label">Últimos movimientos</div>
+                                <ul class="dash-list mt-2" id="dash_ultimos_movimientos">
+                                    <li><span class="text-muted">Sin movimientos aún.</span><span></span></li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {% if resultado %}
-            <div class="card shadow-sm border-0">
+            <div class="card mb-4 shadow-sm border-0">
                 <div class="card-body">
-                    <div class="row text-center">
-                        <div class="col-md-4 mb-3 mb-md-0">
-                            <div class="text-muted small">ROI</div>
-                            <div class="h5 mb-0">
-                                <span class="fmt-percent" data-percent="true" data-decimals="2">{{ resultado.roi }}</span>
-                            </div>
-                        </div>
-                        <div class="col-md-4 mb-3 mb-md-0">
-                            <div class="text-muted small">Beneficio neto</div>
-                            <div class="h5 mb-0">
-                                <span class="fmt-euro" data-euro="true">{{ resultado.beneficio_neto }}</span>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="text-muted small">Margen neto</div>
-                            <div class="h5 mb-0">
-                                <span class="fmt-percent" data-percent="true" data-decimals="2">{{ resultado.margen_neto }}</span>
-                            </div>
-                        </div>
+                    <h5 class="mb-3 inversure-form-header">Progreso operativo</h5>
+                    <div id="dash_checklist_rows">
+                        <div class="small text-muted">Sin tareas todavía.</div>
                     </div>
                 </div>
             </div>
-            {% else %}
-            <div class="text-muted">No hay KPIs calculados todavía.</div>
-            {% endif %}
         </div>
 
     </div> <!-- /tab-content -->
