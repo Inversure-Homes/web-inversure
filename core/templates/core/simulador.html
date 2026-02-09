@@ -754,6 +754,10 @@
     });
   })();
 </script>
+<script>
+  // Fallback global for older cached JS that expects `isAdmin` in scope
+  var isAdmin = {% if is_admin %}true{% else %}false{% endif %};
+</script>
 <script src="{% static 'core/simulador.js' %}?v={{ estudio.id|default:'0' }}"></script>
 </div>
 </div>
