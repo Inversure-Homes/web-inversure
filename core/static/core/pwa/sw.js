@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const STATIC_CACHE = `inversure-static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `inversure-runtime-${CACHE_VERSION}`;
 
@@ -36,6 +36,12 @@ self.addEventListener("fetch", event => {
 
   const requestUrl = new URL(event.request.url);
   const isSameOrigin = requestUrl.origin === self.location.origin;
+  const isAppApi = isSameOrigin && requestUrl.pathname.startsWith("/app/");
+
+  if (isAppApi) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
 
   if (event.request.mode === "navigate") {
     event.respondWith(
