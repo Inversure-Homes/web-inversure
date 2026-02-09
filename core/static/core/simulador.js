@@ -1438,6 +1438,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ACCIONES (GUARDAR / CONVERTIR) · ROBUSTO
   // ==============================
   const formEstudio = document.getElementById("form-estudio");
+  const isAdmin = formEstudio && formEstudio.dataset && formEstudio.dataset.isAdmin === "1";
 
   function _inferActionFromElement(el) {
     if (!el) return "";
@@ -1543,8 +1544,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const url = (formEstudio && (formEstudio.dataset.guardarUrl || formEstudio.getAttribute("action"))) || (getAppBase() + "guardar-estudio/");
     const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || "";
-    const isAdmin = formEstudio && formEstudio.dataset && formEstudio.dataset.isAdmin === "1";
-
     const resp = await fetch(url, {
       method: "POST",
       headers: {
@@ -1575,7 +1574,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const ok = confirm("¿Convertir este estudio en proyecto? El estudio quedará bloqueado.");
     if (!ok) return;
 
-    const isAdmin = formEstudio && formEstudio.dataset && formEstudio.dataset.isAdmin === "1";
     const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || "";
     let url = (formEstudio && formEstudio.dataset.convertirUrl) || (getAppBase() + `convertir-a-proyecto/${parseInt(id, 10)}/`);
     if (url.startsWith("/convertir-a-proyecto/")) {
