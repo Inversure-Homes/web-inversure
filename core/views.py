@@ -5287,6 +5287,9 @@ def convertir_a_proyecto(request, estudio_id: int):
     if isinstance(approve_flag, str):
         approve_flag = approve_flag.strip().lower() in {"1", "true", "si", "sí", "ok", "approve"}
     approve_flag = bool(approve_flag)
+    # Si es admin, permitimos aprobar implícitamente
+    if is_admin_user(request.user):
+        approve_flag = True
 
     # Si no es admin, registrar solicitud y salir
     if not is_admin_user(request.user):
