@@ -1575,6 +1575,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const ok = confirm("¿Convertir este estudio en proyecto? El estudio quedará bloqueado.");
     if (!ok) return;
 
+    const isAdmin = formEstudio && formEstudio.dataset && formEstudio.dataset.isAdmin === "1";
     const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || "";
     let url = (formEstudio && formEstudio.dataset.convertirUrl) || (getAppBase() + `convertir-a-proyecto/${parseInt(id, 10)}/`);
     if (url.startsWith("/convertir-a-proyecto/")) {
@@ -1606,7 +1607,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    window.location.href = data.redirect_url || (getAppBase() + "proyectos/");
+    window.location.href = data.redirect || data.redirect_url || (getAppBase() + "proyectos/");
   });
 
   // 1) Bind por data-action / ids / name
