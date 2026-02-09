@@ -3017,14 +3017,16 @@ function bindParticipaciones() {
         });
       }
       tabla.innerHTML = rows.map(r => {
-        const pct = r.porcentaje_participacion !== null ? (formatNumberEs(r.porcentaje_participacion, 2) + " %") : "—";
+        const pctVal = r.porcentaje_participacion !== null ? formatNumberEs(r.porcentaje_participacion, 2) : "";
         const fecha = r.fecha ? r.fecha.slice(0, 10).split("-").reverse().join("/") : "";
         const estado = r.estado || "pendiente";
         return `
           <tr data-id="${r.id}">
             <td>${r.cliente_nombre}</td>
             <td class="text-end">${formatEuro(r.importe_invertido)}</td>
-            <td class="text-end">${pct}</td>
+            <td class="text-end">
+              <input type="text" class="form-control form-control-sm text-end inv-pct-input" value="${pctVal}" placeholder="—">
+            </td>
             <td>${fecha}</td>
             <td>
               <select class="form-select form-select-sm inv-estado">
