@@ -424,6 +424,78 @@ def _crear_comunicacion(request, perfil: InversorPerfil, proyecto: Proyecto | No
     return comunicacion
 
 
+def _admin_notify_users():
+    users = []
+    try:
+        for u in User.objects.filter(is_active=True):
+            if is_admin_user(u) or is_direccion_user(u) or (getattr(u, "username", "").strip().lower() == "mperez"):
+                users.append(u)
+    except Exception:
+        users = []
+    return users
+
+
+def _admin_notify(request, proyecto: Proyecto | None, titulo: str, mensaje: str):
+    users = _admin_notify_users()
+    if not users:
+        return
+    actor = ""
+    try:
+        if request and getattr(request, "user", None) and request.user.is_authenticated:
+            actor = request.user.get_full_name() or request.user.username or ""
+    except Exception:
+        actor = ""
+    project_label = ""
+    try:
+        if proyecto is not None:
+            project_label = f"Proyecto: {proyecto.nombre} (ID {proyecto.id})"
+    except Exception:
+        project_label = ""
+    body = mensaje
+    if project_label:
+        body = f"{body}\n\n{project_label}"
+    if actor:
+        body = f"{body}\nUsuario: {actor}"
+
+    emails = []
+    for u in users:
+        email = (getattr(u, "email", "") or "").strip()
+        if email and email not in emails:
+            emails.append(email)
+    if emails:
+        from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "") or getattr(settings, "EMAIL_HOST_USER", "") or ""
+        try:
+            send_mail(f"[Inversure] {titulo}", body, from_email, emails, fail_silently=True)
+        except Exception:
+            pass
+
+    # In-app: registrar comunicación para admins con perfil inversor asociado (si existe)
+    for u in users:
+        email = (getattr(u, "email", "") or "").strip()
+        if not email:
+            continue
+        try:
+            cliente = Cliente.objects.filter(email_hash=Cliente.hash_email(email)).first()
+            if not cliente:
+                continue
+            perfil = getattr(cliente, "perfil_inversor", None)
+            if perfil is None:
+                try:
+                    perfil = InversorPerfil.objects.create(cliente=cliente)
+                except Exception:
+                    perfil = None
+            if perfil is None:
+                continue
+            ComunicacionInversor.objects.create(
+                inversor=perfil,
+                proyecto=proyecto,
+                titulo=titulo,
+                mensaje=mensaje,
+            )
+        except Exception:
+            continue
+
+
 def _estado_label(estado: str) -> str:
     return {
         "captacion": "Captación",
@@ -5420,6 +5492,16 @@ def convertir_a_proyecto(request, estudio_id: int):
             estudio.bloqueado_en = timezone.now()
         estudio.save()
 
+    try:
+        _admin_notify(
+            request,
+            proyecto,
+            "Estudio convertido a proyecto",
+            f"El estudio '{estudio.nombre}' se convirtió en proyecto (ID {proyecto.id}).",
+        )
+    except Exception:
+        pass
+
     return JsonResponse({"ok": True, "proyecto_id": proyecto.id, "redirect": reverse("core:lista_proyectos")})
 
 def pdf_estudio_preview(request, estudio_id: int):
@@ -6312,6 +6394,8 @@ def proyecto_checklist(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": "Proyecto no encontrado"}, status=404)
 
     if request.method == "GET":
+        if not _user_can_view_project(request.user, proyecto):
+            return JsonResponse({"ok": False, "error": "No tienes permisos para ver este proyecto."}, status=403)
         _ensure_checklist_defaults(proyecto)
         items = []
         for it in ChecklistItem.objects.filter(proyecto=proyecto).order_by("fase", "fecha_objetivo", "id"):
@@ -6408,6 +6492,8 @@ def proyecto_participaciones(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": "Proyecto no encontrado"}, status=404)
 
     if request.method == "GET":
+        if not _user_can_view_project(request.user, proyecto):
+            return JsonResponse({"ok": False, "error": "No tienes permisos para ver este proyecto."}, status=403)
         capital_objetivo = Decimal("0")
         try:
             snap = getattr(proyecto, "snapshot_datos", {}) or {}
@@ -6444,6 +6530,8 @@ def proyecto_participaciones(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
     try:
+        if not _user_can_edit_project(request.user, proyecto):
+            return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
         data = json.loads(request.body or "{}")
         cliente_id = data.get("cliente_id")
         importe = _parse_decimal(data.get("importe_invertido"))
@@ -6472,6 +6560,12 @@ def proyecto_participaciones(request, proyecto_id: int):
             porcentaje_participacion=porcentaje,
             estado="confirmada",
         )
+        _admin_notify(
+            request,
+            proyecto,
+            "Nueva participación creada",
+            f"Se ha creado una participación para {cliente.nombre} por {float(importe):.2f} €.",
+        )
         return JsonResponse({"ok": True})
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
@@ -6485,12 +6579,20 @@ def proyecto_participacion_detalle(request, proyecto_id: int, participacion_id: 
         return JsonResponse({"ok": False, "error": "Participación no encontrada"}, status=404)
 
     if request.method == "PATCH":
+        if not _user_can_edit_project(request.user, part.proyecto):
+            return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
         try:
             data = json.loads(request.body or "{}")
             if "estado" in data:
                 nuevo_estado = (data.get("estado") or part.estado)
                 if nuevo_estado != part.estado:
                     part.estado = nuevo_estado
+                    _admin_notify(
+                        request,
+                        part.proyecto,
+                        "Cambio de estado de participación",
+                        f"Participación de {part.cliente.nombre} cambiada a estado: {nuevo_estado}.",
+                    )
                     # Comunicación automática al inversor
                     try:
                         perfil = getattr(part.cliente, "perfil_inversor", None)
@@ -6506,6 +6608,14 @@ def proyecto_participacion_detalle(request, proyecto_id: int, participacion_id: 
             return JsonResponse({"ok": False, "error": str(e)}, status=400)
 
     if request.method == "DELETE":
+        if not _user_can_edit_project(request.user, part.proyecto):
+            return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
+        _admin_notify(
+            request,
+            part.proyecto,
+            "Participación eliminada",
+            f"Se ha eliminado la participación de {part.cliente.nombre} por {float(part.importe_invertido):.2f} €.",
+        )
         part.delete()
         return JsonResponse({"ok": True})
 
@@ -6559,6 +6669,8 @@ def proyecto_solicitudes(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": "Proyecto no encontrado"}, status=404)
 
     if request.method == "GET":
+        if not _user_can_view_project(request.user, proyecto):
+            return JsonResponse({"ok": False, "error": "No tienes permisos para ver este proyecto."}, status=403)
         solicitudes = []
         for s in SolicitudParticipacion.objects.filter(proyecto=proyecto).select_related("inversor", "inversor__cliente"):
             decision_by = None
@@ -6594,6 +6706,8 @@ def proyecto_solicitud_detalle(request, proyecto_id: int, solicitud_id: int):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
     try:
+        if not _user_can_edit_project(request.user, solicitud.proyecto):
+            return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
         data = json.loads(request.body or "{}")
         estado = (data.get("estado") or "").strip()
         if not data.get("confirm"):
@@ -6616,6 +6730,12 @@ def proyecto_solicitud_detalle(request, proyecto_id: int, solicitud_id: int):
                 cliente=solicitud.inversor.cliente,
                 importe_invertido=solicitud.importe_solicitado,
                 estado="confirmada",
+            )
+            _admin_notify(
+                request,
+                solicitud.proyecto,
+                "Nueva participación creada (aprobación)",
+                f"Solicitud aprobada: {solicitud.inversor.cliente.nombre} por {float(solicitud.importe_solicitado):.2f} €.",
             )
         # Comunicación automática
         try:
@@ -6731,6 +6851,8 @@ def proyecto_comunicaciones(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": "Proyecto no encontrado"}, status=404)
 
     if request.method == "GET":
+        if not _user_can_view_project(request.user, proyecto):
+            return JsonResponse({"ok": False, "error": "No tienes permisos para ver este proyecto."}, status=403)
         comunicaciones = []
         for c in ComunicacionInversor.objects.filter(proyecto=proyecto).select_related("inversor", "inversor__cliente"):
             comunicaciones.append({
@@ -6762,6 +6884,8 @@ def proyecto_comunicaciones(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
     try:
+        if not _user_can_edit_project(request.user, proyecto):
+            return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
         data = json.loads(request.body or "{}")
         template_key = (data.get("template_key") or "").strip()
         preview_only = bool(data.get("preview_only"))
