@@ -2532,14 +2532,15 @@ function bindMemoriaEconomica() {
       importe,
     };
 
+    const estadoSel = (elEstado && elEstado.value) ? elEstado.value : "estimado";
     if (tipo === "gasto") {
       payload.categoria = (elCategoria && elCategoria.value) || "otros";
-      payload.estado = "estimado";
+      payload.estado = estadoSel;
       payload.imputable_inversores = (elImputable && elImputable.value === "1");
       payload.observaciones = (elObs && elObs.value) || "";
     } else {
       payload.tipo = (elTipoIngreso && elTipoIngreso.value) || "venta";
-      payload.estado = "estimado";
+      payload.estado = estadoSel;
       payload.imputable_inversores = (elImputable && elImputable.value === "1");
       payload.observaciones = (elObs && elObs.value) || "";
     }
