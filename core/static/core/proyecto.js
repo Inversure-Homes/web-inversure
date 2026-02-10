@@ -2585,7 +2585,7 @@ function bindMemoriaEconomica() {
       return;
     }
     clearForm();
-    await loadRows();
+    await loadRows(true);
   }
 
   async function deleteRow(tr) {
@@ -2628,7 +2628,7 @@ function bindMemoriaEconomica() {
       alert("No se pudo borrar el asiento.");
       return;
     }
-    await loadRows();
+    await loadRows(true);
   }
 
   async function confirmRow(tr) {
@@ -2696,7 +2696,7 @@ function bindMemoriaEconomica() {
       alert("No se pudo confirmar el asiento.");
       return;
     }
-    await loadRows();
+    await loadRows(true);
   }
 
   function editRow(tr) {

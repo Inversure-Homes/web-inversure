@@ -5647,6 +5647,7 @@ def proyecto_gastos(request, proyecto_id: int):
             facturas_docs = {}
         gastos = []
         for g in GastoProyecto.objects.filter(proyecto=proyecto).order_by("fecha", "id"):
+            estado = g.estado or "estimado"
             factura_url = None
             if can_preview:
                 if hasattr(g, "factura") and g.factura:
@@ -5673,7 +5674,7 @@ def proyecto_gastos(request, proyecto_id: int):
                 "proveedor": g.proveedor,
                 "importe": float(g.importe),
                 "imputable_inversores": g.imputable_inversores,
-                "estado": g.estado,
+                "estado": estado,
                 "observaciones": g.observaciones,
                 "pagado": bool(getattr(g, "pagado", False)),
                 "factura_url": factura_url,
@@ -5878,6 +5879,7 @@ def proyecto_ingresos(request, proyecto_id: int):
             return JsonResponse({"ok": False, "error": "No tienes permisos para ver este proyecto."}, status=403)
         ingresos = []
         for i in IngresoProyecto.objects.filter(proyecto=proyecto).order_by("fecha", "id"):
+            estado = i.estado or "estimado"
             justificante_url = None
             if hasattr(i, "justificante") and getattr(i.justificante, "archivo", None):
                 try:
@@ -5892,7 +5894,7 @@ def proyecto_ingresos(request, proyecto_id: int):
                 "tipo": i.tipo,
                 "concepto": i.concepto,
                 "importe": float(i.importe),
-                "estado": i.estado,
+                "estado": estado,
                 "imputable_inversores": i.imputable_inversores,
                 "observaciones": i.observaciones,
                 "pagado": bool(getattr(i, "pagado", False)),
