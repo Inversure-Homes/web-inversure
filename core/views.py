@@ -4794,9 +4794,14 @@ def proyecto(request, proyecto_id: int):
     return render(request, "core/proyecto.html", ctx)
 
 
-@csrf_exempt
 def guardar_estudio(request):
     if not _user_can_edit_estudio(request.user):
+        _admin_notify(
+            request,
+            None,
+            "Intento sin permisos: guardar estudio",
+            "Se intentó guardar un estudio sin permisos.",
+        )
         return JsonResponse({"ok": False, "error": "No tienes permisos para editar estudios."}, status=403)
     if request.method != "POST":
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
@@ -5099,7 +5104,6 @@ def guardar_estudio(request):
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
 
 
-@csrf_exempt
 def guardar_proyecto(request, proyecto_id: int):
     """Guarda cambios del Proyecto de forma automática.
 
@@ -5134,6 +5138,12 @@ def guardar_proyecto(request, proyecto_id: int):
         only_estado_changes = (top_keys == set(payload.keys())) and nested_ok
         username = (getattr(request.user, "username", "") or "").strip().lower()
         if not only_estado_changes or (not is_admin_user(request.user) and not is_direccion_user(request.user) and username != "mperez"):
+            _admin_notify(
+                request,
+                proyecto_obj,
+                "Intento sin permisos: guardar proyecto",
+                "Se intentó guardar un proyecto sin permisos.",
+            )
             return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
 
     update_fields = []
