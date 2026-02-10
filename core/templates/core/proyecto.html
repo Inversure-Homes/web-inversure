@@ -16,6 +16,10 @@
   window.PROYECTO_INGRESO_JUSTIFICANTE_URL = "{% if proyecto and proyecto.id %}{% url 'core:proyecto_ingreso_justificante' proyecto.id 0 %}{% endif %}";
   window.PROYECTO_PARTICIPACIONES_URL = "{% if proyecto and proyecto.id %}{% url 'core:proyecto_participaciones' proyecto.id %}{% endif %}";
   window.PROYECTO_SOLICITUDES_URL = "{% if proyecto and proyecto.id %}{% url 'core:proyecto_solicitudes' proyecto.id %}{% endif %}";
+  window.PROYECTO_GUARDAR_URL = "{% if proyecto and proyecto.id %}{% url 'core:guardar_proyecto' proyecto.id %}{% endif %}";
+  window.PROYECTO_CHECKLIST_URL = "{% if proyecto and proyecto.id %}{% url 'core:proyecto_checklist' proyecto.id %}{% endif %}";
+  window.PROYECTO_COMUNICACIONES_URL = "{% if proyecto and proyecto.id %}{% url 'core:proyecto_comunicaciones' proyecto.id %}{% endif %}";
+  window.PROYECTO_EDITABLE = {% if editable %}true{% else %}false{% endif %};
 </script>
 {% if snapshot %}{{ snapshot|json_script:"snapshotData" }}{% endif %}
 
