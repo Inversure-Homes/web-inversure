@@ -1791,12 +1791,14 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
         estimado = getattr(item, "importe_estimado", None)
         if estimado is not None:
             return estimado
-        if getattr(item, "estado", "") == "estimado":
+        estado = (getattr(item, "estado", None) or "estimado").strip().lower()
+        if estado in ("estimado", ""):
             return item.importe
         return Decimal("0")
 
     def _importe_real(item):
-        if getattr(item, "estado", "") != "confirmado":
+        estado = (getattr(item, "estado", None) or "").strip().lower()
+        if estado != "confirmado":
             return Decimal("0")
         real = getattr(item, "importe_real", None)
         return real if real is not None else item.importe
@@ -1826,11 +1828,48 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
     beneficio = ingresos_base - gastos_base
 
     cats_adq = {"adquisicion", "reforma", "seguridad", "operativos", "financieros", "legales", "otros"}
+
+    def _is_compra_gasto(gasto):
+        try:
+            if (gasto.categoria or "").strip().lower() != "adquisicion":
+                return False
+            concepto = (gasto.concepto or "").lower()
+            normalized = (
+                concepto.replace("á", "a")
+                .replace("é", "e")
+                .replace("í", "i")
+                .replace("ó", "o")
+                .replace("ú", "u")
+            )
+            return any(
+                k in normalized
+                for k in ("compraventa", "compra", "precio compra", "precio inmueble", "propiedad")
+            )
+        except Exception:
+            return False
+
+    base_precio = (
+        proyecto.precio_compra_inmueble
+        or proyecto.precio_propiedad
+        or _parse_decimal(snap_econ.get("precio_propiedad") or snap_econ.get("precio_escritura") or "")
+        or _parse_decimal(snap_met.get("precio_propiedad") or snap_met.get("precio_escritura") or "")
+        or Decimal("0")
+    )
+    excluir_compra = base_precio > 0
+
     gastos_adq_est = _sum_importes(
-        [_importe_estimado(g) for g in gastos if g.estado == "estimado" and g.categoria in cats_adq]
+        [
+            _importe_estimado(g)
+            for g in gastos
+            if (g.categoria in cats_adq) and not (excluir_compra and _is_compra_gasto(g))
+        ]
     )
     gastos_adq_real = _sum_importes(
-        [_importe_real(g) for g in gastos if g.estado == "confirmado" and g.categoria in cats_adq]
+        [
+            _importe_real(g)
+            for g in gastos
+            if (g.categoria in cats_adq) and not (excluir_compra and _is_compra_gasto(g))
+        ]
     )
     gastos_adq_base = gastos_adq_real if gastos_adq_real > 0 else gastos_adq_est
 
@@ -1872,14 +1911,6 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
             _parse_decimal(snap_econ.get("gestion_comercial")),
             _parse_decimal(snap_econ.get("gestion_administracion")),
         ]
-    )
-
-    base_precio = (
-        proyecto.precio_compra_inmueble
-        or proyecto.precio_propiedad
-        or _parse_decimal(snap_econ.get("precio_propiedad") or snap_econ.get("precio_escritura") or "")
-        or _parse_decimal(snap_met.get("precio_propiedad") or snap_met.get("precio_escritura") or "")
-        or Decimal("0")
     )
 
     no_movimientos = ingresos_est == 0 and ingresos_real == 0 and gastos_est == 0 and gastos_real == 0
@@ -1991,12 +2022,14 @@ def _beneficio_estimado_real_memoria(proyecto: Proyecto) -> dict:
         estimado = getattr(item, "importe_estimado", None)
         if estimado is not None:
             return estimado
-        if getattr(item, "estado", "") == "estimado":
+        estado = (getattr(item, "estado", None) or "estimado").strip().lower()
+        if estado in ("estimado", ""):
             return item.importe
         return Decimal("0")
 
     def _importe_real(item):
-        if getattr(item, "estado", "") != "confirmado":
+        estado = (getattr(item, "estado", None) or "").strip().lower()
+        if estado != "confirmado":
             return Decimal("0")
         real = getattr(item, "importe_real", None)
         return real if real is not None else item.importe
@@ -2036,12 +2069,14 @@ def _roi_memoria_proyecto(proyecto: Proyecto):
         estimado = getattr(item, "importe_estimado", None)
         if estimado is not None:
             return estimado
-        if getattr(item, "estado", "") == "estimado":
+        estado = (getattr(item, "estado", None) or "estimado").strip().lower()
+        if estado in ("estimado", ""):
             return item.importe
         return Decimal("0")
 
     def _importe_real(item):
-        if getattr(item, "estado", "") != "confirmado":
+        estado = (getattr(item, "estado", None) or "").strip().lower()
+        if estado != "confirmado":
             return Decimal("0")
         real = getattr(item, "importe_real", None)
         return real if real is not None else item.importe
@@ -6507,13 +6542,12 @@ def proyecto_participaciones(request, proyecto_id: int):
         total_confirmadas = qs.filter(estado="confirmada").aggregate(total=Sum("importe_invertido")).get("total") or Decimal("0")
         total_confirmadas = _parse_decimal(total_confirmadas) or Decimal("0")
         for p in qs:
-            pct = None
-            if capital_objetivo > 0:
-                pct = (p.importe_invertido / capital_objetivo) * Decimal("100")
-            elif total_confirmadas > 0:
-                pct = (p.importe_invertido / total_confirmadas) * Decimal("100")
-            else:
-                pct = p.porcentaje_participacion
+            pct = p.porcentaje_participacion if p.porcentaje_participacion is not None else None
+            if pct is None:
+                if capital_objetivo > 0:
+                    pct = (p.importe_invertido / capital_objetivo) * Decimal("100")
+                elif total_confirmadas > 0:
+                    pct = (p.importe_invertido / total_confirmadas) * Decimal("100")
             participaciones.append({
                 "id": p.id,
                 "cliente_id": p.cliente_id,
@@ -6583,6 +6617,10 @@ def proyecto_participacion_detalle(request, proyecto_id: int, participacion_id: 
             return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
         try:
             data = json.loads(request.body or "{}")
+            if "porcentaje_participacion" in data:
+                pct = _parse_decimal(data.get("porcentaje_participacion"))
+                if pct is not None:
+                    part.porcentaje_participacion = pct
             if "estado" in data:
                 nuevo_estado = (data.get("estado") or part.estado)
                 if nuevo_estado != part.estado:

@@ -3092,13 +3092,19 @@ function bindParticipaciones() {
     if (btnSave) {
       const estadoSel = tr.querySelector(".inv-estado");
       const estado = estadoSel ? estadoSel.value : "pendiente";
+      const pctInput = tr.querySelector(".inv-pct-input");
+      const pctVal = pctInput ? parseNumberEs(_getElText(pctInput)) : null;
+      const payload = { estado };
+      if (Number.isFinite(pctVal)) {
+        payload.porcentaje_participacion = pctVal;
+      }
       const resp = await fetch(`${url}${id}/`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           ...(getCsrfToken() ? { "X-CSRFToken": getCsrfToken() } : {}),
         },
-        body: JSON.stringify({ estado }),
+        body: JSON.stringify(payload),
       });
       if (!resp.ok) {
         alert("No se pudo guardar el estado.");
