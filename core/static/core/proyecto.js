@@ -1970,6 +1970,17 @@ function bindMemoriaEconomica() {
 
   function renderTable() {
     if (!tabla) return;
+    if (rows.length) {
+      const seen = new Set();
+      const deduped = [];
+      rows.forEach(r => {
+        const key = `${r.tipo || ""}:${r.id || ""}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        deduped.push(r);
+      });
+      if (deduped.length !== rows.length) rows = deduped;
+    }
     if (!rows.length) {
       tabla.innerHTML = "<tr><td colspan=\"7\" class=\"text-muted\">Sin asientos todavía.</td></tr>";
       renderTotals();
