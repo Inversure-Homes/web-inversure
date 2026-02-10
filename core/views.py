@@ -5876,7 +5876,7 @@ def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
                 "proveedor": gasto.proveedor,
                 "importe": float(gasto.importe),
                 "imputable_inversores": gasto.imputable_inversores,
-                "estado": gasto.estado,
+                "estado": gasto.estado or "estimado",
                 "observaciones": gasto.observaciones,
                 "pagado": bool(getattr(gasto, "pagado", False)),
                 "factura_url": factura_url,
@@ -5940,6 +5940,14 @@ def proyecto_gasto_factura(request, proyecto_id: int, gasto_id: int):
         gasto = GastoProyecto.objects.select_related("proyecto").get(id=gasto_id, proyecto_id=proyecto_id)
     except GastoProyecto.DoesNotExist:
         return JsonResponse({"ok": False, "error": "Gasto no encontrado"}, status=404)
+    if not _user_can_edit_project(request.user, gasto.proyecto):
+        _admin_notify(
+            request,
+            gasto.proyecto,
+            "Intento sin permisos: factura de gasto",
+            "Se intentó modificar una factura de gasto sin permisos.",
+        )
+        return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
 
     if request.method == "DELETE":
         try:
@@ -6094,7 +6102,7 @@ def proyecto_ingreso_detalle(request, proyecto_id: int, ingreso_id: int):
                 "tipo": ingreso.tipo,
                 "concepto": ingreso.concepto,
                 "importe": float(ingreso.importe),
-                "estado": ingreso.estado,
+                "estado": ingreso.estado or "estimado",
                 "imputable_inversores": ingreso.imputable_inversores,
                 "observaciones": ingreso.observaciones,
                 "pagado": bool(getattr(ingreso, "pagado", False)),
@@ -6198,6 +6206,14 @@ def proyecto_documentos(request, proyecto_id: int):
 
     if request.method != "POST":
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+    if not _user_can_edit_project(request.user, proyecto):
+        _admin_notify(
+            request,
+            proyecto,
+            "Intento sin permisos: documentos",
+            "Se intentó subir o modificar documentación sin permisos.",
+        )
+        return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
 
     archivos = request.FILES.getlist("archivo")
     if not archivos:
