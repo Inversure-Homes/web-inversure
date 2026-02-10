@@ -1827,6 +1827,10 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
     gastos_base = gastos_real if gastos_real > 0 else gastos_est
     beneficio = ingresos_base - gastos_base
 
+    snap_econ = snapshot.get("economico") if isinstance(snapshot.get("economico"), dict) else {}
+    snap_kpis = snapshot.get("kpis") if isinstance(snapshot.get("kpis"), dict) else {}
+    snap_met = snap_kpis.get("metricas") if isinstance(snap_kpis.get("metricas"), dict) else {}
+
     cats_adq = {"adquisicion", "reforma", "seguridad", "operativos", "financieros", "legales", "otros"}
 
     def _is_compra_gasto(gasto):
@@ -1872,10 +1876,6 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
         ]
     )
     gastos_adq_base = gastos_adq_real if gastos_adq_real > 0 else gastos_adq_est
-
-    snap_econ = snapshot.get("economico") if isinstance(snapshot.get("economico"), dict) else {}
-    snap_kpis = snapshot.get("kpis") if isinstance(snapshot.get("kpis"), dict) else {}
-    snap_met = snap_kpis.get("metricas") if isinstance(snap_kpis.get("metricas"), dict) else {}
 
     snap_valor_adq = _parse_decimal(
         snap_econ.get("valor_adquisicion_total")
