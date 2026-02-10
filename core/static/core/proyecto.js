@@ -2399,6 +2399,7 @@ function bindMemoriaEconomica() {
 
   async function loadRows(force = false) {
     rows = [];
+    const seen = new Set();
     try {
       const now = Date.now();
       if (!force && now - lastFetchAt < 3000) {
@@ -2411,6 +2412,9 @@ function bindMemoriaEconomica() {
         const dg = await rg.json();
         if (dg && dg.ok && Array.isArray(dg.gastos)) {
           dg.gastos.forEach(g => {
+            const key = `gasto:${g.id}`;
+            if (seen.has(key)) return;
+            seen.add(key);
             rows.push({
               id: g.id,
               tipo: "gasto",
@@ -2434,6 +2438,9 @@ function bindMemoriaEconomica() {
         const di = await ri.json();
         if (di && di.ok && Array.isArray(di.ingresos)) {
           di.ingresos.forEach(i => {
+            const key = `ingreso:${i.id}`;
+            if (seen.has(key)) return;
+            seen.add(key);
             rows.push({
               id: i.id,
               tipo: "ingreso",
