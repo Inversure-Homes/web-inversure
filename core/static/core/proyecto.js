@@ -1494,9 +1494,11 @@ function bindMemoriaEconomica() {
       const shown = totalIngresosReales > 0 ? totalIngresosReales : totalIngresosEstimados;
       totalIngresosEl.textContent = fmtEuroLocal(shown);
     }
-    const ingresosRealesEstimados = totalIngresosReales <= 0 && totalIngresosEstimados > 0;
+    const totalIngresosEstimadosRaw = totalIngresosEstimados;
+    const totalIngresosRealesRaw = totalIngresosReales;
+    const ingresosRealesEstimados = totalIngresosRealesRaw <= 0 && totalIngresosEstimadosRaw > 0;
     if (ingresosRealesEstimados) {
-      totalIngresosReales = totalIngresosEstimados;
+      totalIngresosReales = totalIngresosEstimadosRaw;
       if (ventaReal <= 0 && ventaEstimado > 0) ventaReal = ventaEstimado;
     }
 
@@ -1558,8 +1560,8 @@ function bindMemoriaEconomica() {
     };
     const estadoProyecto = getProyectoEstado();
     const usarEstimados = ["estudio", "captacion"].includes(estadoProyecto);
-    const dashIngresosEstimados = usarEstimados ? (totalIngresosEstimados + totalIngresosReales) : totalIngresosEstimados;
-    const dashIngresosReales = usarEstimados ? 0 : totalIngresosReales;
+    const dashIngresosEstimados = totalIngresosEstimadosRaw;
+    const dashIngresosReales = usarEstimados ? 0 : totalIngresosRealesRaw;
     const dashGastosEstimados = usarEstimados ? (totalEstimado + totalReal) : totalEstimado;
     const dashGastosReales = usarEstimados ? 0 : totalReal;
     const dashGastosAdqEstimado = usarEstimados ? (gastosAdqEstimado + gastosAdqReal) : gastosAdqEstimado;
@@ -1568,7 +1570,7 @@ function bindMemoriaEconomica() {
     const dashGastosVentaReal = usarEstimados ? 0 : gastosVentaReal;
     const dashVentaEstimado = usarEstimados ? (ventaEstimado + ventaReal) : ventaEstimado;
     const dashVentaReal = usarEstimados ? 0 : ventaReal;
-    const ingresosBaseDash = usarEstimados ? dashIngresosEstimados : totalIngresosReales;
+    const ingresosBaseDash = usarEstimados ? dashIngresosEstimados : totalIngresosRealesRaw;
     const gastosBaseDash = usarEstimados ? dashGastosEstimados : totalReal;
 
     const dash = {
@@ -1589,7 +1591,7 @@ function bindMemoriaEconomica() {
     dash.roiEstimado = baseEst > 0 ? (dash.beneficioEstimado / baseEst) * 100 : null;
     dash.roiReal = usarEstimados ? null : (baseReal > 0 ? (dash.beneficioReal / baseReal) * 100 : null);
 
-    const beneficioRealRaw = totalIngresosReales - totalReal;
+    const beneficioRealRaw = totalIngresosRealesRaw - totalReal;
     const roiRealRaw = baseReal > 0 ? (beneficioRealRaw / baseReal) * 100 : null;
 
     const labelIngresos = document.getElementById("dash_label_ingresos");
@@ -1627,7 +1629,7 @@ function bindMemoriaEconomica() {
 
     const display = {
       ingresosMain: usarEstimados ? dash.ingresosEstimados : dash.ingresosReales,
-      ingresosSub: usarEstimados ? totalIngresosReales : totalIngresosEstimados,
+      ingresosSub: usarEstimados ? totalIngresosRealesRaw : totalIngresosEstimadosRaw,
       gastosMain: usarEstimados ? dash.gastosEstimados : dash.gastosReales,
       gastosSub: usarEstimados ? totalReal : totalEstimado,
       beneficioMain: usarEstimados ? dash.beneficioEstimado : dash.beneficioReal,
