@@ -5358,7 +5358,6 @@ def borrar_estudio(request, estudio_id: int):
     return redirect("core:lista_estudio")
 
 
-@csrf_exempt
 def convertir_a_proyecto(request, estudio_id: int):
     """Convierte un Estudio guardado en Proyecto.
 
@@ -5372,6 +5371,12 @@ def convertir_a_proyecto(request, estudio_id: int):
     if request.method not in ("POST", "GET"):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
     if not _user_can_edit_estudio(request.user):
+        _admin_notify(
+            request,
+            None,
+            "Intento sin permisos: convertir estudio",
+            "Se intentó convertir un estudio a proyecto sin permisos.",
+        )
         return JsonResponse({"ok": False, "error": "No tienes permisos para convertir estudios."}, status=403)
 
     estudio = get_object_or_404(Estudio, id=estudio_id)
@@ -5744,7 +5749,6 @@ def pdf_memoria_economica(request, proyecto_id: int):
     return render(request, "core/pdf_memoria_economica.html", ctx)
 
 
-@csrf_exempt
 def proyecto_gastos(request, proyecto_id: int):
     try:
         proyecto = Proyecto.objects.get(id=proyecto_id)
@@ -5813,6 +5817,12 @@ def proyecto_gastos(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
     if not _user_can_edit_project(request.user, proyecto):
+        _admin_notify(
+            request,
+            proyecto,
+            "Intento sin permisos: gastos",
+            "Se intentó crear un gasto sin permisos.",
+        )
         return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
 
     try:
@@ -5844,7 +5854,6 @@ def proyecto_gastos(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
 
 
-@csrf_exempt
 def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
     try:
         gasto = GastoProyecto.objects.select_related("proyecto").get(id=gasto_id, proyecto_id=proyecto_id)
@@ -5896,6 +5905,12 @@ def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
 
     if req_method == "DELETE":
         if not _user_can_edit_project(request.user, proyecto):
+            _admin_notify(
+                request,
+                proyecto,
+                "Intento sin permisos: borrar gasto",
+                "Se intentó borrar un gasto sin permisos.",
+            )
             return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
         gasto.delete()
         return JsonResponse({"ok": True})
@@ -5904,6 +5919,12 @@ def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
     if not _user_can_edit_project(request.user, proyecto):
+        _admin_notify(
+            request,
+            proyecto,
+            "Intento sin permisos: editar gasto",
+            "Se intentó editar un gasto sin permisos.",
+        )
         return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
 
     try:
@@ -5944,7 +5965,6 @@ def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
 
 
-@csrf_exempt
 def proyecto_gasto_factura(request, proyecto_id: int, gasto_id: int):
     try:
         gasto = GastoProyecto.objects.select_related("proyecto").get(id=gasto_id, proyecto_id=proyecto_id)
@@ -6002,7 +6022,6 @@ def proyecto_gasto_factura(request, proyecto_id: int, gasto_id: int):
     return JsonResponse({"ok": True, "factura_url": factura_url})
 
 
-@csrf_exempt
 def proyecto_ingresos(request, proyecto_id: int):
     try:
         proyecto = Proyecto.objects.get(id=proyecto_id)
@@ -6042,6 +6061,12 @@ def proyecto_ingresos(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
     if not _user_can_edit_project(request.user, proyecto):
+        _admin_notify(
+            request,
+            proyecto,
+            "Intento sin permisos: ingresos",
+            "Se intentó crear un ingreso sin permisos.",
+        )
         return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
 
     try:
@@ -6072,7 +6097,6 @@ def proyecto_ingresos(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
 
 
-@csrf_exempt
 def proyecto_ingreso_detalle(request, proyecto_id: int, ingreso_id: int):
     try:
         ingreso = IngresoProyecto.objects.select_related("proyecto").get(id=ingreso_id, proyecto_id=proyecto_id)
@@ -6123,6 +6147,12 @@ def proyecto_ingreso_detalle(request, proyecto_id: int, ingreso_id: int):
 
     if req_method == "DELETE":
         if not _user_can_edit_project(request.user, proyecto):
+            _admin_notify(
+                request,
+                proyecto,
+                "Intento sin permisos: borrar ingreso",
+                "Se intentó borrar un ingreso sin permisos.",
+            )
             return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
         ingreso.delete()
         return JsonResponse({"ok": True})
@@ -6131,6 +6161,12 @@ def proyecto_ingreso_detalle(request, proyecto_id: int, ingreso_id: int):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
     if not _user_can_edit_project(request.user, proyecto):
+        _admin_notify(
+            request,
+            proyecto,
+            "Intento sin permisos: editar ingreso",
+            "Se intentó editar un ingreso sin permisos.",
+        )
         return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
 
     try:
@@ -6169,7 +6205,6 @@ def proyecto_ingreso_detalle(request, proyecto_id: int, ingreso_id: int):
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
 
 
-@csrf_exempt
 def proyecto_ingreso_justificante(request, proyecto_id: int, ingreso_id: int):
     try:
         ingreso = IngresoProyecto.objects.select_related("proyecto").get(id=ingreso_id, proyecto_id=proyecto_id)
@@ -6178,6 +6213,12 @@ def proyecto_ingreso_justificante(request, proyecto_id: int, ingreso_id: int):
 
     if request.method == "DELETE":
         if not _user_can_edit_project(request.user, ingreso.proyecto):
+            _admin_notify(
+                request,
+                ingreso.proyecto,
+                "Intento sin permisos: justificante ingreso",
+                "Se intentó quitar un justificante de ingreso sin permisos.",
+            )
             return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
         try:
             JustificanteIngreso.objects.filter(ingreso=ingreso).delete()
@@ -6189,6 +6230,12 @@ def proyecto_ingreso_justificante(request, proyecto_id: int, ingreso_id: int):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
     if not _user_can_edit_project(request.user, ingreso.proyecto):
+        _admin_notify(
+            request,
+            ingreso.proyecto,
+            "Intento sin permisos: justificante ingreso",
+            "Se intentó subir un justificante de ingreso sin permisos.",
+        )
         return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
 
     archivo = request.FILES.get("justificante") or request.FILES.get("archivo")
@@ -6447,7 +6494,6 @@ def proyecto_presentacion_preview(request, proyecto_id: int, formato: str):
     return HttpResponse(pdf_bytes, content_type="application/pdf")
 
 
-@csrf_exempt
 def proyecto_checklist(request, proyecto_id: int):
     try:
         proyecto = Proyecto.objects.get(id=proyecto_id)
@@ -6487,7 +6533,6 @@ def proyecto_checklist(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
 
 
-@csrf_exempt
 def proyecto_checklist_detalle(request, proyecto_id: int, item_id: int):
     try:
         item = ChecklistItem.objects.select_related("proyecto").get(id=item_id, proyecto_id=proyecto_id)
@@ -6495,6 +6540,12 @@ def proyecto_checklist_detalle(request, proyecto_id: int, item_id: int):
         return JsonResponse({"ok": False, "error": "Item no encontrado"}, status=404)
 
     if not _user_can_edit_project(request.user, item.proyecto):
+        _admin_notify(
+            request,
+            item.proyecto,
+            "Intento sin permisos: checklist",
+            "Se intentó editar el checklist sin permisos.",
+        )
         return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
 
     if request.method == "DELETE":
@@ -6545,7 +6596,6 @@ def proyecto_checklist_detalle(request, proyecto_id: int, item_id: int):
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
 
 
-@csrf_exempt
 def proyecto_participaciones(request, proyecto_id: int):
     try:
         proyecto = Proyecto.objects.get(id=proyecto_id)
@@ -6591,6 +6641,12 @@ def proyecto_participaciones(request, proyecto_id: int):
 
     try:
         if not _user_can_edit_project(request.user, proyecto):
+            _admin_notify(
+                request,
+                proyecto,
+                "Intento sin permisos: participaciones",
+                "Se intentó crear una participación sin permisos.",
+            )
             return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
         data = json.loads(request.body or "{}")
         cliente_id = data.get("cliente_id")
@@ -6631,7 +6687,6 @@ def proyecto_participaciones(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
 
 
-@csrf_exempt
 def proyecto_participacion_detalle(request, proyecto_id: int, participacion_id: int):
     try:
         part = Participacion.objects.select_related("proyecto").get(id=participacion_id, proyecto_id=proyecto_id)
@@ -6640,6 +6695,12 @@ def proyecto_participacion_detalle(request, proyecto_id: int, participacion_id: 
 
     if request.method == "PATCH":
         if not _user_can_edit_project(request.user, part.proyecto):
+            _admin_notify(
+                request,
+                part.proyecto,
+                "Intento sin permisos: participación",
+                "Se intentó editar una participación sin permisos.",
+            )
             return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
         try:
             data = json.loads(request.body or "{}")
@@ -6673,6 +6734,12 @@ def proyecto_participacion_detalle(request, proyecto_id: int, participacion_id: 
 
     if request.method == "DELETE":
         if not _user_can_edit_project(request.user, part.proyecto):
+            _admin_notify(
+                request,
+                part.proyecto,
+                "Intento sin permisos: participación",
+                "Se intentó borrar una participación sin permisos.",
+            )
             return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
         _admin_notify(
             request,
@@ -6725,7 +6792,6 @@ def proyecto_documento_ficha_catastral(request, proyecto_id: int):
     return JsonResponse({"ok": True, "documento_id": doc.id})
 
 
-@csrf_exempt
 def proyecto_solicitudes(request, proyecto_id: int):
     try:
         proyecto = Proyecto.objects.get(id=proyecto_id)
@@ -6757,7 +6823,6 @@ def proyecto_solicitudes(request, proyecto_id: int):
     return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
 
-@csrf_exempt
 def proyecto_solicitud_detalle(request, proyecto_id: int, solicitud_id: int):
     try:
         solicitud = SolicitudParticipacion.objects.select_related("proyecto", "inversor", "inversor__cliente").get(
@@ -6771,6 +6836,12 @@ def proyecto_solicitud_detalle(request, proyecto_id: int, solicitud_id: int):
 
     try:
         if not _user_can_edit_project(request.user, solicitud.proyecto):
+            _admin_notify(
+                request,
+                solicitud.proyecto,
+                "Intento sin permisos: solicitudes",
+                "Se intentó cambiar el estado de una solicitud sin permisos.",
+            )
             return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
         data = json.loads(request.body or "{}")
         estado = (data.get("estado") or "").strip()
@@ -6907,7 +6978,6 @@ def proyecto_difusion(request, proyecto_id: int):
     return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-inversores")
 
 
-@csrf_exempt
 def proyecto_comunicaciones(request, proyecto_id: int):
     try:
         proyecto = Proyecto.objects.get(id=proyecto_id)
@@ -6949,6 +7019,12 @@ def proyecto_comunicaciones(request, proyecto_id: int):
 
     try:
         if not _user_can_edit_project(request.user, proyecto):
+            _admin_notify(
+                request,
+                proyecto,
+                "Intento sin permisos: comunicaciones",
+                "Se intentó enviar comunicaciones sin permisos.",
+            )
             return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
         data = json.loads(request.body or "{}")
         template_key = (data.get("template_key") or "").strip()
