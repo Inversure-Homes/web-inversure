@@ -4615,6 +4615,7 @@ def proyecto(request, proyecto_id: int):
         if not difusion_config and isinstance(overlay, dict):
             difusion_config = overlay.get("difusion", {}) or {}
         ctx["difusion_config"] = difusion_config if isinstance(difusion_config, dict) else {}
+        ctx["pending_estado_notif"] = extra.get("pending_estado_notif") if isinstance(extra, dict) else None
         anexos_map = difusion_config.get("anexos") if isinstance(difusion_config, dict) else {}
         if isinstance(anexos_map, dict):
             ctx["difusion_anexos_ids"] = {str(k) for k, v in anexos_map.items() if v}
@@ -5342,25 +5343,15 @@ def guardar_proyecto(request, proyecto_id: int):
 
         if estado_changed and _notificar_inversores_habilitado(proyecto_obj, snapshot=payload):
             try:
-                estado_label = {
-                    "captacion": "Captación",
-                    "comprado": "Comprado",
-                    "comercializacion": "Comercialización",
-                    "reservado": "Reservado",
-                    "vendido": "Vendido",
-                    "cerrado": "Cerrado",
-                    "descartado": "Descartado",
-                }.get(estado.lower(), estado)
-                clientes = Cliente.objects.filter(participaciones__proyecto=proyecto_obj).distinct()
-                for cliente in clientes:
-                    perfil, _ = InversorPerfil.objects.get_or_create(cliente=cliente)
-                    _crear_comunicacion(
-                        request,
-                        perfil,
-                        proyecto_obj,
-                        "Actualización del estado del proyecto",
-                        f"El proyecto {proyecto_obj.nombre} ha cambiado a estado: {estado_label}.",
-                    )
+                extra = getattr(proyecto_obj, "extra", None)
+                if not isinstance(extra, dict):
+                    extra = {}
+                extra["pending_estado_notif"] = {
+                    "estado": estado,
+                    "ts": timezone.now().isoformat(),
+                }
+                proyecto_obj.extra = extra
+                proyecto_obj.save(update_fields=["extra"])
             except Exception:
                 pass
         return JsonResponse({"ok": True})
@@ -7311,3 +7302,64 @@ def inversor_comunicacion_send(request, perfil_id: int):
         return JsonResponse({"ok": True})
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+
+def proyecto_estado_notificar(request, proyecto_id: int):
+    if request.method != "POST":
+        return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-comunicaciones")
+    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+    if not _user_can_edit_project(request.user, proyecto):
+        messages.error(request, "No tienes permisos para enviar comunicaciones.")
+        return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}")
+    try:
+        extra = getattr(proyecto, "extra", None)
+        if not isinstance(extra, dict):
+            extra = {}
+        pending = extra.get("pending_estado_notif") if isinstance(extra.get("pending_estado_notif"), dict) else {}
+        estado = (pending.get("estado") or proyecto.estado or "").strip()
+        if not estado:
+            messages.error(request, "No hay un cambio de estado pendiente de notificar.")
+            return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}")
+        estado_label = _estado_label(estado)
+        clientes = Cliente.objects.filter(participaciones__proyecto=proyecto).distinct()
+        enviados = 0
+        for cliente in clientes:
+            perfil, _ = InversorPerfil.objects.get_or_create(cliente=cliente)
+            _crear_comunicacion(
+                request,
+                perfil,
+                proyecto,
+                "Actualización del estado del proyecto",
+                f"El proyecto {proyecto.nombre} ha cambiado a estado: {estado_label}.",
+            )
+            enviados += 1
+        extra.pop("pending_estado_notif", None)
+        proyecto.extra = extra
+        proyecto.save(update_fields=["extra"])
+        if enviados:
+            messages.success(request, f"Comunicación enviada a {enviados} inversores.")
+        else:
+            messages.info(request, "No había inversores a los que notificar.")
+    except Exception:
+        messages.error(request, "No se pudo enviar la comunicación.")
+    return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}")
+
+
+def proyecto_estado_descartar(request, proyecto_id: int):
+    if request.method != "POST":
+        return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}")
+    proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+    if not _user_can_edit_project(request.user, proyecto):
+        messages.error(request, "No tienes permisos para modificar este proyecto.")
+        return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}")
+    try:
+        extra = getattr(proyecto, "extra", None)
+        if not isinstance(extra, dict):
+            extra = {}
+        extra.pop("pending_estado_notif", None)
+        proyecto.extra = extra
+        proyecto.save(update_fields=["extra"])
+        messages.success(request, "Notificación descartada.")
+    except Exception:
+        messages.error(request, "No se pudo descartar la notificación.")
+    return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}")

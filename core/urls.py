@@ -103,4 +103,6 @@ urlpatterns = [
     path("proyectos/<int:proyecto_id>/solicitudes/<int:solicitud_id>/", views.proyecto_solicitud_detalle, name="proyecto_solicitud_detalle"),
     path("proyectos/<int:proyecto_id>/difusion/", views.proyecto_difusion, name="proyecto_difusion"),
     path("proyectos/<int:proyecto_id>/comunicaciones/", views.proyecto_comunicaciones, name="proyecto_comunicaciones"),
+    path("proyectos/<int:proyecto_id>/estado/notificar/", views.proyecto_estado_notificar, name="proyecto_estado_notificar"),
+    path("proyectos/<int:proyecto_id>/estado/descartar/", views.proyecto_estado_descartar, name="proyecto_estado_descartar"),
 ]

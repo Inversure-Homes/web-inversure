@@ -126,6 +126,24 @@
             <span>Proyecto</span>
         </div>
         <div class="card-body">
+            {% if pending_estado_notif %}
+            <div class="alert alert-warning d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2">
+                <div>
+                    <strong>Cambio de estado pendiente de notificar</strong><br>
+                    Estado actual: <span class="fw-semibold">{{ proyecto.estado }}</span>. ¿Quieres enviar la comunicación a los inversores?
+                </div>
+                <div class="d-flex gap-2">
+                    <form method="post" action="{% url 'core:proyecto_estado_notificar' proyecto.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-inversure btn-sm">Enviar</button>
+                    </form>
+                    <form method="post" action="{% url 'core:proyecto_estado_descartar' proyecto.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-secondary btn-sm">Descartar</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label class="form-label text-muted">Nombre del proyecto</label>
