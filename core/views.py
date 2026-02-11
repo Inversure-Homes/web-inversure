@@ -436,6 +436,9 @@ def _admin_notify_users():
 
 
 def _admin_notify(request, proyecto: Proyecto | None, titulo: str, mensaje: str):
+    # Nunca notificar automáticamente si no está habilitado explícitamente.
+    if not getattr(settings, "AUTO_ADMIN_NOTIFICATIONS", False):
+        return
     users = _admin_notify_users()
     if not users:
         return
