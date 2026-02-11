@@ -5231,20 +5231,7 @@ def guardar_proyecto(request, proyecto_id: int):
         proyecto_obj.responsable = (request.user.get_full_name() or request.user.username or "").strip()
         update_fields.extend(["responsable_user", "responsable"])
 
-    if not proyecto_obj.responsable_user_id and _user_is_admin_or_direccion(request.user):
-        allowed_project_keys = {"estado", "resultado_cierre", "mostrar_en_landing"}
-        allowed_top = {"proyecto", "landing", "publicaciones"}
-        proyecto_payload_keys = set(payload_proyecto.keys()) if isinstance(payload_proyecto, dict) else set()
-        top_keys = set(payload.keys())
-        only_safe_changes = (
-            top_keys.issubset(allowed_top.union(allowed_project_keys)) and
-            proyecto_payload_keys.issubset(allowed_project_keys)
-        )
-        if not only_safe_changes:
-            return JsonResponse(
-                {"ok": False, "error": "Debes seleccionar un responsable para el proyecto."},
-                status=400,
-            )
+    # Nota: no bloqueamos guardados automáticos por falta de responsable.
 
     codigo_raw = payload.get("codigo_proyecto") or payload_proyecto.get("codigo_proyecto")
     if codigo_raw not in (None, ""):
