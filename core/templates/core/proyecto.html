@@ -187,16 +187,16 @@
                     <div>
                         <div class="fw-semibold">Captación</div>
                         <div class="small text-muted">
-                            <span class="fw-semibold">{{ captacion.capital_captado_fmt }}</span> captados ·
-                            objetivo <span class="fw-semibold">{{ captacion.capital_objetivo_fmt }}</span>
+                            <span class="fw-semibold" id="cap_top_captado">{{ captacion.capital_captado_fmt }}</span> captados ·
+                            objetivo <span class="fw-semibold" id="cap_top_objetivo">{{ captacion.capital_objetivo_fmt }}</span>
                             {% if captacion.restante and captacion.restante > 0 %}
-                                · faltan <span class="fw-semibold">{{ captacion.restante_fmt }}</span>
+                                · faltan <span class="fw-semibold" id="cap_top_restante">{{ captacion.restante_fmt }}</span>
                             {% endif %}
                         </div>
                     </div>
 
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-light text-dark fw-semibold">{{ captacion.pct_captado_fmt }}</span>
+                        <span class="badge bg-light text-dark fw-semibold" id="cap_top_pct">{{ captacion.pct_captado_fmt }}</span>
                         <span class="small text-muted">% de inversión cubierta</span>
                     </div>
                 </div>
@@ -204,6 +204,7 @@
                 <div class="progress mt-2" style="height: 12px; border-radius: 999px;">
                     {% with pct=captacion.pct_captado|floatformat:0 %}
                     <div
+                        id="cap_top_bar"
                         class="progress-bar
                             {% if captacion.pct_captado >= 80 %}bg-success
                             {% elif captacion.pct_captado >= 50 %}bg-warning

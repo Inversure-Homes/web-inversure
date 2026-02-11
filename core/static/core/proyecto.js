@@ -1946,9 +1946,11 @@ function bindMemoriaEconomica() {
     const restantePctEl = document.getElementById("dash_restante_pct");
     const restanteBar = document.getElementById("dash_restante_bar");
 
-    if (!captadoEl || !objetivoEl || !captadoPctEl || !captadoBar || !restanteEl || !restantePctEl || !restanteBar) {
-      return;
-    }
+    const topCaptadoEl = document.getElementById("cap_top_captado");
+    const topObjetivoEl = document.getElementById("cap_top_objetivo");
+    const topRestanteEl = document.getElementById("cap_top_restante");
+    const topPctEl = document.getElementById("cap_top_pct");
+    const topBar = document.getElementById("cap_top_bar");
 
     const capitalObjetivo = Number.isFinite(data.capitalObjetivo) ? data.capitalObjetivo : 0;
     const capitalCaptado = Number.isFinite(data.capitalCaptado) ? data.capitalCaptado : 0;
@@ -1956,14 +1958,29 @@ function bindMemoriaEconomica() {
     const restante = Math.max(capitalObjetivo - capitalCaptado, 0);
     const pctRestante = Math.max(0, 100 - pctCaptado);
 
-    captadoEl.textContent = formatEuro(capitalCaptado);
-    objetivoEl.textContent = formatEuro(capitalObjetivo);
-    captadoPctEl.textContent = formatNumberEs(pctCaptado, 0) + " %";
-    captadoBar.style.width = `${Math.round(pctCaptado)}%`;
+    if (captadoEl && objetivoEl && captadoPctEl && captadoBar && restanteEl && restantePctEl && restanteBar) {
+      captadoEl.textContent = formatEuro(capitalCaptado);
+      objetivoEl.textContent = formatEuro(capitalObjetivo);
+      captadoPctEl.textContent = formatNumberEs(pctCaptado, 0) + " %";
+      captadoBar.style.width = `${Math.round(pctCaptado)}%`;
 
-    restanteEl.textContent = formatEuro(restante);
-    restantePctEl.textContent = formatNumberEs(pctRestante, 0) + " %";
-    restanteBar.style.width = `${Math.round(pctRestante)}%`;
+      restanteEl.textContent = formatEuro(restante);
+      restantePctEl.textContent = formatNumberEs(pctRestante, 0) + " %";
+      restanteBar.style.width = `${Math.round(pctRestante)}%`;
+    }
+
+    if (topCaptadoEl) topCaptadoEl.textContent = formatEuro(capitalCaptado);
+    if (topObjetivoEl) topObjetivoEl.textContent = formatEuro(capitalObjetivo);
+    if (topPctEl) topPctEl.textContent = formatNumberEs(pctCaptado, 0) + " %";
+    if (topBar) topBar.style.width = `${Math.round(pctCaptado)}%`;
+    if (topRestanteEl) {
+      if (restante > 0) {
+        topRestanteEl.textContent = formatEuro(restante);
+        topRestanteEl.parentElement && (topRestanteEl.parentElement.style.display = "");
+      } else {
+        topRestanteEl.parentElement && (topRestanteEl.parentElement.style.display = "none");
+      }
+    }
   }
 
   window.__updateCaptacionDashboard = updateCaptacionDashboard;
