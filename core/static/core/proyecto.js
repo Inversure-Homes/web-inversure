@@ -1104,7 +1104,7 @@ function bindAutosaveListeners() {
     (ev) => {
       const t = ev && ev.target;
       if (!t) return;
-      if (!(t.matches && t.matches("select[name]"))) return;
+      if (!(t.matches && t.matches("select[name], input[type='checkbox'][name]"))) return;
       if (t.disabled) return;
       scheduleAutosave();
     },
