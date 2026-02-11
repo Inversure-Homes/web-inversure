@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const STATIC_CACHE = `inversure-static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `inversure-runtime-${CACHE_VERSION}`;
 
