@@ -1566,7 +1566,7 @@ function bindMemoriaEconomica() {
       return (el && _getElText(el)) ? String(_getElText(el)).toLowerCase() : "";
     };
     const estadoProyecto = getProyectoEstado();
-    const usarEstimados = shouldUseEstimados(estadoProyecto, dash.ingresosReales, dash.gastosReales);
+    const usarEstimados = shouldUseEstimados(estadoProyecto, totalIngresosRealesRaw, totalReal);
     const dashIngresosEstimados = totalIngresosEstimadosRaw;
     const dashIngresosReales = usarEstimados ? 0 : totalIngresosRealesRaw;
     const dashGastosEstimados = usarEstimados ? (totalEstimado + totalReal) : totalEstimado;
