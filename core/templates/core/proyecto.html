@@ -1057,7 +1057,7 @@
                                        id="mostrar_en_landing"
                                        name="mostrar_en_landing"
                                        {% if proyecto.mostrar_en_landing %}checked{% endif %}
-                                       {% if not is_admin %}disabled{% endif %}>
+                                       {% if not can_manage_publicacion %}disabled{% endif %}>
                                 <label class="form-check-label" for="mostrar_en_landing">
                                     Visible en landing pública
                                 </label>
@@ -1069,7 +1069,7 @@
                                    class="form-control"
                                    name="landing.titulo"
                                    value="{{ landing_config.titulo|default:proyecto.nombre|default:'' }}"
-                                   {% if not is_admin %}disabled{% endif %}>
+                                   {% if not can_manage_publicacion %}disabled{% endif %}>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Subtítulo (landing)</label>
@@ -1077,14 +1077,14 @@
                                    class="form-control"
                                    name="landing.subtitulo"
                                    value="{{ landing_config.subtitulo|default:'' }}"
-                                   {% if not is_admin %}disabled{% endif %}>
+                                   {% if not can_manage_publicacion %}disabled{% endif %}>
                         </div>
                         <div class="col-12">
                             <label class="form-label">Descripción (landing)</label>
                             <textarea class="form-control"
                                       name="landing.descripcion"
                                       rows="3"
-                                      {% if not is_admin %}disabled{% endif %}>{{ landing_config.descripcion|default:'' }}</textarea>
+                                      {% if not can_manage_publicacion %}disabled{% endif %}>{{ landing_config.descripcion|default:'' }}</textarea>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Beneficio neto (%)</label>
@@ -1093,13 +1093,13 @@
                                    data-percent="true"
                                    name="landing.beneficio_neto_pct"
                                    value="{{ landing_config.beneficio_neto_pct|default:landing_beneficio_neto_pct_auto|default:'' }}"
-                                   {% if not is_admin %}disabled{% endif %}>
+                                   {% if not can_manage_publicacion %}disabled{% endif %}>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Imagen landing</label>
                             <select class="form-select"
                                     name="landing.imagen_id"
-                                    {% if not is_admin %}disabled{% endif %}>
+                                    {% if not can_manage_publicacion %}disabled{% endif %}>
                                 <option value="">(Usar principal)</option>
                                 {% for f in fotos_docs %}
                                     <option value="{{ f.id }}"
@@ -1113,7 +1113,7 @@
                             <label class="form-label">Imagen cabecera publicación</label>
                             <select class="form-select"
                                     name="publicaciones.cabecera_imagen_id"
-                                    {% if not is_admin %}disabled{% endif %}>
+                                    {% if not can_manage_publicacion %}disabled{% endif %}>
                                 <option value="">(Usar principal)</option>
                                 {% for f in fotos_docs %}
                                     <option value="{{ f.id }}"

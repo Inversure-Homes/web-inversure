@@ -3050,6 +3050,7 @@ def simulador(request):
         "ESTUDIO_ID": str(estudio_obj.id) if estudio_obj is not None else "",
         "ESTADO_INICIAL_JSON": json.dumps(estado_inicial, ensure_ascii=False),
         "is_admin": is_admin_user(request.user),
+        "can_manage_publicacion": _user_is_admin_or_direccion(request.user),
     }
 
     return render(request, "core/simulador.html", ctx)
@@ -5261,7 +5262,7 @@ def guardar_proyecto(request, proyecto_id: int):
         "mostrar_en_landing",
         payload.get("mostrar_en_landing"),
     )
-    if mostrar_landing_raw is not None and is_admin_user(request.user):
+    if mostrar_landing_raw is not None and _user_is_admin_or_direccion(request.user):
         if isinstance(mostrar_landing_raw, str):
             mostrar_landing_raw = mostrar_landing_raw.strip().lower() in {"1", "true", "si", "sí", "on"}
         proyecto_obj.mostrar_en_landing = bool(mostrar_landing_raw)
