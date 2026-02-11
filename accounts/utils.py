@@ -1,4 +1,5 @@
 ROLE_ADMIN = "administracion"
+ROLE_ADMIN_ALIAS = "admin"
 ROLE_DIRECCION = "direccion"
 ROLE_MARKETING = "marketing"
 ROLE_COMERCIAL = "comercial"
@@ -15,7 +16,7 @@ def is_admin_user(user) -> bool:
         return False
     if user.is_superuser:
         return True
-    return _get_role(user) == ROLE_ADMIN
+    return _get_role(user) in {ROLE_ADMIN, ROLE_ADMIN_ALIAS}
 
 
 def is_direccion_user(user) -> bool:
