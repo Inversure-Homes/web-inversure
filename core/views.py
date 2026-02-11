@@ -267,6 +267,19 @@ def _user_can_edit_estudio(user) -> bool:
     return False
 
 
+def _user_can_manage_publicacion(user) -> bool:
+    if _user_is_admin_or_direccion(user):
+        return True
+    if not user or not user.is_authenticated:
+        return False
+    if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+        return True
+    if use_custom_permissions(user):
+        perms = resolve_permissions(user)
+        return bool(perms.get("can_cms") or perms.get("can_proyectos"))
+    return False
+
+
 def _notificar_inversores_habilitado(proyecto: Proyecto, snapshot: dict | None = None) -> bool:
     try:
         extra = getattr(proyecto, "extra", None)
@@ -3050,7 +3063,7 @@ def simulador(request):
         "ESTUDIO_ID": str(estudio_obj.id) if estudio_obj is not None else "",
         "ESTADO_INICIAL_JSON": json.dumps(estado_inicial, ensure_ascii=False),
         "is_admin": is_admin_user(request.user),
-        "can_manage_publicacion": _user_is_admin_or_direccion(request.user),
+        "can_manage_publicacion": _user_can_manage_publicacion(request.user),
     }
 
     return render(request, "core/simulador.html", ctx)
@@ -5262,7 +5275,7 @@ def guardar_proyecto(request, proyecto_id: int):
         "mostrar_en_landing",
         payload.get("mostrar_en_landing"),
     )
-    if mostrar_landing_raw is not None and _user_is_admin_or_direccion(request.user):
+    if mostrar_landing_raw is not None and _user_can_manage_publicacion(request.user):
         if isinstance(mostrar_landing_raw, str):
             mostrar_landing_raw = mostrar_landing_raw.strip().lower() in {"1", "true", "si", "sí", "on"}
         proyecto_obj.mostrar_en_landing = bool(mostrar_landing_raw)
