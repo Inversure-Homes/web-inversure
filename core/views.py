@@ -5231,10 +5231,18 @@ def guardar_proyecto(request, proyecto_id: int):
         update_fields.extend(["responsable_user", "responsable"])
 
     if not proyecto_obj.responsable_user_id and _user_is_admin_or_direccion(request.user):
-        return JsonResponse(
-            {"ok": False, "error": "Debes seleccionar un responsable para el proyecto."},
-            status=400,
+        allowed_only_estado = {"estado", "resultado_cierre"}
+        proyecto_payload_keys = set(payload_proyecto.keys()) if isinstance(payload_proyecto, dict) else set()
+        top_keys = set(payload.keys())
+        only_estado_changes = (
+            (top_keys.issubset(allowed_only_estado.union({"proyecto"}))) and
+            (proyecto_payload_keys.issubset(allowed_only_estado))
         )
+        if not only_estado_changes:
+            return JsonResponse(
+                {"ok": False, "error": "Debes seleccionar un responsable para el proyecto."},
+                status=400,
+            )
 
     codigo_raw = payload.get("codigo_proyecto") or payload_proyecto.get("codigo_proyecto")
     if codigo_raw not in (None, ""):

@@ -171,9 +171,14 @@
             <div class="row">
                 <div class="col-md-6 mb-0">
                     <label class="form-label text-muted">Responsable</label>
-                    <input type="text" name="responsable" class="form-control form-control-lg"
-                           value="{{ proyecto.responsable|default:'' }}" placeholder="Ej.: Miguel Ángel" {% if not editable %}disabled{% endif %}>
-                    <div class="form-text">Campo preparatorio (se integrará con usuarios/permisos).</div>
+                    <select name="responsable_user_id" class="form-select form-select-lg" {% if not editable %}disabled{% endif %}>
+                        <option value="">— Seleccionar —</option>
+                        {% for u in usuarios_responsables %}
+                            <option value="{{ u.id }}" {% if proyecto.responsable_user_id == u.id %}selected{% endif %}>
+                                {{ u.get_full_name|default:u.username|default:"Usuario" }}
+                            </option>
+                        {% endfor %}
+                    </select>
                 </div>
             </div>
 
