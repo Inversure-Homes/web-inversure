@@ -934,7 +934,10 @@ function updateComisionInversureMetrics({ beneficioBase = 0, valorAdqBase = 0 } 
 
   const estadoEl = document.getElementById("estado_proyecto");
   const estado = estadoEl ? String(_getElText(estadoEl)).toLowerCase() : "";
-  const usarEstimados = shouldUseEstimados(estado, ingresosReales, gastosReales);
+  const base = window.__dashEconomico || {};
+  const ingresosRealesSafe = Number.isFinite(base.ingresosReales) ? base.ingresosReales : 0;
+  const gastosRealesSafe = Number.isFinite(base.gastosReales) ? base.gastosReales : 0;
+  const usarEstimados = shouldUseEstimados(estado, ingresosRealesSafe, gastosRealesSafe);
   const valAdqEst = parseEuro(_getElText(document.getElementById("valor_adq_estimado")));
   const valAdqReal = parseEuro(_getElText(document.getElementById("valor_adq_real")));
   const valTransEst = parseEuro(_getElText(document.getElementById("valor_trans_estimado")));
