@@ -55,10 +55,17 @@ function parseEuro(value) {
   return n === null ? null : n;
 }
 
+function shouldUseEstimados(estado, ingresosReales = 0, gastosReales = 0) {
+  const estadoLower = String(estado || "").toLowerCase();
+  const estadoEstimado = ["estudio", "captacion"].includes(estadoLower);
+  const hayReales = (Number(ingresosReales) || 0) > 0 || (Number(gastosReales) || 0) > 0;
+  return estadoEstimado && !hayReales;
+}
+
 function calcCaptacionObjectiveFromInputs() {
   const estadoEl = document.getElementById("estado_proyecto");
   const estado = estadoEl ? String(_getElText(estadoEl)).toLowerCase() : "";
-  const usarEstimados = ["estudio", "captacion"].includes(estado);
+  const usarEstimados = shouldUseEstimados(estado);
 
   const baseInput = parseEuro(_getElText(document.querySelector("[name='precio_compra_inmueble']")));
   const baseRealText = parseEuro(_getElText(document.getElementById("valor_adq_real")));
@@ -927,7 +934,7 @@ function updateComisionInversureMetrics({ beneficioBase = 0, valorAdqBase = 0 } 
 
   const estadoEl = document.getElementById("estado_proyecto");
   const estado = estadoEl ? String(_getElText(estadoEl)).toLowerCase() : "";
-  const usarEstimados = ["estudio", "captacion"].includes(estado);
+  const usarEstimados = shouldUseEstimados(estado, ingresosReales, gastosReales);
   const valAdqEst = parseEuro(_getElText(document.getElementById("valor_adq_estimado")));
   const valAdqReal = parseEuro(_getElText(document.getElementById("valor_adq_real")));
   const valTransEst = parseEuro(_getElText(document.getElementById("valor_trans_estimado")));
@@ -1559,7 +1566,7 @@ function bindMemoriaEconomica() {
       return (el && _getElText(el)) ? String(_getElText(el)).toLowerCase() : "";
     };
     const estadoProyecto = getProyectoEstado();
-    const usarEstimados = ["estudio", "captacion"].includes(estadoProyecto);
+    const usarEstimados = shouldUseEstimados(estadoProyecto, dash.ingresosReales, dash.gastosReales);
     const dashIngresosEstimados = totalIngresosEstimadosRaw;
     const dashIngresosReales = usarEstimados ? 0 : totalIngresosRealesRaw;
     const dashGastosEstimados = usarEstimados ? (totalEstimado + totalReal) : totalEstimado;
