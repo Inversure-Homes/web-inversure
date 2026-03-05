@@ -274,6 +274,11 @@ EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "1") == "1"
 EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "0") == "1"
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Inversure <no-reply@inversurehomes.es>")
+LANDING_LEAD_NOTIFY_EMAILS = [
+    email.strip()
+    for email in os.environ.get("LANDING_LEAD_NOTIFY_EMAILS", "comunicacion@inversurehomes.es").split(",")
+    if email.strip()
+]
 
 # =========================
 # SEGURIDAD (PRODUCCIÓN)

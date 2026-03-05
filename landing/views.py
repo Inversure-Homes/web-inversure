@@ -1,6 +1,8 @@
 from decimal import Decimal
 
+from django.conf import settings
 from django.core.cache import cache
+from django.core.mail import send_mail
 from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
 from django.shortcuts import get_object_or_404, redirect, render
 from django.templatetags.static import static
@@ -64,7 +66,7 @@ def landing_home(request):
         if errors:
             lead_error = {"tipo": lead_tipo or "inversor", "fields": errors}
         else:
-            LandingLead.objects.create(
+            lead = LandingLead.objects.create(
                 tipo=lead_tipo,
                 nombre=nombre,
                 email=email,
@@ -75,6 +77,28 @@ def landing_home(request):
                 origen_url=request.build_absolute_uri(),
                 origen_ref=request.META.get("HTTP_REFERER", ""),
             )
+            if lead.tipo == "inversor":
+                notify_to = getattr(settings, "LANDING_LEAD_NOTIFY_EMAILS", []) or []
+                if notify_to:
+                    subject = f"[Landing] Nuevo lead inversor: {lead.nombre}"
+                    body = (
+                        "Se ha registrado un nuevo lead de inversor en la landing.\n\n"
+                        f"Nombre: {lead.nombre}\n"
+                        f"Email: {lead.email}\n"
+                        f"Telefono: {lead.telefono or '-'}\n"
+                        f"Capital estimado: {lead.capital or '-'}\n"
+                        f"Mensaje:\n{lead.mensaje or '-'}\n\n"
+                        f"Origen URL: {lead.origen_url or '-'}\n"
+                        f"Referer: {lead.origen_ref or '-'}\n"
+                        f"Creado: {timezone.localtime(lead.creado).strftime('%Y-%m-%d %H:%M:%S %Z')}"
+                    )
+                    send_mail(
+                        subject,
+                        body,
+                        getattr(settings, "DEFAULT_FROM_EMAIL", ""),
+                        notify_to,
+                        fail_silently=True,
+                    )
             return redirect(f"{request.path}?lead={lead_tipo}")
     def _fmt_pct(value):
         if value is None:
