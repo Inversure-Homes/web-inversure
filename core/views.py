@@ -890,7 +890,7 @@ def _build_comunicacion_context(
     except Exception:
         pass
 
-    # Plazo en días desde compra (apunte económico de compraventa) hasta reserva
+    # Plazo en días desde compra (contador del dashboard) y, si aplica, hasta reserva
     try:
         # Si el dashboard ya calculó el plazo y lo dejó en métricas, reusar.
         plazo_set = False
@@ -900,7 +900,12 @@ def _build_comunicacion_context(
             dias_cached = snap_met.get("plazo_compra_reserva_dias")
             modo_cached = (snap_met.get("plazo_compra_reserva_modo") or "").strip().lower()
             if isinstance(dias_cached, (int, float)) and float(dias_cached) >= 0:
-                if estado_lower in {"reservado", "vendido", "cerrado"} and modo_cached == "compra_a_reserva":
+                # Si está reservado (o más adelante), mostrar compra→reserva; si no, mostrar días desde compra
+                if modo_cached == "compra_a_reserva" and estado_lower in {"reservado", "vendido", "cerrado"}:
+                    ctx["plazo_meses"] = str(int(float(dias_cached)))
+                    ctx["plazo_unidad"] = "días"
+                    plazo_set = True
+                elif modo_cached == "dias_desde_compra":
                     ctx["plazo_meses"] = str(int(float(dias_cached)))
                     ctx["plazo_unidad"] = "días"
                     plazo_set = True
@@ -965,6 +970,9 @@ def _build_comunicacion_context(
                     # fallback: intentar inferir desde snapshot o última actualización
                     actualizado = getattr(proyecto, "actualizado", None)
                     fecha_fin = _parse_date_maybe(actualizado)
+            else:
+                # para cartas en curso: días desde compra hasta hoy
+                fecha_fin = timezone.now().date()
 
             if fecha_inicio and fecha_fin and fecha_fin >= fecha_inicio:
                 dias = (fecha_fin - fecha_inicio).days
