@@ -24,6 +24,8 @@ _IS_RENDER = str(os.environ.get("RENDER") or "").strip().lower() in {"1", "true"
 _DEBUG_DEFAULT = "0" if _IS_RENDER else "1"
 DEBUG = str(os.environ.get("DJANGO_DEBUG") or os.environ.get("DEBUG") or _DEBUG_DEFAULT).strip() == "1"
 
+PDF_MESSAGE_SANITIZE = str(os.environ.get("PDF_MESSAGE_SANITIZE") or ("1" if _IS_RENDER else "0")).strip() == "1"
+
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 if SENTRY_DSN:
     send_default_pii = str(os.environ.get("SENTRY_SEND_DEFAULT_PII") or "0").strip() == "1"
@@ -129,6 +131,17 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'config.urls'
 
 WSGI_APPLICATION = 'config.wsgi.application'
+
+# =========================
+# AUTH / AXES
+# =========================
+
+# Axes recomienda usar su backend para contabilizar intentos de login.
+# Mantiene el comportamiento estándar de Django y añade protección anti fuerza bruta.
+AUTHENTICATION_BACKENDS = [
+    "axes.backends.AxesStandaloneBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
 
 
 # =========================
@@ -271,6 +284,14 @@ else:
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 WAGTAIL_SITE_NAME = "Inversure Homes"
+
+# Base URL para Wagtail admin (links en notificaciones).
+WAGTAILADMIN_BASE_URL = os.environ.get("WAGTAILADMIN_BASE_URL", "").strip()
+if not WAGTAILADMIN_BASE_URL:
+    # Heurística segura: usar el primer host conocido, forzando https en no-debug.
+    _host = (ALLOWED_HOSTS[0] if ALLOWED_HOSTS else "localhost").strip()
+    _scheme = "http" if DEBUG else "https"
+    WAGTAILADMIN_BASE_URL = f"{_scheme}://{_host}"
 
 # =========================
 # EMAIL

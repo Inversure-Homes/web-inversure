@@ -1,4 +1,4 @@
-from django.db import migrations, models
+from django.db import migrations
 
 
 class Migration(migrations.Migration):
@@ -8,15 +8,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name="checklistitem",
-            name="gasto",
-            field=models.ForeignKey(
-                blank=True,
-                null=True,
-                on_delete=models.deletion.SET_NULL,
-                related_name="checklist_items",
-                to="core.gastoproyecto",
-            ),
-        ),
+        # Este proyecto ya incluye el FK `gasto` en `0009_checklistitem`.
+        # Esta migración se mantiene como NOOP para no romper instalaciones nuevas (SQLite)
+        # ni el grafo de dependencias histórico (0011_merge_0010s).
     ]

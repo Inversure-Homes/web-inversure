@@ -69,6 +69,123 @@ class SafeAccessDict(dict):
         return dict.get(self, key, default)
 
 
+def _sanitize_pdf_message_html(raw_html: str) -> str:
+    """Sanitiza HTML para PDFs de forma defensiva (sin dependencias externas).
+
+    Permite un subconjunto de etiquetas de formato y elimina elementos que pueden
+    disparar cargas remotas (SSRF) o inyecciones (script/style).
+    """
+    from html import escape
+    from html.parser import HTMLParser
+
+    allowed_tags = {
+        "a",
+        "b",
+        "br",
+        "div",
+        "em",
+        "i",
+        "li",
+        "ol",
+        "p",
+        "span",
+        "strong",
+        "u",
+        "ul",
+    }
+    allowed_attrs = {
+        "a": {"href"},
+    }
+    drop_content_tags = {"script", "style"}
+    drop_tags = {
+        "img",
+        "iframe",
+        "object",
+        "embed",
+        "link",
+        "meta",
+        "base",
+        "form",
+        "input",
+        "button",
+        "video",
+        "audio",
+        "source",
+    }
+
+    class _Sanitizer(HTMLParser):
+        def __init__(self):
+            super().__init__(convert_charrefs=True)
+            self.out: list[str] = []
+            self._drop_depth = 0
+
+        def handle_starttag(self, tag, attrs):
+            tag = (tag or "").lower()
+            if tag in drop_content_tags:
+                self._drop_depth += 1
+                return
+            if self._drop_depth:
+                return
+            if tag in drop_tags or tag not in allowed_tags:
+                return
+
+            attrs_map = {k.lower(): (v or "") for k, v in attrs if k}
+            safe_attrs: list[str] = []
+            for attr_name in allowed_attrs.get(tag, set()):
+                if attr_name not in attrs_map:
+                    continue
+                val = (attrs_map.get(attr_name) or "").strip()
+                if tag == "a" and attr_name == "href":
+                    v_low = val.lower()
+                    if v_low.startswith(("javascript:", "data:")):
+                        continue
+                    if not (v_low.startswith("http://") or v_low.startswith("https://") or v_low.startswith("/")):
+                        continue
+                safe_attrs.append(f'{attr_name}="{escape(val, quote=True)}"')
+
+            if safe_attrs:
+                self.out.append(f"<{tag} {' '.join(safe_attrs)}>")
+            else:
+                self.out.append(f"<{tag}>")
+
+        def handle_endtag(self, tag):
+            tag = (tag or "").lower()
+            if tag in drop_content_tags:
+                if self._drop_depth:
+                    self._drop_depth -= 1
+                return
+            if self._drop_depth:
+                return
+            if tag in drop_tags or tag not in allowed_tags:
+                return
+            if tag == "br":
+                return
+            self.out.append(f"</{tag}>")
+
+        def handle_data(self, data):
+            if self._drop_depth:
+                return
+            self.out.append(escape(data or "", quote=False))
+
+        def handle_entityref(self, name):
+            if self._drop_depth:
+                return
+            self.out.append(f"&{name};")
+
+        def handle_charref(self, name):
+            if self._drop_depth:
+                return
+            self.out.append(f"&#{name};")
+
+    parser = _Sanitizer()
+    try:
+        parser.feed(raw_html or "")
+        parser.close()
+        return "".join(parser.out)
+    except Exception:
+        return escape(raw_html or "", quote=False).replace("\n", "<br>")
+
+
 def _s3_presigned_url(key: str, expires_seconds: int | None = None) -> str:
     if not key:
         return ""
@@ -1166,6 +1283,8 @@ def _build_carta_pdf_with_error(
             raw = "\n".join(out)
         except Exception:
             pass
+        if getattr(settings, "PDF_MESSAGE_SANITIZE", False):
+            raw = _sanitize_pdf_message_html(raw)
         mensaje_html = mark_safe(raw)
         html = render_to_string(
             "core/pdf_carta_inversor.html",
