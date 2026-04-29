@@ -1028,6 +1028,26 @@ def _build_carta_pdf_with_error(
 
             # Convertir URLs en enlaces clicables (y aprovechar estilos tipo botón del PDF).
             raw = re.sub(r"(https?://[^\s<]+)", r"<a href=\"\1\">\1</a>", raw)
+
+            # Convertir líneas "- ..." en listas con viñetas.
+            lines = raw.splitlines()
+            out = []
+            in_list = False
+            for line in lines:
+                t = (line or "").rstrip()
+                if t.startswith("- "):
+                    if not in_list:
+                        out.append("<ul class=\"bullet-list\">")
+                        in_list = True
+                    out.append(f"<li>{t[2:].strip()}</li>")
+                    continue
+                if in_list:
+                    out.append("</ul>")
+                    in_list = False
+                out.append(line)
+            if in_list:
+                out.append("</ul>")
+            raw = "\n".join(out)
         except Exception:
             pass
         mensaje_html = mark_safe(raw)

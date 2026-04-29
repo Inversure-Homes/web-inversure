@@ -71,6 +71,11 @@
         color: #64748b;
         font-weight: 700;
       }
+      .bullet-list{
+        margin: 6px 0 12px;
+        padding-left: 18px;
+      }
+      .bullet-list li{ margin: 4px 0; }
       .message a {
         display: inline-block;
         margin: 8px 0;
@@ -153,7 +158,13 @@
       </div>
 
       <div class="card">
-        <div class="message">{{ mensaje_html|default:mensaje|linebreaksbr|safe }}</div>
+	        <div class="message">
+            {% if mensaje_html %}
+              {{ mensaje_html|safe }}
+            {% else %}
+              {{ mensaje|linebreaksbr|safe }}
+            {% endif %}
+          </div>
         <div class="signature">
           Equipo INVERSURE<br>
           comunicacion@inversurehomes.es
