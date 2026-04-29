@@ -807,7 +807,22 @@ def _build_comunicacion_context(
     except Exception:
         plazo_meses = str(meses_raw or "")
 
-    rent_est = resultado_mem.get("roi") or econ.get("roi") or ""
+    # Rentabilidad del proyecto (ROI). Prioridad:
+    # 1) KPI/metricas del snapshot (lo que ve el dashboard) si existe
+    # 2) economico.roi_estimado/roi si existe
+    # 3) cálculo desde memoria (_resultado_desde_memoria)
+    snap_kpis = snapshot.get("kpis") if isinstance(snapshot.get("kpis"), dict) else {}
+    snap_met = snap_kpis.get("metricas") if isinstance(snap_kpis.get("metricas"), dict) else {}
+    rent_est = (
+        snap_met.get("roi_estimado")
+        or snap_met.get("roi")
+        or econ.get("roi_estimado")
+        or econ.get("roi")
+        or snapshot.get("roi_estimado")
+        or snapshot.get("roi")
+        or resultado_mem.get("roi")
+        or ""
+    )
     rentabilidad_estimada = ""
     try:
         rentabilidad_estimada = f"{_fmt_es_number(float(rent_est), 2)} %"
