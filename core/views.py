@@ -580,7 +580,8 @@ def _comunicacion_templates() -> dict:
                 "Siguiente paso: {hito_siguiente}.\n\n"
                 "Resumen visual:\n{kpi_html}\n\n"
                 "Resumen de la operación:\n"
-	                "- Rentabilidad estimada (bruta / neta): {rentabilidad_inversor_bruta} / {rentabilidad_inversor_neta}\n"
+	                "- Rentabilidad proyecto: {rentabilidad_estimada}\n"
+	                "- Rentabilidad inversor (bruta / neta): {rentabilidad_inversor_bruta} / {rentabilidad_inversor_neta}\n"
 	                "- Plazo estimado: {plazo_meses} {plazo_unidad}\n\n"
                 "Consulta el detalle y la documentación en tu portal:\n"
                 "{portal_link}\n\n"
@@ -878,6 +879,7 @@ def _build_comunicacion_context(
     ctx["neto_cobrar"] = _fmt_eur(float(benefit.get("neto_cobrar") or 0.0))
 
     # Rentabilidad para el inversor: bruta (antes de retención) y neta (después de retención)
+    # Nota: NO sobreescribir `rentabilidad_estimada` (usa ROI del proyecto) para evitar inconsistencias con dashboard.
     try:
         inv = float(getattr(part, "importe_invertido", 0) or 0)
         if inv > 0:
@@ -885,8 +887,6 @@ def _build_comunicacion_context(
             neto = float(benefit.get("neto_cobrar") or 0.0)
             ctx["rentabilidad_inversor_bruta"] = _fmt_pct((bruto / inv) * 100.0)
             ctx["rentabilidad_inversor_neta"] = _fmt_pct((neto / inv) * 100.0)
-            # Mantener "rentabilidad_estimada" como la bruta (más estándar); la neta se muestra aparte.
-            ctx["rentabilidad_estimada"] = ctx["rentabilidad_inversor_bruta"]
     except Exception:
         pass
 
@@ -1003,8 +1003,9 @@ def _build_carta_pdf_with_error(
         # Enriquecer datos para mejorar el formato de la carta (píldoras, hito, QR)
         pill_participacion = ""
         pill_plazo = ""
-        pill_rent_bruta = ""
-        pill_rent_neta = ""
+        pill_rent_proyecto = ""
+        pill_rent_inv_bruta = ""
+        pill_rent_inv_neta = ""
         hito_resumen = ""
         hito_siguiente = ""
         portal_link = ""
@@ -1038,8 +1039,9 @@ def _build_carta_pdf_with_error(
                     ctx = _build_comunicacion_context(proyecto, part, snap if isinstance(snap, dict) else {}, resultado_mem, total_proj)
                     pill_participacion = ctx.get("participacion_pct") or ""
                     pill_plazo = f"{ctx.get('plazo_meses') or ''} {ctx.get('plazo_unidad') or 'meses'}".strip()
-                    pill_rent_bruta = ctx.get("rentabilidad_inversor_bruta") or ""
-                    pill_rent_neta = ctx.get("rentabilidad_inversor_neta") or ""
+                    pill_rent_proyecto = ctx.get("rentabilidad_estimada") or ""
+                    pill_rent_inv_bruta = ctx.get("rentabilidad_inversor_bruta") or ""
+                    pill_rent_inv_neta = ctx.get("rentabilidad_inversor_neta") or ""
                     hito_resumen = ctx.get("hito_resumen") or ""
                     hito_siguiente = ctx.get("hito_siguiente") or ""
         except Exception:
@@ -1125,8 +1127,9 @@ def _build_carta_pdf_with_error(
                 "logo_data_uri": logo_data_uri,
                 "pill_participacion": pill_participacion,
                 "pill_plazo": pill_plazo,
-                "pill_rent_bruta": pill_rent_bruta,
-                "pill_rent_neta": pill_rent_neta,
+                "pill_rent_proyecto": pill_rent_proyecto,
+                "pill_rent_inv_bruta": pill_rent_inv_bruta,
+                "pill_rent_inv_neta": pill_rent_inv_neta,
                 "hito_resumen": hito_resumen,
                 "hito_siguiente": hito_siguiente,
                 "portal_link": portal_link,

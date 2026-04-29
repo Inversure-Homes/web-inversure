@@ -190,12 +190,13 @@
 	            {% endif %}
 	          </div>
 	          <div class="tagline">Secure · Invest · Grow</div>
-            {% if pill_participacion or pill_plazo or pill_rent_bruta or pill_rent_neta %}
+            {% if pill_participacion or pill_plazo or pill_rent_proyecto or pill_rent_inv_bruta or pill_rent_inv_neta %}
               <div class="pills">
                 {% if pill_participacion %}<span class="pill">Participación: <strong>{{ pill_participacion }}</strong></span>{% endif %}
                 {% if pill_plazo %}<span class="pill">Plazo: <strong>{{ pill_plazo }}</strong></span>{% endif %}
-                {% if pill_rent_bruta %}<span class="pill">Rentab. bruta: <strong>{{ pill_rent_bruta }}</strong></span>{% endif %}
-                {% if pill_rent_neta %}<span class="pill">Rentab. neta: <strong>{{ pill_rent_neta }}</strong></span>{% endif %}
+                {% if pill_rent_proyecto %}<span class="pill">Rentab. proyecto: <strong>{{ pill_rent_proyecto }}</strong></span>{% endif %}
+                {% if pill_rent_inv_bruta %}<span class="pill">Rentab. inversor (bruta): <strong>{{ pill_rent_inv_bruta }}</strong></span>{% endif %}
+                {% if pill_rent_inv_neta %}<span class="pill">Rentab. inversor (neta): <strong>{{ pill_rent_inv_neta }}</strong></span>{% endif %}
               </div>
             {% endif %}
             {% if hito_resumen or hito_siguiente or qr_data_uri %}
