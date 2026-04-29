@@ -264,6 +264,12 @@
     display: inline-flex;
     align-items: center;
   }
+  @media (max-width: 576px) {
+    /* En móvil, permitir scroll horizontal y evitar solapes */
+    .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .portal-beneficios-table { table-layout: auto; min-width: 920px; }
+    .portal-beneficios-table th { white-space: nowrap; }
+  }
   .bar-track {
     height: 10px;
     background: #e2e8f0;
