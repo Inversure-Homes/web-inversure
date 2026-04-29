@@ -1014,7 +1014,23 @@ def _build_carta_pdf_with_error(
                 logo_data_uri = f"data:{mime};base64,{base64.b64encode(logo_bytes).decode('ascii')}"
         except Exception:
             logo_data_uri = ""
-        mensaje_html = mark_safe((mensaje or "").replace("**INVERSURE**", "<strong>INVERSURE</strong>"))
+        raw = (mensaje or "")
+        # Mejorar formato: headings, negritas y linkificación simple para que WeasyPrint los renderice como CTA.
+        try:
+            import re
+
+            raw = raw.replace("**INVERSURE**", "<strong>INVERSURE</strong>")
+            raw = raw.replace("Resumen visual:", "<div class=\"section-heading\">Resumen visual</div>")
+            raw = raw.replace("Resumen de la operación:", "<div class=\"section-heading\">Resumen de la operación</div>")
+            raw = raw.replace("Consulta el detalle y la documentación en tu portal:", "<div class=\"section-heading\">Acceso al portal</div>")
+            raw = raw.replace("Nota legal:", "<div class=\"section-heading\">Nota legal</div>")
+            raw = raw.replace("Atentamente,", "<div class=\"section-heading\">Atentamente</div>")
+
+            # Convertir URLs en enlaces clicables (y aprovechar estilos tipo botón del PDF).
+            raw = re.sub(r"(https?://[^\s<]+)", r"<a href=\"\1\">\1</a>", raw)
+        except Exception:
+            pass
+        mensaje_html = mark_safe(raw)
         html = render_to_string(
             "core/pdf_carta_inversor.html",
             {
