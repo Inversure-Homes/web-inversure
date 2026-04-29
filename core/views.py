@@ -1000,6 +1000,67 @@ def _build_carta_pdf_with_error(
     proyecto: Proyecto | None,
 ) -> tuple[bytes | None, str | None]:
     try:
+        # Enriquecer datos para mejorar el formato de la carta (píldoras, hito, QR)
+        pill_participacion = ""
+        pill_plazo = ""
+        pill_rent_bruta = ""
+        pill_rent_neta = ""
+        hito_resumen = ""
+        hito_siguiente = ""
+        portal_link = ""
+        qr_data_uri = ""
+        try:
+            if request is not None and perfil is not None:
+                portal_link = request.build_absolute_uri(reverse("core:inversor_portal", args=[perfil.token]))
+        except Exception:
+            portal_link = ""
+        try:
+            if proyecto is not None and perfil is not None and getattr(perfil, "cliente_id", None):
+                part = (
+                    Participacion.objects.filter(
+                        proyecto=proyecto,
+                        cliente_id=perfil.cliente_id,
+                        estado="confirmada",
+                    )
+                    .order_by("creado", "id")
+                    .first()
+                )
+                if part is not None:
+                    total_proj = (
+                        Participacion.objects.filter(proyecto=proyecto, estado="confirmada")
+                        .aggregate(total=Sum("importe_invertido"))
+                        .get("total")
+                        or 0
+                    )
+                    total_proj = float(total_proj or 0)
+                    snap = _get_snapshot_comunicacion(proyecto)
+                    resultado_mem = _resultado_desde_memoria(proyecto, snap) if isinstance(snap, dict) else {}
+                    ctx = _build_comunicacion_context(proyecto, part, snap if isinstance(snap, dict) else {}, resultado_mem, total_proj)
+                    pill_participacion = ctx.get("participacion_pct") or ""
+                    pill_plazo = f"{ctx.get('plazo_meses') or ''} {ctx.get('plazo_unidad') or 'meses'}".strip()
+                    pill_rent_bruta = ctx.get("rentabilidad_inversor_bruta") or ""
+                    pill_rent_neta = ctx.get("rentabilidad_inversor_neta") or ""
+                    hito_resumen = ctx.get("hito_resumen") or ""
+                    hito_siguiente = ctx.get("hito_siguiente") or ""
+        except Exception:
+            pass
+
+        # QR del portal (opcional si la librería está disponible)
+        try:
+            if portal_link:
+                import qrcode
+                from io import BytesIO
+
+                qr = qrcode.QRCode(box_size=3, border=2)
+                qr.add_data(portal_link)
+                qr.make(fit=True)
+                img = qr.make_image(fill_color="black", back_color="white")
+                buf = BytesIO()
+                img.save(buf, format="PNG")
+                qr_data_uri = f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode('ascii')}"
+        except Exception:
+            qr_data_uri = ""
+
         logo_url = ""
         logo_data_uri = ""
         if request is not None:
@@ -1062,6 +1123,14 @@ def _build_carta_pdf_with_error(
                 "fecha": timezone.now().date(),
                 "logo_url": logo_url,
                 "logo_data_uri": logo_data_uri,
+                "pill_participacion": pill_participacion,
+                "pill_plazo": pill_plazo,
+                "pill_rent_bruta": pill_rent_bruta,
+                "pill_rent_neta": pill_rent_neta,
+                "hito_resumen": hito_resumen,
+                "hito_siguiente": hito_siguiente,
+                "portal_link": portal_link,
+                "qr_data_uri": qr_data_uri,
             },
         )
         from weasyprint import HTML  # defer import
