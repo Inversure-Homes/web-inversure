@@ -618,11 +618,7 @@
 
     const donut = document.getElementById("beneficioDonut");
     if (donut) {
-      const total = Number(donut.getAttribute("data-total") || 0);
-      const ret = Number(donut.getAttribute("data-retencion") || 0);
-      const neto = Math.max(total - ret, 0);
-      const pct = total > 0 ? Math.min(100, Math.max(0, (neto / total) * 100)) : 0;
-      donut.style.background = `conic-gradient(#16a34a 0 ${pct}%, #e2e8f0 ${pct}% 100%)`;
+      donut.style.background = "conic-gradient(#0f1d2e 0 100%)";
     }
   });
 </script>
