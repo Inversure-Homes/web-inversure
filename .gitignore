@@ -12,7 +12,11 @@ venv/
 # Django
 db.sqlite3
 staticfiles/
+media/
 
 # Mac
 .DS_Store
 tmp/
+
+# Data fixtures / exports (avoid committing PII)
+datos_iniciales.json

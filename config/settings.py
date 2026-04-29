@@ -14,16 +14,23 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SEGURIDAD / ENTORNO
 # =========================
 
-SECRET_KEY = 'django-insecure-cambia-esto-en-produccion'
+SECRET_KEY = (
+    os.environ.get("DJANGO_SECRET_KEY")
+    or os.environ.get("SECRET_KEY")
+    or "django-insecure-cambia-esto-en-produccion"
+)
 
-DEBUG = os.environ.get("DEBUG", "1") == "1"
+_IS_RENDER = str(os.environ.get("RENDER") or "").strip().lower() in {"1", "true", "yes", "y"}
+_DEBUG_DEFAULT = "0" if _IS_RENDER else "1"
+DEBUG = str(os.environ.get("DJANGO_DEBUG") or os.environ.get("DEBUG") or _DEBUG_DEFAULT).strip() == "1"
 
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 if SENTRY_DSN:
+    send_default_pii = str(os.environ.get("SENTRY_SEND_DEFAULT_PII") or "0").strip() == "1"
     sentry_sdk.init(
         dsn=SENTRY_DSN,
         integrations=[DjangoIntegration()],
-        send_default_pii=True,
+        send_default_pii=send_default_pii,
     )
 
 ALLOWED_HOSTS = [
@@ -32,6 +39,12 @@ ALLOWED_HOSTS = [
     "www.inversurehomes.es",
     "app.inversurehomes.es",
 ]
+
+_ENV_ALLOWED_HOSTS_RAW = os.environ.get("DJANGO_ALLOWED_HOSTS") or os.environ.get("ALLOWED_HOSTS") or ""
+if _ENV_ALLOWED_HOSTS_RAW.strip():
+    _ENV_ALLOWED_HOSTS = [h.strip() for h in _ENV_ALLOWED_HOSTS_RAW.split(",") if h.strip()]
+    # Mantener los hosts actuales y añadir los del entorno (sin duplicados).
+    ALLOWED_HOSTS = list(dict.fromkeys(ALLOWED_HOSTS + _ENV_ALLOWED_HOSTS))
 
 # =========================
 # CSRF (Render / Producción)

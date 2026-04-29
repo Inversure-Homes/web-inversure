@@ -1,0 +1,21 @@
+.git
+.gitignore
+.DS_Store
+
+# Python / virtualenv
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Local data / artifacts
+db.sqlite3
+tmp
+staticfiles
+media
+datos_iniciales.json
+
+# Editor / OS
+.idea
+.vscode

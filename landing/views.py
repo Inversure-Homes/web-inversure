@@ -288,7 +288,24 @@ def landing_home(request):
             }
         )
     proyectos_qs = Proyecto.objects.all()
-    dashboard_ctx = _build_dashboard_context(request.user)
+    if request.user.is_authenticated:
+        dashboard_ctx = _build_dashboard_context(request.user)
+    else:
+        cache_key = "landing:dashboard_ctx:v1"
+        dashboard_ctx = cache.get(cache_key)
+        if not isinstance(dashboard_ctx, dict):
+            dashboard_ctx = None
+        if dashboard_ctx is None:
+            try:
+                full = _build_dashboard_context(request.user)
+                dashboard_ctx = {
+                    "dashboard_stats": full.get("dashboard_stats", {}) if isinstance(full, dict) else {},
+                    "dashboard_stats_fmt": full.get("dashboard_stats_fmt", {}) if isinstance(full, dict) else {},
+                    "beneficio_deviation_chart": full.get("beneficio_deviation_chart", []) if isinstance(full, dict) else [],
+                }
+                cache.set(cache_key, dashboard_ctx, timeout=300)
+            except Exception:
+                dashboard_ctx = _build_dashboard_context(request.user)
     dashboard_stats = dashboard_ctx.get("dashboard_stats", {})
     dashboard_stats_fmt = dashboard_ctx.get("dashboard_stats_fmt", {})
     beneficio_deviation = dashboard_ctx.get("beneficio_deviation_chart", [])

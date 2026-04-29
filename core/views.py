@@ -5704,6 +5704,8 @@ def guardar_proyecto(request, proyecto_id: int):
 def borrar_estudio(request, estudio_id: int):
     if not _user_can_edit_estudio(request.user):
         return JsonResponse({"ok": False, "error": "No tienes permisos para borrar estudios."}, status=403)
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
     estudio = get_object_or_404(Estudio, id=estudio_id)
     estudio.delete()
     # si se borró el activo en sesión, limpiar
@@ -5712,6 +5714,8 @@ def borrar_estudio(request, estudio_id: int):
             del request.session["estudio_id"]
         except KeyError:
             pass
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({"ok": True})
     return redirect("core:lista_estudio")
 
 
@@ -5725,7 +5729,7 @@ def convertir_a_proyecto(request, estudio_id: int):
     Devuelve JSON con redirect a lista_proyectos.
     """
 
-    if request.method not in ("POST", "GET"):
+    if request.method != "POST":
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
     if not _user_can_edit_estudio(request.user):
         _admin_notify(
@@ -5754,15 +5758,10 @@ def convertir_a_proyecto(request, estudio_id: int):
 
     approve_flag = False
     try:
-        if request.method == "POST":
-            payload = json.loads(request.body or "{}")
-        else:
-            payload = {}
+        payload = json.loads(request.body or "{}")
     except Exception:
         payload = {}
     approve_flag = payload.get("approve") if isinstance(payload, dict) else None
-    if approve_flag is None:
-        approve_flag = request.GET.get("approve")
     if isinstance(approve_flag, str):
         approve_flag = approve_flag.strip().lower() in {"1", "true", "si", "sí", "ok", "approve"}
     approve_flag = bool(approve_flag)
