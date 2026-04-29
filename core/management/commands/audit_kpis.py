@@ -41,6 +41,8 @@ def _deep_get(d: dict, *keys: str) -> Any:
 
 class Command(BaseCommand):
     help = "Audita KPIs (ROI y % participación) recalculando desde movimientos."
+    requires_system_checks = []
+    requires_migrations_checks = False
 
     def add_arguments(self, parser):
         parser.add_argument("--project-id", type=int, default=None, help="Auditar solo un proyecto por id.")
