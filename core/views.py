@@ -580,8 +580,8 @@ def _comunicacion_templates() -> dict:
                 "Siguiente paso: {hito_siguiente}.\n\n"
                 "Resumen visual:\n{kpi_html}\n\n"
                 "Resumen de la operación:\n"
-                "- Rentabilidad estimada: {rentabilidad_estimada}\n"
-                "- Plazo estimado: {plazo_meses} meses\n\n"
+	                "- Rentabilidad estimada (bruta / neta): {rentabilidad_inversor_bruta} / {rentabilidad_inversor_neta}\n"
+	                "- Plazo estimado: {plazo_meses} {plazo_unidad}\n\n"
                 "Consulta el detalle y la documentación en tu portal:\n"
                 "{portal_link}\n\n"
                 f"{disclaimer}\n\n"
@@ -852,6 +852,7 @@ def _build_comunicacion_context(
         "hito_siguiente": hito_siguiente,
         "rentabilidad_estimada": rentabilidad_estimada or "—",
         "plazo_meses": plazo_meses or "—",
+        "plazo_unidad": "meses",
         "progreso_pct": progreso_map.get(estado_lower, 30),
         "progreso_label": _estado_label(proyecto.estado),
         "fecha_hoy": timezone.now().date().strftime("%d/%m/%Y"),
@@ -875,6 +876,102 @@ def _build_comunicacion_context(
     ctx["beneficio_neto_inversor"] = _fmt_eur(float(benefit.get("beneficio_neto_inversor") or 0.0))
     ctx["retencion"] = _fmt_eur(float(benefit.get("retencion") or 0.0))
     ctx["neto_cobrar"] = _fmt_eur(float(benefit.get("neto_cobrar") or 0.0))
+
+    # Rentabilidad para el inversor: bruta (antes de retención) y neta (después de retención)
+    try:
+        inv = float(getattr(part, "importe_invertido", 0) or 0)
+        if inv > 0:
+            bruto = float(benefit.get("beneficio_neto_inversor") or 0.0)
+            neto = float(benefit.get("neto_cobrar") or 0.0)
+            ctx["rentabilidad_inversor_bruta"] = _fmt_pct((bruto / inv) * 100.0)
+            ctx["rentabilidad_inversor_neta"] = _fmt_pct((neto / inv) * 100.0)
+            # Mantener "rentabilidad_estimada" como la bruta (más estándar); la neta se muestra aparte.
+            ctx["rentabilidad_estimada"] = ctx["rentabilidad_inversor_bruta"]
+    except Exception:
+        pass
+
+    # Plazo en días desde compra (apunte económico de compraventa) hasta reserva
+    try:
+        # Si el dashboard ya calculó el plazo y lo dejó en métricas, reusar.
+        plazo_set = False
+        try:
+            snap_kpis = snapshot.get("kpis") if isinstance(snapshot.get("kpis"), dict) else {}
+            snap_met = snap_kpis.get("metricas") if isinstance(snap_kpis.get("metricas"), dict) else {}
+            dias_cached = snap_met.get("plazo_compra_reserva_dias")
+            modo_cached = (snap_met.get("plazo_compra_reserva_modo") or "").strip().lower()
+            if isinstance(dias_cached, (int, float)) and float(dias_cached) >= 0:
+                if estado_lower in {"reservado", "vendido", "cerrado"} and modo_cached == "compra_a_reserva":
+                    ctx["plazo_meses"] = str(int(float(dias_cached)))
+                    ctx["plazo_unidad"] = "días"
+                    plazo_set = True
+        except Exception:
+            plazo_set = False
+
+        if not plazo_set:
+            def _parse_date_maybe(value):
+                if isinstance(value, datetime):
+                    return value.date()
+                if isinstance(value, date):
+                    return value
+                if isinstance(value, str):
+                    s = value.strip()
+                    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d", "%d-%m-%Y"):
+                        try:
+                            return datetime.strptime(s, fmt).date()
+                        except Exception:
+                            continue
+                return None
+
+            fecha_inicio = _parse_date_maybe(getattr(proyecto, "fecha_compra", None))
+            if not fecha_inicio:
+                # compra: buscar un gasto confirmado de categoría adquisición asociado a compraventa/compra
+                qs = GastoProyecto.objects.filter(
+                    proyecto=proyecto, categoria="adquisicion", estado="confirmado"
+                ).order_by("fecha", "id")
+                for g in qs:
+                    concepto = (getattr(g, "concepto", "") or "").lower()
+                    normalized = (
+                        concepto.replace("á", "a")
+                        .replace("é", "e")
+                        .replace("í", "i")
+                        .replace("ó", "o")
+                        .replace("ú", "u")
+                    )
+                    if any(
+                        k in normalized
+                        for k in ("compraventa", "compra", "precio compra", "precio inmueble", "propiedad")
+                    ):
+                        fecha_inicio = _parse_date_maybe(getattr(g, "fecha", None))
+                        break
+                if not fecha_inicio:
+                    first_g = qs.first()
+                    if first_g:
+                        fecha_inicio = _parse_date_maybe(getattr(first_g, "fecha", None))
+
+            fecha_fin = None
+            if estado_lower in {"reservado", "vendido", "cerrado"}:
+                # reserva: fecha del cambio de estado a "reservado" (primer snapshot con estado reservado)
+                try:
+                    snap_res = (
+                        ProyectoSnapshot.objects.filter(proyecto=proyecto, datos__estado="reservado")
+                        .order_by("creado_en", "id")
+                        .first()
+                    )
+                    if snap_res:
+                        fecha_fin = _parse_date_maybe(getattr(snap_res, "creado_en", None))
+                except Exception:
+                    fecha_fin = None
+                if not fecha_fin:
+                    # fallback: intentar inferir desde snapshot o última actualización
+                    actualizado = getattr(proyecto, "actualizado", None)
+                    fecha_fin = _parse_date_maybe(actualizado)
+
+            if fecha_inicio and fecha_fin and fecha_fin >= fecha_inicio:
+                dias = (fecha_fin - fecha_inicio).days
+                ctx["plazo_meses"] = str(dias)
+                ctx["plazo_unidad"] = "días"
+    except Exception:
+        pass
     participacion_pct = "—"
     try:
         inv = float(getattr(part, "importe_invertido", 0) or 0)
@@ -2143,6 +2240,7 @@ def _kpi_html(ctx: dict) -> str:
     progreso_pct = max(0.0, min(100.0, progreso_pct))
     rent = ctx.get("rentabilidad_estimada") or "—"
     plazo = ctx.get("plazo_meses") or "—"
+    plazo_unidad = ctx.get("plazo_unidad") or "meses"
     participacion = ctx.get("participacion_pct") or "—"
     return (
         "<div class=\"kpi-box\">"
@@ -2151,7 +2249,7 @@ def _kpi_html(ctx: dict) -> str:
         f"{progreso_pct:.0f}%\"></span></div>"
         "<div class=\"kpi-grid\">"
         f"<div><span>Rentabilidad</span><strong>{rent}</strong></div>"
-        f"<div><span>Plazo</span><strong>{plazo} meses</strong></div>"
+        f"<div><span>Plazo</span><strong>{plazo} {plazo_unidad}</strong></div>"
         f"<div><span>Participación</span><strong>{participacion}</strong></div>"
         "</div>"
         "</div>"
@@ -4406,6 +4504,60 @@ def proyecto(request, proyecto_id: int):
 
     # Exponer `metricas` como atajo seguro para la plantilla proyecto.html
     metricas_raw = kpis_raw.get("metricas") if isinstance(kpis_raw.get("metricas"), dict) else {}
+
+    # --- KPI de plazo (días) para dashboard y comunicaciones ---
+    # Fuente: fecha compra desde apunte económico (GastoProyecto adquisicion) y fecha de reserva desde snapshots.
+    try:
+        def _norm_txt(s: str) -> str:
+            t = (s or "").lower()
+            return (
+                t.replace("á", "a")
+                .replace("é", "e")
+                .replace("í", "i")
+                .replace("ó", "o")
+                .replace("ú", "u")
+            )
+
+        fecha_compra_calc = getattr(proyecto_obj, "fecha_compra", None)
+        if not isinstance(fecha_compra_calc, date):
+            compra_qs = GastoProyecto.objects.filter(
+                proyecto=proyecto_obj,
+                categoria="adquisicion",
+                estado="confirmado",
+            ).order_by("fecha", "id")
+            fecha_compra_calc = None
+            for g in compra_qs:
+                concepto = _norm_txt(getattr(g, "concepto", "") or "")
+                if any(k in concepto for k in ("compraventa", "compra", "precio compra", "precio inmueble", "propiedad")):
+                    fecha_compra_calc = getattr(g, "fecha", None)
+                    break
+            if not fecha_compra_calc:
+                first_g = compra_qs.first()
+                fecha_compra_calc = getattr(first_g, "fecha", None) if first_g else None
+
+        fecha_reserva_calc = None
+        estado_lower = (getattr(proyecto_obj, "estado", "") or "").strip().lower()
+        if estado_lower in {"reservado", "vendido", "cerrado"}:
+            snap_res = (
+                ProyectoSnapshot.objects.filter(proyecto=proyecto_obj, datos__estado="reservado")
+                .order_by("creado_en", "id")
+                .first()
+            )
+            if snap_res is not None:
+                fecha_reserva_calc = getattr(snap_res, "creado_en", None)
+                if isinstance(fecha_reserva_calc, datetime):
+                    fecha_reserva_calc = fecha_reserva_calc.date()
+
+        if isinstance(fecha_compra_calc, date):
+            fin = fecha_reserva_calc if isinstance(fecha_reserva_calc, date) else timezone.now().date()
+            if fin >= fecha_compra_calc:
+                dias = (fin - fecha_compra_calc).days
+                metricas_raw["plazo_compra_reserva_dias"] = dias
+                metricas_raw["plazo_compra_reserva_desde"] = fecha_compra_calc.isoformat()
+                metricas_raw["plazo_compra_reserva_hasta"] = fin.isoformat()
+                metricas_raw["plazo_compra_reserva_modo"] = "compra_a_reserva" if isinstance(fecha_reserva_calc, date) else "dias_desde_compra"
+    except Exception:
+        pass
 
     # --- Resultado de inversión para dashboard / vista proyecto ---
     resultado = {}

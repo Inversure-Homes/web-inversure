@@ -1414,29 +1414,52 @@
                         </div>
                     </div>
 
-                    <div class="row g-3 mt-2">
-                        <div class="col-md-4">
-                            <div class="dash-kpi">
-                                <div class="label">Comisión Inversure</div>
-                                <div class="value" id="dash_comision_inversure">—</div>
-                                <div class="dash-sub">Sobre beneficio bruto</div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="dash-kpi">
-                                <div class="label">Beneficio neto inversor</div>
-                                <div class="value" id="dash_beneficio_neto_inversor">—</div>
-                                <div class="dash-sub">Después de comisión</div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="dash-kpi">
-                                <div class="label">ROI neto inversor</div>
-                                <div class="value" id="dash_roi_neto_inversor">—</div>
-                                <div class="dash-sub">Sobre inversión</div>
-                            </div>
-                        </div>
-                    </div>
+	                    <div class="row g-3 mt-2">
+	                        <div class="col-md-3">
+	                            <div class="dash-kpi">
+	                                <div class="label">
+	                                    {% if metricas.plazo_compra_reserva_modo == "compra_a_reserva" %}
+	                                      Plazo compra → reserva
+	                                    {% else %}
+	                                      Días desde compra
+	                                    {% endif %}
+	                                </div>
+	                                <div class="value">
+	                                    {% if metricas.plazo_compra_reserva_dias is not None %}
+	                                      {{ metricas.plazo_compra_reserva_dias }} días
+	                                    {% else %}
+	                                      —
+	                                    {% endif %}
+	                                </div>
+	                                <div class="dash-sub">
+	                                  {% if metricas.plazo_compra_reserva_desde %}
+	                                    Desde {{ metricas.plazo_compra_reserva_desde }}
+	                                  {% endif %}
+	                                </div>
+	                            </div>
+	                        </div>
+	                        <div class="col-md-3">
+	                            <div class="dash-kpi">
+	                                <div class="label">Comisión Inversure</div>
+	                                <div class="value" id="dash_comision_inversure">—</div>
+	                                <div class="dash-sub">Sobre beneficio bruto</div>
+	                            </div>
+	                        </div>
+	                        <div class="col-md-3">
+	                            <div class="dash-kpi">
+	                                <div class="label">Beneficio neto inversor</div>
+	                                <div class="value" id="dash_beneficio_neto_inversor">—</div>
+	                                <div class="dash-sub">Después de comisión</div>
+	                            </div>
+	                        </div>
+	                        <div class="col-md-3">
+	                            <div class="dash-kpi">
+	                                <div class="label">ROI neto inversor</div>
+	                                <div class="value" id="dash_roi_neto_inversor">—</div>
+	                                <div class="dash-sub">Sobre inversión</div>
+	                            </div>
+	                        </div>
+	                    </div>
 
                     <div class="row g-3 mt-2">
                         <div class="col-md-6">
