@@ -904,6 +904,45 @@ def _build_comunicacion_context(
     except Exception:
         pass
 
+    # Métricas PRO: IRR/TIR y MOIC del inversor (bruta y neta)
+    try:
+        inv = float(getattr(part, "importe_invertido", 0) or 0)
+        if inv > 0:
+            fecha_inversion = getattr(part, "creado", None)
+            if isinstance(fecha_inversion, datetime):
+                fecha_inversion = fecha_inversion.date()
+            if not isinstance(fecha_inversion, date):
+                fecha_inversion = None
+
+            fecha_salida = None
+            try:
+                de = getattr(proyecto, "datos_economicos", None)
+                fecha_salida = getattr(de, "fecha_venta_real", None) if de is not None else None
+            except Exception:
+                fecha_salida = None
+            if not isinstance(fecha_salida, date):
+                fecha_salida = None
+
+            if fecha_inversion and fecha_salida and fecha_salida >= fecha_inversion:
+                beneficio_bruto = float(benefit.get("beneficio_neto_inversor") or 0.0)
+                beneficio_neto = float(benefit.get("neto_cobrar") or 0.0)
+                fv_bruta = inv + beneficio_bruto
+                fv_neta = inv + beneficio_neto
+                irr_bruta = _irr_2point(-inv, fecha_inversion, fv_bruta, fecha_salida)
+                irr_neta = _irr_2point(-inv, fecha_inversion, fv_neta, fecha_salida)
+                moic_bruta = _moic(inv, fv_bruta)
+                moic_neta = _moic(inv, fv_neta)
+                if irr_bruta is not None:
+                    ctx["irr_inversor_bruta"] = _fmt_pct(irr_bruta)
+                if irr_neta is not None:
+                    ctx["irr_inversor_neta"] = _fmt_pct(irr_neta)
+                if moic_bruta is not None:
+                    ctx["moic_inversor_bruta"] = f"{_fmt_es_number(moic_bruta, 3)}x"
+                if moic_neta is not None:
+                    ctx["moic_inversor_neta"] = f"{_fmt_es_number(moic_neta, 3)}x"
+    except Exception:
+        pass
+
     # Plazo en días desde compra (contador del dashboard) y, si aplica, hasta reserva
     try:
         # Si el dashboard ya calculó el plazo y lo dejó en métricas, reusar.
@@ -2363,6 +2402,38 @@ def _fmt_eur(x: float) -> str:
 
 def _fmt_pct(x: float) -> str:
     return f"{_fmt_es_number(x, 2)} %"
+
+
+def _irr_2point(pv: float, pv_date: date, fv: float, fv_date: date) -> float | None:
+    """
+    IRR anualizada para 2 flujos (un desembolso y un cobro).
+    pv debe ser negativo (salida), fv positivo (entrada).
+    """
+    try:
+        if pv_date is None or fv_date is None:
+            return None
+        days = (fv_date - pv_date).days
+        if days <= 0:
+            return None
+        if pv >= 0 or fv <= 0:
+            return None
+        ratio = fv / (-pv)
+        if ratio <= 0:
+            return None
+        irr = (ratio ** (365.0 / float(days))) - 1.0
+        return float(irr * 100.0)
+    except Exception:
+        return None
+
+
+def _moic(pv_abs: float, fv: float) -> float | None:
+    """Multiple on invested capital = FV / |PV|."""
+    try:
+        if pv_abs <= 0:
+            return None
+        return float(fv / pv_abs)
+    except Exception:
+        return None
 
 
 def _kpi_html(ctx: dict) -> str:

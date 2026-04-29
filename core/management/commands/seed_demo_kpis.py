@@ -29,6 +29,7 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args, **opts):
         from core.models import Cliente, GastoProyecto, IngresoProyecto, Participacion, Proyecto  # local import
+        from core.models import DatosEconomicosProyecto  # local import
         from core.views import (  # type: ignore
             _build_comunicacion_context,
             _get_snapshot_comunicacion,
@@ -39,7 +40,15 @@ class Command(BaseCommand):
         reset = bool(opts.get("reset"))
 
         if reset:
-            Proyecto.objects.filter(nombre=name).delete()
+            prev = list(Proyecto.objects.filter(nombre=name).values_list("id", flat=True))
+            if prev:
+                # `GastoProyecto.proyecto` usa PROTECT; borrar dependencias primero
+                GastoProyecto.objects.filter(proyecto_id__in=prev).delete()
+                IngresoProyecto.objects.filter(proyecto_id__in=prev).delete()
+                Participacion.objects.filter(proyecto_id__in=prev).delete()
+                Proyecto.objects.filter(id__in=prev).delete()
+            # Limpiar clientes demo (hash único por dni/cif)
+            Cliente.objects.filter(dni_cif__startswith="X-DEMO-").delete()
 
         # --- Proyecto base ---
         hoy = timezone.now().date()
@@ -53,18 +62,26 @@ class Command(BaseCommand):
             precio_propiedad=Decimal("100000.00"),
             meses=4,
         )
+        DatosEconomicosProyecto.objects.create(
+            proyecto=proyecto,
+            estado_operativo="comercializacion",
+            fecha_estado=hoy,
+            fecha_compra_real=fecha_compra,
+            fecha_venta_real=hoy + timedelta(days=30),
+        )
 
         # --- Clientes demo ---
         # Importante: `dni_cif_hash` es único. Si no ponemos DNI/CIF, se queda en "" y rompe por UNIQUE.
+        suffix = str(int(timezone.now().timestamp()))
         c1 = Cliente.objects.create(
             nombre="DEMO INVERSOR A",
-            dni_cif="X-DEMO-A",
+            dni_cif=f"X-DEMO-A-{suffix}",
             email="demo+a@example.com",
             telefono="000000000",
         )
         c2 = Cliente.objects.create(
             nombre="DEMO INVERSOR B",
-            dni_cif="X-DEMO-B",
+            dni_cif=f"X-DEMO-B-{suffix}",
             email="demo+b@example.com",
             telefono="000000001",
         )
