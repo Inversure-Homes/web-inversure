@@ -25,6 +25,12 @@ class Command(BaseCommand):
             action="store_true",
             help="Borra proyectos demo previos con el mismo nombre.",
         )
+        parser.add_argument(
+            "--sale-months",
+            type=int,
+            default=6,
+            help="Meses hasta la venta real (por defecto: 6).",
+        )
 
     @transaction.atomic
     def handle(self, *args, **opts):
@@ -38,6 +44,9 @@ class Command(BaseCommand):
 
         name = (opts.get("name") or "DEMO KPI").strip()
         reset = bool(opts.get("reset"))
+        sale_months = int(opts.get("sale_months") or 6)
+        if sale_months < 1:
+            sale_months = 1
 
         if reset:
             prev = list(Proyecto.objects.filter(nombre=name).values_list("id", flat=True))
@@ -53,6 +62,7 @@ class Command(BaseCommand):
         # --- Proyecto base ---
         hoy = timezone.now().date()
         fecha_compra = hoy - timedelta(days=103)
+        fecha_venta = hoy + timedelta(days=30 * sale_months)
         proyecto = Proyecto.objects.create(
             nombre=name,
             estado="comercializacion",
@@ -67,7 +77,7 @@ class Command(BaseCommand):
             estado_operativo="comercializacion",
             fecha_estado=hoy,
             fecha_compra_real=fecha_compra,
-            fecha_venta_real=hoy + timedelta(days=30),
+            fecha_venta_real=fecha_venta,
         )
 
         # --- Clientes demo ---
@@ -141,7 +151,7 @@ class Command(BaseCommand):
         # --- Ingresos: venta estimada (aún no confirmada) ---
         IngresoProyecto.objects.create(
             proyecto=proyecto,
-            fecha=hoy + timedelta(days=30),
+            fecha=fecha_venta,
             tipo="venta",
             concepto="Venta estimada",
             importe=Decimal("130000.00"),
@@ -152,7 +162,7 @@ class Command(BaseCommand):
         # Gastos de venta estimados
         GastoProyecto.objects.create(
             proyecto=proyecto,
-            fecha=hoy + timedelta(days=30),
+            fecha=fecha_venta,
             categoria="venta",
             concepto="Inmobiliaria",
             importe=Decimal("3900.00"),
