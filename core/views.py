@@ -860,7 +860,18 @@ def _calc_beneficio_inversor(
         beneficio_inversor = _safe_float(override_data.get("beneficio_inversor"), beneficio_inversor)
     elif override_val is not None:
         beneficio_inversor = override_val
-    retencion = beneficio_inversor * 0.19
+    try:
+        _raw_retencion = getattr(settings, "INVERSOR_RETENCION_PCT", None)
+        if _raw_retencion in (None, ""):
+            _raw_retencion = 19.0
+        retencion_pct = float(_raw_retencion)
+    except Exception:
+        retencion_pct = 19.0
+    if retencion_pct < 0:
+        retencion_pct = 0.0
+    if retencion_pct > 100:
+        retencion_pct = 100.0
+    retencion = beneficio_inversor * (retencion_pct / 100.0)
     if override_data.get("retencion") not in (None, ""):
         retencion = _safe_float(override_data.get("retencion"), retencion)
     neto_cobrar = beneficio_inversor - retencion

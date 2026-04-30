@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.contrib.auth.models import User
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.test import RequestFactory, TestCase
+from django.test.utils import override_settings
 
 from core import views as core_views
 from core.models import Estudio, Proyecto, GastoProyecto, IngresoProyecto
@@ -123,3 +124,20 @@ class SecurityHardeningTests(TestCase):
         roi_auto = core_views._roi_memoria_proyecto(proyecto)
         self.assertIsNotNone(roi_auto)
         self.assertAlmostEqual(float(roi_auto), roi_from_res, places=6)
+
+    @override_settings(INVERSOR_RETENCION_PCT=0.0)
+    def test_retencion_pct_can_be_overridden(self):
+        class _P:
+            importe_invertido = Decimal("100.00")
+            beneficio_neto_override = None
+            beneficio_override_data = {}
+
+        part = _P()
+        class _Proj:
+            extra = {}
+
+        proyecto = _Proj()
+        snapshot = {"inversor": {"comision_inversure_pct": 0}}
+        resultado_mem = {"beneficio_neto": 1000.0}
+        out = core_views._calc_beneficio_inversor(part, proyecto, snapshot, resultado_mem, total_proj=100.0)
+        self.assertEqual(out["retencion"], 0.0)

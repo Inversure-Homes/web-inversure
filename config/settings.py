@@ -373,3 +373,16 @@ OTP_EMAIL_TOKEN_VALIDITY = 600
 VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "")
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "")
 VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "mailto:comunicacion@inversurehomes.es")
+
+# =========================
+# INVERSORES (Fiscalidad)
+# =========================
+# Retención por defecto (España): 19%. Se puede ajustar por entorno.
+try:
+    INVERSOR_RETENCION_PCT = float(os.environ.get("INVERSOR_RETENCION_PCT", "19"))
+except Exception:
+    INVERSOR_RETENCION_PCT = 19.0
+if INVERSOR_RETENCION_PCT < 0:
+    INVERSOR_RETENCION_PCT = 0.0
+if INVERSOR_RETENCION_PCT > 100:
+    INVERSOR_RETENCION_PCT = 100.0
