@@ -544,7 +544,7 @@
           <div class="kv">
             <div class="k">Inversión total</div>
             <div class="v money v--big">
-              {% if snapshot.inversor.inversion_total %}
+              {% if snapshot.inversor.inversion_total or snapshot.inversor.inversion_total == 0 %}
                 {{ snapshot.inversor.inversion_total|es_number }} €
               {% else %}—{% endif %}
             </div>
@@ -569,14 +569,14 @@
 
             <div class="k">Beneficio neto inversor</div>
             <div class="v money v--big">
-              {% if snapshot.inversor.beneficio_neto %}
+              {% if snapshot.inversor.beneficio_neto or snapshot.inversor.beneficio_neto == 0 %}
                 {{ snapshot.inversor.beneficio_neto|es_number }} €
               {% else %}—{% endif %}
             </div>
 
             <div class="k">ROI neto inversor</div>
             <div class="v">
-              {% if snapshot.inversor.roi_neto %}
+              {% if snapshot.inversor.roi_neto or snapshot.inversor.roi_neto == 0 %}
                 {{ snapshot.inversor.roi_neto|es_number }} %
               {% else %}—{% endif %}
             </div>
@@ -644,7 +644,7 @@
           <div>
             <div class="k">Reparto del beneficio estimado</div>
             {% with ben=snapshot.economico.beneficio_estimado com=inversor.comision_inversure_eur|default:inversor.comision_eur net=inversor.beneficio_neto %}
-              {% if ben and com and net %}
+              {% if (ben or ben == 0) and (com or com == 0) and (net or net == 0) %}
                 {% with com_i=com|floatformat:0 ben_i=ben|floatformat:0 net_i=net|floatformat:0 %}
                   <div class="stack" title="Comisión (gris) + neto inversor (azul)">
                     <span class="stack__part--a" style="width:{% widthratio com_i ben_i 100 %}%;"></span>
