@@ -2830,10 +2830,13 @@ def _metricas_desde_estudio(estudio: Estudio) -> dict:
         ),
         0.0,
     )
+    if comision_eur < 0:
+        comision_eur = 0.0
 
     # Si no viene calculada, la calculamos sobre el beneficio bruto
     if comision_eur == 0.0 and comision_pct and beneficio_bruto:
-        comision_eur = beneficio_bruto * (comision_pct / 100.0)
+        comision_base = max(0.0, beneficio_bruto)
+        comision_eur = comision_base * (comision_pct / 100.0) if comision_base else 0.0
 
     beneficio_neto_inversor = _safe_float(
         metricas.get("beneficio_neto")
@@ -6198,8 +6201,9 @@ def pdf_memoria_economica(request, proyecto_id: int):
         comision_pct = 100.0
 
     pct_decimal = Decimal(str(comision_pct)) / Decimal("100")
-    comision_estimada = beneficio_estimado * pct_decimal if beneficio_estimado else Decimal("0")
-    comision_real = beneficio_real * pct_decimal if beneficio_real else Decimal("0")
+    # Comisión sobre beneficio: si hay pérdidas, no debe generar comisión negativa.
+    comision_estimada = max(Decimal("0"), beneficio_estimado) * pct_decimal if beneficio_estimado else Decimal("0")
+    comision_real = max(Decimal("0"), beneficio_real) * pct_decimal if beneficio_real else Decimal("0")
     beneficio_neto_estimado = beneficio_estimado - comision_estimada
     beneficio_neto_real = beneficio_real - comision_real
 
