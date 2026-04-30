@@ -48,44 +48,33 @@ if SENTRY_DSN:
         send_default_pii=send_default_pii,
     )
 
-ALLOWED_HOSTS = _env_csv(
-    "DJANGO_ALLOWED_HOSTS"
-) or _env_csv("ALLOWED_HOSTS") or [
+_DEFAULT_ALLOWED_HOSTS = [
     "web-inversure-1.onrender.com",
     "inversurehomes.es",
     "www.inversurehomes.es",
     "app.inversurehomes.es",
 ]
-
-_ENV_ALLOWED_HOSTS_RAW = os.environ.get("DJANGO_ALLOWED_HOSTS") or os.environ.get("ALLOWED_HOSTS") or ""
-if _ENV_ALLOWED_HOSTS_RAW.strip():
-    _ENV_ALLOWED_HOSTS = [h.strip() for h in _ENV_ALLOWED_HOSTS_RAW.split(",") if h.strip()]
-    # Mantener los hosts actuales y añadir los del entorno (sin duplicados).
-    ALLOWED_HOSTS = list(dict.fromkeys(ALLOWED_HOSTS + _ENV_ALLOWED_HOSTS))
+_ENV_ALLOWED_HOSTS = _env_csv("DJANGO_ALLOWED_HOSTS") + _env_csv("ALLOWED_HOSTS")
+if _env_bool("DJANGO_ALLOWED_HOSTS_STRICT", False):
+    ALLOWED_HOSTS = _ENV_ALLOWED_HOSTS or list(_DEFAULT_ALLOWED_HOSTS)
+else:
+    ALLOWED_HOSTS = list(dict.fromkeys(list(_DEFAULT_ALLOWED_HOSTS) + _ENV_ALLOWED_HOSTS))
 
 # =========================
 # CSRF (Render / Producción)
 # =========================
 
-CSRF_TRUSTED_ORIGINS = _env_csv(
-    "DJANGO_CSRF_TRUSTED_ORIGINS"
-) or _env_csv("CSRF_TRUSTED_ORIGINS") or [
+_DEFAULT_CSRF_TRUSTED_ORIGINS = [
     "https://web-inversure-1.onrender.com",
     "https://inversurehomes.es",
     "https://www.inversurehomes.es",
     "https://app.inversurehomes.es",
 ]
-
-_ENV_CSRF_TRUSTED_ORIGINS_RAW = (
-    os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS")
-    or os.environ.get("CSRF_TRUSTED_ORIGINS")
-    or ""
-)
-if _ENV_CSRF_TRUSTED_ORIGINS_RAW.strip():
-    _ENV_CSRF_TRUSTED_ORIGINS = [
-        o.strip() for o in _ENV_CSRF_TRUSTED_ORIGINS_RAW.split(",") if o.strip()
-    ]
-    CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(CSRF_TRUSTED_ORIGINS + _ENV_CSRF_TRUSTED_ORIGINS))
+_ENV_CSRF_TRUSTED_ORIGINS = _env_csv("DJANGO_CSRF_TRUSTED_ORIGINS") + _env_csv("CSRF_TRUSTED_ORIGINS")
+if _env_bool("DJANGO_CSRF_TRUSTED_ORIGINS_STRICT", False):
+    CSRF_TRUSTED_ORIGINS = _ENV_CSRF_TRUSTED_ORIGINS or list(_DEFAULT_CSRF_TRUSTED_ORIGINS)
+else:
+    CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(list(_DEFAULT_CSRF_TRUSTED_ORIGINS) + _ENV_CSRF_TRUSTED_ORIGINS))
 
 
 # =========================
