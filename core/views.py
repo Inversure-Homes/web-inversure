@@ -2229,8 +2229,15 @@ def _ensure_checklist_defaults(proyecto: Proyecto) -> None:
 
 
 def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
-    gastos = list(GastoProyecto.objects.filter(proyecto=proyecto))
-    ingresos = list(IngresoProyecto.objects.filter(proyecto=proyecto))
+    # Preferir related managers (aprovecha prefetch si existe) con fallback a queries directas.
+    try:
+        gastos = list(proyecto.gastos_proyecto.all())
+    except Exception:
+        gastos = list(GastoProyecto.objects.filter(proyecto=proyecto))
+    try:
+        ingresos = list(proyecto.ingresos.all())
+    except Exception:
+        ingresos = list(IngresoProyecto.objects.filter(proyecto=proyecto))
 
     def _sum_importes(items):
         total = Decimal("0")

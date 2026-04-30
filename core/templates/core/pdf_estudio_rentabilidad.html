@@ -375,7 +375,7 @@
             <div class="kpi">
               <div class="label">Valor de transmisión</div>
               <div class="value money value--xl">
-                {% if snapshot.economico.valor_transmision %}
+                {% if snapshot.economico.valor_transmision or snapshot.economico.valor_transmision == 0 %}
                 {{ snapshot.economico.valor_transmision|es_number }} €
                 {% else %}—{% endif %}
               </div>
@@ -383,7 +383,7 @@
             <div class="kpi">
               <div class="label">Beneficio estimado</div>
               <div class="value money value--xl">
-                {% if snapshot.economico.beneficio_estimado %}
+                {% if snapshot.economico.beneficio_estimado or snapshot.economico.beneficio_estimado == 0 %}
                   {{ snapshot.economico.beneficio_estimado|es_number }} €
                 {% else %}—{% endif %}
               </div>
@@ -398,7 +398,7 @@
               {% else %} pill--muted
               {% endif %}">
               ROI:
-              {% if snapshot.economico.roi_estimado %}
+              {% if snapshot.economico.roi_estimado or snapshot.economico.roi_estimado == 0 %}
                 {{ snapshot.economico.roi_estimado|es_number }} %
               {% else %}—{% endif %}
             </span>
@@ -418,7 +418,7 @@
             {% elif snapshot.economico.roi_estimado %}bar--bad
             {% endif %}"
             title="ROI visual">
-            <span style="width: {% if snapshot.economico.roi_estimado %}{{ snapshot.economico.roi_estimado|floatformat:0 }}{% else %}0{% endif %}%;"></span>
+            <span style="width: {% if snapshot.economico.roi_estimado or snapshot.economico.roi_estimado == 0 %}{{ snapshot.economico.roi_estimado|floatformat:0 }}{% else %}0{% endif %}%;"></span>
           </div>
           <div class="note">Barra orientativa: si el ROI supera 100%, la visualización se saturará.</div>
         </div>
@@ -474,7 +474,7 @@
 
               <div class="k">Venta</div>
               <div class="v money">
-                {% if snapshot.economico.valor_transmision %}
+                {% if snapshot.economico.valor_transmision or snapshot.economico.valor_transmision == 0 %}
                   {{ snapshot.economico.valor_transmision|es_number }} €
                 {% else %}—{% endif %}
               </div>

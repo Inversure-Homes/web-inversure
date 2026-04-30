@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any
 
 from django.core.management.base import BaseCommand
 from django.core.files.base import ContentFile
@@ -35,6 +33,11 @@ class Command(BaseCommand):
             help="Crear nuevos DocumentoProyecto. Si no, solo imprime qué haría (dry-run).",
         )
         parser.add_argument(
+            "--deprecate-old",
+            action="store_true",
+            help="Marcar como obsoletos los PDFs de presentación anteriores del proyecto (no los borra).",
+        )
+        parser.add_argument(
             "--estilo",
             type=str,
             default="coin",
@@ -61,6 +64,7 @@ class Command(BaseCommand):
         limit = int(opts.get("limit") or 0)
         only_if_exists = bool(opts.get("only_if_exists"))
         apply = bool(opts.get("apply"))
+        deprecate_old = bool(opts.get("deprecate_old"))
         estilo = (opts.get("estilo") or "coin").strip().lower()
 
         qs = Proyecto.objects.all().order_by("id")
@@ -81,7 +85,6 @@ class Command(BaseCommand):
                     has_dossier = DocumentoProyecto.objects.filter(
                         proyecto=proyecto,
                         categoria="presentacion",
-                        titulo__startswith="Dossier ·",
                         archivo__iendswith=".pdf",
                     ).exists()
                     if not has_dossier:
@@ -200,6 +203,28 @@ class Command(BaseCommand):
                     results.append(_Result(proyecto_id=proyecto.id, created=False))
                     continue
 
+                if deprecate_old:
+                    try:
+                        prev_qs = DocumentoProyecto.objects.filter(
+                            proyecto=proyecto,
+                            categoria="presentacion",
+                            archivo__iendswith=".pdf",
+                        ).order_by("-creado", "-id")
+                        prev = list(prev_qs)
+                        to_update = []
+                        for doc in prev:
+                            t = (doc.titulo or "").strip()
+                            if not t:
+                                continue
+                            if t.startswith("OBSOLETO ·"):
+                                continue
+                            doc.titulo = f"OBSOLETO · {t}"
+                            to_update.append(doc)
+                        if to_update:
+                            DocumentoProyecto.objects.bulk_update(to_update, ["titulo"])
+                    except Exception:
+                        pass
+
                 pdf_bytes = _build_presentacion_pdf(None, context)
                 if not pdf_bytes:
                     errored += 1
@@ -230,4 +255,3 @@ class Command(BaseCommand):
                 self.stdout.write(f"{r.proyecto_id};ERROR;{r.error}")
             else:
                 self.stdout.write(f"{r.proyecto_id};{'CREATED' if r.created else 'OK'};")
-

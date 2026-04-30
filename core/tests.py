@@ -208,3 +208,94 @@ class SecurityHardeningTests(TestCase):
         self.assertEqual(out["retencion"], 0.0)
         # total a percibir = capital + neto_beneficio (negativo)
         self.assertAlmostEqual(out["total_a_percibir"], 500.0, places=6)
+
+    def test_closed_project_counts_anticipo_as_venta(self):
+        proyecto = Proyecto.objects.create(
+            nombre="P3",
+            estado="cerrado",
+            fecha=date(2026, 1, 1),
+            precio_compra_inmueble=Decimal("100000.00"),
+            precio_propiedad=Decimal("100000.00"),
+        )
+        GastoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 1, 1),
+            categoria="adquisicion",
+            concepto="Compraventa inmueble",
+            importe=Decimal("100000.00"),
+            estado="confirmado",
+            imputable_inversores=True,
+        )
+        GastoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 1, 10),
+            categoria="legales",
+            concepto="Notaría",
+            importe=Decimal("2500.00"),
+            estado="confirmado",
+            imputable_inversores=True,
+        )
+        IngresoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 6, 1),
+            tipo="anticipo",
+            concepto="Cobro anticipo",
+            importe=Decimal("109000.00"),
+            estado="confirmado",
+            imputable_inversores=True,
+        )
+        res = core_views._resultado_desde_memoria(proyecto, {})
+        self.assertAlmostEqual(float(res.get("valor_transmision") or 0.0), 109000.0, places=6)
+        self.assertAlmostEqual(
+            float(res.get("beneficio_neto") or 0.0),
+            float((res.get("valor_transmision") or 0.0) - (res.get("valor_adquisicion") or 0.0)),
+            places=6,
+        )
+
+    def test_closed_project_falls_back_to_total_ingresos_as_venta(self):
+        proyecto = Proyecto.objects.create(
+            nombre="P4",
+            estado="cerrado",
+            fecha=date(2026, 1, 1),
+            precio_compra_inmueble=Decimal("100000.00"),
+            precio_propiedad=Decimal("100000.00"),
+        )
+        GastoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 1, 1),
+            categoria="adquisicion",
+            concepto="Compraventa inmueble",
+            importe=Decimal("100000.00"),
+            estado="confirmado",
+            imputable_inversores=True,
+        )
+        IngresoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 6, 1),
+            tipo="otro",
+            concepto="Ingreso sin tipar como venta",
+            importe=Decimal("109000.00"),
+            estado="confirmado",
+            imputable_inversores=True,
+        )
+        res = core_views._resultado_desde_memoria(proyecto, {})
+        self.assertAlmostEqual(float(res.get("valor_transmision") or 0.0), 109000.0, places=6)
+
+    def test_metricas_estudio_clamps_negative_commission_and_recomputes(self):
+        estudio = Estudio.objects.create(
+            nombre="E",
+            direccion="X",
+            ref_catastral="",
+            datos={
+                "valor_adquisicion": 100000,
+                "valor_transmision": 120000,
+                "beneficio_estimado": 20000,
+                "comision_inversure_pct": 10,
+                "comision_inversure_eur": -999,  # inválida: nunca debería ser negativa
+            },
+        )
+        out = core_views._metricas_desde_estudio(estudio)
+        inv = out.get("inversor", {}) if isinstance(out.get("inversor"), dict) else {}
+        self.assertGreaterEqual(float(inv.get("comision_inversure_eur") or 0.0), 0.0)
+        self.assertAlmostEqual(float(inv.get("comision_inversure_eur") or 0.0), 2000.0, places=6)
+        self.assertAlmostEqual(float(inv.get("beneficio_neto_inversor") or 0.0), 18000.0, places=6)
