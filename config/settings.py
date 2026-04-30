@@ -387,6 +387,28 @@ if INVERSOR_RETENCION_PCT < 0:
 if INVERSOR_RETENCION_PCT > 100:
     INVERSOR_RETENCION_PCT = 100.0
 
+# Retención por tipo de partícipe (F/J). Por defecto hereda la global.
+def _pct_env(name: str, default: float) -> float:
+    try:
+        raw = os.environ.get(name, "")
+        if raw in ("", None):
+            return float(default)
+        return float(raw)
+    except Exception:
+        return float(default)
+
+
+INVERSOR_RETENCION_PCT_F = _pct_env("INVERSOR_RETENCION_PCT_F", INVERSOR_RETENCION_PCT)
+INVERSOR_RETENCION_PCT_J = _pct_env("INVERSOR_RETENCION_PCT_J", INVERSOR_RETENCION_PCT)
+INVERSOR_RETENCION_PCT_F = max(0.0, min(100.0, float(INVERSOR_RETENCION_PCT_F)))
+INVERSOR_RETENCION_PCT_J = max(0.0, min(100.0, float(INVERSOR_RETENCION_PCT_J)))
+
+# En cuentas en participación, por defecto se asume que el partícipe no responde más allá de su aportación.
+# Si el resultado fuera muy negativo, el "total a percibir" se limita a 0€.
+CUENTAS_PARTICIPACION_LIMIT_LOSS_TO_CAPITAL = str(
+    os.environ.get("CUENTAS_PARTICIPACION_LIMIT_LOSS_TO_CAPITAL", "1")
+).strip() == "1"
+
 # Si se activa, el beneficio/ROI de `_resultado_desde_memoria` se recalcula como:
 # beneficio_neto = valor_transmision_neto - valor_adquisicion
 # Esto suele incluir gastos de venta (si existen) aunque estén estimados.

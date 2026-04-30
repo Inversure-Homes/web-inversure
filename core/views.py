@@ -824,7 +824,17 @@ def _calc_beneficio_inversor(
     resultado_mem: dict,
     total_proj: float,
 ) -> dict:
-    beneficio_bruto = float(resultado_mem.get("beneficio_neto") or 0.0)
+    def _retencion_pct_for_participacion() -> float:
+        try:
+            cliente = getattr(part, "cliente", None)
+            tipo = (getattr(cliente, "tipo_persona", "") or "").strip().upper()
+            if tipo == "J":
+                return float(getattr(settings, "INVERSOR_RETENCION_PCT_J", getattr(settings, "INVERSOR_RETENCION_PCT", 19.0)))
+            return float(getattr(settings, "INVERSOR_RETENCION_PCT_F", getattr(settings, "INVERSOR_RETENCION_PCT", 19.0)))
+        except Exception:
+            return float(getattr(settings, "INVERSOR_RETENCION_PCT", 19.0))
+
+    beneficio_bruto_operacion = float(resultado_mem.get("beneficio_neto") or 0.0)
     inv_sec = snapshot.get("inversor") if isinstance(snapshot.get("inversor"), dict) else {}
     comision_pct = _safe_float(
         inv_sec.get("comision_inversure_pct")
@@ -834,8 +844,10 @@ def _calc_beneficio_inversor(
         0.0,
     )
     comision_pct = max(0.0, min(100.0, comision_pct))
-    comision_eur = beneficio_bruto * (comision_pct / 100.0) if beneficio_bruto else 0.0
-    beneficio_neto_total = beneficio_bruto - comision_eur
+    # Comisión "sobre beneficio": si la operación tiene pérdidas, no debería generar comisión negativa.
+    comision_base = max(0.0, beneficio_bruto_operacion)
+    comision_eur = comision_base * (comision_pct / 100.0) if comision_base else 0.0
+    beneficio_neto_total_operacion = beneficio_bruto_operacion - comision_eur
 
     proj_extra = proyecto.extra if isinstance(proyecto.extra, dict) else {}
     proj_override = proj_extra.get("beneficio_operacion_override")
@@ -844,16 +856,18 @@ def _calc_beneficio_inversor(
         override_comision = proj_override.get("comision_eur")
         override_neto = proj_override.get("beneficio_neto_total")
         if override_bruto not in (None, ""):
-            beneficio_bruto = _safe_float(override_bruto, beneficio_bruto)
+            beneficio_bruto_operacion = _safe_float(override_bruto, beneficio_bruto_operacion)
         if override_comision not in (None, ""):
             comision_eur = _safe_float(override_comision, comision_eur)
         if override_neto not in (None, ""):
-            beneficio_neto_total = _safe_float(override_neto, beneficio_neto_total)
+            beneficio_neto_total_operacion = _safe_float(override_neto, beneficio_neto_total_operacion)
         elif override_bruto not in (None, "") or override_comision not in (None, ""):
-            beneficio_neto_total = beneficio_bruto - comision_eur
+            # Si se overridea bruto o comisión, asegurar que el neto sigue siendo coherente.
+            beneficio_neto_total_operacion = beneficio_bruto_operacion - comision_eur
 
-    ratio = float(part.importe_invertido or 0) / total_proj if total_proj > 0 else 0.0
-    beneficio_inversor = beneficio_neto_total * ratio
+    inversion = float(getattr(part, "importe_invertido", 0) or 0)
+    ratio = inversion / total_proj if total_proj > 0 else 0.0
+    beneficio_inversor = beneficio_neto_total_operacion * ratio
     override_val = float(part.beneficio_neto_override) if part.beneficio_neto_override is not None else None
     override_data = part.beneficio_override_data if isinstance(part.beneficio_override_data, dict) else {}
     if override_data.get("beneficio_inversor") not in (None, ""):
@@ -861,26 +875,44 @@ def _calc_beneficio_inversor(
     elif override_val is not None:
         beneficio_inversor = override_val
     try:
-        _raw_retencion = getattr(settings, "INVERSOR_RETENCION_PCT", None)
-        if _raw_retencion in (None, ""):
-            _raw_retencion = 19.0
-        retencion_pct = float(_raw_retencion)
+        retencion_pct = float(_retencion_pct_for_participacion() or 0.0)
     except Exception:
-        retencion_pct = 19.0
+        retencion_pct = 0.0
     if retencion_pct < 0:
         retencion_pct = 0.0
     if retencion_pct > 100:
         retencion_pct = 100.0
-    retencion = beneficio_inversor * (retencion_pct / 100.0)
+    # Retención: aplicar solo si hay rendimiento positivo.
+    retencion_base = max(0.0, float(beneficio_inversor or 0.0))
+    retencion = retencion_base * (retencion_pct / 100.0)
     if override_data.get("retencion") not in (None, ""):
         retencion = _safe_float(override_data.get("retencion"), retencion)
-    neto_cobrar = beneficio_inversor - retencion
+    neto_beneficio = beneficio_inversor - retencion
     if override_data.get("neto_cobrar") not in (None, ""):
-        neto_cobrar = _safe_float(override_data.get("neto_cobrar"), neto_cobrar)
+        neto_beneficio = _safe_float(override_data.get("neto_cobrar"), neto_beneficio)
+
+    total_a_percibir = inversion + neto_beneficio
+    try:
+        if getattr(settings, "CUENTAS_PARTICIPACION_LIMIT_LOSS_TO_CAPITAL", True):
+            total_a_percibir = max(0.0, total_a_percibir)
+    except Exception:
+        pass
+    if override_data.get("total_a_percibir") not in (None, ""):
+        total_a_percibir = _safe_float(override_data.get("total_a_percibir"), total_a_percibir)
+
     return {
+        # Componentes de la operación
+        "beneficio_bruto_operacion": beneficio_bruto_operacion,
+        "comision_pct": comision_pct,
+        "comision_eur": comision_eur,
+        "beneficio_neto_total_operacion": beneficio_neto_total_operacion,
+        "ratio_participacion": ratio,
+        # Reparto por inversor
         "beneficio_neto_inversor": beneficio_inversor,
         "retencion": retencion,
-        "neto_cobrar": neto_cobrar,
+        "neto_cobrar": neto_beneficio,  # compat: este campo representa el neto de beneficio (no incluye devolución de capital)
+        "total_a_percibir": total_a_percibir,
+        "retencion_pct_aplicada": retencion_pct,
     }
 
 
@@ -2374,8 +2406,11 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
     except Exception:
         pass
 
-    roi = float(beneficio / valor_adquisicion * 100) if valor_adquisicion > 0 else 0.0
-    ratio_euro = float(beneficio / valor_adquisicion) if valor_adquisicion > 0 else 0.0
+    # ROI sobre inversión total (gastos) para que sea consistente con los KPIs de ingresos/gastos/beneficio.
+    # Fallback: si no hay gastos en memoria, usar el valor de adquisición calculado.
+    inversion_total = gastos_base if gastos_base > 0 else valor_adquisicion
+    roi = float(beneficio / inversion_total * 100) if inversion_total > 0 else 0.0
+    ratio_euro = float(beneficio / inversion_total) if inversion_total > 0 else 0.0
     margen_pct = float(beneficio / valor_transmision * 100) if valor_transmision > 0 else 0.0
 
     beneficio_objetivo = Decimal("30000")
@@ -2398,6 +2433,7 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
     return {
         "beneficio_neto": float(beneficio),
         "roi": roi,
+        "inversion_total": float(inversion_total),
         "valor_adquisicion": float(valor_adquisicion),
         "valor_transmision": float(valor_transmision),
         "ratio_euro": ratio_euro,
@@ -3128,6 +3164,7 @@ def _build_dashboard_context(user):
         resultado = _resultado_desde_memoria(proyecto, snapshot)
         beneficio_bruto = float(resultado.get("beneficio_neto") or 0.0)
         valor_adquisicion = float(resultado.get("valor_adquisicion") or 0.0)
+        inversion_total = float(resultado.get("inversion_total") or 0.0)
         inv_sec = snapshot.get("inversor") if isinstance(snapshot.get("inversor"), dict) else {}
         comision_pct = _safe_float(
             inv_sec.get("comision_inversure_pct")
@@ -3162,13 +3199,14 @@ def _build_dashboard_context(user):
             "beneficio_neto": beneficio_neto,
             "comision_eur": comision_eur,
             "valor_adquisicion": valor_adquisicion,
+            "inversion_total": inversion_total,
         }
 
     proyectos_estado = []
     cerrado_estados = {"cerrado"}
     abierto_estados = {"captacion", "comprado", "comercializacion", "reservado", "vendido"}
     cerrado_bruto = cerrado_neto = 0.0
-    cerrado_valor_adq = 0.0
+    cerrado_inversion_total = 0.0
     cerrado_roi_bruto = []
     cerrado_roi_neto = []
     abierto_bruto = abierto_neto = 0.0
@@ -3194,10 +3232,11 @@ def _build_dashboard_context(user):
         if estado in cerrado_estados:
             cerrado_bruto += beneficio_bruto
             cerrado_neto += beneficio_neto
-            cerrado_valor_adq += valor_adquisicion
-            if valor_adquisicion:
-                cerrado_roi_bruto.append(beneficio_bruto / valor_adquisicion * 100.0)
-                cerrado_roi_neto.append(beneficio_neto / valor_adquisicion * 100.0)
+            inversion_total = float(benef.get("inversion_total") or 0.0)
+            cerrado_inversion_total += inversion_total
+            if inversion_total:
+                cerrado_roi_bruto.append(beneficio_bruto / inversion_total * 100.0)
+                cerrado_roi_neto.append(beneficio_neto / inversion_total * 100.0)
         elif estado in abierto_estados:
             abierto_bruto += beneficio_bruto
             abierto_neto += beneficio_neto
@@ -3215,10 +3254,10 @@ def _build_dashboard_context(user):
             )
 
     cerrado_roi_bruto_total = (
-        (cerrado_bruto / cerrado_valor_adq * 100.0) if cerrado_valor_adq else 0.0
+        (cerrado_bruto / cerrado_inversion_total * 100.0) if cerrado_inversion_total else 0.0
     )
     cerrado_roi_neto_total = (
-        (cerrado_neto / cerrado_valor_adq * 100.0) if cerrado_valor_adq else 0.0
+        (cerrado_neto / cerrado_inversion_total * 100.0) if cerrado_inversion_total else 0.0
     )
     cerrado_roi_bruto_medio = (
         sum(cerrado_roi_bruto) / len(cerrado_roi_bruto) if cerrado_roi_bruto else 0.0
@@ -4222,56 +4261,23 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
             continue
         snap = _get_snapshot(proyecto)
         resultado = _resultado_desde_memoria(proyecto, snap)
-        beneficio_bruto = float(resultado.get("beneficio_neto") or 0.0)
-
-        inv_sec = snap.get("inversor") if isinstance(snap.get("inversor"), dict) else {}
-        comision_pct = _safe_float(
-            inv_sec.get("comision_inversure_pct")
-            or inv_sec.get("inversure_comision_pct")
-            or inv_sec.get("comision_pct")
-            or snap.get("comision_inversure_pct")
-            or snap.get("inversure_comision_pct")
-            or snap.get("comision_pct")
-            or 0.0,
-            0.0,
+        reparto = _calc_beneficio_inversor(
+            part=p,
+            proyecto=proyecto,
+            snapshot=snap if isinstance(snap, dict) else {},
+            resultado_mem=resultado if isinstance(resultado, dict) else {},
+            total_proj=float(total_proj or 0.0),
         )
-        if comision_pct < 0:
-            comision_pct = 0.0
-        if comision_pct > 100:
-            comision_pct = 100.0
-
-        comision_eur = beneficio_bruto * (comision_pct / 100.0) if beneficio_bruto else 0.0
-        beneficio_neto_inversor_total = beneficio_bruto - comision_eur
-
-        proj_extra = proyecto.extra if isinstance(proyecto.extra, dict) else {}
-        proj_override = proj_extra.get("beneficio_operacion_override")
-        if isinstance(proj_override, dict):
-            override_bruto = proj_override.get("beneficio_bruto")
-            override_comision = proj_override.get("comision_eur")
-            override_neto = proj_override.get("beneficio_neto_total")
-            if override_bruto not in (None, ""):
-                beneficio_bruto = _safe_float(override_bruto, beneficio_bruto)
-            if override_comision not in (None, ""):
-                comision_eur = _safe_float(override_comision, comision_eur)
-            if override_neto not in (None, ""):
-                beneficio_neto_inversor_total = _safe_float(override_neto, beneficio_neto_inversor_total)
-            elif override_bruto not in (None, "") or override_comision not in (None, ""):
-                beneficio_neto_inversor_total = beneficio_bruto - comision_eur
-
-        ratio_part = float(p.importe_invertido or 0) / total_proj if total_proj > 0 else 0.0
-        beneficio_inversor = beneficio_neto_inversor_total * ratio_part
+        beneficio_bruto = float(reparto.get("beneficio_bruto_operacion") or 0.0)
+        comision_eur = float(reparto.get("comision_eur") or 0.0)
+        beneficio_neto_inversor_total = float(reparto.get("beneficio_neto_total_operacion") or 0.0)
+        ratio_part = float(reparto.get("ratio_participacion") or 0.0)
+        beneficio_inversor = float(reparto.get("beneficio_neto_inversor") or 0.0)
+        retencion = float(reparto.get("retencion") or 0.0)
+        neto_cobrar = float(reparto.get("neto_cobrar") or 0.0)
+        total_a_percibir = float(reparto.get("total_a_percibir") or 0.0)
         override_val = float(p.beneficio_neto_override) if p.beneficio_neto_override is not None else None
         override_data = p.beneficio_override_data if isinstance(p.beneficio_override_data, dict) else {}
-        if override_data.get("beneficio_inversor") not in (None, ""):
-            beneficio_inversor = _safe_float(override_data.get("beneficio_inversor"), beneficio_inversor)
-        elif override_val is not None:
-            beneficio_inversor = override_val
-        retencion = beneficio_inversor * 0.19
-        if override_data.get("retencion") not in (None, ""):
-            retencion = _safe_float(override_data.get("retencion"), retencion)
-        neto_cobrar = beneficio_inversor - retencion
-        if override_data.get("neto_cobrar") not in (None, ""):
-            neto_cobrar = _safe_float(override_data.get("neto_cobrar"), neto_cobrar)
         total_beneficio += beneficio_inversor
         total_retencion += retencion
 
@@ -4285,6 +4291,7 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
                 "beneficio_override": override_data.get("beneficio_inversor") if override_data.get("beneficio_inversor") not in (None, "") else override_val,
                 "retencion": retencion,
                 "neto_cobrar": neto_cobrar,
+                "total_a_percibir": total_a_percibir,
                 "participacion_pct": ratio_part * 100.0,
                 "participacion_id": p.id,
             }
@@ -4387,6 +4394,7 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
         "total_beneficio": total_beneficio,
         "total_retencion": total_retencion,
         "total_neto_cobrar": total_beneficio - total_retencion,
+        "total_a_percibir": float(total_invertido or 0.0) + (total_beneficio - total_retencion),
         "beneficio_chart": beneficio_chart,
         "documentos_por_proyecto": documentos_por_proyecto,
         "documentos_personales": documentos_personales,
@@ -6161,19 +6169,9 @@ def pdf_memoria_economica(request, proyecto_id: int):
     beneficio_neto_estimado = beneficio_estimado - comision_estimada
     beneficio_neto_real = beneficio_real - comision_real
 
-    base_precio = proyecto.precio_compra_inmueble or proyecto.precio_propiedad or Decimal("0")
-    cats_adq = {"adquisicion", "reforma", "seguridad", "operativos", "financieros", "legales", "otros"}
-    gastos_adq_estimado = _sum_importes(
-        [_importe_estimado(g) for g in gastos if g.categoria in cats_adq]
-    )
-    gastos_adq_real = _sum_importes(
-        [_importe_real(g) for g in gastos if g.categoria in cats_adq]
-    )
-
-    base_est = base_precio + gastos_adq_estimado
-    base_real = base_precio + gastos_adq_real
-    roi_estimado = (beneficio_estimado / base_est * Decimal("100")) if base_est > 0 else None
-    roi_real = (beneficio_real / base_real * Decimal("100")) if base_real > 0 else None
+    # ROI consistente con KPIs: beneficio / gastos.
+    roi_estimado = (beneficio_estimado / gastos_estimados * Decimal("100")) if gastos_estimados > 0 else None
+    roi_real = (beneficio_real / gastos_reales * Decimal("100")) if gastos_reales > 0 else None
 
     categorias = []
     for key, label in GastoProyecto.CATEGORIAS:

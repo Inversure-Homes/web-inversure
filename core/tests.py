@@ -125,12 +125,13 @@ class SecurityHardeningTests(TestCase):
         self.assertIsNotNone(roi_auto)
         self.assertAlmostEqual(float(roi_auto), roi_from_res, places=6)
 
-    @override_settings(INVERSOR_RETENCION_PCT=0.0)
+    @override_settings(INVERSOR_RETENCION_PCT=0.0, INVERSOR_RETENCION_PCT_F=0.0, INVERSOR_RETENCION_PCT_J=0.0)
     def test_retencion_pct_can_be_overridden(self):
         class _P:
             importe_invertido = Decimal("100.00")
             beneficio_neto_override = None
             beneficio_override_data = {}
+            cliente = type("C", (), {"tipo_persona": "F"})()
 
         part = _P()
         class _Proj:
@@ -185,3 +186,25 @@ class SecurityHardeningTests(TestCase):
         val_trans = float(res.get("valor_transmision") or 0.0)
         benef = float(res.get("beneficio_neto") or 0.0)
         self.assertAlmostEqual(benef, val_trans - val_adq, places=6)
+
+    @override_settings(INVERSOR_RETENCION_PCT=19.0)
+    def test_no_retencion_on_losses_and_total_includes_capital(self):
+        class _Part:
+            importe_invertido = Decimal("1000.00")
+            beneficio_neto_override = None
+            beneficio_override_data = {}
+            cliente = type("C", (), {"tipo_persona": "F"})()
+
+        class _Proj:
+            extra = {}
+
+        part = _Part()
+        proyecto = _Proj()
+        snapshot = {"inversor": {"comision_inversure_pct": 10}}
+        # pérdida en operación
+        resultado_mem = {"beneficio_neto": -500.0}
+        out = core_views._calc_beneficio_inversor(part, proyecto, snapshot, resultado_mem, total_proj=1000.0)
+        self.assertEqual(out["comision_eur"], 0.0)
+        self.assertEqual(out["retencion"], 0.0)
+        # total a percibir = capital + neto_beneficio (negativo)
+        self.assertAlmostEqual(out["total_a_percibir"], 500.0, places=6)
