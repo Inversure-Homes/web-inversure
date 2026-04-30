@@ -2258,11 +2258,33 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
 
     ingresos_est = _sum_importes([_importe_estimado(i) for i in ingresos])
     ingresos_real = _sum_importes([_importe_real(i) for i in ingresos])
+    estado_proyecto = (getattr(proyecto, "estado", "") or "").strip().lower()
+    tipos_venta = {"venta"}
+    # En operaciones cerradas/vendidas, a veces la venta llega repartida como señal/anticipo (o incluso mal tipada).
+    # Para evitar valor_transmision=0 en proyectos cerrados, consideramos también señal/anticipo como venta.
+    if estado_proyecto in {"vendido", "cerrado"}:
+        tipos_venta.update({"senal", "anticipo"})
+
+    def _is_tipo_venta(ingreso) -> bool:
+        try:
+            t = (getattr(ingreso, "tipo", "") or "").strip().lower()
+            return t in tipos_venta
+        except Exception:
+            return False
+
     venta_est = _sum_importes(
-        [_importe_estimado(i) for i in ingresos if i.estado == "estimado" and i.tipo == "venta"]
+        [
+            _importe_estimado(i)
+            for i in ingresos
+            if _is_tipo_venta(i) and ((getattr(i, "estado", None) or "estimado").strip().lower() in ("estimado", ""))
+        ]
     )
     venta_real = _sum_importes(
-        [_importe_real(i) for i in ingresos if i.estado == "confirmado" and i.tipo == "venta"]
+        [
+            _importe_real(i)
+            for i in ingresos
+            if _is_tipo_venta(i) and ((getattr(i, "estado", None) or "").strip().lower() == "confirmado")
+        ]
     )
     gastos_est = _sum_importes([_importe_estimado(g) for g in gastos])
     gastos_real = _sum_importes([_importe_real(g) for g in gastos])
@@ -2270,6 +2292,10 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
     has_real = ingresos_real > 0 or gastos_real > 0
     ingresos_base = ingresos_real if ingresos_real > 0 else ingresos_est
     venta_base = venta_real if venta_real > 0 else venta_est
+    if venta_base <= 0 and estado_proyecto in {"vendido", "cerrado"} and ingresos_base > 0:
+        # Fallback robusto: si el proyecto está cerrado/vendido pero no hay ingresos tipados como "venta",
+        # asumimos que los ingresos totales corresponden a la transmisión.
+        venta_base = ingresos_base
     gastos_venta_est = _sum_importes(
         [_importe_estimado(g) for g in gastos if g.estado == "estimado" and g.categoria == "venta"]
     )
