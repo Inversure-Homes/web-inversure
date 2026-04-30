@@ -2463,55 +2463,14 @@ def _roi_memoria_proyecto(proyecto: Proyecto):
     ingresos = list(IngresoProyecto.objects.filter(proyecto=proyecto))
     if not gastos and not ingresos:
         return None
-
-    def _sum_importes(items):
-        total = Decimal("0")
-        for item in items:
-            if item is None:
-                continue
-            total += item
-        return total
-
-    def _importe_estimado(item):
-        estimado = getattr(item, "importe_estimado", None)
-        if estimado is not None:
-            return estimado
-        estado = (getattr(item, "estado", None) or "estimado").strip().lower()
-        if estado in ("estimado", ""):
-            return item.importe
-        return Decimal("0")
-
-    def _importe_real(item):
-        estado = (getattr(item, "estado", None) or "").strip().lower()
-        if estado != "confirmado":
-            return Decimal("0")
-        real = getattr(item, "importe_real", None)
-        return real if real is not None else item.importe
-
-    ingresos_estimados = _sum_importes([_importe_estimado(i) for i in ingresos])
-    ingresos_reales = _sum_importes([_importe_real(i) for i in ingresos])
-    if ingresos_reales <= 0 and ingresos_estimados > 0:
-        ingresos_reales = ingresos_estimados
-    gastos_estimados = _sum_importes([_importe_estimado(g) for g in gastos])
-    gastos_reales = _sum_importes([_importe_real(g) for g in gastos])
-
-    beneficio_estimado = ingresos_estimados - gastos_estimados
-    beneficio_real = ingresos_reales - gastos_reales
-
-    base_precio = proyecto.precio_compra_inmueble or proyecto.precio_propiedad or Decimal("0")
-    cats_adq = {"adquisicion", "reforma", "seguridad", "operativos", "financieros", "legales", "otros"}
-    gastos_adq_estimado = _sum_importes([_importe_estimado(g) for g in gastos if g.categoria in cats_adq])
-    gastos_adq_real = _sum_importes([_importe_real(g) for g in gastos if g.categoria in cats_adq])
-
-    base_est = base_precio + gastos_adq_estimado
-    base_real = base_precio + gastos_adq_real
-
-    if ingresos_reales or gastos_reales:
-        if base_real > 0:
-            return float((beneficio_real / base_real) * Decimal("100"))
-    if base_est > 0:
-        return float((beneficio_estimado / base_est) * Decimal("100"))
-    return None
+    # Alinear el ROI "auto" usado en landing con la misma fuente de verdad que el dashboard:
+    # `_resultado_desde_memoria` (incluye heurística anti doble conteo de compra).
+    try:
+        res = _resultado_desde_memoria(proyecto, {})
+        roi = res.get("roi")
+        return float(roi) if roi is not None else None
+    except Exception:
+        return None
 
 
 def _fmt_es_number(x: float, decimals: int = 2) -> str:

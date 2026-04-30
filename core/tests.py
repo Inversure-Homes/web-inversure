@@ -1,11 +1,13 @@
 import os
+from datetime import date
+from decimal import Decimal
 
 from django.contrib.auth.models import User
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.test import RequestFactory, TestCase
 
 from core import views as core_views
-from core.models import Estudio
+from core.models import Estudio, Proyecto, GastoProyecto, IngresoProyecto
 
 
 def _add_session(request):
@@ -78,3 +80,46 @@ class SecurityHardeningTests(TestCase):
 
         res = self.client.get("/healthz/")
         self.assertEqual(res.status_code, 200)
+
+    def test_roi_memoria_proyecto_matches_resultado_memoria(self):
+        proyecto = Proyecto.objects.create(
+            nombre="P",
+            estado="comercializacion",
+            fecha=date(2026, 1, 1),
+            precio_compra_inmueble=Decimal("100000.00"),
+            precio_propiedad=Decimal("100000.00"),
+            meses=4,
+        )
+        # Gasto de compra duplicado en movimientos + precio_compra en el modelo
+        GastoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 1, 1),
+            categoria="adquisicion",
+            concepto="Compraventa inmueble",
+            importe=Decimal("100000.00"),
+            estado="confirmado",
+            imputable_inversores=True,
+        )
+        GastoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 1, 10),
+            categoria="legales",
+            concepto="Notaría",
+            importe=Decimal("2500.00"),
+            estado="confirmado",
+            imputable_inversores=True,
+        )
+        IngresoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 6, 1),
+            tipo="venta",
+            concepto="Venta estimada",
+            importe=Decimal("130000.00"),
+            estado="estimado",
+            imputable_inversores=True,
+        )
+        res = core_views._resultado_desde_memoria(proyecto, {})
+        roi_from_res = float(res.get("roi") or 0.0)
+        roi_auto = core_views._roi_memoria_proyecto(proyecto)
+        self.assertIsNotNone(roi_auto)
+        self.assertAlmostEqual(float(roi_auto), roi_from_res, places=6)
