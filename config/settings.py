@@ -386,3 +386,10 @@ if INVERSOR_RETENCION_PCT < 0:
     INVERSOR_RETENCION_PCT = 0.0
 if INVERSOR_RETENCION_PCT > 100:
     INVERSOR_RETENCION_PCT = 100.0
+
+# Si se activa, el beneficio/ROI de `_resultado_desde_memoria` se recalcula como:
+# beneficio_neto = valor_transmision_neto - valor_adquisicion
+# Esto suele incluir gastos de venta (si existen) aunque estén estimados.
+MEMORIA_BENEFICIO_NETO_DESDE_TRANSMISION = str(
+    os.environ.get("MEMORIA_BENEFICIO_NETO_DESDE_TRANSMISION", "0")
+).strip() == "1"

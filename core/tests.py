@@ -141,3 +141,47 @@ class SecurityHardeningTests(TestCase):
         resultado_mem = {"beneficio_neto": 1000.0}
         out = core_views._calc_beneficio_inversor(part, proyecto, snapshot, resultado_mem, total_proj=100.0)
         self.assertEqual(out["retencion"], 0.0)
+
+    @override_settings(MEMORIA_BENEFICIO_NETO_DESDE_TRANSMISION=True)
+    def test_beneficio_neto_can_be_forced_from_transmision(self):
+        proyecto = Proyecto.objects.create(
+            nombre="P2",
+            estado="comercializacion",
+            fecha=date(2026, 1, 1),
+            precio_compra_inmueble=Decimal("100000.00"),
+            precio_propiedad=Decimal("100000.00"),
+        )
+        # gastos confirmados (sin incluir venta)
+        GastoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 1, 1),
+            categoria="adquisicion",
+            concepto="Compraventa inmueble",
+            importe=Decimal("100000.00"),
+            estado="confirmado",
+            imputable_inversores=True,
+        )
+        # venta + gasto de venta estimado
+        IngresoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 6, 1),
+            tipo="venta",
+            concepto="Venta estimada",
+            importe=Decimal("130000.00"),
+            estado="estimado",
+            imputable_inversores=True,
+        )
+        GastoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 6, 1),
+            categoria="venta",
+            concepto="Inmobiliaria",
+            importe=Decimal("3900.00"),
+            estado="estimado",
+            imputable_inversores=True,
+        )
+        res = core_views._resultado_desde_memoria(proyecto, {})
+        val_adq = float(res.get("valor_adquisicion") or 0.0)
+        val_trans = float(res.get("valor_transmision") or 0.0)
+        benef = float(res.get("beneficio_neto") or 0.0)
+        self.assertAlmostEqual(benef, val_trans - val_adq, places=6)

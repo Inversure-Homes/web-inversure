@@ -2365,6 +2365,15 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
         elif valor_transmision > 0 or valor_adquisicion > 0:
             beneficio = valor_transmision - valor_adquisicion
 
+    # Opcional: forzar consistencia entre componentes y "beneficio_neto".
+    # Útil cuando hay gastos de venta estimados y el beneficio calculado por movimientos
+    # no los incluye (porque prioriza "real" vs "estimado" por bloque).
+    try:
+        if getattr(settings, "MEMORIA_BENEFICIO_NETO_DESDE_TRANSMISION", False) and valor_transmision > 0:
+            beneficio = valor_transmision - valor_adquisicion
+    except Exception:
+        pass
+
     roi = float(beneficio / valor_adquisicion * 100) if valor_adquisicion > 0 else 0.0
     ratio_euro = float(beneficio / valor_adquisicion) if valor_adquisicion > 0 else 0.0
     margen_pct = float(beneficio / valor_transmision * 100) if valor_transmision > 0 else 0.0
