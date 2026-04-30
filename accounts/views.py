@@ -12,7 +12,13 @@ from django.views.decorators.http import require_GET, require_POST
 from django.conf import settings
 
 from auditlog.models import LogEntry
-from pywebpush import webpush, WebPushException
+try:
+    from pywebpush import webpush, WebPushException
+except Exception:  # pragma: no cover
+    webpush = None
+
+    class WebPushException(Exception):
+        pass
 
 from .forms import UserCreateForm, UserEditForm
 from .models import UserConnectionLog, UserSession, WebPushSubscription
@@ -156,6 +162,8 @@ def push_unsubscribe(request):
 
 
 def _webpush_send(subscription: WebPushSubscription, payload: dict) -> bool:
+    if webpush is None:
+        return False
     if not settings.VAPID_PRIVATE_KEY or not settings.VAPID_PUBLIC_KEY:
         return False
     sub_info = {

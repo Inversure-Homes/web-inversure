@@ -14,6 +14,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SEGURIDAD / ENTORNO
 # =========================
 
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return str(raw).strip().lower() in {"1", "true", "yes", "y", "on", "si", "sí"}
+
+
+def _env_csv(name: str) -> list[str]:
+    raw = os.environ.get(name)
+    if not raw:
+        return []
+    return [x.strip() for x in str(raw).split(",") if x.strip()]
+
+
 SECRET_KEY = (
     os.environ.get("DJANGO_SECRET_KEY")
     or os.environ.get("SECRET_KEY")
@@ -21,10 +35,9 @@ SECRET_KEY = (
 )
 
 _IS_RENDER = str(os.environ.get("RENDER") or "").strip().lower() in {"1", "true", "yes", "y"}
-_DEBUG_DEFAULT = "0" if _IS_RENDER else "1"
-DEBUG = str(os.environ.get("DJANGO_DEBUG") or os.environ.get("DEBUG") or _DEBUG_DEFAULT).strip() == "1"
+DEBUG = _env_bool("DJANGO_DEBUG", _env_bool("DEBUG", not _IS_RENDER))
 
-PDF_MESSAGE_SANITIZE = str(os.environ.get("PDF_MESSAGE_SANITIZE") or ("1" if _IS_RENDER else "0")).strip() == "1"
+PDF_MESSAGE_SANITIZE = _env_bool("PDF_MESSAGE_SANITIZE", _IS_RENDER)
 
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 if SENTRY_DSN:
@@ -35,7 +48,9 @@ if SENTRY_DSN:
         send_default_pii=send_default_pii,
     )
 
-ALLOWED_HOSTS = [
+ALLOWED_HOSTS = _env_csv(
+    "DJANGO_ALLOWED_HOSTS"
+) or _env_csv("ALLOWED_HOSTS") or [
     "web-inversure-1.onrender.com",
     "inversurehomes.es",
     "www.inversurehomes.es",
@@ -52,7 +67,9 @@ if _ENV_ALLOWED_HOSTS_RAW.strip():
 # CSRF (Render / Producción)
 # =========================
 
-CSRF_TRUSTED_ORIGINS = [
+CSRF_TRUSTED_ORIGINS = _env_csv(
+    "DJANGO_CSRF_TRUSTED_ORIGINS"
+) or _env_csv("CSRF_TRUSTED_ORIGINS") or [
     "https://web-inversure-1.onrender.com",
     "https://inversurehomes.es",
     "https://www.inversurehomes.es",
@@ -134,7 +151,6 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'wagtail.contrib.redirects.middleware.RedirectMiddleware',
 ]
-
 
 # =========================
 # URLS / WSGI
@@ -331,6 +347,7 @@ LANDING_LEAD_NOTIFY_EMAILS = [
 # =========================
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
 SECURE_SSL_REDIRECT = not DEBUG
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
