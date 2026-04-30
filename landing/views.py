@@ -156,19 +156,12 @@ def landing_home(request):
         beneficio_estimado = ingresos_estimados - gastos_estimados
         beneficio_real = ingresos_reales - gastos_reales
 
-        base_precio = proyecto.precio_compra_inmueble or proyecto.precio_propiedad or Decimal("0")
-        cats_adq = {"adquisicion", "reforma", "seguridad", "operativos", "financieros", "legales", "otros"}
-        gastos_adq_estimado = _sum_importes([_importe_estimado(g) for g in gastos if g.categoria in cats_adq])
-        gastos_adq_real = _sum_importes([_importe_real(g) for g in gastos if g.categoria in cats_adq])
-
-        base_est = base_precio + gastos_adq_estimado
-        base_real = base_precio + gastos_adq_real
-
+        # ROI consistente con KPIs: beneficio / gastos.
         if ingresos_reales or gastos_reales:
-            if base_real > 0:
-                return float((beneficio_real / base_real) * Decimal("100"))
-        if base_est > 0:
-            return float((beneficio_estimado / base_est) * Decimal("100"))
+            if gastos_reales > 0:
+                return float((beneficio_real / gastos_reales) * Decimal("100"))
+        if gastos_estimados > 0:
+            return float((beneficio_estimado / gastos_estimados) * Decimal("100"))
         return None
 
     hero = {
@@ -229,8 +222,6 @@ def landing_home(request):
         landing_cfg = extra.get("landing", {}) if isinstance(extra, dict) else {}
         beneficio_raw = landing_cfg.get("beneficio_neto_pct")
         beneficio_val = _as_float(beneficio_raw)
-        if beneficio_val is None:
-            beneficio_val = _as_float(getattr(proyecto, "roi", None))
         if beneficio_val is None:
             beneficio_val = _roi_memoria(proyecto)
         plazo_raw = landing_cfg.get("plazo_meses")

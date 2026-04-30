@@ -1202,9 +1202,12 @@ def _build_comunicacion_context(
     participacion_pct = "—"
     try:
         inv = float(getattr(part, "importe_invertido", 0) or 0)
-        total = float(total_proj or 0)
-        if total > 0 and inv > 0:
-            participacion_pct = f"{_fmt_es_number(inv / total * 100.0, 2)} %"
+        snap = snapshot if isinstance(snapshot, dict) else {}
+        capital_objetivo = float(_capital_objetivo_desde_memoria(proyecto, snap) or 0.0)
+        # % participación sobre gasto total/capital objetivo (no sobre el total invertido por inversores).
+        denom = capital_objetivo if capital_objetivo > 0 else float(total_proj or 0)
+        if denom > 0 and inv > 0:
+            participacion_pct = f"{_fmt_es_number(inv / denom * 100.0, 2)} %"
     except Exception:
         participacion_pct = "—"
     ctx["participacion_pct"] = participacion_pct
@@ -3617,16 +3620,12 @@ def lista_proyectos(request):
         ).aggregate(total=Sum("importe_invertido")).get("total") or 0
         capital_captado = _as_float(capital_captado, 0.0)
 
-        # ROI heredado del estudio (preferimos neto si existe)
-        roi = (
-            inversor.get("roi_neto")
-            or metricas.get("roi_neto")
-            or metricas.get("roi")
-            or economico.get("roi_estimado")
-            or economico.get("roi")
-            or 0
-        )
-        roi = _as_float(roi, 0.0)
+        # ROI dinámico (fuente de verdad: movimientos reales/estimados del proyecto).
+        try:
+            resultado = _resultado_desde_memoria(p, snap)
+            roi = _as_float(resultado.get("roi"), 0.0)
+        except Exception:
+            roi = 0.0
 
         # Adjuntar atributos para plantilla
         p.capital_objetivo = capital_objetivo
@@ -3711,15 +3710,11 @@ def lista_proyectos_cerrados(request):
         ).aggregate(total=Sum("importe_invertido")).get("total") or 0
         capital_captado = _as_float(capital_captado, 0.0)
 
-        roi = (
-            inversor.get("roi_neto")
-            or metricas.get("roi_neto")
-            or metricas.get("roi")
-            or economico.get("roi_estimado")
-            or economico.get("roi")
-            or 0
-        )
-        roi = _as_float(roi, 0.0)
+        try:
+            resultado = _resultado_desde_memoria(p, snap)
+            roi = _as_float(resultado.get("roi"), 0.0)
+        except Exception:
+            roi = 0.0
 
         p.capital_objetivo = capital_objetivo
         p.capital_captado = capital_captado
@@ -4235,16 +4230,24 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
         ):
             totales_proyecto_all[row["proyecto_id"]] = float(row.get("total") or 0)
 
+    capital_objetivo_cache: dict[int, float] = {}
     for part in participaciones:
         proyecto = part.proyecto
         if not proyecto:
             continue
-        total_proj = totales_proyecto.get(proyecto.id, 0.0)
-        if total_proj <= 0:
-            total_proj = totales_proyecto_all.get(proyecto.id, 0.0)
-        if total_proj > 0 and part.importe_invertido:
+        try:
+            if proyecto.id not in capital_objetivo_cache:
+                snap = _get_snapshot(proyecto)
+                capital_objetivo_cache[proyecto.id] = float(_capital_objetivo_desde_memoria(proyecto, snap) or 0.0)
+            cap_obj = float(capital_objetivo_cache.get(proyecto.id) or 0.0)
+        except Exception:
+            cap_obj = 0.0
+        if cap_obj <= 0:
+            # fallback
+            cap_obj = totales_proyecto.get(proyecto.id, 0.0) or totales_proyecto_all.get(proyecto.id, 0.0) or 0.0
+        if cap_obj > 0 and part.importe_invertido:
             try:
-                part.porcentaje_participacion = (Decimal(str(part.importe_invertido)) / Decimal(str(total_proj))) * Decimal("100")
+                part.porcentaje_participacion = (Decimal(str(part.importe_invertido)) / Decimal(str(cap_obj))) * Decimal("100")
             except Exception:
                 part.porcentaje_participacion = None
 
@@ -5131,10 +5134,15 @@ def proyecto(request, proyecto_id: int):
         )
         total_confirmadas = _parse_decimal(total_confirmadas) or Decimal("0")
         for p in participaciones:
+            # % participación sobre el gasto total/capital objetivo del proyecto.
+            # Si ya hay un valor guardado (p.ej. ajuste manual), respetarlo.
+            if p.porcentaje_participacion is not None:
+                continue
             pct = None
             if capital_objetivo > 0:
                 pct = (p.importe_invertido / capital_objetivo) * Decimal("100")
             elif total_confirmadas > 0:
+                # fallback si no se puede inferir capital objetivo
                 pct = (p.importe_invertido / total_confirmadas) * Decimal("100")
             if pct is not None:
                 p.porcentaje_participacion = pct

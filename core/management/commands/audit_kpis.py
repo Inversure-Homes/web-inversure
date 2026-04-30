@@ -66,7 +66,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **opts):
         from core.models import Participacion, Proyecto  # local import
-        from core.views import _get_snapshot_comunicacion, _resultado_desde_memoria  # type: ignore
+        from core.views import _get_snapshot_comunicacion, _resultado_desde_memoria, _capital_objetivo_desde_memoria  # type: ignore
 
         project_id = opts["project_id"]
         limit = int(opts["limit"] or 0)
@@ -109,11 +109,17 @@ class Command(BaseCommand):
                 .get("total")
                 or 0
             )
+            capital_objetivo = 0.0
+            try:
+                capital_objetivo = float(_capital_objetivo_desde_memoria(proyecto, snap if isinstance(snap, dict) else {}) or 0.0)
+            except Exception:
+                capital_objetivo = 0.0
             pct_max_diff: float | None = None
-            if total_invertido > 0:
+            if capital_objetivo > 0 or total_invertido > 0:
                 diffs = []
                 for p in parts:
-                    calc = float(Decimal(str(p.importe_invertido or 0)) / Decimal(str(total_invertido)) * Decimal("100"))
+                    denom = capital_objetivo if capital_objetivo > 0 else total_invertido
+                    calc = float(Decimal(str(p.importe_invertido or 0)) / Decimal(str(denom)) * Decimal("100")) if denom else 0.0
                     stored = _safe_float(getattr(p, "porcentaje_participacion", None))
                     if stored is None:
                         diffs.append(None)

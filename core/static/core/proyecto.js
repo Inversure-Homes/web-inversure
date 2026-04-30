@@ -1594,10 +1594,9 @@ function bindMemoriaEconomica() {
       roiReal: null,
     };
 
-    const baseEst = usarEstimados
-      ? (dashGastosEstimados || 0)
-      : (valAdqEstimado || 0);
-    const baseReal = valAdqReal || 0;
+    // ROI sobre coste total (gastos): cuadra con los KPIs de Ingresos/Gastos/Beneficio mostrados arriba.
+    const baseEst = dashGastosEstimados || 0;
+    const baseReal = dashGastosReales || 0;
     dash.roiEstimado = baseEst > 0 ? (dash.beneficioEstimado / baseEst) * 100 : null;
     dash.roiReal = usarEstimados ? null : (baseReal > 0 ? (dash.beneficioReal / baseReal) * 100 : null);
 
@@ -1705,9 +1704,7 @@ function bindMemoriaEconomica() {
     });
 
     const beneficioBase = ingresosBaseDash - gastosBaseDash;
-    const valorAdqBase = usarEstimados
-      ? (dashGastosEstimados || 0)
-      : (valAdqReal > 0 ? valAdqReal : valAdqEstimado);
+    const valorAdqBase = usarEstimados ? (dashGastosEstimados || 0) : (dashGastosReales || 0);
     window.__dashEconomico = { beneficioBase, valorAdqBase };
     updateComisionInversureMetrics({
       beneficioBase,
