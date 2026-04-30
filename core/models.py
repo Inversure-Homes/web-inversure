@@ -988,6 +988,8 @@ class Cliente(models.Model):
         max_length=64,
         unique=True,
         db_index=True,
+        blank=True,
+        null=True,
     )
 
     # =========================
