@@ -20,3 +20,6 @@ tmp/
 
 # Data fixtures / exports (avoid committing PII)
 datos_iniciales.json
+
+# Local audit reports
+AUDITORIA_*.md

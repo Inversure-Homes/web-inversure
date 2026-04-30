@@ -1,3 +1,5 @@
+import os
+
 from django.contrib.auth.models import User
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.test import RequestFactory, TestCase
@@ -56,3 +58,23 @@ class SecurityHardeningTests(TestCase):
         out = core_views._sanitize_pdf_message_html(raw)
         self.assertNotIn("javascript:", out.lower())
         self.assertIn('href="https://ok.test"', out)
+
+    def test_healthz_ok(self):
+        res = self.client.get("/healthz/")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.content, b"ok")
+
+    def test_healthz_allowed_in_maintenance_mode(self):
+        old = os.environ.get("MAINTENANCE_MODE")
+        os.environ["MAINTENANCE_MODE"] = "1"
+
+        def _restore():
+            if old is None:
+                os.environ.pop("MAINTENANCE_MODE", None)
+            else:
+                os.environ["MAINTENANCE_MODE"] = old
+
+        self.addCleanup(_restore)
+
+        res = self.client.get("/healthz/")
+        self.assertEqual(res.status_code, 200)

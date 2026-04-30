@@ -15,6 +15,7 @@ tmp
 staticfiles
 media
 datos_iniciales.json
+AUDITORIA_*.md
 
 # Editor / OS
 .idea

@@ -54,9 +54,21 @@ if _ENV_ALLOWED_HOSTS_RAW.strip():
 
 CSRF_TRUSTED_ORIGINS = [
     "https://web-inversure-1.onrender.com",
+    "https://inversurehomes.es",
     "https://www.inversurehomes.es",
     "https://app.inversurehomes.es",
 ]
+
+_ENV_CSRF_TRUSTED_ORIGINS_RAW = (
+    os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS")
+    or os.environ.get("CSRF_TRUSTED_ORIGINS")
+    or ""
+)
+if _ENV_CSRF_TRUSTED_ORIGINS_RAW.strip():
+    _ENV_CSRF_TRUSTED_ORIGINS = [
+        o.strip() for o in _ENV_CSRF_TRUSTED_ORIGINS_RAW.split(",") if o.strip()
+    ]
+    CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(CSRF_TRUSTED_ORIGINS + _ENV_CSRF_TRUSTED_ORIGINS))
 
 
 # =========================

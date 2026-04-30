@@ -54,6 +54,12 @@ from accounts.utils import (
     use_custom_permissions,
 )
 
+
+@require_GET
+def healthz(request):
+    return HttpResponse("ok", content_type="text/plain")
+
+
 # --- SafeAccessDict helper and _safe_template_obj ---
 class SafeAccessDict(dict):
     """Dict seguro para plantillas Django: nunca lanza KeyError y permite acceso por atributo."""

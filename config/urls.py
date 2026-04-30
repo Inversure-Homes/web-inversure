@@ -22,6 +22,7 @@ def _flatten_two_factor_patterns(patterns):
 two_factor_urlpatterns = list(_flatten_two_factor_patterns(two_factor_urls.urlpatterns))
 
 urlpatterns = [
+    path("healthz/", core_views.healthz, name="healthz"),
     path("sw.js", core_views.pwa_service_worker, name="pwa_service_worker"),
     path(
         "",

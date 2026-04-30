@@ -13,6 +13,7 @@ class MaintenanceModeMiddleware:
             maintenance_path = reverse("landing:maintenance")
             allowed_prefixes = (
                 maintenance_path,
+                "/healthz/",
                 "/admin/",
                 "/cms/",
                 "/documents/",
