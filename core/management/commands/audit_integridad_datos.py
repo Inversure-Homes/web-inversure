@@ -88,8 +88,15 @@ class Command(BaseCommand):
                 try:
                     has_venta = ingresos_qs.filter(estado="confirmado", tipo__in=list(tipos_venta)).exists()
                     if not has_venta:
+                        # Candidatos: ingresos confirmados con tipo "otro" y valor positivo en cualquiera de los campos
+                        # (algunos registros guardan el importe definitivo en `importe_real`).
                         candidates = list(
-                            ingresos_qs.filter(estado="confirmado", tipo="otro", importe__gt=0).order_by("-importe", "id")
+                            ingresos_qs.filter(
+                                estado="confirmado",
+                                tipo="otro",
+                            )
+                            .filter(Q(importe__gt=0) | Q(importe_real__gt=0))
+                            .order_by("-importe_real", "-importe", "id")
                         )
                         if candidates:
                             target = candidates[0]
