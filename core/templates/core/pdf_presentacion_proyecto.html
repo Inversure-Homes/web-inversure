@@ -747,7 +747,15 @@
           <h2 class="detail-title">Informe de rentabilidad</h2>
           <div class="rentabilidad-hero">
             <div>
-              <h3>{{ resultado.roi|default:rentabilidad|es_number }} %</h3>
+              <h3>
+                {% if resultado.roi or resultado.roi == 0 %}
+                  {{ resultado.roi|es_number }} %
+                {% elif rentabilidad or rentabilidad == 0 %}
+                  {{ rentabilidad|es_number }} %
+                {% else %}
+                  0 %
+                {% endif %}
+              </h3>
               <p>Rentabilidad neta estimada según memoria económica.</p>
               <div class="rentabilidad-bar">
                 <span style="width: {{ roi_bar|default:0|floatformat:0 }}%;"></span>
@@ -778,7 +786,15 @@
             </div>
             <div>
               <span>ROI estimado</span>
-              <strong>{{ resultado.roi|default:rentabilidad|es_number }} %</strong>
+              <strong>
+                {% if resultado.roi or resultado.roi == 0 %}
+                  {{ resultado.roi|es_number }} %
+                {% elif rentabilidad or rentabilidad == 0 %}
+                  {{ rentabilidad|es_number }} %
+                {% else %}
+                  0 %
+                {% endif %}
+              </strong>
             </div>
             <div>
               <span>Colchón seguridad</span>

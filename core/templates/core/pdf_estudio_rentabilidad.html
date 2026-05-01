@@ -394,7 +394,7 @@
             <span class="pill
               {% if snapshot.economico.roi_estimado >= 25 %} pill--good
               {% elif snapshot.economico.roi_estimado >= 15 %} pill--warn
-              {% elif snapshot.economico.roi_estimado %} pill--bad
+              {% elif snapshot.economico.roi_estimado or snapshot.economico.roi_estimado == 0 %} pill--bad
               {% else %} pill--muted
               {% endif %}">
               ROI:
@@ -415,7 +415,7 @@
           <div class="bar
             {% if snapshot.economico.roi_estimado >= 25 %}bar--good
             {% elif snapshot.economico.roi_estimado >= 15 %}bar--warn
-            {% elif snapshot.economico.roi_estimado %}bar--bad
+            {% elif snapshot.economico.roi_estimado or snapshot.economico.roi_estimado == 0 %}bar--bad
             {% endif %}"
             title="ROI visual">
             <span style="width: {% if snapshot.economico.roi_estimado or snapshot.economico.roi_estimado == 0 %}{{ snapshot.economico.roi_estimado|floatformat:0 }}{% else %}0{% endif %}%;"></span>

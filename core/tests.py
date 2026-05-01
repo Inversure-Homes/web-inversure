@@ -281,6 +281,17 @@ class SecurityHardeningTests(TestCase):
         res = core_views._resultado_desde_memoria(proyecto, {})
         self.assertAlmostEqual(float(res.get("valor_transmision") or 0.0), 109000.0, places=6)
 
+    def test_metricas_desde_estudio_never_negative_commission(self):
+        estudio = Estudio.objects.create(
+            nombre="E",
+            direccion="X",
+            ref_catastral="",
+            datos={"beneficio": -10000, "inversor": {"comision_inversure_pct": 10}},
+        )
+        out = core_views._metricas_desde_estudio(estudio)
+        inversor = out.get("inversor") or {}
+        self.assertEqual(float(inversor.get("comision_inversure_eur") or 0.0), 0.0)
+
     def test_metricas_estudio_clamps_negative_commission_and_recomputes(self):
         estudio = Estudio.objects.create(
             nombre="E",

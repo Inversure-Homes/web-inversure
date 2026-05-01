@@ -2422,7 +2422,12 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
     if venta_base > 0:
         valor_transmision = venta_base - gastos_venta_base
     else:
-        valor_transmision = venta_snapshot
+        # Si el proyecto está cerrado/vendido y no hay tipado de venta, usar ingresos como proxy de transmisión.
+        # Esto evita que el valor de transmisión quede en 0 por un simple error de tipado.
+        if estado_norm in {"cerrado", "vendido"} and ingresos_base > 0:
+            valor_transmision = ingresos_base - gastos_venta_base
+        else:
+            valor_transmision = venta_snapshot
 
     if no_movimientos and gastos_venta_base == 0 and snap_gastos_venta > 0:
         gastos_venta_base = snap_gastos_venta
@@ -2840,10 +2845,14 @@ def _metricas_desde_estudio(estudio: Estudio) -> dict:
     if comision_eur < 0:
         comision_eur = 0.0
 
-    # Si no viene calculada, la calculamos sobre el beneficio bruto
-    if comision_eur == 0.0 and comision_pct and beneficio_bruto:
-        comision_base = max(0.0, beneficio_bruto)
-        comision_eur = comision_base * (comision_pct / 100.0) if comision_base else 0.0
+    # Comisión: solo sobre beneficio positivo; nunca negativa; y no puede exceder el beneficio base.
+    beneficio_base = max(0.0, beneficio_bruto)
+    if beneficio_base <= 0.0:
+        comision_eur = 0.0
+    elif comision_eur == 0.0 and comision_pct:
+        comision_eur = beneficio_base * (comision_pct / 100.0)
+    if comision_eur > beneficio_base:
+        comision_eur = beneficio_base
 
     beneficio_neto_inversor = _safe_float(
         metricas.get("beneficio_neto")
@@ -2907,8 +2916,8 @@ def _metricas_desde_estudio(estudio: Estudio) -> dict:
         }
     )
 
-    # Reparto del beneficio (para barras/indicadores en PDF)
-    reparto_total = beneficio_bruto
+    # Reparto del beneficio (para barras/indicadores en PDF): solo si hay beneficio positivo.
+    reparto_total = beneficio_base
     reparto_inversure = comision_eur
     reparto_inversor = max(reparto_total - reparto_inversure, 0.0)
 

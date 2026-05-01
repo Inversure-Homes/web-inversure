@@ -98,7 +98,10 @@ class Command(BaseCommand):
                         )
                         if confirmed_pos.count() == 1:
                             target = confirmed_pos.first()
-                            if target is not None and (getattr(target, "tipo", "") or "").strip().lower() in tipos_candidatos_retipar:
+                            if (
+                                target is not None
+                                and (getattr(target, "tipo", "") or "").strip().lower() in tipos_candidatos_retipar
+                            ):
                                 would_fix += 1
                                 if apply:
                                     target.tipo = "venta"
@@ -133,3 +136,4 @@ class Command(BaseCommand):
         if fix:
             mode = "APPLY" if apply else "DRY-RUN"
             self.stdout.write(self.style.WARNING(f"{mode}: would_fix={would_fix} fixed={fixed}"))
+
