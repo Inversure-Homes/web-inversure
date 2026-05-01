@@ -28,6 +28,16 @@ class Command(BaseCommand):
             action="store_true",
             help="Mostrar solo proyectos con señales de datos incoherentes.",
         )
+        parser.add_argument(
+            "--fix",
+            action="store_true",
+            help="Arreglar tipado de ingresos confirmados en proyectos 'vendido/cerrado' (modo seguro).",
+        )
+        parser.add_argument(
+            "--apply",
+            action="store_true",
+            help="Aplicar cambios en BD. Si no, solo imprime qué cambiaría (dry-run).",
+        )
 
     def handle(self, *args, **opts):
         from core.models import IngresoProyecto, Proyecto  # local import
@@ -35,6 +45,8 @@ class Command(BaseCommand):
         project_id = opts.get("project_id")
         limit = int(opts.get("limit") or 0)
         only_warnings = bool(opts.get("only_warnings"))
+        fix = bool(opts.get("fix"))
+        apply = bool(opts.get("apply"))
 
         qs = Proyecto.objects.all().order_by("id")
         if project_id:
@@ -47,6 +59,8 @@ class Command(BaseCommand):
 
         rows: list[_Row] = []
         warnings = 0
+        fixed = 0
+        would_fix = 0
 
         for p in qs.iterator():
             estado = (getattr(p, "estado", "") or "").strip().lower()
@@ -67,6 +81,25 @@ class Command(BaseCommand):
             if estado in estados_cierre and confirmados > 0 and confirmados_no_venta > 0:
                 # En estados de cierre, suele esperarse que el cobro de transmisión esté tipado como venta/señal/anticipo.
                 is_warning = True
+
+            # Fix seguro: si el proyecto está vendido/cerrado y NO hay ningún ingreso confirmado de venta/señal/anticipo,
+            # pero sí hay ingresos confirmados "otro" positivos, tipar el mayor como "venta".
+            if fix and estado in estados_cierre:
+                try:
+                    has_venta = ingresos_qs.filter(estado="confirmado", tipo__in=list(tipos_venta)).exists()
+                    if not has_venta:
+                        candidates = list(
+                            ingresos_qs.filter(estado="confirmado", tipo="otro", importe__gt=0).order_by("-importe", "id")
+                        )
+                        if candidates:
+                            target = candidates[0]
+                            would_fix += 1
+                            if apply:
+                                target.tipo = "venta"
+                                target.save(update_fields=["tipo", "actualizado"])
+                                fixed += 1
+                except Exception:
+                    pass
 
             if only_warnings and not is_warning:
                 continue
@@ -91,4 +124,6 @@ class Command(BaseCommand):
                 f"{r.proyecto_id};{r.estado};{r.ingresos_confirmados};{r.ingresos_confirmados_no_venta};{r.ingresos_estimados}"
             )
         self.stdout.write(self.style.WARNING(f"Warnings: {warnings}"))
-
+        if fix:
+            mode = "APPLY" if apply else "DRY-RUN"
+            self.stdout.write(self.style.WARNING(f"{mode}: would_fix={would_fix} fixed={fixed}"))
