@@ -56,6 +56,7 @@ class Command(BaseCommand):
 
         estados_cierre = {"vendido", "cerrado"}
         tipos_venta = {"venta", "senal", "anticipo"}
+        tipos_candidatos_retipar = {"otro"}  # modo seguro: solo retipar "otro"
 
         rows: list[_Row] = []
         warnings = 0
@@ -88,23 +89,21 @@ class Command(BaseCommand):
                 try:
                     has_venta = ingresos_qs.filter(estado="confirmado", tipo__in=list(tipos_venta)).exists()
                     if not has_venta:
-                        # Candidatos: ingresos confirmados con tipo "otro" y valor positivo en cualquiera de los campos
-                        # (algunos registros guardan el importe definitivo en `importe_real`).
-                        candidates = list(
-                            ingresos_qs.filter(
-                                estado="confirmado",
-                                tipo="otro",
-                            )
-                            .filter(Q(importe__gt=0) | Q(importe_real__gt=0))
-                            .order_by("-importe_real", "-importe", "id")
+                        # Modo seguro:
+                        # - Si el proyecto tiene exactamente 1 ingreso confirmado positivo total
+                        # - y su tipo es "otro"
+                        # => retiparlo como "venta".
+                        confirmed_pos = ingresos_qs.filter(estado="confirmado").filter(
+                            Q(importe__gt=0) | Q(importe_real__gt=0)
                         )
-                        if candidates:
-                            target = candidates[0]
-                            would_fix += 1
-                            if apply:
-                                target.tipo = "venta"
-                                target.save(update_fields=["tipo", "actualizado"])
-                                fixed += 1
+                        if confirmed_pos.count() == 1:
+                            target = confirmed_pos.first()
+                            if target is not None and (getattr(target, "tipo", "") or "").strip().lower() in tipos_candidatos_retipar:
+                                would_fix += 1
+                                if apply:
+                                    target.tipo = "venta"
+                                    target.save(update_fields=["tipo", "actualizado"])
+                                    fixed += 1
                 except Exception:
                     pass
 
