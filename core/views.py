@@ -2854,11 +2854,9 @@ def _metricas_desde_estudio(estudio: Estudio) -> dict:
     if comision_eur > beneficio_base:
         comision_eur = beneficio_base
 
-    beneficio_neto_inversor = _safe_float(
-        metricas.get("beneficio_neto")
-        or (beneficio_bruto - comision_eur),
-        0.0,
-    )
+    # Beneficio neto inversor: siempre recalcular desde beneficio bruto - comisión,
+    # para evitar que un alias o un valor previamente guardado quede incoherente.
+    beneficio_neto_inversor = _safe_float(beneficio_bruto - comision_eur, 0.0)
 
     roi_neto_inversor = _safe_float(
         metricas.get("roi_neto")
