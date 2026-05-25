@@ -3396,22 +3396,18 @@ def _build_dashboard_context(user):
 
 
 def home(request):
-    try:
-        ctx = _build_dashboard_context(request.user)
-    except Exception as exc:
-        # Evita 500 en /app/ si hay datos/snapshots inconsistentes.
-        # Deja una traza mínima en logs (Render) para diagnóstico.
-        try:
-            import traceback
-
-            print("[home] dashboard_context_error:", type(exc).__name__, str(exc))
-            traceback.print_exc()
-        except Exception:
-            pass
-        ctx = {
-            "is_admin": is_admin_user(request.user),
-            "dashboard_error": f"{type(exc).__name__}: {exc}",
-        }
+    # La home es solo un menú. No debe depender de cálculos pesados del dashboard.
+    perms = resolve_permissions(request.user)
+    ctx = {
+        "is_admin": is_admin_user(request.user),
+        "can_simulador": perms.get("can_simulador"),
+        "can_estudios": perms.get("can_estudios"),
+        "can_proyectos": perms.get("can_proyectos"),
+        "can_clientes": perms.get("can_clientes"),
+        "can_inversores": perms.get("can_inversores"),
+        "can_usuarios": perms.get("can_usuarios"),
+        "can_cms": perms.get("can_cms"),
+    }
     return render(request, "core/home.html", ctx)
 
 
