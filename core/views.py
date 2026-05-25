@@ -3671,43 +3671,62 @@ def lista_proyectos(request):
         ):
             gastos_reales_map[row["proyecto_id"]] = _as_float(row.get("total"), 0.0)
 
+    captado_map = {}
+    if proyectos_ids:
+        for row in (
+            Participacion.objects.filter(proyecto_id__in=proyectos_ids, estado="confirmada")
+            .values("proyecto_id")
+            .annotate(total=Sum("importe_invertido"))
+        ):
+            captado_map[row["proyecto_id"]] = _as_float(row.get("total"), 0.0)
+
     # Enriquecer cada proyecto con métricas heredadas (sin exigir cambios en el template)
     for p in proyectos:
-        snap = _get_snapshot(p)
-        economico = snap.get("economico") if isinstance(snap.get("economico"), dict) else {}
-        inversor = snap.get("inversor") if isinstance(snap.get("inversor"), dict) else {}
-        kpis = snap.get("kpis") if isinstance(snap.get("kpis"), dict) else {}
-        metricas = kpis.get("metricas") if isinstance(kpis.get("metricas"), dict) else {}
-
-        # Capital objetivo: total de gastos (real/estimado) desde memoria
-        capital_objetivo = _capital_objetivo_desde_memoria(p, snap)
-
-        # Capital captado: suma de participaciones reales del proyecto
-        capital_captado = Participacion.objects.filter(
-            proyecto=p, estado="confirmada"
-        ).aggregate(total=Sum("importe_invertido")).get("total") or 0
-        capital_captado = _as_float(capital_captado, 0.0)
-
-        # ROI dinámico (fuente de verdad: movimientos reales/estimados del proyecto).
         try:
-            resultado = _resultado_desde_memoria(p, snap)
-            roi = _as_float(resultado.get("roi"), 0.0)
-        except Exception:
-            roi = 0.0
+            snap = _get_snapshot(p)
 
-        # Adjuntar atributos para plantilla
-        p.capital_objetivo = capital_objetivo
-        p.capital_captado = capital_captado
-        p.roi = roi
-        p._snapshot = snap
-        try:
-            extra = getattr(p, "extra", None)
-            if isinstance(extra, dict) and "notificar_inversores" in extra:
-                p.notificar_inversores = bool(extra.get("notificar_inversores"))
-            else:
-                sec = snap.get("proyecto") if isinstance(snap.get("proyecto"), dict) else {}
-                p.notificar_inversores = bool(sec.get("notificar_inversores")) if "notificar_inversores" in sec else True
-        except Exception:
+            # Capital objetivo: total de gastos (real/estimado) desde memoria
+            try:
+                capital_objetivo = _as_float(_capital_objetivo_desde_memoria(p, snap), 0.0)
+            except Exception:
+                capital_objetivo = 0.0
+
+            # Capital captado: suma de participaciones confirmadas del proyecto
+            capital_captado = _as_float(captado_map.get(p.id), 0.0)
+
+            # ROI dinámico (fuente de verdad: movimientos reales/estimados del proyecto).
+            try:
+                resultado = _resultado_desde_memoria(p, snap)
+                roi = _as_float(resultado.get("roi"), 0.0)
+            except Exception:
+                roi = 0.0
+
+            # Adjuntar atributos para plantilla
+            p.capital_objetivo = capital_objetivo
+            p.capital_captado = capital_captado
+            p.roi = roi
+            p._snapshot = snap
+            try:
+                extra = getattr(p, "extra", None)
+                if isinstance(extra, dict) and "notificar_inversores" in extra:
+                    p.notificar_inversores = bool(extra.get("notificar_inversores"))
+                else:
+                    sec = snap.get("proyecto") if isinstance(snap.get("proyecto"), dict) else {}
+                    p.notificar_inversores = bool(sec.get("notificar_inversores")) if "notificar_inversores" in sec else True
+            except Exception:
+                p.notificar_inversores = True
+        except Exception as exc:
+            try:
+                import traceback
+
+                print("[lista_proyectos] proyecto_error:", getattr(p, "id", None), type(exc).__name__, str(exc))
+                traceback.print_exc()
+            except Exception:
+                pass
+            p.capital_objetivo = 0.0
+            p.capital_captado = 0.0
+            p.roi = 0.0
+            p._snapshot = {}
             p.notificar_inversores = True
 
     return render(
@@ -3763,39 +3782,57 @@ def lista_proyectos_cerrados(request):
         ):
             gastos_reales_map[row["proyecto_id"]] = _as_float(row.get("total"), 0.0)
 
+    captado_map = {}
+    if proyectos_ids:
+        for row in (
+            Participacion.objects.filter(proyecto_id__in=proyectos_ids, estado="confirmada")
+            .values("proyecto_id")
+            .annotate(total=Sum("importe_invertido"))
+        ):
+            captado_map[row["proyecto_id"]] = _as_float(row.get("total"), 0.0)
+
     for p in proyectos:
-        snap = _get_snapshot(p)
-        economico = snap.get("economico") if isinstance(snap.get("economico"), dict) else {}
-        inversor = snap.get("inversor") if isinstance(snap.get("inversor"), dict) else {}
-        kpis = snap.get("kpis") if isinstance(snap.get("kpis"), dict) else {}
-        metricas = kpis.get("metricas") if isinstance(kpis.get("metricas"), dict) else {}
-
-        # Capital objetivo: total de gastos (real/estimado) desde memoria
-        capital_objetivo = _capital_objetivo_desde_memoria(p, snap)
-
-        capital_captado = Participacion.objects.filter(
-            proyecto=p, estado="confirmada"
-        ).aggregate(total=Sum("importe_invertido")).get("total") or 0
-        capital_captado = _as_float(capital_captado, 0.0)
-
         try:
-            resultado = _resultado_desde_memoria(p, snap)
-            roi = _as_float(resultado.get("roi"), 0.0)
-        except Exception:
-            roi = 0.0
+            snap = _get_snapshot(p)
 
-        p.capital_objetivo = capital_objetivo
-        p.capital_captado = capital_captado
-        p.roi = roi
-        p._snapshot = snap
-        try:
-            extra = getattr(p, "extra", None)
-            if isinstance(extra, dict) and "notificar_inversores" in extra:
-                p.notificar_inversores = bool(extra.get("notificar_inversores"))
-            else:
-                sec = snap.get("proyecto") if isinstance(snap.get("proyecto"), dict) else {}
-                p.notificar_inversores = bool(sec.get("notificar_inversores")) if "notificar_inversores" in sec else True
-        except Exception:
+            try:
+                capital_objetivo = _as_float(_capital_objetivo_desde_memoria(p, snap), 0.0)
+            except Exception:
+                capital_objetivo = 0.0
+
+            capital_captado = _as_float(captado_map.get(p.id), 0.0)
+
+            try:
+                resultado = _resultado_desde_memoria(p, snap)
+                roi = _as_float(resultado.get("roi"), 0.0)
+            except Exception:
+                roi = 0.0
+
+            p.capital_objetivo = capital_objetivo
+            p.capital_captado = capital_captado
+            p.roi = roi
+            p._snapshot = snap
+            try:
+                extra = getattr(p, "extra", None)
+                if isinstance(extra, dict) and "notificar_inversores" in extra:
+                    p.notificar_inversores = bool(extra.get("notificar_inversores"))
+                else:
+                    sec = snap.get("proyecto") if isinstance(snap.get("proyecto"), dict) else {}
+                    p.notificar_inversores = bool(sec.get("notificar_inversores")) if "notificar_inversores" in sec else True
+            except Exception:
+                p.notificar_inversores = True
+        except Exception as exc:
+            try:
+                import traceback
+
+                print("[lista_proyectos_cerrados] proyecto_error:", getattr(p, "id", None), type(exc).__name__, str(exc))
+                traceback.print_exc()
+            except Exception:
+                pass
+            p.capital_objetivo = 0.0
+            p.capital_captado = 0.0
+            p.roi = 0.0
+            p._snapshot = {}
             p.notificar_inversores = True
 
     return render(
