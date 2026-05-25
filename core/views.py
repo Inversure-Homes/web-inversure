@@ -12,6 +12,7 @@ from django.views.decorators.http import require_GET, require_POST
 from django.urls import reverse
 from django.utils.http import urlencode
 from django.db import transaction
+from django.db import IntegrityError
 from django.db.models import Sum, Count, Max, Prefetch, Min, OuterRef, Subquery
 from django.core.paginator import Paginator
 from django.utils import timezone
@@ -6052,7 +6053,34 @@ def convertir_a_proyecto(request, estudio_id: int):
             proyecto_kwargs["responsable_user"] = request.user
         if _has_field(Proyecto, "responsable"):
             proyecto_kwargs["responsable"] = (request.user.get_full_name() or request.user.username or "").strip()
-        proyecto = Proyecto.objects.create(**proyecto_kwargs)
+        if _has_field(Proyecto, "convertido_desde_estudio"):
+            proyecto_kwargs["convertido_desde_estudio"] = True
+        proyecto = None
+        last_exc = None
+        for _attempt in range(4):
+            try:
+                if proyecto is not None:
+                    break
+                # Mitiga colisiones del autonumerador `codigo_proyecto` en concurrencia:
+                # si hay carrera entre dos conversiones, el `save()` del modelo puede chocar por UNIQUE.
+                if _has_field(Proyecto, "codigo_proyecto") and proyecto_kwargs.get("codigo_proyecto") in (None, ""):
+                    try:
+                        ultimo = Proyecto.objects.aggregate(Max("codigo_proyecto")).get("codigo_proyecto__max")
+                        proyecto_kwargs["codigo_proyecto"] = 0 if ultimo is None else int(ultimo) + 1
+                    except Exception:
+                        proyecto_kwargs["codigo_proyecto"] = None
+                proyecto = Proyecto.objects.create(**proyecto_kwargs)
+                break
+            except IntegrityError as exc:
+                last_exc = exc
+                msg = str(exc or "").lower()
+                # Reintenta solo en colisiones típicas de código único.
+                if "codigo_proyecto" in msg or "unique" in msg:
+                    proyecto_kwargs["codigo_proyecto"] = None
+                    continue
+                raise
+        if proyecto is None and last_exc is not None:
+            raise last_exc
 
         # 3) Bloquear el estudio
         if _has_field(Estudio, "bloqueado"):
