@@ -8,7 +8,19 @@ ROLE_MODERATORS = "moderators"
 
 def _get_role(user):
     access = get_user_access(user)
-    return (access.role or "").strip().lower() if access else ""
+    if not access:
+        return ""
+    raw = (access.role or "").strip().lower()
+    if not raw:
+        return ""
+    # Normaliza acentos (p.ej. "dirección" -> "direccion") para evitar roles no reconocidos.
+    try:
+        import unicodedata
+
+        raw = "".join(ch for ch in unicodedata.normalize("NFKD", raw) if not unicodedata.combining(ch))
+    except Exception:
+        pass
+    return raw
 
 
 def is_admin_user(user) -> bool:
