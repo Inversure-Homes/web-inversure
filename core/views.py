@@ -3396,12 +3396,40 @@ def _build_dashboard_context(user):
 
 
 def home(request):
-    ctx = _build_dashboard_context(request.user)
+    try:
+        ctx = _build_dashboard_context(request.user)
+    except Exception as exc:
+        # Evita 500 en /app/ si hay datos/snapshots inconsistentes.
+        # Deja una traza mínima en logs (Render) para diagnóstico.
+        try:
+            import traceback
+
+            print("[home] dashboard_context_error:", type(exc).__name__, str(exc))
+            traceback.print_exc()
+        except Exception:
+            pass
+        ctx = {
+            "is_admin": is_admin_user(request.user),
+            "dashboard_error": f"{type(exc).__name__}: {exc}",
+        }
     return render(request, "core/home.html", ctx)
 
 
 def dashboard(request):
-    ctx = _build_dashboard_context(request.user)
+    try:
+        ctx = _build_dashboard_context(request.user)
+    except Exception as exc:
+        try:
+            import traceback
+
+            print("[dashboard] dashboard_context_error:", type(exc).__name__, str(exc))
+            traceback.print_exc()
+        except Exception:
+            pass
+        ctx = {
+            "is_admin": is_admin_user(request.user),
+            "dashboard_error": f"{type(exc).__name__}: {exc}",
+        }
     return render(request, "core/dashboard.html", ctx)
 
 
