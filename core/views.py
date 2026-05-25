@@ -4306,15 +4306,19 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
         total_proj = totales_proyecto.get(proyecto.id, 0.0)
         if total_proj <= 0:
             continue
-        snap = _get_snapshot(proyecto)
-        resultado = _resultado_desde_memoria(proyecto, snap)
-        reparto = _calc_beneficio_inversor(
-            part=p,
-            proyecto=proyecto,
-            snapshot=snap if isinstance(snap, dict) else {},
-            resultado_mem=resultado if isinstance(resultado, dict) else {},
-            total_proj=float(total_proj or 0.0),
-        )
+        try:
+            snap = _get_snapshot(proyecto)
+            resultado = _resultado_desde_memoria(proyecto, snap)
+            reparto = _calc_beneficio_inversor(
+                part=p,
+                proyecto=proyecto,
+                snapshot=snap if isinstance(snap, dict) else {},
+                resultado_mem=resultado if isinstance(resultado, dict) else {},
+                total_proj=float(total_proj or 0.0),
+            )
+        except Exception:
+            # No rompemos el portal por un snapshot/memoria corrupta.
+            continue
         beneficio_bruto = float(reparto.get("beneficio_bruto_operacion") or 0.0)
         comision_eur = float(reparto.get("comision_eur") or 0.0)
         beneficio_neto_inversor_total = float(reparto.get("beneficio_neto_total_operacion") or 0.0)
@@ -4367,14 +4371,16 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
         docs = docs.select_related("proyecto").order_by("-creado")
         docs_map = {}
         for d in docs:
-            signed = _s3_presigned_url(d.archivo.name)
+            key = getattr(getattr(d, "archivo", None), "name", "") or ""
+            signed = _s3_presigned_url(key)
             setattr(d, "signed_url", signed or "")
             docs_map.setdefault(d.proyecto_id, {"proyecto": d.proyecto, "docs": []})["docs"].append(d)
         documentos_por_proyecto = list(docs_map.values())
 
     documentos_personales = []
     for d in DocumentoInversor.objects.filter(inversor=perfil).order_by("-creado"):
-        signed = _s3_presigned_url(d.archivo.name)
+        key = getattr(getattr(d, "archivo", None), "name", "") or ""
+        signed = _s3_presigned_url(key)
         setattr(d, "signed_url", signed or "")
         documentos_personales.append(d)
 
@@ -4398,21 +4404,28 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
 
     proyectos_abiertos = []
     for p in proyectos_candidatos:
-        snap = _get_snapshot(p)
+        try:
+            snap = _get_snapshot(p)
 
-        # Capital objetivo: total de gastos (real/estimado) desde memoria
-        capital_objetivo = _capital_objetivo_desde_memoria(p, snap)
+            # Capital objetivo: total de gastos (real/estimado) desde memoria
+            capital_objetivo = _capital_objetivo_desde_memoria(p, snap)
 
-        capital_captado = captado_map.get(p.id, 0.0)
+            capital_captado = captado_map.get(p.id, 0.0)
 
-        p.capital_objetivo = capital_objetivo
-        p.capital_captado = capital_captado
-        p.puede_solicitar = (capital_objetivo <= 0) or (capital_captado < capital_objetivo)
-        if capital_objetivo > 0:
-            faltante = max(capital_objetivo - capital_captado, 0.0)
-            p.falta_eur = faltante
-            p.falta_pct = max(0.0, min(100.0, (faltante / capital_objetivo) * 100.0))
-        else:
+            p.capital_objetivo = capital_objetivo
+            p.capital_captado = capital_captado
+            p.puede_solicitar = (capital_objetivo <= 0) or (capital_captado < capital_objetivo)
+            if capital_objetivo > 0:
+                faltante = max(capital_objetivo - capital_captado, 0.0)
+                p.falta_eur = faltante
+                p.falta_pct = max(0.0, min(100.0, (faltante / capital_objetivo) * 100.0))
+            else:
+                p.falta_eur = 0.0
+                p.falta_pct = 0.0
+        except Exception:
+            p.capital_objetivo = 0.0
+            p.capital_captado = captado_map.get(p.id, 0.0)
+            p.puede_solicitar = True
             p.falta_eur = 0.0
             p.falta_pct = 0.0
 
