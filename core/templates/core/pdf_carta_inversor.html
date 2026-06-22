@@ -5,141 +5,242 @@
     <title>{{ titulo }}</title>
     <style>
       @page {
-        margin: 24mm 20mm 46mm;
+        margin: 22mm 18mm 44mm;
         @bottom-center {
           content: element(doc-footer);
         }
       }
       :root {
-        --brand-blue: #22314E;
-        --brand-gold: #C8BB89;
+        --brand-blue: #1d2c45;
+        --brand-blue-soft: #2e4466;
+        --brand-gold: #c8bb89;
+        --brand-gold-soft: #f3eedf;
         --ink: #0f172a;
-        --muted: #475569;
-        --side-bg: #f3f4f6;
+        --muted: #526072;
+        --line: #d9e0ea;
+        --panel: #f7f9fc;
+        --panel-strong: #eef3f8;
       }
-      body { font-family: "IBM Plex Sans", "DejaVu Sans", Arial, sans-serif; color: var(--ink); font-size: 12.8px; margin: 0; }
-      .brand-bar { height: 10px; background: var(--brand-blue); margin: -24mm -20mm 18px; }
-      .brand-bar::after { content: ""; display: block; height: 4px; background: var(--brand-gold); }
+      body {
+        font-family: "IBM Plex Sans", "DejaVu Sans", Arial, sans-serif;
+        color: var(--ink);
+        font-size: 11.8px;
+        margin: 0;
+      }
+      .brand-bar {
+        height: 12px;
+        background: linear-gradient(90deg, var(--brand-blue) 0%, var(--brand-blue-soft) 60%, #435f85 100%);
+        margin: -22mm -18mm 18px;
+      }
+      .brand-bar::after {
+        content: "";
+        display: block;
+        height: 3px;
+        background: var(--brand-gold);
+      }
       .layout { width: 100%; }
-      /* WeasyPrint: evitar solapes con cabecera apilada (logo arriba, datos debajo) */
-      .header { border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 12px; }
-      .header-logo { text-align: right; margin-bottom: 6px; }
-      .logo { height: 34px; max-width: 170px; }
+      .header {
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 12px;
+        margin-bottom: 14px;
+      }
+      .header-top {
+        display: table;
+        width: 100%;
+      }
+      .header-left,
+      .header-right {
+        display: table-cell;
+        vertical-align: top;
+      }
+      .header-right {
+        width: 1%;
+        white-space: nowrap;
+        text-align: right;
+      }
+      .logo {
+        height: 36px;
+        max-width: 180px;
+      }
+      .descriptor {
+        font-size: 9.5px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--brand-gold);
+        margin-bottom: 7px;
+      }
+      .title {
+        font-size: 23px;
+        line-height: 1.15;
+        font-weight: 700;
+        color: var(--brand-blue);
+        margin: 0;
+      }
+      .subtitle {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .meta-row {
+        margin-top: 10px;
+      }
       .meta-pill {
         display: inline-block;
-        padding: 3px 10px;
+        margin-right: 8px;
+        margin-top: 6px;
+        padding: 4px 10px;
         border-radius: 999px;
         background: #f8fafc;
-        border: 1px solid #e2e8f0;
+        border: 1px solid var(--line);
         color: var(--muted);
-        font-size: 10.5px;
-        line-height: 1.2;
+        font-size: 10px;
       }
-      .meta-row .meta-pill { margin-right: 8px; margin-top: 6px; }
       .pills {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
         margin-top: 10px;
       }
       .pill {
         display: inline-block;
-        padding: 7px 10px;
+        margin-right: 8px;
+        margin-top: 6px;
+        padding: 6px 10px;
         border-radius: 999px;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        font-size: 10.5px;
+        background: var(--panel);
+        border: 1px solid var(--line);
         color: var(--muted);
+        font-size: 10px;
       }
-      .pill strong { color: var(--brand-blue); font-weight: 800; }
-      .highlight {
-        margin-top: 12px;
-        padding: 12px 14px;
-        border-radius: 14px;
-        border: 1px solid rgba(200, 187, 137, 0.55);
-        background: rgba(200, 187, 137, 0.12);
-      }
-      .highlight-title {
-        font-size: 11px;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
+      .pill strong {
         color: var(--brand-blue);
-        font-weight: 800;
-        margin-bottom: 6px;
-      }
-      .highlight-grid { display: table; width: 100%; }
-      .highlight-left { display: table-cell; vertical-align: top; width: 100%; }
-      .highlight-right { display: table-cell; vertical-align: top; width: 1%; white-space: nowrap; text-align: right; padding-left: 10px; }
-      .qr { width: 92px; height: 92px; border-radius: 10px; border: 1px solid #e2e8f0; background: #fff; padding: 6px; }
-      .qr img { width: 100%; height: 100%; display: block; }
-      .title { font-size: 22px; font-weight: 700; margin: 0 0 6px; color: var(--brand-blue); }
-      .meta { color: var(--muted); font-size: 11px; margin: 0; }
-      .meta-row { margin-top: 4px; }
-      .meta-row .meta { display: inline-block; margin-right: 12px; }
-      .tagline { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--brand-gold); margin-top: 6px; }
-      .card { margin-top: 8px; }
-      .signature { margin-top: 18px; font-size: 11px; color: var(--muted); }
-      .footer {
-        position: running(doc-footer);
-        padding-top: 8px;
-        border-top: 1px solid #e2e8f0;
-        font-size: 9.5px;
-        color: #64748b;
-      }
-      .legal { margin-top: 10px; font-size: 9px; color: #94a3b8; line-height: 1.35; }
-      .footer-grid { display: flex; justify-content: space-between; gap: 12px; }
-      .footer-col {
-        font-size: 9.5px;
-        color: #64748b;
-        line-height: 1.4;
-        letter-spacing: 0.02em;
-      }
-      .footer-col strong { color: var(--brand-blue); font-weight: 700; }
-      .descriptor { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--brand-gold); }
-      .message { line-height: 1.6; margin-top: 10px; word-break: break-word; }
-      .message p { margin: 0 0 10px; }
-      .message p:first-child { font-weight: 600; color: #1f2f4a; }
-      .section-heading{
-        margin: 16px 0 8px;
-        font-size: 11px;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: #64748b;
         font-weight: 700;
       }
-      .bullet-list{
-        margin: 6px 0 12px;
-        padding-left: 18px;
+      .summary-grid {
+        display: table;
+        width: 100%;
+        margin: 14px 0 16px;
       }
-      .bullet-list li{ margin: 4px 0; }
-      .message a {
-        display: inline-block;
-        margin: 8px 0;
-        padding: 8px 14px;
-        border-radius: 999px;
-        background: rgba(200, 187, 137, 0.15);
-        border: 1px solid rgba(200, 187, 137, 0.45);
+      .summary-main,
+      .summary-side {
+        display: table-cell;
+        vertical-align: top;
+      }
+      .summary-side {
+        width: 37%;
+        padding-left: 12px;
+      }
+      .hero-card {
+        border-radius: 18px;
+        background: linear-gradient(135deg, var(--brand-blue) 0%, #304867 100%);
+        color: #ffffff;
+        padding: 18px 20px;
+      }
+      .hero-label {
+        font-size: 9.5px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,.75);
+      }
+      .hero-amount {
+        font-size: 30px;
+        line-height: 1.1;
+        font-weight: 700;
+        margin: 8px 0 6px;
+      }
+      .hero-caption {
+        font-size: 11px;
+        line-height: 1.5;
+        color: rgba(255,255,255,.84);
+      }
+      .hero-card--standard .hero-amount {
+        font-size: 22px;
+      }
+      .side-card {
+        border-radius: 16px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        padding: 14px 15px;
+      }
+      .side-title {
+        font-size: 9.5px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 10px;
+      }
+      .side-row {
+        margin-bottom: 8px;
+      }
+      .side-row:last-child {
+        margin-bottom: 0;
+      }
+      .side-row span {
+        display: block;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #708095;
+        margin-bottom: 2px;
+      }
+      .side-row strong {
+        font-size: 12px;
         color: var(--brand-blue);
-        font-weight: 600;
-        text-decoration: none;
+      }
+      .liquidacion-box {
+        border: 1px solid rgba(200, 187, 137, 0.7);
+        background: linear-gradient(180deg, #f8f4e7 0%, #fffdf8 100%);
+      }
+      .liquidacion-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 2px;
+      }
+      .liquidacion-table td {
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(29, 44, 69, 0.08);
+      }
+      .liquidacion-table tr:last-child td {
+        border-bottom: none;
+      }
+      .liquidacion-table .label {
+        color: var(--muted);
+        font-size: 10px;
+        letter-spacing: 0.03em;
+      }
+      .liquidacion-table .value {
+        text-align: right;
+        font-weight: 700;
+        color: var(--brand-blue);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .liquidacion-table .grand-total td {
+        padding-top: 12px;
+      }
+      .liquidacion-table .grand-total .label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--brand-blue);
+      }
+      .liquidacion-table .grand-total .value {
+        font-size: 18px;
       }
       .kpi-box {
-        margin: 12px 0 6px;
-        padding: 10px 12px;
-        border-radius: 12px;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
+        margin: 14px 0 8px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: var(--panel);
+        border: 1px solid var(--line);
       }
       .kpi-title {
-        font-size: 10px;
-        letter-spacing: 0.12em;
+        font-size: 9.5px;
+        letter-spacing: 0.14em;
         text-transform: uppercase;
-        color: #64748b;
+        color: var(--muted);
         margin-bottom: 8px;
       }
       .kpi-bar {
         height: 8px;
-        background: #e2e8f0;
+        background: #dbe3ee;
         border-radius: 999px;
         overflow: hidden;
         margin-bottom: 10px;
@@ -147,25 +248,103 @@
       .kpi-bar span {
         display: block;
         height: 100%;
-        background: linear-gradient(90deg, #1f3a5f 0%, #c8bb89 100%);
+        background: linear-gradient(90deg, var(--brand-blue) 0%, var(--brand-gold) 100%);
       }
       .kpi-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 8px;
-        font-size: 11px;
       }
       .kpi-grid span {
         display: block;
-        color: #64748b;
-        font-size: 9px;
+        color: #708095;
+        font-size: 8.8px;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         margin-bottom: 4px;
       }
       .kpi-grid strong {
-        font-size: 12px;
-        color: #1f2f4a;
+        color: var(--brand-blue);
+        font-size: 11.5px;
+      }
+      .message {
+        line-height: 1.65;
+        word-break: break-word;
+      }
+      .message p {
+        margin: 0 0 10px;
+      }
+      .message p:first-child {
+        font-weight: 600;
+        color: var(--brand-blue);
+      }
+      .section-heading {
+        margin: 16px 0 8px;
+        font-size: 9.5px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 700;
+      }
+      .bullet-list {
+        margin: 6px 0 12px;
+        padding-left: 18px;
+      }
+      .bullet-list li {
+        margin: 4px 0;
+      }
+      .message a {
+        display: inline-block;
+        margin: 8px 0;
+        padding: 8px 14px;
+        border-radius: 999px;
+        background: var(--brand-gold-soft);
+        border: 1px solid rgba(200, 187, 137, 0.6);
+        color: var(--brand-blue);
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .signature-card {
+        margin-top: 16px;
+        border-top: 1px solid var(--line);
+        padding-top: 12px;
+      }
+      .signature-name {
+        font-weight: 700;
+        color: var(--brand-blue);
+      }
+      .signature-role {
+        color: var(--muted);
+        font-size: 10.5px;
+      }
+      .doc-footer {
+        position: running(doc-footer);
+        padding-top: 8px;
+        border-top: 1px solid var(--line);
+        font-size: 9px;
+        color: #6c7a8e;
+      }
+      .footer-grid {
+        display: table;
+        width: 100%;
+      }
+      .footer-col {
+        display: table-cell;
+        vertical-align: top;
+        width: 50%;
+        line-height: 1.45;
+      }
+      .footer-col.right {
+        text-align: right;
+      }
+      .footer-col strong {
+        color: var(--brand-blue);
+      }
+      .legal {
+        margin-top: 8px;
+        font-size: 8.5px;
+        line-height: 1.35;
+        color: #8a96a8;
       }
     </style>
   </head>
@@ -173,67 +352,157 @@
     <div class="brand-bar"></div>
     <div class="layout">
       <div class="header">
-        <div class="header-logo">
-          {% if logo_data_uri %}
-            <img class="logo" src="{{ logo_data_uri }}" alt="Inversure">
-          {% elif logo_url %}
-            <img class="logo" src="{{ logo_url }}" alt="Inversure">
-          {% endif %}
-        </div>
-        <div>
-	          <div class="descriptor">Comunicación a inversores</div>
-	          <div class="title">{{ titulo }}</div>
-	          <div class="meta-row">
-	            <span class="meta-pill">Fecha: {{ fecha|date:"d/m/Y" }}</span>
-	            {% if proyecto %}
-	              <span class="meta-pill">Proyecto: {{ proyecto.nombre|default:"Proyecto" }}</span>
-	            {% endif %}
-	          </div>
-	          <div class="tagline">Secure · Invest · Grow</div>
-            {% if pill_participacion or pill_plazo or pill_rent_proyecto or pill_rent_inv_bruta or pill_rent_inv_neta %}
-              <div class="pills">
-                {% if pill_participacion %}<span class="pill">Participación: <strong>{{ pill_participacion }}</strong></span>{% endif %}
-                {% if pill_plazo %}<span class="pill">Plazo: <strong>{{ pill_plazo }}</strong></span>{% endif %}
-                {% if pill_rent_proyecto %}<span class="pill">Rentab. proyecto: <strong>{{ pill_rent_proyecto }}</strong></span>{% endif %}
-                {% if pill_rent_inv_bruta %}<span class="pill">Rentab. inversor (bruta): <strong>{{ pill_rent_inv_bruta }}</strong></span>{% endif %}
-                {% if pill_rent_inv_neta %}<span class="pill">Rentab. inversor (neta): <strong>{{ pill_rent_inv_neta }}</strong></span>{% endif %}
-              </div>
-            {% endif %}
-            {% if hito_resumen or hito_siguiente or qr_data_uri %}
-              <div class="highlight">
-                <div class="highlight-grid">
-                  <div class="highlight-left">
-                    <div class="highlight-title">Próximo hito</div>
-                    {% if hito_resumen %}<div><strong>{{ hito_resumen }}</strong></div>{% endif %}
-                    {% if hito_siguiente %}<div style="margin-top:4px; color:#475569;">{{ hito_siguiente }}</div>{% endif %}
-                    {% if portal_link %}<div style="margin-top:8px; color:#475569;">Accede al portal para ver el detalle.</div>{% endif %}
-                  </div>
-                  {% if qr_data_uri %}
-                    <div class="highlight-right">
-                      <div class="qr"><img src="{{ qr_data_uri }}" alt="QR portal"></div>
-                    </div>
-                  {% endif %}
-                </div>
-              </div>
-            {% endif %}
-	        </div>
-	      </div>
-
-      <div class="card">
-	        <div class="message">
-            {% if mensaje_html %}
-              {{ mensaje_html|safe }}
-            {% else %}
-              {{ mensaje|linebreaksbr|safe }}
+        <div class="header-top">
+          <div class="header-left">
+            <div class="descriptor">
+              {% if is_liquidacion %}Liquidación de inversor{% else %}Comunicación a inversores{% endif %}
+            </div>
+            <div class="title">{{ titulo }}</div>
+            <div class="subtitle">
+              {% if is_liquidacion %}
+                Documento de liquidación y cierre económico de la operación.
+              {% else %}
+                Información operativa y financiera asociada al proyecto.
+              {% endif %}
+            </div>
+          </div>
+          <div class="header-right">
+            {% if logo_data_uri %}
+              <img class="logo" src="{{ logo_data_uri }}" alt="Inversure">
+            {% elif logo_url %}
+              <img class="logo" src="{{ logo_url }}" alt="Inversure">
             {% endif %}
           </div>
-	        <div class="signature">
-	          Equipo INVERSURE<br>
-	          mximenez@inversurehome.es
-	        </div>
+        </div>
+
+        <div class="meta-row">
+          <span class="meta-pill">Fecha de emisión: {{ fecha|date:"d/m/Y" }}</span>
+          {% if proyecto %}
+            <span class="meta-pill">Proyecto: {{ proyecto.nombre|default:"Proyecto" }}</span>
+            <span class="meta-pill">Estado: {{ proyecto.estado|default:"-"|capfirst }}</span>
+          {% endif %}
+        </div>
+
+        {% if pill_participacion or pill_plazo or pill_rent_proyecto or pill_rent_inv_bruta or pill_rent_inv_neta %}
+          <div class="pills">
+            {% if pill_participacion %}<span class="pill">Participación <strong>{{ pill_participacion }}</strong></span>{% endif %}
+            {% if pill_plazo %}<span class="pill">Plazo <strong>{{ pill_plazo }}</strong></span>{% endif %}
+            {% if pill_rent_proyecto %}<span class="pill">ROI proyecto <strong>{{ pill_rent_proyecto }}</strong></span>{% endif %}
+            {% if pill_rent_inv_bruta %}<span class="pill">ROI inversor bruto <strong>{{ pill_rent_inv_bruta }}</strong></span>{% endif %}
+            {% if pill_rent_inv_neta %}<span class="pill">ROI inversor neto <strong>{{ pill_rent_inv_neta }}</strong></span>{% endif %}
+          </div>
+        {% endif %}
       </div>
 
-      <div class="footer">
+      <div class="summary-grid">
+        <div class="summary-main">
+          <div class="hero-card {% if not is_liquidacion %}hero-card--standard{% endif %}">
+            {% if is_liquidacion and liquidacion_resumen %}
+              <div class="hero-label">Total a percibir</div>
+              <div class="hero-amount">{{ liquidacion_resumen.total_a_percibir }}</div>
+              <div class="hero-caption">
+                Importe final resultante de la devolución de capital y del beneficio neto liquidado
+                tras la retención fiscal aplicable.
+              </div>
+            {% else %}
+              <div class="hero-label">Estado de la comunicación</div>
+              <div class="hero-amount">{{ hito_resumen|default:"Seguimiento del proyecto" }}</div>
+              <div class="hero-caption">
+                {{ hito_siguiente|default:"Consulta el detalle económico y documental en tu portal de inversor." }}
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="summary-side">
+          {% if is_liquidacion and liquidacion_resumen %}
+            <div class="side-card liquidacion-box">
+              <div class="side-title">Detalle económico</div>
+              <table class="liquidacion-table">
+                <tr>
+                  <td class="label">Capital aportado</td>
+                  <td class="value">{{ liquidacion_resumen.capital_invertido }}</td>
+                </tr>
+                <tr>
+                  <td class="label">Beneficio bruto liquidable</td>
+                  <td class="value">{{ liquidacion_resumen.beneficio_bruto_inversor }}</td>
+                </tr>
+                <tr>
+                  <td class="label">Retención aplicada ({{ liquidacion_resumen.retencion_pct_aplicada }})</td>
+                  <td class="value">{{ liquidacion_resumen.retencion }}</td>
+                </tr>
+                <tr>
+                  <td class="label">Beneficio neto a liquidar</td>
+                  <td class="value">{{ liquidacion_resumen.beneficio_neto_liquidacion }}</td>
+                </tr>
+                <tr class="grand-total">
+                  <td class="label">Total a percibir</td>
+                  <td class="value">{{ liquidacion_resumen.total_a_percibir }}</td>
+                </tr>
+              </table>
+            </div>
+          {% else %}
+            <div class="side-card">
+              <div class="side-title">Referencia operativa</div>
+              {% if hito_resumen %}
+                <div class="side-row">
+                  <span>Hito alcanzado</span>
+                  <strong>{{ hito_resumen }}</strong>
+                </div>
+              {% endif %}
+              {% if hito_siguiente %}
+                <div class="side-row">
+                  <span>Siguiente paso</span>
+                  <strong>{{ hito_siguiente }}</strong>
+                </div>
+              {% endif %}
+              {% if portal_link %}
+                <div class="side-row">
+                  <span>Acceso digital</span>
+                  <strong>Portal del inversor</strong>
+                </div>
+              {% endif %}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="kpi-box">
+        <div class="kpi-title">Resumen ejecutivo</div>
+        <div class="kpi-bar">
+          <span style="width: {% firstof progreso_pct 0 %}%;"></span>
+        </div>
+        <div class="kpi-grid">
+          <div>
+            <span>Estado</span>
+            <strong>{{ progreso_label|default:"Seguimiento" }}</strong>
+          </div>
+          <div>
+            <span>Rentabilidad proyecto</span>
+            <strong>{{ pill_rent_proyecto|default:"—" }}</strong>
+          </div>
+          <div>
+            <span>Plazo</span>
+            <strong>{{ pill_plazo|default:"—" }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="message">
+        {% if mensaje_html %}
+          {{ mensaje_html|safe }}
+        {% else %}
+          {{ mensaje|linebreaksbr|safe }}
+        {% endif %}
+      </div>
+
+      <div class="signature-card">
+        <div class="signature-name">Equipo INVERSURE</div>
+        <div class="signature-role">Área de comunicación y seguimiento de inversores</div>
+        <div class="signature-role">mximenez@inversurehome.es</div>
+      </div>
+
+      <div class="doc-footer">
         <div class="footer-grid">
           <div class="footer-col">
             <strong>INVERSURE</strong><br>
@@ -242,16 +511,20 @@
             Antonio Chacon 5, 29004<br>
             www.inversurehomes.es
           </div>
-          <div class="footer-col">
-            Inversure Homes · Comunicación a inversores
+          <div class="footer-col right">
+            {% if is_liquidacion %}
+              Documento interno de liquidación para inversor
+            {% else %}
+              Comunicación corporativa a inversores
+            {% endif %}
           </div>
         </div>
         <div class="legal">
           Aviso legal: Este mensaje y los archivos adjuntos son confidenciales y están dirigidos exclusivamente a su destinatario.
           Si usted no es el destinatario, por favor notifíquelo al remitente y elimine el mensaje. Queda prohibida su reproducción o distribución sin autorización expresa.<br>
-	          Protección de datos (RGPD): Los datos personales incluidos en esta comunicación se tratarán conforme al Reglamento (UE) 2016/679 (RGPD) y la normativa europea y nacional vigente.
-	          Puede ejercer sus derechos de acceso, rectificación y supresión dirigiéndose a mximenez@inversurehome.es.
-	        </div>
+          Protección de datos (RGPD): Los datos personales incluidos en esta comunicación se tratarán conforme al Reglamento (UE) 2016/679 (RGPD)
+          y la normativa europea y nacional vigente. Puede ejercer sus derechos de acceso, rectificación y supresión dirigiéndose a mximenez@inversurehome.es.
+        </div>
       </div>
     </div>
   </body>

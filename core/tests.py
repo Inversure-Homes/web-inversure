@@ -8,7 +8,7 @@ from django.test import RequestFactory, TestCase
 from django.test.utils import override_settings
 
 from core import views as core_views
-from core.models import Estudio, Proyecto, GastoProyecto, IngresoProyecto
+from core.models import Cliente, Estudio, GastoProyecto, IngresoProyecto, Participacion, Proyecto
 
 
 def _add_session(request):
@@ -310,3 +310,145 @@ class SecurityHardeningTests(TestCase):
         self.assertGreaterEqual(float(inv.get("comision_inversure_eur") or 0.0), 0.0)
         self.assertAlmostEqual(float(inv.get("comision_inversure_eur") or 0.0), 2000.0, places=6)
         self.assertAlmostEqual(float(inv.get("beneficio_neto_inversor") or 0.0), 18000.0, places=6)
+
+    def test_resultado_memoria_can_filter_non_imputable_items(self):
+        proyecto = Proyecto.objects.create(
+            nombre="P5",
+            estado="cerrado",
+            fecha=date(2026, 1, 1),
+            precio_compra_inmueble=Decimal("100000.00"),
+            precio_propiedad=Decimal("100000.00"),
+        )
+        GastoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 1, 1),
+            categoria="adquisicion",
+            concepto="Compraventa inmueble",
+            importe=Decimal("100000.00"),
+            estado="confirmado",
+            imputable_inversores=True,
+        )
+        GastoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 1, 15),
+            categoria="otros",
+            concepto="Gasto no imputable",
+            importe=Decimal("15000.00"),
+            estado="confirmado",
+            imputable_inversores=False,
+        )
+        IngresoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 6, 1),
+            tipo="venta",
+            concepto="Venta",
+            importe=Decimal("120000.00"),
+            estado="confirmado",
+            imputable_inversores=True,
+        )
+        IngresoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 6, 2),
+            tipo="otro",
+            concepto="Ingreso no imputable",
+            importe=Decimal("5000.00"),
+            estado="confirmado",
+            imputable_inversores=False,
+        )
+
+        full_result = core_views._resultado_desde_memoria(proyecto, {})
+        imputable_result = core_views._resultado_desde_memoria(
+            proyecto,
+            {},
+            only_imputable_inversores=True,
+        )
+
+        self.assertGreater(float(full_result.get("beneficio_neto") or 0.0), 0.0)
+        self.assertAlmostEqual(float(imputable_result.get("valor_transmision") or 0.0), 120000.0, places=6)
+        self.assertAlmostEqual(float(imputable_result.get("beneficio_neto") or 0.0), 20000.0, places=6)
+
+    @override_settings(INVERSOR_RETENCION_PCT=19.0, INVERSOR_RETENCION_PCT_F=19.0)
+    def test_build_comunicacion_context_includes_liquidacion_fields(self):
+        proyecto = Proyecto.objects.create(
+            nombre="P6",
+            estado="cerrado",
+            fecha=date(2026, 1, 1),
+            precio_compra_inmueble=Decimal("100000.00"),
+            precio_propiedad=Decimal("100000.00"),
+        )
+        cliente = Cliente.objects.create(
+            nombre="Cliente cierre",
+            dni_cif="X-TEST-0001",
+            email="cliente-cierre@example.com",
+            telefono="600000000",
+        )
+        participacion = Participacion.objects.create(
+            proyecto=proyecto,
+            cliente=cliente,
+            importe_invertido=Decimal("50000.00"),
+            estado="confirmada",
+        )
+        ctx = core_views._build_comunicacion_context(
+            proyecto,
+            participacion,
+            {},
+            {"beneficio_neto": 40000.0, "valor_adquisicion": 100000.0, "valor_transmision": 140000.0, "roi": 40.0},
+            total_proj=100000.0,
+        )
+        self.assertEqual(ctx["capital_invertido"], "50.000,00 €")
+        self.assertEqual(ctx["beneficio_bruto_inversor"], "20.000,00 €")
+        self.assertEqual(ctx["retencion_pct_aplicada"], "19,00 %")
+        self.assertEqual(ctx["beneficio_neto_liquidacion"], "16.200,00 €")
+        self.assertEqual(ctx["total_a_percibir"], "66.200,00 €")
+
+    def test_proyecto_listo_para_liquidacion_requires_closed_state_and_confirmed_income(self):
+        proyecto = Proyecto.objects.create(
+            nombre="P7",
+            estado="comercializacion",
+            fecha=date(2026, 1, 1),
+            precio_compra_inmueble=Decimal("100000.00"),
+            precio_propiedad=Decimal("100000.00"),
+        )
+        cliente = Cliente.objects.create(
+            nombre="Cliente liquidacion",
+            dni_cif="X-TEST-0002",
+            email="cliente-liquidacion@example.com",
+            telefono="600000001",
+        )
+        Participacion.objects.create(
+            proyecto=proyecto,
+            cliente=cliente,
+            importe_invertido=Decimal("30000.00"),
+            estado="confirmada",
+        )
+        ok, error = core_views._proyecto_listo_para_liquidacion(proyecto)
+        self.assertFalse(ok)
+        self.assertIn("vendidos o cerrados", error)
+
+        proyecto.estado = "cerrado"
+        proyecto.save(update_fields=["estado"])
+        IngresoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 6, 1),
+            tipo="venta",
+            concepto="Venta no imputable",
+            importe=Decimal("130000.00"),
+            estado="confirmado",
+            imputable_inversores=False,
+        )
+        ok, error = core_views._proyecto_listo_para_liquidacion(proyecto)
+        self.assertFalse(ok)
+        self.assertIn("imputables al inversor", error)
+
+        IngresoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 6, 2),
+            tipo="venta",
+            concepto="Venta final",
+            importe=Decimal("130000.00"),
+            estado="confirmado",
+            imputable_inversores=True,
+        )
+        ok, error = core_views._proyecto_listo_para_liquidacion(proyecto)
+        self.assertTrue(ok)
+        self.assertIsNone(error)

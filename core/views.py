@@ -561,6 +561,32 @@ def _crear_comunicacion(request, perfil: InversorPerfil, proyecto: Proyecto | No
     return comunicacion
 
 
+def _guardar_pdf_comunicacion_inversor(
+    *,
+    perfil: InversorPerfil,
+    proyecto: Proyecto | None,
+    titulo: str,
+    pdf_bytes: bytes | None,
+    filename: str | None = None,
+) -> DocumentoInversor | None:
+    if not pdf_bytes:
+        return None
+    if not filename:
+        proyecto_slug = slugify(getattr(proyecto, "nombre", "") or "proyecto") or "proyecto"
+        filename = f"liquidacion_{perfil.id}_{proyecto_slug}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    try:
+        documento = DocumentoInversor(
+            inversor=perfil,
+            categoria="comunicaciones",
+            titulo=(titulo or "Carta de liquidacion")[:255],
+        )
+        documento.archivo.save(filename, ContentFile(pdf_bytes), save=False)
+        documento.save()
+        return documento
+    except Exception:
+        return None
+
+
 def _admin_notify_users():
     users = []
     try:
@@ -646,6 +672,44 @@ def _estado_label(estado: str) -> str:
         "cerrado": "Cerrado",
         "descartado": "Descartado",
     }.get((estado or "").lower(), estado or "")
+
+
+def _template_requires_settlement(template_key: str) -> bool:
+    return (template_key or "").strip().lower() == "cierre"
+
+
+def _proyecto_listo_para_liquidacion(proyecto: Proyecto) -> tuple[bool, str | None]:
+    estado = (getattr(proyecto, "estado", "") or "").strip().lower()
+    if estado not in {"vendido", "cerrado"}:
+        return False, "La carta de liquidacion solo puede enviarse en proyectos vendidos o cerrados."
+
+    participaciones_confirmadas = Participacion.objects.filter(
+        proyecto=proyecto,
+        estado="confirmada",
+    ).exists()
+    if not participaciones_confirmadas:
+        return False, "El proyecto no tiene participaciones confirmadas para liquidar."
+
+    ingresos_confirmados = list(
+        IngresoProyecto.objects.filter(
+            proyecto=proyecto,
+            estado="confirmado",
+            imputable_inversores=True,
+        )
+    )
+    if not ingresos_confirmados:
+        return False, "No hay ingresos confirmados imputables al inversor para emitir la liquidacion."
+
+    snapshot = _get_snapshot_comunicacion(proyecto)
+    resultado = _resultado_desde_memoria(
+        proyecto,
+        snapshot if isinstance(snapshot, dict) else {},
+        only_imputable_inversores=True,
+    )
+    if float(resultado.get("valor_transmision") or 0.0) <= 0:
+        return False, "El valor de transmision imputable al inversor no esta cerrado."
+
+    return True, None
 
 
 def _comunicacion_templates() -> dict:
@@ -746,14 +810,17 @@ def _comunicacion_templates() -> dict:
             ),
         },
         "cierre": {
-            "label": "Carta de cierre con beneficio",
-            "titulo": "Cierre de la operación y beneficio",
+            "label": "Carta de liquidacion",
+            "titulo": "Liquidacion final de la operacion",
             "mensaje": (
                 "Estimado/a {inversor_nombre},\n\n"
-                "El proyecto {proyecto_nombre} ha finalizado. Este es el resumen económico de tu inversión:\n"
-                "Beneficio neto: {beneficio_neto_inversor}\n"
-                "Retención (19%): {retencion}\n"
-                "Neto a cobrar: {neto_cobrar}\n\n"
+                "El proyecto {proyecto_nombre} ha finalizado y la operacion queda liquidada. "
+                "Este es el detalle economico definitivo de tu inversion:\n"
+                "Capital aportado: {capital_invertido}\n"
+                "Beneficio bruto liquidable: {beneficio_bruto_inversor}\n"
+                "Retencion aplicada ({retencion_pct_aplicada}): {retencion}\n"
+                "Beneficio neto a liquidar: {beneficio_neto_liquidacion}\n"
+                "Total a percibir: {total_a_percibir}\n\n"
                 "Resumen visual:\n{kpi_html}\n\n"
                 "Gracias por tu confianza.\n\n"
                 f"{disclaimer}\n\n"
@@ -1058,6 +1125,11 @@ def _build_comunicacion_context(
     ctx["beneficio_neto_inversor"] = _fmt_eur(float(benefit.get("beneficio_neto_inversor") or 0.0))
     ctx["retencion"] = _fmt_eur(float(benefit.get("retencion") or 0.0))
     ctx["neto_cobrar"] = _fmt_eur(float(benefit.get("neto_cobrar") or 0.0))
+    ctx["capital_invertido"] = _fmt_eur(float(getattr(part, "importe_invertido", 0) or 0.0))
+    ctx["beneficio_bruto_inversor"] = _fmt_eur(float(benefit.get("beneficio_neto_inversor") or 0.0))
+    ctx["beneficio_neto_liquidacion"] = _fmt_eur(float(benefit.get("neto_cobrar") or 0.0))
+    ctx["total_a_percibir"] = _fmt_eur(float(benefit.get("total_a_percibir") or 0.0))
+    ctx["retencion_pct_aplicada"] = _fmt_pct(float(benefit.get("retencion_pct_aplicada") or 0.0))
 
     # Rentabilidad para el inversor: bruta (antes de retención) y neta (después de retención)
     # Nota: NO sobreescribir `rentabilidad_estimada` (usa ROI del proyecto) para evitar inconsistencias con dashboard.
@@ -1223,6 +1295,7 @@ def _build_carta_pdf_with_error(
     proyecto: Proyecto | None,
 ) -> tuple[bytes | None, str | None]:
     try:
+        is_liquidacion = "liquidacion" in ((titulo or "").strip().lower())
         # Enriquecer datos para mejorar el formato de la carta (píldoras, hito, QR)
         pill_participacion = ""
         pill_plazo = ""
@@ -1233,6 +1306,7 @@ def _build_carta_pdf_with_error(
         hito_siguiente = ""
         portal_link = ""
         qr_data_uri = ""
+        liquidacion_resumen = None
         try:
             if request is not None and perfil is not None:
                 portal_link = request.build_absolute_uri(reverse("core:inversor_portal", args=[perfil.token]))
@@ -1258,7 +1332,15 @@ def _build_carta_pdf_with_error(
                     )
                     total_proj = float(total_proj or 0)
                     snap = _get_snapshot_comunicacion(proyecto)
-                    resultado_mem = _resultado_desde_memoria(proyecto, snap) if isinstance(snap, dict) else {}
+                    resultado_mem = (
+                        _resultado_desde_memoria(
+                            proyecto,
+                            snap,
+                            only_imputable_inversores=True,
+                        )
+                        if isinstance(snap, dict)
+                        else {}
+                    )
                     ctx = _build_comunicacion_context(proyecto, part, snap if isinstance(snap, dict) else {}, resultado_mem, total_proj)
                     pill_participacion = ctx.get("participacion_pct") or ""
                     pill_plazo = f"{ctx.get('plazo_meses') or ''} {ctx.get('plazo_unidad') or 'meses'}".strip()
@@ -1267,12 +1349,20 @@ def _build_carta_pdf_with_error(
                     pill_rent_inv_neta = ctx.get("rentabilidad_inversor_neta") or ""
                     hito_resumen = ctx.get("hito_resumen") or ""
                     hito_siguiente = ctx.get("hito_siguiente") or ""
+                    liquidacion_resumen = {
+                        "capital_invertido": ctx.get("capital_invertido") or "",
+                        "beneficio_bruto_inversor": ctx.get("beneficio_bruto_inversor") or "",
+                        "retencion": ctx.get("retencion") or "",
+                        "retencion_pct_aplicada": ctx.get("retencion_pct_aplicada") or "",
+                        "beneficio_neto_liquidacion": ctx.get("beneficio_neto_liquidacion") or "",
+                        "total_a_percibir": ctx.get("total_a_percibir") or "",
+                    }
         except Exception:
             pass
 
         # QR del portal (opcional si la librería está disponible)
         try:
-            if portal_link:
+            if portal_link and not is_liquidacion:
                 import qrcode
                 from io import BytesIO
 
@@ -1359,6 +1449,8 @@ def _build_carta_pdf_with_error(
                 "hito_siguiente": hito_siguiente,
                 "portal_link": portal_link,
                 "qr_data_uri": qr_data_uri,
+                "is_liquidacion": is_liquidacion,
+                "liquidacion_resumen": liquidacion_resumen,
             },
         )
         from weasyprint import HTML  # defer import
@@ -2229,7 +2321,11 @@ def _ensure_checklist_defaults(proyecto: Proyecto) -> None:
     )
 
 
-def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
+def _resultado_desde_memoria(
+    proyecto: Proyecto,
+    snapshot: dict,
+    only_imputable_inversores: bool = False,
+) -> dict:
     # Preferir related managers (aprovecha prefetch si existe) con fallback a queries directas.
     try:
         gastos = list(proyecto.gastos_proyecto.all())
@@ -2239,6 +2335,10 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
         ingresos = list(proyecto.ingresos.all())
     except Exception:
         ingresos = list(IngresoProyecto.objects.filter(proyecto=proyecto))
+
+    if only_imputable_inversores:
+        gastos = [g for g in gastos if bool(getattr(g, "imputable_inversores", True))]
+        ingresos = [i for i in ingresos if bool(getattr(i, "imputable_inversores", True))]
 
     def _sum_importes(items):
         total = Decimal("0")
@@ -2425,7 +2525,7 @@ def _resultado_desde_memoria(proyecto: Proyecto, snapshot: dict) -> dict:
     else:
         # Si el proyecto está cerrado/vendido y no hay tipado de venta, usar ingresos como proxy de transmisión.
         # Esto evita que el valor de transmisión quede en 0 por un simple error de tipado.
-        if estado_norm in {"cerrado", "vendido"} and ingresos_base > 0:
+        if estado_proyecto in {"cerrado", "vendido"} and ingresos_base > 0:
             valor_transmision = ingresos_base - gastos_venta_base
         else:
             valor_transmision = venta_snapshot
@@ -4369,7 +4469,11 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
             continue
         try:
             snap = _get_snapshot(proyecto)
-            resultado = _resultado_desde_memoria(proyecto, snap)
+            resultado = _resultado_desde_memoria(
+                proyecto,
+                snap,
+                only_imputable_inversores=True,
+            )
             reparto = _calc_beneficio_inversor(
                 part=p,
                 proyecto=proyecto,
@@ -7668,7 +7772,15 @@ def proyecto_comunicaciones(request, proyecto_id: int):
         total_proj = float(total_proj or 0)
 
         snapshot = _get_snapshot_comunicacion(proyecto)
-        resultado_mem = _resultado_desde_memoria(proyecto, snapshot) if isinstance(snapshot, dict) else {}
+        resultado_mem = (
+            _resultado_desde_memoria(
+                proyecto,
+                snapshot,
+                only_imputable_inversores=True,
+            )
+            if isinstance(snapshot, dict)
+            else {}
+        )
 
         def _build_context(part: Participacion, perfil: InversorPerfil | None = None) -> dict:
             ctx = _build_comunicacion_context(proyecto, part, snapshot, resultado_mem, total_proj)
@@ -7685,6 +7797,10 @@ def proyecto_comunicaciones(request, proyecto_id: int):
         if template_key:
             if not total_destinatarios:
                 return JsonResponse({"ok": False, "error": "No hay inversores confirmados en el proyecto."}, status=400)
+            if _template_requires_settlement(template_key):
+                ok_liquidacion, liquidacion_error = _proyecto_listo_para_liquidacion(proyecto)
+                if not ok_liquidacion:
+                    return JsonResponse({"ok": False, "error": liquidacion_error}, status=400)
 
             if preview_only:
                 part = participaciones.first()
@@ -7712,6 +7828,14 @@ def proyecto_comunicaciones(request, proyecto_id: int):
                 merged_pdf = _merge_pdf_with_anexos(carta_pdf, anexos, request=request) if carta_pdf else None
                 if merged_pdf:
                     attachments = [("carta_inversure.pdf", merged_pdf, "application/pdf")]
+                    if _template_requires_settlement(template_key):
+                        _guardar_pdf_comunicacion_inversor(
+                            perfil=perfil,
+                            proyecto=proyecto,
+                            titulo=titulo,
+                            pdf_bytes=merged_pdf,
+                            filename=f"liquidacion_{proyecto.id}_{perfil.id}.pdf",
+                        )
                 _crear_comunicacion(request, perfil, proyecto, titulo, mensaje, attachments=attachments)
                 count += 1
             return JsonResponse({"ok": True, "enviadas": count})
@@ -7770,7 +7894,15 @@ def inversor_comunicacion_preview(request, perfil_id: int):
             )
 
         snapshot = _get_snapshot_comunicacion(proyecto)
-        resultado_mem = _resultado_desde_memoria(proyecto, snapshot) if isinstance(snapshot, dict) else {}
+        resultado_mem = (
+            _resultado_desde_memoria(
+                proyecto,
+                snapshot,
+                only_imputable_inversores=True,
+            )
+            if isinstance(snapshot, dict)
+            else {}
+        )
         total_proj = (
             Participacion.objects.filter(proyecto=proyecto, estado="confirmada")
             .aggregate(total=Sum("importe_invertido"))
@@ -7789,6 +7921,10 @@ def inversor_comunicacion_preview(request, perfil_id: int):
             ctx["portal_link"] = ""
 
         if template_key:
+            if _template_requires_settlement(template_key):
+                ok_liquidacion, liquidacion_error = _proyecto_listo_para_liquidacion(proyecto)
+                if not ok_liquidacion:
+                    return JsonResponse({"ok": False, "error": liquidacion_error}, status=400)
             titulo, mensaje = _render_comunicacion_template(template_key, ctx)
         if not titulo or not mensaje:
             return JsonResponse({"ok": False, "error": "Título y mensaje son obligatorios"}, status=400)
@@ -7854,7 +7990,15 @@ def inversor_comunicacion_send(request, perfil_id: int):
             )
 
         snapshot = _get_snapshot_comunicacion(proyecto)
-        resultado_mem = _resultado_desde_memoria(proyecto, snapshot) if isinstance(snapshot, dict) else {}
+        resultado_mem = (
+            _resultado_desde_memoria(
+                proyecto,
+                snapshot,
+                only_imputable_inversores=True,
+            )
+            if isinstance(snapshot, dict)
+            else {}
+        )
         total_proj = (
             Participacion.objects.filter(proyecto=proyecto, estado="confirmada")
             .aggregate(total=Sum("importe_invertido"))
@@ -7873,6 +8017,10 @@ def inversor_comunicacion_send(request, perfil_id: int):
             ctx["portal_link"] = ""
 
         if template_key:
+            if _template_requires_settlement(template_key):
+                ok_liquidacion, liquidacion_error = _proyecto_listo_para_liquidacion(proyecto)
+                if not ok_liquidacion:
+                    return JsonResponse({"ok": False, "error": liquidacion_error}, status=400)
             titulo, mensaje = _render_comunicacion_template(template_key, ctx)
         if not titulo or not mensaje:
             return JsonResponse({"ok": False, "error": "Título y mensaje son obligatorios"}, status=400)
@@ -7893,6 +8041,14 @@ def inversor_comunicacion_send(request, perfil_id: int):
         merged_pdf = _merge_pdf_with_anexos(carta_pdf, anexos, request=request) if carta_pdf else None
         if merged_pdf:
             attachments = [("carta_inversure.pdf", merged_pdf, "application/pdf")]
+            if _template_requires_settlement(template_key):
+                _guardar_pdf_comunicacion_inversor(
+                    perfil=perfil,
+                    proyecto=proyecto,
+                    titulo=titulo,
+                    pdf_bytes=merged_pdf,
+                    filename=f"liquidacion_{proyecto.id}_{perfil.id}.pdf",
+                )
 
         _crear_comunicacion(request, perfil, proyecto, titulo, mensaje, attachments=attachments)
         return JsonResponse({"ok": True})
