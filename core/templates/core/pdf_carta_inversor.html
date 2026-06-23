@@ -124,7 +124,7 @@
         vertical-align: top;
       }
       .summary-side {
-        width: 37%;
+        width: 40%;
         padding-left: 12px;
       }
       .hero-card {
@@ -192,10 +192,12 @@
         width: 100%;
         border-collapse: collapse;
         margin-top: 2px;
+        table-layout: fixed;
       }
       .liquidacion-table td {
         padding: 8px 0;
         border-bottom: 1px solid rgba(29, 44, 69, 0.08);
+        vertical-align: top;
       }
       .liquidacion-table tr:last-child td {
         border-bottom: none;
@@ -204,25 +206,32 @@
         color: var(--muted);
         font-size: 10px;
         letter-spacing: 0.03em;
+        padding-right: 12px;
       }
       .liquidacion-table .value {
         text-align: right;
         font-weight: 700;
         color: var(--brand-blue);
-        font-size: 12px;
+        font-size: 11px;
         white-space: nowrap;
       }
-      .liquidacion-table .grand-total td {
-        padding-top: 12px;
+      .liquidacion-table .grand-total-label td {
+        padding-top: 14px;
+        border-bottom: none;
       }
-      .liquidacion-table .grand-total .label {
+      .liquidacion-table .grand-total-label .label {
         font-size: 10px;
         text-transform: uppercase;
         letter-spacing: 0.1em;
         color: var(--brand-blue);
       }
-      .liquidacion-table .grand-total .value {
-        font-size: 18px;
+      .liquidacion-table .grand-total-value td {
+        padding-top: 0;
+        border-bottom: none;
+      }
+      .liquidacion-table .grand-total-value .value {
+        font-size: 16px;
+        line-height: 1.15;
       }
       .kpi-box {
         margin: 14px 0 8px;
@@ -316,6 +325,10 @@
       .signature-role {
         color: var(--muted);
         font-size: 10.5px;
+      }
+      .doc-footer-source {
+        height: 0;
+        overflow: hidden;
       }
       .doc-footer {
         position: running(doc-footer);
@@ -419,6 +432,10 @@
             <div class="side-card liquidacion-box">
               <div class="side-title">Detalle económico</div>
               <table class="liquidacion-table">
+                <colgroup>
+                  <col style="width: 62%;">
+                  <col style="width: 38%;">
+                </colgroup>
                 <tr>
                   <td class="label">Capital aportado</td>
                   <td class="value">{{ liquidacion_resumen.capital_invertido }}</td>
@@ -435,8 +452,11 @@
                   <td class="label">Beneficio neto a liquidar</td>
                   <td class="value">{{ liquidacion_resumen.beneficio_neto_liquidacion }}</td>
                 </tr>
-                <tr class="grand-total">
-                  <td class="label">Total a percibir</td>
+                <tr class="grand-total-label">
+                  <td class="label" colspan="2">Total a percibir</td>
+                </tr>
+                <tr class="grand-total-value">
+                  <td></td>
                   <td class="value">{{ liquidacion_resumen.total_a_percibir }}</td>
                 </tr>
               </table>
@@ -502,28 +522,30 @@
         <div class="signature-role">mximenez@inversurehome.es</div>
       </div>
 
-      <div class="doc-footer">
-        <div class="footer-grid">
-          <div class="footer-col">
-            <strong>INVERSURE</strong><br>
-            Inversure Homes &amp; investment<br>
-            B72265843<br>
-            Antonio Chacon 5, 29004<br>
-            www.inversurehomes.es
+      <div class="doc-footer-source">
+        <div class="doc-footer">
+          <div class="footer-grid">
+            <div class="footer-col">
+              <strong>INVERSURE</strong><br>
+              Inversure Homes &amp; investment<br>
+              B72265843<br>
+              Antonio Chacon 5, 29004<br>
+              www.inversurehomes.es
+            </div>
+            <div class="footer-col right">
+              {% if is_liquidacion %}
+                Documento interno de liquidación para inversor
+              {% else %}
+                Comunicación corporativa a inversores
+              {% endif %}
+            </div>
           </div>
-          <div class="footer-col right">
-            {% if is_liquidacion %}
-              Documento interno de liquidación para inversor
-            {% else %}
-              Comunicación corporativa a inversores
-            {% endif %}
+          <div class="legal">
+            Aviso legal: Este mensaje y los archivos adjuntos son confidenciales y están dirigidos exclusivamente a su destinatario.
+            Si usted no es el destinatario, por favor notifíquelo al remitente y elimine el mensaje. Queda prohibida su reproducción o distribución sin autorización expresa.<br>
+            Protección de datos (RGPD): Los datos personales incluidos en esta comunicación se tratarán conforme al Reglamento (UE) 2016/679 (RGPD)
+            y la normativa europea y nacional vigente. Puede ejercer sus derechos de acceso, rectificación y supresión dirigiéndose a mximenez@inversurehome.es.
           </div>
-        </div>
-        <div class="legal">
-          Aviso legal: Este mensaje y los archivos adjuntos son confidenciales y están dirigidos exclusivamente a su destinatario.
-          Si usted no es el destinatario, por favor notifíquelo al remitente y elimine el mensaje. Queda prohibida su reproducción o distribución sin autorización expresa.<br>
-          Protección de datos (RGPD): Los datos personales incluidos en esta comunicación se tratarán conforme al Reglamento (UE) 2016/679 (RGPD)
-          y la normativa europea y nacional vigente. Puede ejercer sus derechos de acceso, rectificación y supresión dirigiéndose a mximenez@inversurehome.es.
         </div>
       </div>
     </div>

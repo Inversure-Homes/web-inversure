@@ -578,7 +578,7 @@ def _guardar_pdf_comunicacion_inversor(
         documento = DocumentoInversor(
             inversor=perfil,
             categoria="comunicaciones",
-            titulo=(titulo or "Carta de liquidacion")[:255],
+            titulo=(titulo or "Carta de liquidación")[:255],
         )
         documento.archivo.save(filename, ContentFile(pdf_bytes), save=False)
         documento.save()
@@ -681,7 +681,7 @@ def _template_requires_settlement(template_key: str) -> bool:
 def _proyecto_listo_para_liquidacion(proyecto: Proyecto) -> tuple[bool, str | None]:
     estado = (getattr(proyecto, "estado", "") or "").strip().lower()
     if estado not in {"vendido", "cerrado"}:
-        return False, "La carta de liquidacion solo puede enviarse en proyectos vendidos o cerrados."
+        return False, "La carta de liquidación solo puede enviarse en proyectos vendidos o cerrados."
 
     participaciones_confirmadas = Participacion.objects.filter(
         proyecto=proyecto,
@@ -698,7 +698,7 @@ def _proyecto_listo_para_liquidacion(proyecto: Proyecto) -> tuple[bool, str | No
         )
     )
     if not ingresos_confirmados:
-        return False, "No hay ingresos confirmados imputables al inversor para emitir la liquidacion."
+        return False, "No hay ingresos confirmados imputables al inversor para emitir la liquidación."
 
     snapshot = _get_snapshot_comunicacion(proyecto)
     resultado = _resultado_desde_memoria(
@@ -810,15 +810,15 @@ def _comunicacion_templates() -> dict:
             ),
         },
         "cierre": {
-            "label": "Carta de liquidacion",
-            "titulo": "Liquidacion final de la operacion",
+            "label": "Carta de liquidación",
+            "titulo": "Liquidación final de la operación",
             "mensaje": (
                 "Estimado/a {inversor_nombre},\n\n"
-                "El proyecto {proyecto_nombre} ha finalizado y la operacion queda liquidada. "
-                "Este es el detalle economico definitivo de tu inversion:\n"
+                "El proyecto {proyecto_nombre} ha finalizado y la operación queda liquidada. "
+                "Este es el detalle económico definitivo de tu inversión:\n"
                 "Capital aportado: {capital_invertido}\n"
                 "Beneficio bruto liquidable: {beneficio_bruto_inversor}\n"
-                "Retencion aplicada ({retencion_pct_aplicada}): {retencion}\n"
+                "Retención aplicada ({retencion_pct_aplicada}): {retencion}\n"
                 "Beneficio neto a liquidar: {beneficio_neto_liquidacion}\n"
                 "Total a percibir: {total_a_percibir}\n\n"
                 "Resumen visual:\n{kpi_html}\n\n"
@@ -4447,19 +4447,33 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
             cap_obj = float(capital_objetivo_cache.get(proyecto.id) or 0.0)
         except Exception:
             cap_obj = 0.0
-        if cap_obj <= 0:
+        base_pct = 0.0
+        if (part.estado or "").strip().lower() == "confirmada":
+            base_pct = totales_proyecto.get(proyecto.id, 0.0) or totales_proyecto_all.get(proyecto.id, 0.0) or 0.0
+        if base_pct <= 0:
+            base_pct = cap_obj
+        if base_pct <= 0:
             # fallback
-            cap_obj = totales_proyecto.get(proyecto.id, 0.0) or totales_proyecto_all.get(proyecto.id, 0.0) or 0.0
-        if cap_obj > 0 and part.importe_invertido:
+            base_pct = totales_proyecto.get(proyecto.id, 0.0) or totales_proyecto_all.get(proyecto.id, 0.0) or 0.0
+        if base_pct > 0 and part.importe_invertido:
             try:
-                part.porcentaje_participacion = (Decimal(str(part.importe_invertido)) / Decimal(str(cap_obj))) * Decimal("100")
+                part.porcentaje_participacion = (Decimal(str(part.importe_invertido)) / Decimal(str(base_pct))) * Decimal("100")
             except Exception:
                 part.porcentaje_participacion = None
 
     beneficios_por_proyecto = []
     total_beneficio = 0.0
     total_retencion = 0.0
+    total_invertido_liquidado = 0.0
+    total_invertido_estimado = 0.0
+    total_beneficio_liquidado = 0.0
+    total_retencion_liquidada = 0.0
+    total_beneficio_estimado = 0.0
+    total_retencion_estimada = 0.0
+    operaciones_liquidadas = 0
+    operaciones_estimadas = 0
     beneficio_chart = []
+    liquidacion_status_cache: dict[int, bool] = {}
     for p in participaciones_conf:
         proyecto = p.proyecto
         if not proyecto:
@@ -4494,8 +4508,21 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
         total_a_percibir = float(reparto.get("total_a_percibir") or 0.0)
         override_val = float(p.beneficio_neto_override) if p.beneficio_neto_override is not None else None
         override_data = p.beneficio_override_data if isinstance(p.beneficio_override_data, dict) else {}
+        if proyecto.id not in liquidacion_status_cache:
+            liquidacion_status_cache[proyecto.id], _ = _proyecto_listo_para_liquidacion(proyecto)
+        es_liquidacion = bool(liquidacion_status_cache.get(proyecto.id))
         total_beneficio += beneficio_inversor
         total_retencion += retencion
+        if es_liquidacion:
+            operaciones_liquidadas += 1
+            total_invertido_liquidado += float(getattr(p, "importe_invertido", 0) or 0.0)
+            total_beneficio_liquidado += beneficio_inversor
+            total_retencion_liquidada += retencion
+        else:
+            operaciones_estimadas += 1
+            total_invertido_estimado += float(getattr(p, "importe_invertido", 0) or 0.0)
+            total_beneficio_estimado += beneficio_inversor
+            total_retencion_estimada += retencion
 
         beneficios_por_proyecto.append(
             {
@@ -4510,6 +4537,11 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
                 "total_a_percibir": total_a_percibir,
                 "participacion_pct": ratio_part * 100.0,
                 "participacion_id": p.id,
+                "calc_mode": "liquidacion" if es_liquidacion else "estimacion",
+                "calc_label": "Liquidación cerrada" if es_liquidacion else "Estimación en curso",
+                "retencion_label": "Retención practicada" if es_liquidacion else "Retención estimada",
+                "neto_label": "Neto liquidable" if es_liquidacion else "Neto estimado",
+                "total_label": "Total a percibir" if es_liquidacion else "Total estimado",
             }
         )
 
@@ -4620,6 +4652,18 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
         "total_retencion": total_retencion,
         "total_neto_cobrar": total_beneficio - total_retencion,
         "total_a_percibir": float(total_invertido or 0.0) + (total_beneficio - total_retencion),
+        "total_invertido_liquidado": total_invertido_liquidado,
+        "total_beneficio_liquidado": total_beneficio_liquidado,
+        "total_retencion_liquidada": total_retencion_liquidada,
+        "total_neto_liquidado": total_beneficio_liquidado - total_retencion_liquidada,
+        "total_a_percibir_liquidado": total_invertido_liquidado + (total_beneficio_liquidado - total_retencion_liquidada),
+        "total_invertido_estimado": total_invertido_estimado,
+        "total_beneficio_estimado": total_beneficio_estimado,
+        "total_retencion_estimada": total_retencion_estimada,
+        "total_neto_estimado": total_beneficio_estimado - total_retencion_estimada,
+        "total_a_percibir_estimado": total_invertido_estimado + (total_beneficio_estimado - total_retencion_estimada),
+        "hay_liquidaciones": operaciones_liquidadas > 0,
+        "hay_estimaciones": operaciones_estimadas > 0,
         "beneficio_chart": beneficio_chart,
         "documentos_por_proyecto": documentos_por_proyecto,
         "documentos_personales": documentos_personales,

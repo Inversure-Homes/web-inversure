@@ -8,7 +8,7 @@ from django.test import RequestFactory, TestCase
 from django.test.utils import override_settings
 
 from core import views as core_views
-from core.models import Cliente, Estudio, GastoProyecto, IngresoProyecto, Participacion, Proyecto
+from core.models import Cliente, Estudio, GastoProyecto, IngresoProyecto, InversorPerfil, Participacion, Proyecto
 
 
 def _add_session(request):
@@ -452,3 +452,108 @@ class SecurityHardeningTests(TestCase):
         ok, error = core_views._proyecto_listo_para_liquidacion(proyecto)
         self.assertTrue(ok)
         self.assertIsNone(error)
+
+    @override_settings(INVERSOR_RETENCION_PCT=19.0, INVERSOR_RETENCION_PCT_F=19.0)
+    def test_inversor_portal_context_separates_liquidacion_from_estimacion(self):
+        cliente = Cliente.objects.create(
+            nombre="Inversor portal",
+            dni_cif="X-TEST-0003",
+            email="inversor-portal@example.com",
+            telefono="600000002",
+        )
+        perfil = InversorPerfil.objects.create(cliente=cliente)
+
+        coinversor = Cliente.objects.create(
+            nombre="Coinversor",
+            dni_cif="X-TEST-0004",
+            email="coinversor@example.com",
+            telefono="600000003",
+        )
+
+        proyecto_cerrado = Proyecto.objects.create(
+            nombre="Proyecto cerrado",
+            estado="cerrado",
+            fecha=date(2026, 1, 1),
+            precio_compra_inmueble=Decimal("100000.00"),
+            precio_propiedad=Decimal("100000.00"),
+        )
+        GastoProyecto.objects.create(
+            proyecto=proyecto_cerrado,
+            fecha=date(2026, 1, 1),
+            categoria="adquisicion",
+            concepto="Compraventa inmueble",
+            importe=Decimal("100000.00"),
+            estado="confirmado",
+            imputable_inversores=True,
+        )
+        IngresoProyecto.objects.create(
+            proyecto=proyecto_cerrado,
+            fecha=date(2026, 6, 1),
+            tipo="venta",
+            concepto="Venta final",
+            importe=Decimal("140000.00"),
+            estado="confirmado",
+            imputable_inversores=True,
+        )
+        Participacion.objects.create(
+            proyecto=proyecto_cerrado,
+            cliente=cliente,
+            importe_invertido=Decimal("25000.00"),
+            estado="confirmada",
+        )
+        Participacion.objects.create(
+            proyecto=proyecto_cerrado,
+            cliente=coinversor,
+            importe_invertido=Decimal("25000.00"),
+            estado="confirmada",
+        )
+
+        proyecto_abierto = Proyecto.objects.create(
+            nombre="Proyecto abierto",
+            estado="comercializacion",
+            fecha=date(2026, 2, 1),
+            precio_compra_inmueble=Decimal("100000.00"),
+            precio_propiedad=Decimal("100000.00"),
+        )
+        GastoProyecto.objects.create(
+            proyecto=proyecto_abierto,
+            fecha=date(2026, 2, 1),
+            categoria="adquisicion",
+            concepto="Compraventa inmueble",
+            importe=Decimal("100000.00"),
+            estado="confirmado",
+            imputable_inversores=True,
+        )
+        IngresoProyecto.objects.create(
+            proyecto=proyecto_abierto,
+            fecha=date(2026, 8, 1),
+            tipo="venta",
+            concepto="Venta estimada",
+            importe=Decimal("130000.00"),
+            estado="estimado",
+            imputable_inversores=True,
+        )
+        Participacion.objects.create(
+            proyecto=proyecto_abierto,
+            cliente=cliente,
+            importe_invertido=Decimal("25000.00"),
+            estado="confirmada",
+        )
+
+        ctx = core_views._build_inversor_portal_context(perfil, internal_view=False)
+
+        beneficios = {item["proyecto"].nombre: item for item in ctx["beneficios_por_proyecto"]}
+        self.assertEqual(beneficios["Proyecto cerrado"]["calc_mode"], "liquidacion")
+        self.assertEqual(beneficios["Proyecto abierto"]["calc_mode"], "estimacion")
+        self.assertAlmostEqual(beneficios["Proyecto cerrado"]["participacion_pct"], 50.0, places=6)
+        self.assertAlmostEqual(beneficios["Proyecto abierto"]["participacion_pct"], 100.0, places=6)
+        self.assertAlmostEqual(ctx["total_beneficio_liquidado"], 20000.0, places=6)
+        self.assertAlmostEqual(ctx["total_retencion_liquidada"], 3800.0, places=6)
+        self.assertAlmostEqual(ctx["total_neto_liquidado"], 16200.0, places=6)
+        self.assertAlmostEqual(ctx["total_a_percibir_liquidado"], 41200.0, places=6)
+        self.assertAlmostEqual(ctx["total_beneficio_estimado"], 30000.0, places=6)
+        self.assertAlmostEqual(ctx["total_retencion_estimada"], 5700.0, places=6)
+        self.assertAlmostEqual(ctx["total_neto_estimado"], 24300.0, places=6)
+        self.assertAlmostEqual(ctx["total_a_percibir_estimado"], 49300.0, places=6)
+        participaciones_por_nombre = {p.proyecto.nombre: p for p in ctx["participaciones"]}
+        self.assertAlmostEqual(float(participaciones_por_nombre["Proyecto cerrado"].porcentaje_participacion), 50.0, places=6)
