@@ -11,38 +11,42 @@
         }
       }
       :root {
-        --brand-blue: #1d2c45;
-        --brand-blue-soft: #2e4466;
-        --brand-gold: #c8bb89;
-        --brand-gold-soft: #f3eedf;
-        --ink: #0f172a;
-        --muted: #526072;
-        --line: #d9e0ea;
-        --panel: #f7f9fc;
+        --brand-blue: #16253d;
+        --brand-blue-soft: #304766;
+        --brand-navy-deep: #0d1727;
+        --brand-gold: #b89a54;
+        --brand-gold-soft: #f6efe0;
+        --brand-cream: #fbf8f1;
+        --ink: #182132;
+        --muted: #5a6678;
+        --line: #d8e0e8;
+        --line-soft: #e8edf3;
+        --panel: #f6f8fb;
         --panel-strong: #eef3f8;
       }
       body {
         font-family: "IBM Plex Sans", "DejaVu Sans", Arial, sans-serif;
         color: var(--ink);
-        font-size: 11.8px;
+        font-size: 11.4px;
+        line-height: 1.52;
         margin: 0;
       }
       .brand-bar {
-        height: 12px;
-        background: linear-gradient(90deg, var(--brand-blue) 0%, var(--brand-blue-soft) 60%, #435f85 100%);
-        margin: -22mm -18mm 18px;
+        height: 18px;
+        background: linear-gradient(90deg, var(--brand-navy-deep) 0%, var(--brand-blue) 42%, var(--brand-blue-soft) 100%);
+        margin: -22mm -18mm 20px;
       }
       .brand-bar::after {
         content: "";
         display: block;
-        height: 3px;
+        height: 4px;
         background: var(--brand-gold);
       }
       .layout { width: 100%; }
       .header {
         border-bottom: 1px solid var(--line);
-        padding-bottom: 12px;
-        margin-bottom: 14px;
+        padding-bottom: 14px;
+        margin-bottom: 16px;
       }
       .header-top {
         display: table;
@@ -59,55 +63,56 @@
         text-align: right;
       }
       .logo {
-        height: 36px;
-        max-width: 180px;
+        height: 42px;
+        max-width: 190px;
       }
       .descriptor {
-        font-size: 9.5px;
-        letter-spacing: 0.18em;
+        font-size: 9px;
+        letter-spacing: 0.22em;
         text-transform: uppercase;
         color: var(--brand-gold);
-        margin-bottom: 7px;
+        margin-bottom: 8px;
+        font-weight: 700;
       }
       .title {
-        font-size: 23px;
-        line-height: 1.15;
+        font-size: 24px;
+        line-height: 1.12;
         font-weight: 700;
         color: var(--brand-blue);
         margin: 0;
       }
       .subtitle {
-        margin-top: 6px;
+        margin-top: 7px;
         color: var(--muted);
-        font-size: 11px;
+        font-size: 10.8px;
       }
       .meta-row {
-        margin-top: 10px;
+        margin-top: 12px;
       }
       .meta-pill {
         display: inline-block;
         margin-right: 8px;
         margin-top: 6px;
-        padding: 4px 10px;
+        padding: 5px 10px;
         border-radius: 999px;
-        background: #f8fafc;
+        background: #fafbfd;
         border: 1px solid var(--line);
         color: var(--muted);
-        font-size: 10px;
+        font-size: 9.6px;
       }
       .pills {
-        margin-top: 10px;
+        margin-top: 12px;
       }
       .pill {
         display: inline-block;
         margin-right: 8px;
         margin-top: 6px;
-        padding: 6px 10px;
+        padding: 6px 11px;
         border-radius: 999px;
         background: var(--panel);
         border: 1px solid var(--line);
         color: var(--muted);
-        font-size: 10px;
+        font-size: 9.6px;
       }
       .pill strong {
         color: var(--brand-blue);
@@ -116,7 +121,8 @@
       .summary-grid {
         display: table;
         width: 100%;
-        margin: 14px 0 16px;
+        margin: 16px 0 18px;
+        table-layout: fixed;
       }
       .summary-main,
       .summary-side {
@@ -124,79 +130,94 @@
         vertical-align: top;
       }
       .summary-side {
-        width: 40%;
-        padding-left: 12px;
+        width: 38%;
+        padding-left: 14px;
       }
       .hero-card {
-        border-radius: 18px;
-        background: linear-gradient(135deg, var(--brand-blue) 0%, #304867 100%);
+        border-radius: 22px;
+        background:
+          linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 48%),
+          linear-gradient(135deg, var(--brand-navy-deep) 0%, var(--brand-blue) 55%, var(--brand-blue-soft) 100%);
         color: #ffffff;
-        padding: 18px 20px;
+        padding: 20px 22px;
+        border: 1px solid rgba(255,255,255,0.08);
+        box-sizing: border-box;
       }
       .hero-label {
-        font-size: 9.5px;
-        letter-spacing: 0.16em;
+        font-size: 9px;
+        letter-spacing: 0.18em;
         text-transform: uppercase;
-        color: rgba(255,255,255,.75);
+        color: rgba(255,255,255,.72);
+        font-weight: 700;
       }
       .hero-amount {
-        font-size: 30px;
-        line-height: 1.1;
+        font-size: 29px;
+        line-height: 1.08;
         font-weight: 700;
-        margin: 8px 0 6px;
+        margin: 10px 0 8px;
+        word-break: break-word;
       }
       .hero-caption {
-        font-size: 11px;
-        line-height: 1.5;
-        color: rgba(255,255,255,.84);
+        font-size: 10.8px;
+        line-height: 1.55;
+        color: rgba(255,255,255,.82);
       }
       .hero-card--standard .hero-amount {
-        font-size: 22px;
+        font-size: 20px;
+        line-height: 1.25;
       }
       .side-card {
-        border-radius: 16px;
-        background: var(--panel);
+        border-radius: 18px;
+        background: linear-gradient(180deg, #ffffff 0%, var(--panel) 100%);
         border: 1px solid var(--line);
-        padding: 14px 15px;
+        padding: 16px 16px;
+        box-sizing: border-box;
       }
       .side-title {
-        font-size: 9.5px;
-        letter-spacing: 0.14em;
+        font-size: 9px;
+        letter-spacing: 0.16em;
         text-transform: uppercase;
         color: var(--muted);
-        margin-bottom: 10px;
+        margin-bottom: 12px;
+        font-weight: 700;
       }
       .side-row {
-        margin-bottom: 8px;
+        margin-bottom: 12px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--line-soft);
       }
       .side-row:last-child {
         margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
       }
       .side-row span {
         display: block;
-        font-size: 9px;
+        font-size: 8.7px;
         text-transform: uppercase;
         letter-spacing: 0.08em;
         color: #708095;
-        margin-bottom: 2px;
+        margin-bottom: 4px;
       }
       .side-row strong {
-        font-size: 12px;
+        font-size: 11.6px;
         color: var(--brand-blue);
+        line-height: 1.4;
+        word-break: break-word;
       }
       .liquidacion-box {
-        border: 1px solid rgba(200, 187, 137, 0.7);
-        background: linear-gradient(180deg, #f8f4e7 0%, #fffdf8 100%);
+        border: 1px solid rgba(184, 154, 84, 0.45);
+        background: linear-gradient(180deg, var(--brand-cream) 0%, #fffdf9 100%);
       }
       .liquidacion-table {
         width: 100%;
         border-collapse: collapse;
-        margin-top: 2px;
+        margin-top: 4px;
         table-layout: fixed;
       }
       .liquidacion-table td {
-        padding: 8px 0;
-        border-bottom: 1px solid rgba(29, 44, 69, 0.08);
+        padding: 9px 0;
+        border-bottom: 1px solid rgba(22, 37, 61, 0.08);
         vertical-align: top;
       }
       .liquidacion-table tr:last-child td {
@@ -204,55 +225,58 @@
       }
       .liquidacion-table .label {
         color: var(--muted);
-        font-size: 10px;
+        font-size: 9.8px;
         letter-spacing: 0.03em;
-        padding-right: 12px;
+        padding-right: 14px;
+        line-height: 1.45;
       }
       .liquidacion-table .value {
         text-align: right;
         font-weight: 700;
         color: var(--brand-blue);
-        font-size: 11px;
-        white-space: nowrap;
+        font-size: 10.8px;
+        word-break: break-word;
       }
       .liquidacion-table .grand-total-label td {
-        padding-top: 14px;
+        padding-top: 16px;
         border-bottom: none;
       }
       .liquidacion-table .grand-total-label .label {
-        font-size: 10px;
+        font-size: 9px;
         text-transform: uppercase;
-        letter-spacing: 0.1em;
+        letter-spacing: 0.14em;
         color: var(--brand-blue);
+        font-weight: 700;
       }
       .liquidacion-table .grand-total-value td {
         padding-top: 0;
         border-bottom: none;
       }
       .liquidacion-table .grand-total-value .value {
-        font-size: 16px;
-        line-height: 1.15;
+        font-size: 17px;
+        line-height: 1.2;
       }
       .kpi-box {
-        margin: 14px 0 8px;
-        padding: 12px 14px;
-        border-radius: 14px;
-        background: var(--panel);
+        margin: 16px 0 10px;
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: linear-gradient(180deg, #ffffff 0%, var(--panel) 100%);
         border: 1px solid var(--line);
       }
       .kpi-title {
-        font-size: 9.5px;
-        letter-spacing: 0.14em;
+        font-size: 9px;
+        letter-spacing: 0.16em;
         text-transform: uppercase;
         color: var(--muted);
-        margin-bottom: 8px;
+        margin-bottom: 10px;
+        font-weight: 700;
       }
       .kpi-bar {
-        height: 8px;
+        height: 9px;
         background: #dbe3ee;
         border-radius: 999px;
         overflow: hidden;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
       }
       .kpi-bar span {
         display: block;
@@ -260,28 +284,39 @@
         background: linear-gradient(90deg, var(--brand-blue) 0%, var(--brand-gold) 100%);
       }
       .kpi-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 8px;
+        display: table;
+        width: 100%;
+        table-layout: fixed;
+      }
+      .kpi-col {
+        display: table-cell;
+        vertical-align: top;
+        padding-right: 10px;
+      }
+      .kpi-col:last-child {
+        padding-right: 0;
       }
       .kpi-grid span {
         display: block;
         color: #708095;
-        font-size: 8.8px;
+        font-size: 8.5px;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         margin-bottom: 4px;
       }
       .kpi-grid strong {
         color: var(--brand-blue);
-        font-size: 11.5px;
-      }
-      .message {
-        line-height: 1.65;
+        font-size: 11.2px;
+        line-height: 1.4;
         word-break: break-word;
       }
+      .message {
+        line-height: 1.68;
+        word-break: break-word;
+        color: #243144;
+      }
       .message p {
-        margin: 0 0 10px;
+        margin: 0 0 11px;
       }
       .message p:first-child {
         font-weight: 600;
@@ -304,8 +339,8 @@
       }
       .message a {
         display: inline-block;
-        margin: 8px 0;
-        padding: 8px 14px;
+        margin: 9px 0;
+        padding: 9px 15px;
         border-radius: 999px;
         background: var(--brand-gold-soft);
         border: 1px solid rgba(200, 187, 137, 0.6);
@@ -314,9 +349,9 @@
         text-decoration: none;
       }
       .signature-card {
-        margin-top: 16px;
+        margin-top: 18px;
         border-top: 1px solid var(--line);
-        padding-top: 12px;
+        padding-top: 14px;
       }
       .signature-name {
         font-weight: 700;
@@ -324,7 +359,8 @@
       }
       .signature-role {
         color: var(--muted);
-        font-size: 10.5px;
+        font-size: 10.2px;
+        line-height: 1.5;
       }
       .doc-footer-source {
         height: 0;
@@ -332,9 +368,9 @@
       }
       .doc-footer {
         position: running(doc-footer);
-        padding-top: 8px;
+        padding-top: 9px;
         border-top: 1px solid var(--line);
-        font-size: 9px;
+        font-size: 8.8px;
         color: #6c7a8e;
       }
       .footer-grid {
@@ -355,8 +391,8 @@
       }
       .legal {
         margin-top: 8px;
-        font-size: 8.5px;
-        line-height: 1.35;
+        font-size: 8.2px;
+        line-height: 1.38;
         color: #8a96a8;
       }
     </style>
@@ -493,15 +529,15 @@
           <span style="width: {% firstof progreso_pct 0 %}%;"></span>
         </div>
         <div class="kpi-grid">
-          <div>
+          <div class="kpi-col">
             <span>Estado</span>
             <strong>{{ progreso_label|default:"Seguimiento" }}</strong>
           </div>
-          <div>
+          <div class="kpi-col">
             <span>Rentabilidad proyecto</span>
             <strong>{{ pill_rent_proyecto|default:"—" }}</strong>
           </div>
-          <div>
+          <div class="kpi-col">
             <span>Plazo</span>
             <strong>{{ pill_plazo|default:"—" }}</strong>
           </div>
@@ -519,7 +555,7 @@
       <div class="signature-card">
         <div class="signature-name">Equipo INVERSURE</div>
         <div class="signature-role">Área de comunicación y seguimiento de inversores</div>
-        <div class="signature-role">mximenez@inversurehome.es</div>
+        <div class="signature-role">MXIMENEZ@INVERSUREHOMES.ES</div>
       </div>
 
       <div class="doc-footer-source">
@@ -544,7 +580,7 @@
             Aviso legal: Este mensaje y los archivos adjuntos son confidenciales y están dirigidos exclusivamente a su destinatario.
             Si usted no es el destinatario, por favor notifíquelo al remitente y elimine el mensaje. Queda prohibida su reproducción o distribución sin autorización expresa.<br>
             Protección de datos (RGPD): Los datos personales incluidos en esta comunicación se tratarán conforme al Reglamento (UE) 2016/679 (RGPD)
-            y la normativa europea y nacional vigente. Puede ejercer sus derechos de acceso, rectificación y supresión dirigiéndose a mximenez@inversurehome.es.
+            y la normativa europea y nacional vigente. Puede ejercer sus derechos de acceso, rectificación y supresión dirigiéndose a MXIMENEZ@INVERSUREHOMES.ES.
           </div>
         </div>
       </div>
