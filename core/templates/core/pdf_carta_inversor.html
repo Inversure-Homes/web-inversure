@@ -523,26 +523,28 @@
         </div>
       </div>
 
-      <div class="kpi-box">
-        <div class="kpi-title">Resumen ejecutivo</div>
-        <div class="kpi-bar">
-          <span style="width: {% firstof progreso_pct 0 %}%;"></span>
+      {% if not is_liquidacion %}
+        <div class="kpi-box">
+          <div class="kpi-title">Resumen ejecutivo</div>
+          <div class="kpi-bar">
+            <span style="width: {% firstof progreso_pct 0 %}%;"></span>
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi-col">
+              <span>Estado</span>
+              <strong>{{ progreso_label|default:"Seguimiento" }}</strong>
+            </div>
+            <div class="kpi-col">
+              <span>Rentabilidad proyecto</span>
+              <strong>{{ pill_rent_proyecto|default:"—" }}</strong>
+            </div>
+            <div class="kpi-col">
+              <span>Plazo</span>
+              <strong>{{ pill_plazo|default:"—" }}</strong>
+            </div>
+          </div>
         </div>
-        <div class="kpi-grid">
-          <div class="kpi-col">
-            <span>Estado</span>
-            <strong>{{ progreso_label|default:"Seguimiento" }}</strong>
-          </div>
-          <div class="kpi-col">
-            <span>Rentabilidad proyecto</span>
-            <strong>{{ pill_rent_proyecto|default:"—" }}</strong>
-          </div>
-          <div class="kpi-col">
-            <span>Plazo</span>
-            <strong>{{ pill_plazo|default:"—" }}</strong>
-          </div>
-        </div>
-      </div>
+      {% endif %}
 
       <div class="message">
         {% if mensaje_html %}

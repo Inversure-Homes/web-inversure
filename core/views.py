@@ -814,14 +814,10 @@ def _comunicacion_templates() -> dict:
             "titulo": "Liquidación final de la operación",
             "mensaje": (
                 "Estimado/a {inversor_nombre},\n\n"
-                "El proyecto {proyecto_nombre} ha finalizado y la operación queda liquidada. "
-                "Este es el detalle económico definitivo de tu inversión:\n"
-                "Capital aportado: {capital_invertido}\n"
-                "Beneficio bruto liquidable: {beneficio_bruto_inversor}\n"
-                "Retención aplicada ({retencion_pct_aplicada}): {retencion}\n"
-                "Beneficio neto a liquidar: {beneficio_neto_liquidacion}\n"
-                "Total a percibir: {total_a_percibir}\n\n"
-                "Resumen visual:\n{kpi_html}\n\n"
+                "El proyecto {proyecto_nombre} ha finalizado y la operación queda liquidada.\n\n"
+                "En la cabecera de esta comunicación encontrarás el resumen económico definitivo de tu inversión, "
+                "incluyendo el capital aportado, el beneficio liquidable, la retención aplicada y el total final a percibir.\n\n"
+                "La liquidación se ha calculado conforme al cierre económico de la operación y a la retención fiscal aplicable.\n\n"
                 "Gracias por tu confianza.\n\n"
                 f"{disclaimer}\n\n"
                 "Atentamente,\nEquipo INVERSURE"
