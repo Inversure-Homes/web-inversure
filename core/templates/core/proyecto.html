@@ -742,7 +742,7 @@
 
         <!-- KPIs PRINCIPALES -->
         <div class="row text-center mb-4">
-            <div class="col-md-3">
+            <div class="col-md-4">
                 <div class="fw-semibold text-muted">Beneficio neto</div>
                 <div class="fs-4 fw-bold">
                     <span class="fmt-euro" data-euro="true">{{ resultado.beneficio_neto }}</span>
@@ -750,20 +750,38 @@
                 <small class="text-muted">Objetivo ≥ 30.000 €</small>
             </div>
 
-            <div class="col-md-3">
+            <div class="col-md-4">
+                <div class="fw-semibold text-muted">Impuesto sociedades</div>
+                <div class="fs-4 fw-bold">
+                    <span class="fmt-euro" data-euro="true">{{ resultado.impuesto_sociedades|default:0 }}</span>
+                </div>
+                <small class="text-muted">Aplicado en proyecto</small>
+            </div>
+
+            <div class="col-md-4">
+                <div class="fw-semibold text-muted">Beneficio tras impuestos</div>
+                <div class="fs-4 fw-bold">
+                    <span class="fmt-euro" data-euro="true">{{ resultado.beneficio_neto_tras_impuestos|default:resultado.beneficio_neto }}</span>
+                </div>
+                <small class="text-muted">Resultado final para reparto</small>
+            </div>
+        </div>
+
+        <div class="row text-center mb-4">
+            <div class="col-md-4">
                 <div class="fw-semibold text-muted">ROI</div>
                 <div class="fs-4 fw-bold"><span class="fmt-percent" data-percent="true" data-decimals="2">{{ resultado.roi }}</span></div>
                 <small class="text-muted">Objetivo ≥ 15 %</small>
             </div>
 
-            <div class="col-md-3">
+            <div class="col-md-4">
                 <div class="fw-semibold text-muted">Capital invertido</div>
                 <div class="fs-5 fw-semibold">
                     <span class="fmt-euro" data-euro="true">{{ resultado.valor_adquisicion }}</span>
                 </div>
             </div>
 
-            <div class="col-md-3">
+            <div class="col-md-4">
                 <div class="fw-semibold text-muted">€ ganados / € invertido</div>
                 <div class="fs-5 fw-semibold">
                     <span class="fmt-number" data-number="true" data-decimals="2">{{ resultado.ratio_euro }}</span> €
@@ -804,7 +822,7 @@
                     <div class="card border-0 shadow-sm mb-4">
                         <div class="card-body">
                             <div class="row g-3 align-items-end">
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <label class="form-label">Comisión Inversure (%)</label>
                                     <input type="text"
                                            class="form-control"
@@ -814,7 +832,7 @@
                                            data-decimals="2"
                                            value="{{ inv.comision_inversure_pct|default:inv.comision_pct|default:metricas.comision_inversure_pct|default:metricas.comision_pct|default:'' }}">
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <label class="form-label">Comisión Inversure (€)</label>
                                     <input type="text"
                                            class="form-control"
@@ -823,6 +841,16 @@
                                            data-euro="true"
                                            readonly
                                            value="{{ inv.comision_inversure_eur|default:inv.comision_eur|default:metricas.comision_inversure_eur|default:metricas.comision_eur|default:'' }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Impuesto sociedades (%)</label>
+                                    <input type="text"
+                                           class="form-control"
+                                           id="inv_impuesto_sociedades_pct"
+                                           name="impuesto_sociedades_pct"
+                                           data-number="true"
+                                           data-decimals="2"
+                                           value="{{ resultado.impuesto_sociedades_pct|default:metricas.impuesto_sociedades_pct|default:'' }}">
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label">Beneficio neto inversor (€)</label>
@@ -849,7 +877,7 @@
                             <input type="hidden" name="inversor.beneficio_neto" id="inv_beneficio_neto_base" value="{{ inv.beneficio_neto|default:'' }}">
                             <input type="hidden" name="inversor.roi_neto" id="inv_roi_neto_base" value="{{ inv.roi_neto|default:'' }}">
                             <div class="form-text mt-2">
-                                La comisión se calcula sobre el beneficio bruto y se descuenta del beneficio del inversor.
+                                La comisión se calcula sobre el beneficio bruto. El impuesto de sociedades se aplica sobre el beneficio del proyecto tras comisión.
                             </div>
                         </div>
                     </div>
@@ -1438,21 +1466,35 @@
 	                                </div>
 	                            </div>
 	                        </div>
-	                        <div class="col-md-3">
+	                        <div class="col-md-2">
 	                            <div class="dash-kpi">
 	                                <div class="label">Comisión Inversure</div>
 	                                <div class="value" id="dash_comision_inversure">—</div>
 	                                <div class="dash-sub">Sobre beneficio bruto</div>
 	                            </div>
 	                        </div>
-	                        <div class="col-md-3">
+	                        <div class="col-md-2">
 	                            <div class="dash-kpi">
 	                                <div class="label">Beneficio neto inversor</div>
 	                                <div class="value" id="dash_beneficio_neto_inversor">—</div>
 	                                <div class="dash-sub">Después de comisión</div>
 	                            </div>
 	                        </div>
-	                        <div class="col-md-3">
+	                        <div class="col-md-2">
+	                            <div class="dash-kpi">
+	                                <div class="label">Impuesto sociedades</div>
+	                                <div class="value" id="dash_impuesto_sociedades">—</div>
+	                                <div class="dash-sub">Sobre beneficio neto del proyecto</div>
+	                            </div>
+	                        </div>
+	                        <div class="col-md-2">
+	                            <div class="dash-kpi">
+	                                <div class="label">Beneficio neto tras impuestos</div>
+	                                <div class="value" id="dash_beneficio_neto_post_impuestos">—</div>
+	                                <div class="dash-sub">Resultado final para reparto</div>
+	                            </div>
+	                        </div>
+	                        <div class="col-md-4">
 	                            <div class="dash-kpi">
 	                                <div class="label">ROI neto inversor</div>
 	                                <div class="value" id="dash_roi_neto_inversor">—</div>

@@ -900,6 +900,14 @@ def _calc_beneficio_inversor(
 
     beneficio_bruto_operacion = float(resultado_mem.get("beneficio_neto") or 0.0)
     inv_sec = snapshot.get("inversor") if isinstance(snapshot.get("inversor"), dict) else {}
+    econ_sec = snapshot.get("economico") if isinstance(snapshot.get("economico"), dict) else {}
+    impuesto_sociedades_pct = _safe_float(
+        econ_sec.get("impuesto_sociedades_pct") or 0.0,
+        0.0,
+    )
+    if impuesto_sociedades_pct < 0:
+        impuesto_sociedades_pct = 0.0
+
     comision_pct = _safe_float(
         inv_sec.get("comision_inversure_pct")
         or inv_sec.get("inversure_comision_pct")
@@ -911,14 +919,22 @@ def _calc_beneficio_inversor(
     # Comisión "sobre beneficio": si la operación tiene pérdidas, no debería generar comisión negativa.
     comision_base = max(0.0, beneficio_bruto_operacion)
     comision_eur = comision_base * (comision_pct / 100.0) if comision_base else 0.0
-    beneficio_neto_total_operacion = beneficio_bruto_operacion - comision_eur
+    beneficio_neto_total_operacion_pre_impuesto = beneficio_bruto_operacion - comision_eur
+    beneficio_neto_total_operacion = beneficio_neto_total_operacion_pre_impuesto
+    impuesto_sociedades = 0.0
+    impuesto_sociedades_pct_aplicada = float(impuesto_sociedades_pct)
 
     proj_extra = proyecto.extra if isinstance(proyecto.extra, dict) else {}
     proj_override = proj_extra.get("beneficio_operacion_override")
+    override_impuesto_pct = None
+    override_impuesto = None
+    override_neto = None
     if isinstance(proj_override, dict):
         override_bruto = proj_override.get("beneficio_bruto")
         override_comision = proj_override.get("comision_eur")
         override_neto = proj_override.get("beneficio_neto_total")
+        override_impuesto = proj_override.get("impuesto_sociedades")
+        override_impuesto_pct = proj_override.get("impuesto_sociedades_pct")
         if override_bruto not in (None, ""):
             beneficio_bruto_operacion = _safe_float(override_bruto, beneficio_bruto_operacion)
         if override_comision not in (None, ""):
@@ -927,7 +943,29 @@ def _calc_beneficio_inversor(
             beneficio_neto_total_operacion = _safe_float(override_neto, beneficio_neto_total_operacion)
         elif override_bruto not in (None, "") or override_comision not in (None, ""):
             # Si se overridea bruto o comisión, asegurar que el neto sigue siendo coherente.
-            beneficio_neto_total_operacion = beneficio_bruto_operacion - comision_eur
+            beneficio_neto_total_operacion_pre_impuesto = beneficio_bruto_operacion - comision_eur
+            beneficio_neto_total_operacion = beneficio_neto_total_operacion_pre_impuesto
+
+    # Si se especifica la cuota de beneficios del proyecto, descuenta impuesto de sociedades antes de repartir.
+    if override_neto not in (None, ""):
+        impuesto_sociedades = 0.0
+        impuesto_sociedades_pct_aplicada = 0.0
+    else:
+        if override_impuesto_pct not in (None, ""):
+            impuesto_sociedades_pct_aplicada = _safe_float(override_impuesto_pct, impuesto_sociedades_pct_aplicada)
+        if impuesto_sociedades_pct_aplicada < 0:
+            impuesto_sociedades_pct_aplicada = 0.0
+        if impuesto_sociedades_pct_aplicada > 100:
+            impuesto_sociedades_pct_aplicada = 100.0
+
+        if override_impuesto not in (None, ""):
+            impuesto_sociedades = _safe_float(override_impuesto, 0.0)
+            if impuesto_sociedades < 0:
+                impuesto_sociedades = 0.0
+        else:
+            impuesto_sociedades = max(0.0, float(beneficio_neto_total_operacion_pre_impuesto or 0.0)) * (impuesto_sociedades_pct_aplicada / 100.0)
+
+        beneficio_neto_total_operacion = beneficio_neto_total_operacion_pre_impuesto - impuesto_sociedades
 
     inversion = float(getattr(part, "importe_invertido", 0) or 0)
     ratio = inversion / total_proj if total_proj > 0 else 0.0
@@ -969,6 +1007,9 @@ def _calc_beneficio_inversor(
         "beneficio_bruto_operacion": beneficio_bruto_operacion,
         "comision_pct": comision_pct,
         "comision_eur": comision_eur,
+        "impuesto_sociedades": impuesto_sociedades,
+        "impuesto_sociedades_pct_aplicada": impuesto_sociedades_pct_aplicada,
+        "beneficio_neto_operacion_pre_impuesto": beneficio_neto_total_operacion_pre_impuesto,
         "beneficio_neto_total_operacion": beneficio_neto_total_operacion,
         "ratio_participacion": ratio,
         # Reparto por inversor
@@ -2487,6 +2528,13 @@ def _resultado_desde_memoria(
         or snap_met.get("beneficio")
         or ""
     )
+    snap_impuesto_sociedades_pct = _parse_decimal(
+        snap_econ.get("impuesto_sociedades_pct")
+        or snap_met.get("impuesto_sociedades_pct")
+        or ""
+    )
+    if snap_impuesto_sociedades_pct is None:
+        snap_impuesto_sociedades_pct = Decimal("0")
     snap_gastos_venta = _sum_importes(
         [
             _parse_decimal(snap_econ.get("plusvalia")),
@@ -2544,6 +2592,18 @@ def _resultado_desde_memoria(
     except Exception:
         pass
 
+    impuesto_sociedades_pct = snap_impuesto_sociedades_pct
+    if impuesto_sociedades_pct < Decimal("0"):
+        impuesto_sociedades_pct = Decimal("0")
+    if impuesto_sociedades_pct > Decimal("100"):
+        impuesto_sociedades_pct = Decimal("100")
+
+    base_imponible_impuesto = beneficio if beneficio > 0 else Decimal("0")
+    impuesto_sociedades = (
+        base_imponible_impuesto * (impuesto_sociedades_pct / Decimal("100")) if base_imponible_impuesto else Decimal("0")
+    )
+    beneficio_neto_tras_impuestos = beneficio - impuesto_sociedades
+
     # ROI sobre inversión total (gastos) para que sea consistente con los KPIs de ingresos/gastos/beneficio.
     # Fallback: si no hay gastos en memoria, usar el valor de adquisición calculado.
     inversion_total = gastos_base if gastos_base > 0 else valor_adquisicion
@@ -2570,6 +2630,10 @@ def _resultado_desde_memoria(
 
     return {
         "beneficio_neto": float(beneficio),
+        "beneficio_neto_tras_impuestos": float(beneficio_neto_tras_impuestos),
+        "impuesto_sociedades": float(impuesto_sociedades),
+        "impuesto_sociedades_pct": float(impuesto_sociedades_pct),
+        "beneficio_neto_pre_impuestos": float(beneficio),
         "roi": roi,
         "inversion_total": float(inversion_total),
         "valor_adquisicion": float(valor_adquisicion),
@@ -4460,12 +4524,15 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
     beneficios_por_proyecto = []
     total_beneficio = 0.0
     total_retencion = 0.0
+    total_impuesto_sociedades = 0.0
     total_invertido_liquidado = 0.0
     total_invertido_estimado = 0.0
     total_beneficio_liquidado = 0.0
     total_retencion_liquidada = 0.0
+    total_impuesto_sociedades_liquidada = 0.0
     total_beneficio_estimado = 0.0
     total_retencion_estimada = 0.0
+    total_impuesto_sociedades_estimada = 0.0
     operaciones_liquidadas = 0
     operaciones_estimadas = 0
     beneficio_chart = []
@@ -4496,6 +4563,7 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
             continue
         beneficio_bruto = float(reparto.get("beneficio_bruto_operacion") or 0.0)
         comision_eur = float(reparto.get("comision_eur") or 0.0)
+        impuesto_sociedades = float(reparto.get("impuesto_sociedades") or 0.0)
         beneficio_neto_inversor_total = float(reparto.get("beneficio_neto_total_operacion") or 0.0)
         ratio_part = float(reparto.get("ratio_participacion") or 0.0)
         beneficio_inversor = float(reparto.get("beneficio_neto_inversor") or 0.0)
@@ -4509,22 +4577,26 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
         es_liquidacion = bool(liquidacion_status_cache.get(proyecto.id))
         total_beneficio += beneficio_inversor
         total_retencion += retencion
+        total_impuesto_sociedades += impuesto_sociedades
         if es_liquidacion:
             operaciones_liquidadas += 1
             total_invertido_liquidado += float(getattr(p, "importe_invertido", 0) or 0.0)
             total_beneficio_liquidado += beneficio_inversor
             total_retencion_liquidada += retencion
+            total_impuesto_sociedades_liquidada += impuesto_sociedades
         else:
             operaciones_estimadas += 1
             total_invertido_estimado += float(getattr(p, "importe_invertido", 0) or 0.0)
             total_beneficio_estimado += beneficio_inversor
             total_retencion_estimada += retencion
+            total_impuesto_sociedades_estimada += impuesto_sociedades
 
         beneficios_por_proyecto.append(
             {
                 "proyecto": proyecto,
                 "beneficio_bruto": beneficio_bruto,
                 "comision_eur": comision_eur,
+                "impuesto_sociedades": impuesto_sociedades,
                 "beneficio_neto_total": beneficio_neto_inversor_total,
                 "beneficio_inversor": beneficio_inversor,
                 "beneficio_override": override_data.get("beneficio_inversor") if override_data.get("beneficio_inversor") not in (None, "") else override_val,
@@ -4646,16 +4718,19 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
         "beneficios_por_proyecto": beneficios_por_proyecto,
         "total_beneficio": total_beneficio,
         "total_retencion": total_retencion,
+        "total_impuesto_sociedades": total_impuesto_sociedades,
         "total_neto_cobrar": total_beneficio - total_retencion,
         "total_a_percibir": float(total_invertido or 0.0) + (total_beneficio - total_retencion),
         "total_invertido_liquidado": total_invertido_liquidado,
         "total_beneficio_liquidado": total_beneficio_liquidado,
         "total_retencion_liquidada": total_retencion_liquidada,
+        "total_impuesto_sociedades_liquidada": total_impuesto_sociedades_liquidada,
         "total_neto_liquidado": total_beneficio_liquidado - total_retencion_liquidada,
         "total_a_percibir_liquidado": total_invertido_liquidado + (total_beneficio_liquidado - total_retencion_liquidada),
         "total_invertido_estimado": total_invertido_estimado,
         "total_beneficio_estimado": total_beneficio_estimado,
         "total_retencion_estimada": total_retencion_estimada,
+        "total_impuesto_sociedades_estimada": total_impuesto_sociedades_estimada,
         "total_neto_estimado": total_beneficio_estimado - total_retencion_estimada,
         "total_a_percibir_estimado": total_invertido_estimado + (total_beneficio_estimado - total_retencion_estimada),
         "hay_liquidaciones": operaciones_liquidadas > 0,
@@ -4833,7 +4908,13 @@ def inversor_beneficio_update(request, token: str, participacion_id: int):
         messages.success(request, "Beneficio actualizado correctamente.")
         return redirect("core:inversor_portal", token=token)
 
-    proj_keys = ("beneficio_bruto", "comision_eur", "beneficio_neto_total")
+    proj_keys = (
+        "beneficio_bruto",
+        "comision_eur",
+        "beneficio_neto_total",
+        "impuesto_sociedades",
+        "impuesto_sociedades_pct",
+    )
     inv_keys = ("beneficio_inversor", "retencion", "neto_cobrar")
 
     extra = proyecto.extra if isinstance(proyecto.extra, dict) else {}

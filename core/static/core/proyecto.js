@@ -824,6 +824,7 @@ function buildOverlayPayloadFromDOM() {
       "val_casafari",
       "val_tasacion",
       "media_valoraciones",
+      "impuesto_sociedades_pct",
     ]);
     if (economicoKeys.has(name)) {
       payload.economico[name] = value;
@@ -919,6 +920,7 @@ function buildOverlayPayloadFromDOM() {
 
 function updateComisionInversureMetrics({ beneficioBase = 0, valorAdqBase = 0 } = {}) {
   const pctInput = document.getElementById("inv_comision_pct");
+  const impuestoSociedadesPctInput = document.getElementById("inv_impuesto_sociedades_pct");
   const eurInput = document.getElementById("inv_comision_eur");
   const netoInput = document.getElementById("inv_beneficio_neto");
   const roiInput = document.getElementById("inv_roi_neto");
@@ -929,6 +931,8 @@ function updateComisionInversureMetrics({ beneficioBase = 0, valorAdqBase = 0 } 
   const dashComision = document.getElementById("dash_comision_inversure");
   const dashNeto = document.getElementById("dash_beneficio_neto_inversor");
   const dashRoi = document.getElementById("dash_roi_neto_inversor");
+  const dashImpuesto = document.getElementById("dash_impuesto_sociedades");
+  const dashBeneficioNetoPostImpuestos = document.getElementById("dash_beneficio_neto_post_impuestos");
 
   if (!pctInput || !eurInput || !netoInput || !roiInput) return;
 
@@ -950,9 +954,12 @@ function updateComisionInversureMetrics({ beneficioBase = 0, valorAdqBase = 0 } 
   }
 
   const pct = parseNumberEs(_getElText(pctInput)) || 0;
+  const impuestoSociedadesPct = parseNumberEs(_getElText(impuestoSociedadesPctInput)) || 0;
   const bruto = Number.isFinite(beneficioBase) && beneficioBase !== 0 ? beneficioBase : beneficioFallback;
   const comision = bruto > 0 ? (bruto * (pct / 100)) : 0;
-  const neto = bruto - comision;
+  const beneficioPostComision = bruto - comision;
+  const impuestoSociedades = Math.max(0, beneficioPostComision) * (impuestoSociedadesPct / 100);
+  const neto = beneficioPostComision - impuestoSociedades;
   const valorAdqCalc = Number.isFinite(valorAdqBase) && valorAdqBase > 0 ? valorAdqBase : (Number.isFinite(adqFallback) ? adqFallback : 0);
   const roi = valorAdqCalc > 0 ? (neto / valorAdqCalc) * 100 : 0;
 
@@ -965,13 +972,16 @@ function updateComisionInversureMetrics({ beneficioBase = 0, valorAdqBase = 0 } 
   if (roiBaseHidden) roiBaseHidden.value = roi;
 
   if (dashComision) dashComision.textContent = formatEuro(comision);
+  if (dashImpuesto) dashImpuesto.textContent = formatEuro(impuestoSociedades);
+  if (dashBeneficioNetoPostImpuestos) dashBeneficioNetoPostImpuestos.textContent = formatEuro(neto);
   if (dashNeto) dashNeto.textContent = formatEuro(neto);
   if (dashRoi) dashRoi.textContent = formatNumberEs(roi, 2) + " %";
 }
 
 function bindComisionInversureInputs() {
   const pctInput = document.getElementById("inv_comision_pct");
-  if (!pctInput) return;
+  const impuestoSociedadesPctInput = document.getElementById("inv_impuesto_sociedades_pct");
+  if (!pctInput && !impuestoSociedadesPctInput) return;
   const recalc = () => {
     const base = window.__dashEconomico || {};
     updateComisionInversureMetrics({
@@ -979,8 +989,14 @@ function bindComisionInversureInputs() {
       valorAdqBase: Number.isFinite(base.valorAdqBase) ? base.valorAdqBase : 0,
     });
   };
-  pctInput.addEventListener("input", recalc);
-  pctInput.addEventListener("blur", recalc);
+  if (pctInput) {
+    pctInput.addEventListener("input", recalc);
+    pctInput.addEventListener("blur", recalc);
+  }
+  if (impuestoSociedadesPctInput) {
+    impuestoSociedadesPctInput.addEventListener("input", recalc);
+    impuestoSociedadesPctInput.addEventListener("blur", recalc);
+  }
   recalc();
 }
 
@@ -2516,9 +2532,14 @@ function bindMemoriaEconomica() {
   });
 
   const comisionInput = document.getElementById("inv_comision_pct");
+  const impuestoInput = document.getElementById("inv_impuesto_sociedades_pct");
   if (comisionInput) {
     comisionInput.addEventListener("input", () => renderTotals());
     comisionInput.addEventListener("blur", () => renderTotals());
+  }
+  if (impuestoInput) {
+    impuestoInput.addEventListener("input", () => renderTotals());
+    impuestoInput.addEventListener("blur", () => renderTotals());
   }
 
   const estadoProyecto = document.getElementById("estado_proyecto");
