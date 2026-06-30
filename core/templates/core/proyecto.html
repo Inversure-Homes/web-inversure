@@ -1081,7 +1081,7 @@
                     <h5 class="mb-2 inversure-form-header">Documentación</h5>
                     <div id="doc_upload_wrap"
                          data-upload-url="{% url 'core:proyecto_documentos' proyecto.id %}"
-                         data-catastro-url="{% url 'core:proyecto_documento_ficha_catastral' proyecto.id %}">
+                         {% if not es_conciertos %}data-catastro-url="{% url 'core:proyecto_documento_ficha_catastral' proyecto.id %}"{% endif %}>
                       <div class="row g-3 align-items-end">
                         <div class="col-md-3">
                           <label class="form-label">Título</label>
@@ -1120,9 +1120,13 @@
 
                       <div class="d-flex align-items-center gap-2 mt-3">
                         <button type="button" class="btn btn-primary" id="doc_upload_btn">Subir documento</button>
-                        <button type="button" class="btn btn-outline-secondary" id="doc_catastro_btn">Generar ficha catastral</button>
+                        {% if not es_conciertos %}
+                          <button type="button" class="btn btn-outline-secondary" id="doc_catastro_btn">Generar ficha catastral</button>
+                        {% endif %}
                         <span class="text-muted small" id="doc_upload_status"></span>
-                        <span class="text-muted small" id="doc_catastro_status"></span>
+                        {% if not es_conciertos %}
+                          <span class="text-muted small" id="doc_catastro_status"></span>
+                        {% endif %}
                       </div>
                     </div>
                 </div>
@@ -1286,8 +1290,8 @@
                                 <input type="text" class="form-control" name="difusion.titulo" value="{{ difusion_config.titulo|default:proyecto.nombre|default:'' }}">
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Ubicación</label>
-                                <input type="text" class="form-control" name="difusion.ubicacion" value="{{ difusion_config.ubicacion|default:inmueble.direccion|default:'' }}">
+                                <label class="form-label">{% if es_conciertos %}Empresa{% else %}Ubicación{% endif %}</label>
+                                <input type="text" class="form-control" name="difusion.ubicacion" value="{% if es_conciertos %}{{ difusion_config.ubicacion|default:conciertos.empresa_acuerdo|default:conciertos.empresa|default:'' }}{% else %}{{ difusion_config.ubicacion|default:inmueble.direccion|default:'' }}{% endif %}">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Año</label>
