@@ -563,7 +563,17 @@
         {% if es_conciertos %}
         <div class="row g-3 mb-3">
           <div class="col-md-3">
-            <div class="small text-muted">Importe invertido</div>
+            <label class="form-label">Gasto solicitado</label>
+            <input type="text"
+                   class="form-control form-control-lg"
+                   name="conciertos.gasto_solicitado"
+                   data-euro="true"
+                   value="{{ conciertos.gasto_solicitado|default:'' }}"
+                   placeholder="Cantidad solicitada"
+                   {% if not editable %}disabled{% endif %}>
+          </div>
+          <div class="col-md-3">
+            <div class="small text-muted">Gasto solicitado</div>
             <div class="fw-bold" id="eco_total_estimado">—</div>
           </div>
           <div class="col-md-3">
@@ -1085,11 +1095,12 @@
                         </table>
                     </div>
 
-                    {% if is_admin %}
+                    {% if not es_conciertos and is_admin %}
                     <div class="card border-0 shadow-sm mt-4 d-none" id="difusion_block_placeholder">
                         <div class="card-body text-muted">Difusión movida a la pestaña de Publicación / Difusión.</div>
                     </div>
                     {% endif %}
+                    {% if not es_conciertos %}
                     <div class="mt-4">
                         <h6 class="mb-2">Solicitudes pendientes</h6>
                         {% if solicitudes_pendientes_count %}
@@ -1118,6 +1129,7 @@
                             </table>
                         </div>
                     </div>
+                    {% endif %}
 
                 </div>
             </div>
@@ -1521,14 +1533,56 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h5 class="mb-1">Dashboard operativo</h5>
-                            <div class="dash-sub">Visión rápida del estado económico y trazabilidad del proyecto</div>
+                            {% if es_conciertos %}
+                              <h5 class="mb-1">Dashboard de liquidaciones</h5>
+                              <div class="dash-sub">Ganancia total del acuerdo y reparto con Inversure</div>
+                            {% else %}
+                              <h5 class="mb-1">Dashboard operativo</h5>
+                              <div class="dash-sub">Visión rápida del estado económico y trazabilidad del proyecto</div>
+                            {% endif %}
                         </div>
-                        <div class="dash-pill">Equipo Inversure</div>
+                        <div class="dash-pill">{% if es_conciertos %}Acuerdo conciertos{% else %}Equipo Inversure{% endif %}</div>
                     </div>
                 </div>
             </div>
 
+            {% if es_conciertos %}
+            <div class="card mb-4 shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="mb-3 inversure-form-header">Resumen del reparto</h5>
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <div class="dash-kpi">
+                                <div class="label">Ganancia total</div>
+                                <div class="value" id="dash_conciertos_ganancia_total">—</div>
+                                <div class="dash-sub">Suma de liquidaciones</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="dash-kpi">
+                                <div class="label">Parte Inversure</div>
+                                <div class="value" id="dash_conciertos_inversure">—</div>
+                                <div class="dash-sub">7% del total</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="dash-kpi">
+                                <div class="label">Parte participantes</div>
+                                <div class="value" id="dash_conciertos_participantes">—</div>
+                                <div class="dash-sub">93% del total</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="dash-kpi">
+                                <div class="label">Gasto solicitado</div>
+                                <div class="value" id="dash_conciertos_gasto">—</div>
+                                <div class="dash-sub">Importe pedido</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
             <div class="card mb-4 shadow-sm border-0">
                 <div class="card-body">
                     <h5 class="mb-3 inversure-form-header">Indicadores clave</h5>
@@ -1681,7 +1735,9 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
 
+            {% if not es_conciertos %}
             <div class="card mb-4 shadow-sm border-0">
                 <div class="card-body">
                     <h5 class="mb-3 inversure-form-header">Progreso operativo</h5>
@@ -1690,6 +1746,7 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
         </div>
 
     </div> <!-- /tab-content -->

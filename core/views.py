@@ -5270,6 +5270,7 @@ def proyecto(request, proyecto_id: int):
         "interes_acordado": conciertos_raw.get("interes_acordado", "") or conciertos_raw.get("interes", "") or "",
         "empresa": conciertos_raw.get("empresa", "") or conciertos_raw.get("empresa_acuerdo", "") or "",
         "empresa_acuerdo": conciertos_raw.get("empresa_acuerdo", "") or conciertos_raw.get("empresa", "") or "",
+        "gasto_solicitado": conciertos_raw.get("gasto_solicitado", "") or conciertos_raw.get("gasto", "") or "",
     })
     kpis_raw = snapshot.get("kpis")
     if not isinstance(kpis_raw, dict):
@@ -7681,6 +7682,11 @@ def proyecto_liquidaciones(request, proyecto_id: int):
             "neto": 0.0,
             "total_a_percibir": 0.0,
         }
+        conciertos_raw = snapshot.get("conciertos") if isinstance(snapshot.get("conciertos"), dict) else {}
+        gasto_solicitado = _safe_float(
+            conciertos_raw.get("gasto_solicitado") or conciertos_raw.get("gasto") or 0.0,
+            0.0,
+        )
 
         for part in participaciones_qs:
             benefit = _calc_beneficio_inversor(part, proyecto, snapshot, resultado_mem, total_proj)
@@ -7710,6 +7716,7 @@ def proyecto_liquidaciones(request, proyecto_id: int):
         return JsonResponse({
             "ok": True,
             "liquidaciones": rows,
+            "gasto_solicitado": gasto_solicitado,
             "resumen": {
                 "invertido": totals["invertido"],
                 "bruto": totals["bruto"],

@@ -1389,11 +1389,23 @@ function bindLiquidacionesEconomicas() {
   const url = window.PROYECTO_LIQUIDACIONES_URL || "";
   if (!tabla || !url) return;
 
+  const gastoSolicitadoInput = document.querySelector("[name='conciertos.gasto_solicitado']");
   const totalInvertidoEl = document.getElementById("eco_total_estimado");
   const totalBrutoEl = document.getElementById("eco_total_real");
   const totalRetencionEl = document.getElementById("eco_total_ingresos");
   const totalRetencionTxtEl = document.getElementById("eco_total_ingresos_estimado");
   const totalNetoEl = document.getElementById("eco_balance_neto");
+  const dashGananciaTotalEl = document.getElementById("dash_conciertos_ganancia_total");
+  const dashInversureEl = document.getElementById("dash_conciertos_inversure");
+  const dashParticipantesEl = document.getElementById("dash_conciertos_participantes");
+  const dashGastoEl = document.getElementById("dash_conciertos_gasto");
+  const porcentajeInversure = 7;
+  const porcentajeParticipantes = 93;
+
+  function getGastoSolicitado() {
+    const val = gastoSolicitadoInput ? parseEuro(_getElText(gastoSolicitadoInput)) : null;
+    return Number.isFinite(val) ? val : 0;
+  }
 
   function fmtDate(iso) {
     if (!iso) return "";
@@ -1403,11 +1415,20 @@ function bindLiquidacionesEconomicas() {
 
   function renderTotals(resumen) {
     if (!resumen) return;
-    if (totalInvertidoEl) totalInvertidoEl.textContent = formatEuro(resumen.invertido || 0);
-    if (totalBrutoEl) totalBrutoEl.textContent = formatEuro(resumen.bruto || 0);
-    if (totalRetencionEl) totalRetencionEl.textContent = formatEuro(resumen.retencion || 0);
-    if (totalRetencionTxtEl) totalRetencionTxtEl.textContent = "Retención total estimada";
-    if (totalNetoEl) totalNetoEl.textContent = formatEuro(resumen.neto || 0);
+    const gastoSolicitado = Number.isFinite(resumen.gasto_solicitado) ? resumen.gasto_solicitado : getGastoSolicitado();
+    const gananciaTotal = Number.isFinite(resumen.bruto) ? resumen.bruto : 0;
+    const parteInversure = gananciaTotal * (porcentajeInversure / 100);
+    const parteParticipantes = gananciaTotal * (porcentajeParticipantes / 100);
+    const neto = Number.isFinite(resumen.neto) ? resumen.neto : 0;
+    if (totalInvertidoEl) totalInvertidoEl.textContent = formatEuro(gastoSolicitado);
+    if (totalBrutoEl) totalBrutoEl.textContent = formatEuro(gananciaTotal);
+    if (totalRetencionEl) totalRetencionEl.textContent = formatEuro(parteInversure);
+    if (totalRetencionTxtEl) totalRetencionTxtEl.textContent = "Parte Inversure";
+    if (totalNetoEl) totalNetoEl.textContent = formatEuro(neto);
+    if (dashGananciaTotalEl) dashGananciaTotalEl.textContent = formatEuro(gananciaTotal);
+    if (dashInversureEl) dashInversureEl.textContent = formatEuro(parteInversure);
+    if (dashParticipantesEl) dashParticipantesEl.textContent = formatEuro(parteParticipantes);
+    if (dashGastoEl) dashGastoEl.textContent = formatEuro(gastoSolicitado);
   }
 
   async function loadRows() {
@@ -1416,7 +1437,10 @@ function bindLiquidacionesEconomicas() {
       const data = await resp.json();
       if (!data || !data.ok) return;
       const rows = data.liquidaciones || [];
-      renderTotals(data.resumen || {});
+      renderTotals({
+        ...(data.resumen || {}),
+        gasto_solicitado: Number.isFinite(data.gasto_solicitado) ? data.gasto_solicitado : getGastoSolicitado(),
+      });
       if (!rows.length) {
         tabla.innerHTML = "<tr><td colspan=\"8\" class=\"text-muted\">No hay liquidaciones todavía.</td></tr>";
         return;
@@ -1434,6 +1458,14 @@ function bindLiquidacionesEconomicas() {
         </tr>
       `).join("");
     } catch (e) {}
+  }
+
+  if (gastoSolicitadoInput) {
+    gastoSolicitadoInput.addEventListener("input", () => {
+      renderTotals({
+        gasto_solicitado: getGastoSolicitado(),
+      });
+    });
   }
 
   loadRows();
