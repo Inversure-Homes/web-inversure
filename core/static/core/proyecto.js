@@ -1390,6 +1390,7 @@ function bindLiquidacionesEconomicas() {
   if (!tabla || !url) return;
 
   const gastoSolicitadoInput = document.querySelector("[name='conciertos.gasto_solicitado']");
+  const fechaLiquidacionInput = document.querySelector("[name='conciertos.fecha_liquidacion']");
   const totalInvertidoEl = document.getElementById("eco_total_estimado");
   const totalBrutoEl = document.getElementById("eco_total_real");
   const totalRetencionEl = document.getElementById("eco_total_ingresos");
@@ -1399,12 +1400,20 @@ function bindLiquidacionesEconomicas() {
   const dashInversureEl = document.getElementById("dash_conciertos_inversure");
   const dashParticipantesEl = document.getElementById("dash_conciertos_participantes");
   const dashGastoEl = document.getElementById("dash_conciertos_gasto");
+  const dashFechaLiquidacionEl = document.getElementById("dash_conciertos_fecha_liquidacion");
   const porcentajeInversure = 7;
   const porcentajeParticipantes = 93;
 
   function getGastoSolicitado() {
     const val = gastoSolicitadoInput ? parseEuro(_getElText(gastoSolicitadoInput)) : null;
     return Number.isFinite(val) ? val : 0;
+  }
+
+  function getFechaLiquidacion() {
+    const val = fechaLiquidacionInput ? String(fechaLiquidacionInput.value || "").trim() : "";
+    if (!val) return "";
+    const parts = val.split("-");
+    return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : val;
   }
 
   function fmtDate(iso) {
@@ -1429,6 +1438,7 @@ function bindLiquidacionesEconomicas() {
     if (dashInversureEl) dashInversureEl.textContent = formatEuro(parteInversure);
     if (dashParticipantesEl) dashParticipantesEl.textContent = formatEuro(parteParticipantes);
     if (dashGastoEl) dashGastoEl.textContent = formatEuro(gastoSolicitado);
+    if (dashFechaLiquidacionEl) dashFechaLiquidacionEl.textContent = getFechaLiquidacion() || "—";
   }
 
   async function loadRows() {
@@ -1462,6 +1472,13 @@ function bindLiquidacionesEconomicas() {
 
   if (gastoSolicitadoInput) {
     gastoSolicitadoInput.addEventListener("input", () => {
+      renderTotals({
+        gasto_solicitado: getGastoSolicitado(),
+      });
+    });
+  }
+  if (fechaLiquidacionInput) {
+    fechaLiquidacionInput.addEventListener("input", () => {
       renderTotals({
         gasto_solicitado: getGastoSolicitado(),
       });

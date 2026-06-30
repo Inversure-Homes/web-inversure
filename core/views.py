@@ -1197,6 +1197,14 @@ def _build_comunicacion_context(
             except Exception:
                 fecha_salida = None
             if not isinstance(fecha_salida, date):
+                try:
+                    snap_conciertos = snapshot.get("conciertos") if isinstance(snapshot.get("conciertos"), dict) else {}
+                    fecha_liq = snap_conciertos.get("fecha_liquidacion") or snap_conciertos.get("liquidacion_fecha")
+                    if fecha_liq:
+                        fecha_salida = _parse_date(fecha_liq)
+                except Exception:
+                    pass
+            if not isinstance(fecha_salida, date):
                 fecha_salida = None
 
             if fecha_inversion and fecha_salida and fecha_salida >= fecha_inversion:
@@ -5279,6 +5287,7 @@ def proyecto(request, proyecto_id: int):
         "empresa": conciertos_raw.get("empresa", "") or conciertos_raw.get("empresa_acuerdo", "") or "",
         "empresa_acuerdo": conciertos_raw.get("empresa_acuerdo", "") or conciertos_raw.get("empresa", "") or "",
         "gasto_solicitado": conciertos_raw.get("gasto_solicitado", "") or conciertos_raw.get("gasto", "") or "",
+        "fecha_liquidacion": conciertos_raw.get("fecha_liquidacion", "") or conciertos_raw.get("liquidacion_fecha", "") or "",
     })
     kpis_raw = snapshot.get("kpis")
     if not isinstance(kpis_raw, dict):

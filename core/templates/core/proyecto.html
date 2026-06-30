@@ -573,6 +573,14 @@
                    {% if not editable %}disabled{% endif %}>
           </div>
           <div class="col-md-3">
+            <label class="form-label">Fecha de liquidación</label>
+            <input type="date"
+                   class="form-control form-control-lg"
+                   name="conciertos.fecha_liquidacion"
+                   value="{{ conciertos.fecha_liquidacion|default:'' }}"
+                   {% if not editable %}disabled{% endif %}>
+          </div>
+          <div class="col-md-3">
             <div class="small text-muted">Gasto solicitado</div>
             <div class="fw-bold" id="eco_total_estimado">—</div>
           </div>
@@ -1591,6 +1599,13 @@
                                 <div class="label">Gasto solicitado</div>
                                 <div class="value" id="dash_conciertos_gasto">—</div>
                                 <div class="dash-sub">Importe pedido</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="dash-kpi">
+                                <div class="label">Fecha de liquidación</div>
+                                <div class="value" id="dash_conciertos_fecha_liquidacion">—</div>
+                                <div class="dash-sub">Momento de cierre</div>
                             </div>
                         </div>
                     </div>
