@@ -104,6 +104,29 @@
         </div>
         {% endif %}
 
+        {% if can_proyectos %}
+        <div class="col-md-4">
+            <a href="{% url 'core:otros_proyectos' %}" class="text-decoration-none text-dark">
+                <div class="card h-100 shadow-sm border-0 hover-card">
+                    <div class="card-body text-center d-flex flex-column">
+                        <div class="card-icon-wrapper mb-3">
+                            <div class="card-icon-circle">
+                                <i class="bi bi-diagram-3 fs-1"></i>
+                            </div>
+                        </div>
+                        <h5 class="mb-2">Otros proyectos de inversión</h5>
+                        <p class="text-muted mb-4">
+                            Proyectos fuera del inmobiliario, como Conciertos.
+                        </p>
+                        <span class="btn btn-inversure mt-auto">
+                            Abrir otros proyectos
+                        </span>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+
         {% if can_inversores %}
         <div class="col-md-4">
             <a href="{% url 'core:inversores_list' %}" class="text-decoration-none text-dark">

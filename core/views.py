@@ -3575,6 +3575,103 @@ def home(request):
     return render(request, "core/home.html", ctx)
 
 
+def _ensure_conciertos_project() -> Proyecto:
+    proyecto = Proyecto.objects.filter(nombre__iexact="Conciertos").order_by("id").first()
+    if proyecto is None:
+        proyecto = Proyecto.objects.create(
+            nombre="Conciertos",
+            estado="captacion",
+            extra={"rama": "otros", "tipo": "conciertos"},
+            mostrar_en_landing=False,
+            acceso_comercial=False,
+        )
+        return proyecto
+
+    extra = getattr(proyecto, "extra", None)
+    if not isinstance(extra, dict):
+        extra = {}
+    changed = False
+    if extra.get("rama") != "otros":
+        extra["rama"] = "otros"
+        changed = True
+    if extra.get("tipo") != "conciertos":
+        extra["tipo"] = "conciertos"
+        changed = True
+    if changed:
+        proyecto.extra = extra
+        proyecto.save(update_fields=["extra", "actualizado"])
+    return proyecto
+
+
+def otros_proyectos(request):
+    if not request.user.is_authenticated:
+        return redirect("core:home")
+    perms = resolve_permissions(request.user)
+    if not perms.get("can_proyectos"):
+        return redirect("core:home")
+
+    def _get_snapshot(p: Proyecto) -> dict:
+        snap = getattr(p, "snapshot_datos", None)
+        if isinstance(snap, dict) and snap:
+            return snap
+        osnap = getattr(p, "origen_snapshot", None)
+        if osnap is not None:
+            datos = getattr(osnap, "datos", None)
+            if isinstance(datos, dict) and datos:
+                return datos
+        oest = getattr(p, "origen_estudio", None)
+        if oest is not None:
+            datos = getattr(oest, "datos", None)
+            if isinstance(datos, dict) and datos:
+                return datos
+        return {}
+
+    conciertos = _ensure_conciertos_project()
+    try:
+        snap = _get_snapshot(conciertos)
+        conciertos.capital_objetivo = _capital_objetivo_desde_memoria(conciertos, snap)
+        conciertos.capital_captado = (
+            Participacion.objects.filter(proyecto=conciertos, estado="confirmada")
+            .aggregate(total=Sum("importe_invertido"))
+            .get("total")
+            or 0
+        )
+        conciertos.roi = (_resultado_desde_memoria(conciertos, snap) or {}).get("roi", 0)
+    except Exception:
+        conciertos.capital_objetivo = 0
+        conciertos.capital_captado = 0
+        conciertos.roi = 0
+
+    otros = (
+        Proyecto.objects.filter(extra__rama="otros")
+        .exclude(id=conciertos.id)
+        .order_by("nombre", "id")
+    )
+    for proyecto in otros:
+        try:
+            snap = _get_snapshot(proyecto)
+            proyecto.capital_objetivo = _capital_objetivo_desde_memoria(proyecto, snap)
+            proyecto.capital_captado = (
+                Participacion.objects.filter(proyecto=proyecto, estado="confirmada")
+                .aggregate(total=Sum("importe_invertido"))
+                .get("total")
+                or 0
+            )
+            proyecto.roi = (_resultado_desde_memoria(proyecto, snap) or {}).get("roi", 0)
+        except Exception:
+            proyecto.capital_objetivo = 0
+            proyecto.capital_captado = 0
+            proyecto.roi = 0
+    return render(
+        request,
+        "core/otros_proyectos.html",
+        {
+            "proyectos": otros,
+            "conciertos": conciertos,
+        },
+    )
+
+
 def dashboard(request):
     try:
         ctx = _build_dashboard_context(request.user)
@@ -3796,7 +3893,7 @@ def lista_estudio(request):
 
 def lista_proyectos(request):
     estados_cerrados = {"cerrado", "descartado"}
-    proyectos = Proyecto.objects.exclude(estado__in=estados_cerrados).order_by("-id")
+    proyectos = Proyecto.objects.exclude(estado__in=estados_cerrados).exclude(extra__rama="otros").order_by("-id")
     if is_comercial_user(request.user) and not _user_is_admin_or_direccion(request.user) and not use_custom_permissions(request.user):
         proyectos = proyectos.filter(responsable_user=request.user)
     proyectos_ids = list(proyectos.values_list("id", flat=True))

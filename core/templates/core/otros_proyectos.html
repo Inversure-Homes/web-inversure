@@ -1,0 +1,67 @@
+{% extends "core/base.html" %}
+{% block content %}
+
+<div class="main-container">
+  <div class="container mt-5">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4">
+      <div>
+        <h1 class="hero-title fw-semibold mb-2 text-inversure-azul">Otros proyectos de inversión</h1>
+        <p class="text-muted mb-0">Ramas de negocio fuera del inmobiliario. Aquí agrupamos proyectos como Conciertos.</p>
+      </div>
+      <a href="{% url 'core:home' %}" class="btn btn-inversure-outline">Volver a la home</a>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-md-6">
+        <a href="{% url 'core:proyecto' conciertos.id %}" class="text-decoration-none text-dark">
+          <div class="card h-100 shadow-sm border-0 hover-card">
+            <div class="card-body d-flex flex-column">
+              <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                <div>
+                  <h3 class="mb-1">Conciertos</h3>
+                  <p class="text-muted mb-0">Proyecto de inversión fija con liquidaciones periódicas e inversores.</p>
+                </div>
+                <span class="badge bg-light text-dark">Proyecto activo</span>
+              </div>
+              <div class="mb-3 text-muted small">
+                <div>Capital objetivo: {{ conciertos.capital_objetivo|default:"" }}</div>
+                <div>Estado: {{ conciertos.get_estado_display|default:conciertos.estado }}</div>
+              </div>
+              <span class="btn btn-inversure mt-auto align-self-start">Abrir Conciertos</span>
+            </div>
+          </div>
+        </a>
+      </div>
+
+      {% for proyecto in proyectos %}
+      <div class="col-md-6">
+        <a href="{% url 'core:proyecto' proyecto.id %}" class="text-decoration-none text-dark">
+          <div class="card h-100 shadow-sm border-0 hover-card">
+            <div class="card-body d-flex flex-column">
+              <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                <div>
+                  <h3 class="mb-1">{{ proyecto.nombre }}</h3>
+                  <p class="text-muted mb-0">Proyecto adicional dentro de la rama de inversión no inmobiliaria.</p>
+                </div>
+                <span class="badge bg-light text-dark">Otros</span>
+              </div>
+              <div class="mb-3 text-muted small">
+                <div>Estado: {{ proyecto.get_estado_display|default:proyecto.estado }}</div>
+              </div>
+              <span class="btn btn-inversure mt-auto align-self-start">Abrir proyecto</span>
+            </div>
+          </div>
+        </a>
+      </div>
+      {% empty %}
+      <div class="col-12">
+        <div class="alert alert-light border">
+          No hay proyectos adicionales todavía.
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}
