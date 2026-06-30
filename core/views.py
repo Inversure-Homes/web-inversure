@@ -5254,6 +5254,23 @@ def proyecto(request, proyecto_id: int):
         if not isinstance(snapshot.get("inmueble"), dict):
             snapshot["inmueble"] = {}
         snapshot["inmueble"]["nombre_proyecto"] = nombre_p
+    extra_proyecto = getattr(proyecto_obj, "extra", None)
+    if not isinstance(extra_proyecto, dict):
+        extra_proyecto = {}
+    es_conciertos = (
+        (extra_proyecto.get("tipo") or "").strip().lower() == "conciertos"
+        or (extra_proyecto.get("rama") or "").strip().lower() == "otros"
+        and nombre_p.strip().lower() == "conciertos"
+    )
+    conciertos_raw = snapshot.get("conciertos") if isinstance(snapshot.get("conciertos"), dict) else {}
+    if not isinstance(conciertos_raw, dict):
+        conciertos_raw = {}
+    conciertos_ctx = SafeAccessDict({
+        "plazo_acuerdo": conciertos_raw.get("plazo_acuerdo", "") or conciertos_raw.get("plazo", "") or "",
+        "interes_acordado": conciertos_raw.get("interes_acordado", "") or conciertos_raw.get("interes", "") or "",
+        "empresa": conciertos_raw.get("empresa", "") or conciertos_raw.get("empresa_acuerdo", "") or "",
+        "empresa_acuerdo": conciertos_raw.get("empresa_acuerdo", "") or conciertos_raw.get("empresa", "") or "",
+    })
     kpis_raw = snapshot.get("kpis")
     if not isinstance(kpis_raw, dict):
         kpis_raw = {}
@@ -5501,6 +5518,8 @@ def proyecto(request, proyecto_id: int):
         "capital_objetivo": captacion_ctx.get("capital_objetivo"),
         "capital_captado": captacion_ctx.get("capital_captado"),
         "pct_captado": captacion_ctx.get("pct_captado"),
+        "es_conciertos": es_conciertos,
+        "conciertos": conciertos_ctx,
         "landing_beneficio_neto_pct_auto": None,
     }
     try:

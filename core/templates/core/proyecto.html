@@ -72,7 +72,11 @@
     <div class="card card-inversure shadow-sm border-0 mb-4">
       <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
         <div>
-          <h1 class="mb-1">Proyecto{% if proyecto and proyecto.nombre %} · {{ proyecto.nombre }}{% endif %}</h1>
+          {% if es_conciertos %}
+            <h1 class="mb-1">Conciertos{% if proyecto and proyecto.nombre and proyecto.nombre|lower != "conciertos" %} · {{ proyecto.nombre }}{% endif %}</h1>
+          {% else %}
+            <h1 class="mb-1">Proyecto{% if proyecto and proyecto.nombre %} · {{ proyecto.nombre }}{% endif %}</h1>
+          {% endif %}
 
           {% if proyecto and proyecto.id %}
             <div class="mt-2">
@@ -82,14 +86,25 @@
             </div>
           {% endif %}
 
-          <p class="text-muted mb-0">
-            Proyecto operativo creado desde un estudio. Los datos iniciales se heredan del snapshot de conversión y se trabajan como valores reales.
-          </p>
-
-          {% if snapshot.meta.estudio_id %}
+          {% if es_conciertos %}
+            <p class="text-muted mb-0">
+              Acuerdo de inversión sencillo con empresa externa.
+            </p>
             <div class="mt-2 small text-muted">
-              <strong>Origen:</strong> Estudio #{{ snapshot.meta.estudio_id }} · <strong>Snapshot:</strong> {{ snapshot.meta.fecha_snapshot|default:"" }}
+              <strong>Empresa:</strong> {{ conciertos.empresa_acuerdo|default:conciertos.empresa|default:"—" }}
+              · <strong>Plazo:</strong> {{ conciertos.plazo_acuerdo|default:"—" }}
+              · <strong>Interés:</strong> {{ conciertos.interes_acordado|default:"—" }}{% if conciertos.interes_acordado %}%{% endif %}
             </div>
+          {% else %}
+            <p class="text-muted mb-0">
+              Proyecto operativo creado desde un estudio. Los datos iniciales se heredan del snapshot de conversión y se trabajan como valores reales.
+            </p>
+
+            {% if snapshot.meta.estudio_id %}
+              <div class="mt-2 small text-muted">
+                <strong>Origen:</strong> Estudio #{{ snapshot.meta.estudio_id }} · <strong>Snapshot:</strong> {{ snapshot.meta.fecha_snapshot|default:"" }}
+              </div>
+            {% endif %}
           {% endif %}
         </div>
 
@@ -123,9 +138,44 @@
     <div class="card mb-4 shadow-sm border-0" data-fase="proyecto">
         <div class="card-header bg-inversure-dark text-inversure fw-semibold border-0 d-flex align-items-center gap-2">
             <span class="icon-inversure">📌</span>
-            <span>Proyecto</span>
+            <span>{% if es_conciertos %}Acuerdo{% else %}Proyecto{% endif %}</span>
         </div>
         <div class="card-body">
+            {% if es_conciertos %}
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label text-muted">Plazo del acuerdo</label>
+                    <input type="text"
+                           name="conciertos.plazo_acuerdo"
+                           class="form-control form-control-lg"
+                           value="{{ conciertos.plazo_acuerdo|default:'' }}"
+                           placeholder="Ej.: 12 meses"
+                           {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label text-muted">Interés acordado</label>
+                    <input type="text"
+                           name="conciertos.interes_acordado"
+                           class="form-control form-control-lg"
+                           data-percent="true"
+                           value="{{ conciertos.interes_acordado|default:'' }}"
+                           placeholder="Ej.: 5"
+                           {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label text-muted">Empresa con la que se acuerda</label>
+                    <input type="text"
+                           name="conciertos.empresa_acuerdo"
+                           class="form-control form-control-lg"
+                           value="{{ conciertos.empresa_acuerdo|default:conciertos.empresa|default:'' }}"
+                           placeholder="Nombre de la empresa"
+                           {% if not editable %}disabled{% endif %}>
+                </div>
+            </div>
+            <div class="form-text">
+                Estos datos describen el acuerdo operativo del proyecto de conciertos.
+            </div>
+            {% else %}
             {% if pending_estado_notif %}
             <div class="alert alert-warning d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2">
                 <div>
@@ -272,6 +322,7 @@
                 });
               })();
             </script>
+            {% endif %}
         </div>
     </div>
 
@@ -318,6 +369,46 @@
 
     <div class="tab-content">
         <div class="tab-pane fade show active" id="vista-tecnica" role="tabpanel" aria-labelledby="tab-tecnica">
+    {% if es_conciertos %}
+    <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
+        <div class="card-header bg-light fw-semibold border-0 d-flex align-items-center gap-2">
+            <span class="icon-inversure">🎵</span>
+            <span>Vista técnica del acuerdo</span>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Plazo del acuerdo</label>
+                    <input type="text"
+                           name="conciertos.plazo_acuerdo"
+                           class="form-control form-control-lg"
+                           value="{{ conciertos.plazo_acuerdo|default:'' }}"
+                           placeholder="Ej.: 12 meses"
+                           {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Interés acordado</label>
+                    <input type="text"
+                           name="conciertos.interes_acordado"
+                           class="form-control form-control-lg"
+                           data-percent="true"
+                           value="{{ conciertos.interes_acordado|default:'' }}"
+                           placeholder="Ej.: 5"
+                           {% if not editable %}disabled{% endif %}>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Empresa</label>
+                    <input type="text"
+                           name="conciertos.empresa_acuerdo"
+                           class="form-control form-control-lg"
+                           value="{{ conciertos.empresa_acuerdo|default:conciertos.empresa|default:'' }}"
+                           placeholder="Empresa con la que se acuerda"
+                           {% if not editable %}disabled{% endif %}>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
 
     <!-- ===============================
          INMUEBLE (dentro de Vista técnica)
@@ -443,6 +534,7 @@
       });
     </script>
 
+    {% endif %}
         </div>
 
         <div class="tab-pane fade" id="vista-economicos" role="tabpanel" aria-labelledby="tab-economicos">
