@@ -339,7 +339,7 @@
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="tab-economicos" data-bs-toggle="tab" data-bs-target="#vista-economicos" type="button" role="tab" aria-controls="vista-economicos" aria-selected="false">
-                Datos económicos
+                {% if es_conciertos %}Liquidaciones{% else %}Datos económicos{% endif %}
             </button>
         </li>
         <li class="nav-item" role="presentation">
@@ -545,11 +545,11 @@
          DATOS ECONÓMICOS
     ================================ -->
     <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
-      <div class="card-body">
+        <div class="card-body">
         <div class="d-flex align-items-center justify-content-between mb-3">
           <h5 class="mb-0 inversure-form-header">
             <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">1</span>
-            {% if es_conciertos %}Liquidaciones a inversores{% else %}Memoria económica{% endif %}
+            {% if es_conciertos %}Liquidaciones{% else %}Memoria económica{% endif %}
           </h5>
           {% if not es_conciertos %}
             <a class="btn btn-sm btn-outline-secondary"
