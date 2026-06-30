@@ -1171,6 +1171,12 @@ class Participacion(models.Model):
         default="pendiente"
     )
 
+    fecha_aportacion = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Fecha de la aportación para cálculo de rentabilidad"
+    )
+
     # =========================
     # CONTROL
     # =========================

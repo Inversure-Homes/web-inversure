@@ -3116,9 +3116,11 @@ function bindParticipaciones() {
   const tabla = document.getElementById("inv_tabla_rows");
   const btnAdd = document.getElementById("inv_add_btn");
   const elCliente = document.getElementById("inv_cliente");
+  const elFechaAportacion = document.getElementById("inv_fecha_aportacion");
   const elImporte = document.getElementById("inv_importe");
   const url = window.PROYECTO_PARTICIPACIONES_URL || "";
   if (!tabla || !btnAdd || !url) return;
+  const esConciertos = !!window.PROYECTO_CONCIERTOS_MODE;
 
   async function loadRows() {
     try {
@@ -3177,7 +3179,8 @@ function bindParticipaciones() {
       }
       tabla.innerHTML = rows.map(r => {
         const pctVal = r.porcentaje_participacion !== null ? formatNumberEs(r.porcentaje_participacion, 2) : "";
-        const fecha = r.fecha ? r.fecha.slice(0, 10).split("-").reverse().join("/") : "";
+        const fechaIso = r.fecha_aportacion || r.fecha || "";
+        const fecha = fechaIso ? fechaIso.slice(0, 10).split("-").reverse().join("/") : "";
         const estado = r.estado || "pendiente";
         return `
           <tr data-id="${r.id}">
@@ -3186,7 +3189,7 @@ function bindParticipaciones() {
             <td class="text-end">
               <input type="text" class="form-control form-control-sm text-end inv-pct-input" value="${pctVal}" placeholder="—">
             </td>
-            <td>${fecha}</td>
+            <td>${esConciertos ? `<input type="date" class="form-control form-control-sm inv-fecha-input" value="${fechaIso ? String(fechaIso).slice(0, 10) : ""}">` : fecha}</td>
             <td>
               <select class="form-select form-select-sm inv-estado">
                 <option value="pendiente" ${estado === "pendiente" ? "selected" : ""}>Pendiente</option>
@@ -3206,17 +3209,21 @@ function bindParticipaciones() {
 
   btnAdd.addEventListener("click", async () => {
     const clienteId = elCliente ? elCliente.value : "";
+    const fechaAportacion = elFechaAportacion ? (elFechaAportacion.value || "").trim() : "";
     const importe = parseEuro(_getElText(elImporte));
-    if (!clienteId || importe === null) {
-      alert("Selecciona cliente e importe.");
+    if (!clienteId || importe === null || (esConciertos && !fechaAportacion)) {
+      alert("Selecciona cliente, fecha e importe.");
       return;
     }
-    const resp = await postJson(url, { cliente_id: clienteId, importe_invertido: importe }, { keepalive: false });
+    const payload = { cliente_id: clienteId, importe_invertido: importe };
+    if (esConciertos) payload.fecha_aportacion = fechaAportacion;
+    const resp = await postJson(url, payload, { keepalive: false });
     if (!resp.ok) {
       alert("No se pudo añadir la participación.");
       return;
     }
     if (elImporte) elImporte.value = "";
+    if (elFechaAportacion) elFechaAportacion.value = "";
     await loadRows();
   });
 
@@ -3231,10 +3238,14 @@ function bindParticipaciones() {
       const estadoSel = tr.querySelector(".inv-estado");
       const estado = estadoSel ? estadoSel.value : "pendiente";
       const pctInput = tr.querySelector(".inv-pct-input");
+      const fechaInput = tr.querySelector(".inv-fecha-input");
       const pctVal = pctInput ? parseNumberEs(_getElText(pctInput)) : null;
       const payload = { estado };
       if (Number.isFinite(pctVal)) {
         payload.porcentaje_participacion = pctVal;
+      }
+      if (fechaInput && fechaInput.value) {
+        payload.fecha_aportacion = fechaInput.value;
       }
       const resp = await fetch(`${url}${id}/`, {
         method: "PATCH",

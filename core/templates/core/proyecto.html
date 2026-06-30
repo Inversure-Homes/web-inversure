@@ -1041,6 +1041,12 @@
                                 {% endfor %}
                             </select>
                         </div>
+                        {% if es_conciertos %}
+                        <div class="col-md-2">
+                            <label class="form-label">Fecha aportación</label>
+                            <input type="date" class="form-control" id="inv_fecha_aportacion">
+                        </div>
+                        {% endif %}
                         <div class="col-md-3">
                             <label class="form-label">Importe invertido</label>
                             <input type="text" class="form-control" id="inv_importe" data-euro="true">
@@ -1074,7 +1080,15 @@
                                                value="{% if p.porcentaje_participacion %}{{ p.porcentaje_participacion|es_number }}{% endif %}"
                                                placeholder="—">
                                       </td>
-                                      <td>{{ p.creado|date:"d/m/Y" }}</td>
+                                      <td>
+                                        {% if es_conciertos %}
+                                          <input type="date"
+                                                 class="form-control form-control-sm inv-fecha-input"
+                                                 value="{% if p.fecha_aportacion %}{{ p.fecha_aportacion|date:'Y-m-d' }}{% elif p.creado %}{{ p.creado|date:'Y-m-d' }}{% endif %}">
+                                        {% else %}
+                                          {{ p.creado|date:"d/m/Y" }}
+                                        {% endif %}
+                                      </td>
                                       <td>
                                         <select class="form-select form-select-sm inv-estado">
                                           <option value="pendiente" {% if p.estado == "pendiente" %}selected{% endif %}>Pendiente</option>

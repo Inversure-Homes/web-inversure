@@ -1188,11 +1188,7 @@ def _build_comunicacion_context(
     try:
         inv = float(getattr(part, "importe_invertido", 0) or 0)
         if inv > 0:
-            fecha_inversion = getattr(part, "creado", None)
-            if isinstance(fecha_inversion, datetime):
-                fecha_inversion = fecha_inversion.date()
-            if not isinstance(fecha_inversion, date):
-                fecha_inversion = None
+            fecha_inversion = _fecha_aportacion_participacion(part)
 
             fecha_salida = None
             try:
@@ -1361,7 +1357,7 @@ def _build_carta_pdf_with_error(
                         cliente_id=perfil.cliente_id,
                         estado="confirmada",
                     )
-                    .order_by("creado", "id")
+                    .order_by("fecha_aportacion", "creado", "id")
                     .first()
                 )
                 if part is not None:
@@ -2236,6 +2232,18 @@ def _deep_merge_dict(base: dict, overlay: dict) -> dict:
         else:
             base[k] = v
     return base
+
+
+def _fecha_aportacion_participacion(part: Participacion) -> date | None:
+    fecha = getattr(part, "fecha_aportacion", None)
+    if isinstance(fecha, date):
+        return fecha
+    creado = getattr(part, "creado", None)
+    if isinstance(creado, datetime):
+        return creado.date()
+    if isinstance(creado, date):
+        return creado
+    return None
 
 
 def _safe_float(v, default: float = 0.0) -> float:
@@ -4273,7 +4281,7 @@ def inversores_list(request):
     }
     first_part_qs = (
         Participacion.objects.filter(cliente_id=OuterRef("cliente_id"), estado="confirmada")
-        .order_by("creado", "id")
+        .order_by("fecha_aportacion", "creado", "id")
         .values("importe_invertido")[:1]
     )
     aportacion_inicial = {
@@ -4536,7 +4544,7 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
         proyectos_participados.append(proyecto)
 
     aportacion_inicial_calc = 0.0
-    first_part = participaciones_conf.order_by("creado", "id").first()
+    first_part = participaciones_conf.order_by("fecha_aportacion", "creado", "id").first()
     if first_part and first_part.importe_invertido is not None:
         aportacion_inicial_calc = float(first_part.importe_invertido)
     if perfil.aportacion_inicial_override is not None:
@@ -7588,7 +7596,8 @@ def proyecto_participaciones(request, proyecto_id: int):
                 "cliente_nombre": p.cliente.nombre,
                 "importe_invertido": float(p.importe_invertido),
                 "porcentaje_participacion": float(pct) if pct is not None else None,
-                "fecha": p.creado.isoformat(),
+                "fecha_aportacion": (_fecha_aportacion_participacion(p) or getattr(p, "creado", timezone.now())).isoformat(),
+                "fecha": (_fecha_aportacion_participacion(p) or getattr(p, "creado", timezone.now())).isoformat(),
                 "estado": p.estado,
             })
         total = sum([p["importe_invertido"] for p in participaciones]) if participaciones else 0
@@ -7609,6 +7618,7 @@ def proyecto_participaciones(request, proyecto_id: int):
         data = json.loads(request.body or "{}")
         cliente_id = data.get("cliente_id")
         importe = _parse_decimal(data.get("importe_invertido"))
+        fecha_aportacion_raw = data.get("fecha_aportacion")
         if not cliente_id or importe is None:
             return JsonResponse({"ok": False, "error": "Faltan campos obligatorios"}, status=400)
 
@@ -7616,6 +7626,19 @@ def proyecto_participaciones(request, proyecto_id: int):
             cliente = Cliente.objects.get(id=cliente_id)
         except Cliente.DoesNotExist:
             return JsonResponse({"ok": False, "error": "Cliente no encontrado"}, status=404)
+
+        extra = getattr(proyecto, "extra", None)
+        if not isinstance(extra, dict):
+            extra = {}
+        es_conciertos = (
+            (extra.get("tipo") or "").strip().lower() == "conciertos"
+            or (extra.get("rama") or "").strip().lower() == "otros"
+        )
+        fecha_aportacion = _parse_date(fecha_aportacion_raw) if fecha_aportacion_raw else None
+        if es_conciertos and fecha_aportacion is None:
+            return JsonResponse({"ok": False, "error": "La fecha de aportación es obligatoria en Conciertos."}, status=400)
+        if fecha_aportacion is None:
+            fecha_aportacion = timezone.now().date()
 
         porcentaje = None
         try:
@@ -7633,6 +7656,7 @@ def proyecto_participaciones(request, proyecto_id: int):
             importe_invertido=importe,
             porcentaje_participacion=porcentaje,
             estado="confirmada",
+            fecha_aportacion=fecha_aportacion,
         )
         _admin_notify(
             request,
@@ -7667,7 +7691,7 @@ def proyecto_liquidaciones(request, proyecto_id: int):
             if isinstance(snapshot, dict)
             else {}
         )
-        participaciones_qs = Participacion.objects.filter(proyecto=proyecto, estado="confirmada").select_related("cliente").order_by("creado", "id")
+        participaciones_qs = Participacion.objects.filter(proyecto=proyecto, estado="confirmada").select_related("cliente").order_by("fecha_aportacion", "creado", "id")
         total_proj = (
             participaciones_qs.aggregate(total=Sum("importe_invertido")).get("total")
             or 0
@@ -7698,7 +7722,8 @@ def proyecto_liquidaciones(request, proyecto_id: int):
             rows.append({
                 "id": part.id,
                 "cliente_nombre": getattr(part.cliente, "nombre", "") or "",
-                "fecha": getattr(part, "creado", None).isoformat() if getattr(part, "creado", None) else "",
+                "fecha_aportacion": (_fecha_aportacion_participacion(part) or getattr(part, "creado", timezone.now())).isoformat(),
+                "fecha": (_fecha_aportacion_participacion(part) or getattr(part, "creado", timezone.now())).isoformat(),
                 "importe_invertido": invertido,
                 "porcentaje_participacion": float(benefit.get("ratio_participacion") or 0.0) * 100.0,
                 "beneficio_bruto": bruto,
@@ -7750,6 +7775,10 @@ def proyecto_participacion_detalle(request, proyecto_id: int, participacion_id: 
                 pct = _parse_decimal(data.get("porcentaje_participacion"))
                 if pct is not None:
                     part.porcentaje_participacion = pct
+            if "fecha_aportacion" in data:
+                fecha = _parse_date(data.get("fecha_aportacion"))
+                if fecha is not None:
+                    part.fecha_aportacion = fecha
             if "estado" in data:
                 nuevo_estado = (data.get("estado") or part.estado)
                 if nuevo_estado != part.estado:
@@ -8085,7 +8114,7 @@ def proyecto_comunicaciones(request, proyecto_id: int):
         participaciones = (
             Participacion.objects.filter(proyecto=proyecto, estado="confirmada")
             .select_related("cliente")
-            .order_by("creado", "id")
+            .order_by("fecha_aportacion", "creado", "id")
         )
         total_destinatarios = participaciones.count()
 
@@ -8210,7 +8239,7 @@ def inversor_comunicacion_preview(request, perfil_id: int):
                 proyecto=proyecto,
                 estado="confirmada",
             )
-            .order_by("creado", "id")
+            .order_by("fecha_aportacion", "creado", "id")
             .first()
         )
         if not part:
@@ -8306,7 +8335,7 @@ def inversor_comunicacion_send(request, perfil_id: int):
                 proyecto=proyecto,
                 estado="confirmada",
             )
-            .order_by("creado", "id")
+            .order_by("fecha_aportacion", "creado", "id")
             .first()
         )
         if not part:
