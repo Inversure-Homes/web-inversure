@@ -958,8 +958,11 @@ function updateComisionInversureMetrics({ beneficioBase = 0, valorAdqBase = 0 } 
   const bruto = Number.isFinite(beneficioBase) && beneficioBase !== 0 ? beneficioBase : beneficioFallback;
   const comision = bruto > 0 ? (bruto * (pct / 100)) : 0;
   const beneficioPostComision = bruto - comision;
-  const impuestoSociedades = Math.max(0, beneficioPostComision) * (impuestoSociedadesPct / 100);
-  const neto = beneficioPostComision - impuestoSociedades;
+  const beneficioInversorBase = parseNumberEs(beneficioHidden?.value || "") || 0;
+  const ratio = beneficioPostComision > 0 && beneficioInversorBase > 0 ? Math.min(Math.max(beneficioInversorBase / beneficioPostComision, 0), 1) : 1;
+  const baseNetoInversor = beneficioPostComision * ratio;
+  const impuestoSociedades = Math.max(0, baseNetoInversor) * (impuestoSociedadesPct / 100);
+  const neto = baseNetoInversor - impuestoSociedades;
   const valorAdqCalc = Number.isFinite(valorAdqBase) && valorAdqBase > 0 ? valorAdqBase : (Number.isFinite(adqFallback) ? adqFallback : 0);
   const roi = valorAdqCalc > 0 ? (neto / valorAdqCalc) * 100 : 0;
 

@@ -877,7 +877,7 @@
                             <input type="hidden" name="inversor.beneficio_neto" id="inv_beneficio_neto_base" value="{{ inv.beneficio_neto|default:'' }}">
                             <input type="hidden" name="inversor.roi_neto" id="inv_roi_neto_base" value="{{ inv.roi_neto|default:'' }}">
                             <div class="form-text mt-2">
-                                La comisión se calcula sobre el beneficio bruto. El impuesto de sociedades se aplica sobre el beneficio del proyecto tras comisión.
+                                La comisión se calcula sobre el beneficio bruto. El impuesto de sociedades se aplica sobre el beneficio neto del inversor tras comisión.
                             </div>
                         </div>
                     </div>
@@ -1475,16 +1475,16 @@
 	                        </div>
 	                        <div class="col-md-2">
 	                            <div class="dash-kpi">
-	                                <div class="label">Beneficio neto inversor</div>
-	                                <div class="value" id="dash_beneficio_neto_inversor">—</div>
-	                                <div class="dash-sub">Después de comisión</div>
+	                                <div class="label">Impuesto sociedades</div>
+	                                <div class="value" id="dash_impuesto_sociedades">—</div>
+	                                <div class="dash-sub">Sobre beneficio neto del inversor</div>
 	                            </div>
 	                        </div>
 	                        <div class="col-md-2">
 	                            <div class="dash-kpi">
-	                                <div class="label">Impuesto sociedades</div>
-	                                <div class="value" id="dash_impuesto_sociedades">—</div>
-	                                <div class="dash-sub">Sobre beneficio neto del proyecto</div>
+	                                <div class="label">Beneficio neto inversor</div>
+	                                <div class="value" id="dash_beneficio_neto_inversor">—</div>
+	                                <div class="dash-sub">Después de comisión</div>
 	                            </div>
 	                        </div>
 	                        <div class="col-md-2">

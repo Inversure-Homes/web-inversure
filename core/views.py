@@ -922,6 +922,7 @@ def _calc_beneficio_inversor(
     beneficio_neto_total_operacion_pre_impuesto = beneficio_bruto_operacion - comision_eur
     beneficio_neto_total_operacion = beneficio_neto_total_operacion_pre_impuesto
     impuesto_sociedades = 0.0
+    impuesto_sociedades_total_operacion = 0.0
     impuesto_sociedades_pct_aplicada = float(impuesto_sociedades_pct)
 
     proj_extra = proyecto.extra if isinstance(proyecto.extra, dict) else {}
@@ -949,6 +950,7 @@ def _calc_beneficio_inversor(
     # Si se especifica la cuota de beneficios del proyecto, descuenta impuesto de sociedades antes de repartir.
     if override_neto not in (None, ""):
         impuesto_sociedades = 0.0
+        impuesto_sociedades_total_operacion = 0.0
         impuesto_sociedades_pct_aplicada = 0.0
     else:
         if override_impuesto_pct not in (None, ""):
@@ -959,17 +961,19 @@ def _calc_beneficio_inversor(
             impuesto_sociedades_pct_aplicada = 100.0
 
         if override_impuesto not in (None, ""):
-            impuesto_sociedades = _safe_float(override_impuesto, 0.0)
-            if impuesto_sociedades < 0:
-                impuesto_sociedades = 0.0
+            impuesto_sociedades_total_operacion = _safe_float(override_impuesto, 0.0)
+            if impuesto_sociedades_total_operacion < 0:
+                impuesto_sociedades_total_operacion = 0.0
         else:
-            impuesto_sociedades = max(0.0, float(beneficio_neto_total_operacion_pre_impuesto or 0.0)) * (impuesto_sociedades_pct_aplicada / 100.0)
+            impuesto_sociedades_total_operacion = max(0.0, float(beneficio_neto_total_operacion_pre_impuesto or 0.0)) * (impuesto_sociedades_pct_aplicada / 100.0)
 
-        beneficio_neto_total_operacion = beneficio_neto_total_operacion_pre_impuesto - impuesto_sociedades
+        beneficio_neto_total_operacion = beneficio_neto_total_operacion_pre_impuesto - impuesto_sociedades_total_operacion
 
     inversion = float(getattr(part, "importe_invertido", 0) or 0)
     ratio = inversion / total_proj if total_proj > 0 else 0.0
-    beneficio_inversor = beneficio_neto_total_operacion * ratio
+    beneficio_inversor_pre_impuesto = float(beneficio_neto_total_operacion_pre_impuesto) * ratio
+    impuesto_sociedades = max(0.0, impuesto_sociedades_total_operacion) * ratio
+    beneficio_inversor = beneficio_inversor_pre_impuesto - impuesto_sociedades
     override_val = float(part.beneficio_neto_override) if part.beneficio_neto_override is not None else None
     override_data = part.beneficio_override_data if isinstance(part.beneficio_override_data, dict) else {}
     if override_data.get("beneficio_inversor") not in (None, ""):
