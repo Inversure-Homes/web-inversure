@@ -431,6 +431,7 @@
                     <strong>{{ p.proyecto.nombre }}</strong>
                     <div class="small text-muted">
                       Aportación: {{ p.importe_invertido|es_number }} €
+                      {% if p.fecha_aportacion %}· Fecha: {{ p.fecha_aportacion|date:"d/m/Y" }}{% elif p.creado %}· Fecha: {{ p.creado|date:"d/m/Y" }}{% endif %}
                       · Participación: {{ p.porcentaje_participacion|default:0|es_number }} %
                     </div>
                   </div>

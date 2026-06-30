@@ -258,6 +258,7 @@
               {% for p in inv.participaciones_preview %}
                 <li>
                   {{ p.proyecto.nombre|default:"Proyecto" }} · {{ p.importe_invertido|es_number }} €
+                  {% if p.fecha_aportacion %}· {{ p.fecha_aportacion|date:"d/m/Y" }}{% elif p.creado %}· {{ p.creado|date:"d/m/Y" }}{% endif %}
                 </li>
               {% endfor %}
             </ul>
