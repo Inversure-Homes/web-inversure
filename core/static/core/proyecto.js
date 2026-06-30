@@ -1382,6 +1382,64 @@ function bindAutocalcBeneficios() {
 }
 
 // -----------------------------
+// Liquidaciones de Conciertos
+// -----------------------------
+function bindLiquidacionesEconomicas() {
+  const tabla = document.getElementById("eco_tabla_rows");
+  const url = window.PROYECTO_LIQUIDACIONES_URL || "";
+  if (!tabla || !url) return;
+
+  const totalInvertidoEl = document.getElementById("eco_total_estimado");
+  const totalBrutoEl = document.getElementById("eco_total_real");
+  const totalRetencionEl = document.getElementById("eco_total_ingresos");
+  const totalRetencionTxtEl = document.getElementById("eco_total_ingresos_estimado");
+  const totalNetoEl = document.getElementById("eco_balance_neto");
+
+  function fmtDate(iso) {
+    if (!iso) return "";
+    const d = String(iso).slice(0, 10).split("-");
+    return d.length === 3 ? `${d[2]}/${d[1]}/${d[0]}` : "";
+  }
+
+  function renderTotals(resumen) {
+    if (!resumen) return;
+    if (totalInvertidoEl) totalInvertidoEl.textContent = formatEuro(resumen.invertido || 0);
+    if (totalBrutoEl) totalBrutoEl.textContent = formatEuro(resumen.bruto || 0);
+    if (totalRetencionEl) totalRetencionEl.textContent = formatEuro(resumen.retencion || 0);
+    if (totalRetencionTxtEl) totalRetencionTxtEl.textContent = "Retención total estimada";
+    if (totalNetoEl) totalNetoEl.textContent = formatEuro(resumen.neto || 0);
+  }
+
+  async function loadRows() {
+    try {
+      const resp = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+      const data = await resp.json();
+      if (!data || !data.ok) return;
+      const rows = data.liquidaciones || [];
+      renderTotals(data.resumen || {});
+      if (!rows.length) {
+        tabla.innerHTML = "<tr><td colspan=\"8\" class=\"text-muted\">No hay liquidaciones todavía.</td></tr>";
+        return;
+      }
+      tabla.innerHTML = rows.map(r => `
+        <tr>
+          <td>${fmtDate(r.fecha)}</td>
+          <td>${r.cliente_nombre || ""}</td>
+          <td class="text-end">${formatEuro(r.importe_invertido || 0)}</td>
+          <td class="text-end">${formatNumberEs(r.porcentaje_participacion || 0, 2)} %</td>
+          <td class="text-end">${formatEuro(r.beneficio_bruto || 0)}</td>
+          <td class="text-end">${formatEuro(r.retencion || 0)}</td>
+          <td class="text-end">${formatEuro(r.neto || 0)}</td>
+          <td>${r.estado || ""}</td>
+        </tr>
+      `).join("");
+    } catch (e) {}
+  }
+
+  loadRows();
+}
+
+// -----------------------------
 // Memoria económica (Proyecto)
 // -----------------------------
 function bindMemoriaEconomica() {
@@ -3679,7 +3737,11 @@ document.addEventListener("DOMContentLoaded", () => {
   bindAutocalcValorTransmision();
   bindAutocalcGastosVenta();
   bindAutocalcBeneficios();
-  bindMemoriaEconomica();
+  if (window.PROYECTO_CONCIERTOS_MODE && window.PROYECTO_LIQUIDACIONES_URL) {
+    bindLiquidacionesEconomicas();
+  } else {
+    bindMemoriaEconomica();
+  }
   bindChecklistOperativo();
   bindResponsableProyecto();
   bindParticipaciones();

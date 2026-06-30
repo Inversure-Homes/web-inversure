@@ -7644,6 +7644,84 @@ def proyecto_participaciones(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
 
 
+def proyecto_liquidaciones(request, proyecto_id: int):
+    try:
+        proyecto = Proyecto.objects.get(id=proyecto_id)
+    except Proyecto.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Proyecto no encontrado"}, status=404)
+
+    if request.method != "GET":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+    if not _user_can_view_project(request.user, proyecto):
+        return JsonResponse({"ok": False, "error": "No tienes permisos para ver este proyecto."}, status=403)
+
+    try:
+        snapshot = _get_snapshot_comunicacion(proyecto)
+        resultado_mem = (
+            _resultado_desde_memoria(
+                proyecto,
+                snapshot,
+                only_imputable_inversores=True,
+            )
+            if isinstance(snapshot, dict)
+            else {}
+        )
+        participaciones_qs = Participacion.objects.filter(proyecto=proyecto, estado="confirmada").select_related("cliente").order_by("creado", "id")
+        total_proj = (
+            participaciones_qs.aggregate(total=Sum("importe_invertido")).get("total")
+            or 0
+        )
+        total_proj = float(total_proj or 0)
+
+        rows = []
+        totals = {
+            "invertido": 0.0,
+            "bruto": 0.0,
+            "retencion": 0.0,
+            "neto": 0.0,
+            "total_a_percibir": 0.0,
+        }
+
+        for part in participaciones_qs:
+            benefit = _calc_beneficio_inversor(part, proyecto, snapshot, resultado_mem, total_proj)
+            invertido = float(getattr(part, "importe_invertido", 0) or 0.0)
+            bruto = float(benefit.get("beneficio_neto_inversor") or 0.0)
+            retencion = float(benefit.get("retencion") or 0.0)
+            neto = float(benefit.get("neto_cobrar") or 0.0)
+            total_a_percibir = float(benefit.get("total_a_percibir") or 0.0)
+            rows.append({
+                "id": part.id,
+                "cliente_nombre": getattr(part.cliente, "nombre", "") or "",
+                "fecha": getattr(part, "creado", None).isoformat() if getattr(part, "creado", None) else "",
+                "importe_invertido": invertido,
+                "porcentaje_participacion": float(benefit.get("ratio_participacion") or 0.0) * 100.0,
+                "beneficio_bruto": bruto,
+                "retencion": retencion,
+                "neto": neto,
+                "total_a_percibir": total_a_percibir,
+                "estado": "Liquidación prevista" if (proyecto.estado or "").lower() != "cerrado" else "Liquidación cerrada",
+            })
+            totals["invertido"] += invertido
+            totals["bruto"] += bruto
+            totals["retencion"] += retencion
+            totals["neto"] += neto
+            totals["total_a_percibir"] += total_a_percibir
+
+        return JsonResponse({
+            "ok": True,
+            "liquidaciones": rows,
+            "resumen": {
+                "invertido": totals["invertido"],
+                "bruto": totals["bruto"],
+                "retencion": totals["retencion"],
+                "neto": totals["neto"],
+                "total_a_percibir": totals["total_a_percibir"],
+            },
+        })
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)
+
+
 def proyecto_participacion_detalle(request, proyecto_id: int, participacion_id: int):
     try:
         part = Participacion.objects.select_related("proyecto").get(id=participacion_id, proyecto_id=proyecto_id)

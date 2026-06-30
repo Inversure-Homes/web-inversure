@@ -15,11 +15,13 @@
   window.PROYECTO_GASTO_FACTURA_URL = "{% if proyecto and proyecto.id %}{% url 'core:proyecto_gasto_factura' proyecto.id 0 %}{% endif %}";
   window.PROYECTO_INGRESO_JUSTIFICANTE_URL = "{% if proyecto and proyecto.id %}{% url 'core:proyecto_ingreso_justificante' proyecto.id 0 %}{% endif %}";
   window.PROYECTO_PARTICIPACIONES_URL = "{% if proyecto and proyecto.id %}{% url 'core:proyecto_participaciones' proyecto.id %}{% endif %}";
+  window.PROYECTO_LIQUIDACIONES_URL = "{% if proyecto and proyecto.id %}{% url 'core:proyecto_liquidaciones' proyecto.id %}{% endif %}";
   window.PROYECTO_SOLICITUDES_URL = "{% if proyecto and proyecto.id %}{% url 'core:proyecto_solicitudes' proyecto.id %}{% endif %}";
   window.PROYECTO_GUARDAR_URL = "{% if proyecto and proyecto.id %}{% url 'core:guardar_proyecto' proyecto.id %}{% endif %}";
   window.PROYECTO_CHECKLIST_URL = "{% if proyecto and proyecto.id %}{% url 'core:proyecto_checklist' proyecto.id %}{% endif %}";
   window.PROYECTO_COMUNICACIONES_URL = "{% if proyecto and proyecto.id %}{% url 'core:proyecto_comunicaciones' proyecto.id %}{% endif %}";
   window.PROYECTO_EDITABLE = {% if editable %}true{% else %}false{% endif %};
+  window.PROYECTO_CONCIERTOS_MODE = {% if es_conciertos %}true{% else %}false{% endif %};
 </script>
 {% if snapshot %}{{ snapshot|json_script:"snapshotData" }}{% endif %}
 
@@ -540,22 +542,67 @@
         <div class="tab-pane fade" id="vista-economicos" role="tabpanel" aria-labelledby="tab-economicos">
 
     <!-- ===============================
-         MEMORIA ECONÓMICA (ASIENTOS)
+         DATOS ECONÓMICOS
     ================================ -->
     <div class="card mb-4 shadow-sm border-0" data-fase="operacion">
       <div class="card-body">
         <div class="d-flex align-items-center justify-content-between mb-3">
           <h5 class="mb-0 inversure-form-header">
             <span class="badge rounded-pill bg-secondary me-2 px-3 py-2">1</span>
-            Memoria económica
+            {% if es_conciertos %}Liquidaciones a inversores{% else %}Memoria económica{% endif %}
           </h5>
-          <a class="btn btn-sm btn-outline-secondary"
-             href="{% url 'core:pdf_memoria_economica' proyecto.id %}"
-             target="_blank" rel="noopener noreferrer">
-            PDF memoria
-          </a>
+          {% if not es_conciertos %}
+            <a class="btn btn-sm btn-outline-secondary"
+               href="{% url 'core:pdf_memoria_economica' proyecto.id %}"
+               target="_blank" rel="noopener noreferrer">
+              PDF memoria
+            </a>
+          {% endif %}
         </div>
 
+        {% if es_conciertos %}
+        <div class="row g-3 mb-3">
+          <div class="col-md-3">
+            <div class="small text-muted">Importe invertido</div>
+            <div class="fw-bold" id="eco_total_estimado">—</div>
+          </div>
+          <div class="col-md-3">
+            <div class="small text-muted">Beneficio bruto a repartir</div>
+            <div class="fw-bold" id="eco_total_real">—</div>
+          </div>
+          <div class="col-md-3">
+            <div class="small text-muted">Retención estimada</div>
+            <div class="fw-bold" id="eco_total_ingresos">—</div>
+            <div class="small text-muted" id="eco_total_ingresos_estimado">—</div>
+          </div>
+          <div class="col-md-3">
+            <div class="small text-muted">Neto a liquidar</div>
+            <div class="fw-bold" id="eco_balance_neto">—</div>
+          </div>
+        </div>
+        <div class="table-responsive mt-3">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Inversor</th>
+                <th class="text-end">Invertido</th>
+                <th class="text-end">% Part.</th>
+                <th class="text-end">Bruto</th>
+                <th class="text-end">Retención</th>
+                <th class="text-end">Neto</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="eco_tabla_rows">
+              <tr><td colspan="8" class="text-muted">Cargando liquidaciones...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="small text-muted mt-2">
+          Este bloque muestra los apuntes contables previstos o cerrados por cada inversor.
+        </div>
+        {% else %}
         <div class="row g-3 align-items-end">
           <div class="col-md-2">
             <label class="form-label">Fecha</label>
@@ -661,6 +708,7 @@
             </tbody>
           </table>
         </div>
+        {% endif %}
       </div>
     </div>
 
