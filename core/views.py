@@ -4047,7 +4047,7 @@ def lista_proyectos(request):
         "core/lista_proyectos.html",
         {
             "proyectos": proyectos,
-            "titulo": "Proyectos",
+            "titulo": "Proyecto inmobiliario",
             "subtitulo": "Operaciones activas en fase de ejecución y seguimiento",
             "cerrados_url": reverse("core:lista_proyectos_cerrados"),
             "cerrados_label": "Ver proyectos cerrados",
@@ -4157,7 +4157,7 @@ def lista_proyectos_cerrados(request):
         "core/lista_proyectos.html",
         {
             "proyectos": proyectos,
-            "titulo": "Proyectos cerrados",
+            "titulo": "Proyecto inmobiliario",
             "subtitulo": "Operaciones finalizadas o descartadas",
             "cerrados_url": reverse("core:lista_proyectos"),
             "cerrados_label": "Ver proyectos activos",
