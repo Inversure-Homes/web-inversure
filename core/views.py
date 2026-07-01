@@ -35,11 +35,14 @@ import shutil
 import boto3
 import base64
 import mimetypes
+from functools import lru_cache
 from decimal import Decimal
 from datetime import date, datetime
 from urllib.request import Request, urlopen
 
 import requests
+
+from django.db import connection
 
 from .models import Estudio, Proyecto
 from .models import EstudioSnapshot, ProyectoSnapshot
@@ -1359,15 +1362,13 @@ def _build_carta_pdf_with_error(
             portal_link = ""
         try:
             if proyecto is not None and perfil is not None and getattr(perfil, "cliente_id", None):
-                part = (
+                part = _participaciones_ordenadas_por_fecha_aportacion(
                     Participacion.objects.filter(
                         proyecto=proyecto,
                         cliente_id=perfil.cliente_id,
                         estado="confirmada",
                     )
-                    .order_by("fecha_aportacion", "creado", "id")
-                    .first()
-                )
+                ).first()
                 if part is not None:
                     total_proj = (
                         Participacion.objects.filter(proyecto=proyecto, estado="confirmada")
@@ -2242,16 +2243,47 @@ def _deep_merge_dict(base: dict, overlay: dict) -> dict:
     return base
 
 
+@lru_cache(maxsize=32)
+def _db_has_column(model_cls, field_name: str) -> bool:
+    try:
+        table_name = model_cls._meta.db_table
+        with connection.cursor() as cursor:
+            columns = connection.introspection.get_table_description(cursor, table_name)
+        return any(getattr(col, "name", None) == field_name for col in columns)
+    except Exception:
+        return False
+
+
+def _participacion_supports_fecha_aportacion() -> bool:
+    return _db_has_column(Participacion, "fecha_aportacion")
+
+
+def _participacion_override_data(part: Participacion) -> dict:
+    data = getattr(part, "beneficio_override_data", None)
+    return data if isinstance(data, dict) else {}
+
+
 def _fecha_aportacion_participacion(part: Participacion) -> date | None:
     fecha = getattr(part, "fecha_aportacion", None)
     if isinstance(fecha, date):
         return fecha
+    fecha_extra = _participacion_override_data(part).get("fecha_aportacion")
+    if fecha_extra:
+        fecha_extra = _parse_date(fecha_extra)
+        if isinstance(fecha_extra, date):
+            return fecha_extra
     creado = getattr(part, "creado", None)
     if isinstance(creado, datetime):
         return creado.date()
     if isinstance(creado, date):
         return creado
     return None
+
+
+def _participaciones_ordenadas_por_fecha_aportacion(qs):
+    if _participacion_supports_fecha_aportacion():
+        return qs.order_by("fecha_aportacion", "creado", "id")
+    return qs.order_by("creado", "id")
 
 
 def _safe_float(v, default: float = 0.0) -> float:
@@ -4288,9 +4320,9 @@ def inversores_list(request):
         )
     }
     first_part_qs = (
-        Participacion.objects.filter(cliente_id=OuterRef("cliente_id"), estado="confirmada")
-        .order_by("fecha_aportacion", "creado", "id")
-        .values("importe_invertido")[:1]
+        _participaciones_ordenadas_por_fecha_aportacion(
+            Participacion.objects.filter(cliente_id=OuterRef("cliente_id"), estado="confirmada")
+        ).values("importe_invertido")[:1]
     )
     aportacion_inicial = {
         row["cliente_id"]: row["first_importe"]
@@ -4552,7 +4584,7 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
         proyectos_participados.append(proyecto)
 
     aportacion_inicial_calc = 0.0
-    first_part = participaciones_conf.order_by("fecha_aportacion", "creado", "id").first()
+    first_part = _participaciones_ordenadas_por_fecha_aportacion(participaciones_conf).first()
     if first_part and first_part.importe_invertido is not None:
         aportacion_inicial_calc = float(first_part.importe_invertido)
     if perfil.aportacion_inicial_override is not None:
@@ -7659,14 +7691,29 @@ def proyecto_participaciones(request, proyecto_id: int):
         except Exception:
             porcentaje = None
 
-        Participacion.objects.create(
-            proyecto=proyecto,
-            cliente=cliente,
-            importe_invertido=importe,
-            porcentaje_participacion=porcentaje,
-            estado="confirmada",
-            fecha_aportacion=fecha_aportacion,
-        )
+        create_kwargs = {
+            "proyecto": proyecto,
+            "cliente": cliente,
+            "importe_invertido": importe,
+            "porcentaje_participacion": porcentaje,
+            "estado": "confirmada",
+        }
+        if _participacion_supports_fecha_aportacion():
+            create_kwargs["fecha_aportacion"] = fecha_aportacion
+        else:
+            create_kwargs["beneficio_override_data"] = {
+                "fecha_aportacion": fecha_aportacion.isoformat(),
+            }
+        try:
+            Participacion.objects.create(**create_kwargs)
+        except Exception as exc:
+            if "fecha_aportacion" not in str(exc).lower():
+                raise
+            fallback_data = dict(create_kwargs.get("beneficio_override_data") or {})
+            fallback_data["fecha_aportacion"] = fecha_aportacion.isoformat()
+            create_kwargs.pop("fecha_aportacion", None)
+            create_kwargs["beneficio_override_data"] = fallback_data
+            Participacion.objects.create(**create_kwargs)
         _admin_notify(
             request,
             proyecto,
@@ -7700,7 +7747,9 @@ def proyecto_liquidaciones(request, proyecto_id: int):
             if isinstance(snapshot, dict)
             else {}
         )
-        participaciones_qs = Participacion.objects.filter(proyecto=proyecto, estado="confirmada").select_related("cliente").order_by("fecha_aportacion", "creado", "id")
+        participaciones_qs = _participaciones_ordenadas_por_fecha_aportacion(
+            Participacion.objects.filter(proyecto=proyecto, estado="confirmada").select_related("cliente")
+        )
         total_proj = (
             participaciones_qs.aggregate(total=Sum("importe_invertido")).get("total")
             or 0
@@ -7780,18 +7829,28 @@ def proyecto_participacion_detalle(request, proyecto_id: int, participacion_id: 
             return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
         try:
             data = json.loads(request.body or "{}")
+            update_fields = []
             if "porcentaje_participacion" in data:
                 pct = _parse_decimal(data.get("porcentaje_participacion"))
                 if pct is not None:
                     part.porcentaje_participacion = pct
+                    update_fields.append("porcentaje_participacion")
             if "fecha_aportacion" in data:
                 fecha = _parse_date(data.get("fecha_aportacion"))
                 if fecha is not None:
-                    part.fecha_aportacion = fecha
+                    if _participacion_supports_fecha_aportacion():
+                        part.fecha_aportacion = fecha
+                        update_fields.append("fecha_aportacion")
+                    else:
+                        extra = _participacion_override_data(part)
+                        extra["fecha_aportacion"] = fecha.isoformat()
+                        part.beneficio_override_data = extra
+                        update_fields.append("beneficio_override_data")
             if "estado" in data:
                 nuevo_estado = (data.get("estado") or part.estado)
                 if nuevo_estado != part.estado:
                     part.estado = nuevo_estado
+                    update_fields.append("estado")
                     _admin_notify(
                         request,
                         part.proyecto,
@@ -7807,7 +7866,8 @@ def proyecto_participacion_detalle(request, proyecto_id: int, participacion_id: 
                             _crear_comunicacion(request, perfil, part.proyecto, titulo, mensaje)
                     except Exception:
                         pass
-            part.save()
+            if update_fields:
+                part.save(update_fields=list(dict.fromkeys(update_fields)))
             return JsonResponse({"ok": True})
         except Exception as e:
             return JsonResponse({"ok": False, "error": str(e)}, status=400)
@@ -8121,9 +8181,9 @@ def proyecto_comunicaciones(request, proyecto_id: int):
         )
 
         participaciones = (
-            Participacion.objects.filter(proyecto=proyecto, estado="confirmada")
-            .select_related("cliente")
-            .order_by("fecha_aportacion", "creado", "id")
+        _participaciones_ordenadas_por_fecha_aportacion(
+            Participacion.objects.filter(proyecto=proyecto, estado="confirmada").select_related("cliente")
+        )
         )
         total_destinatarios = participaciones.count()
 
@@ -8242,15 +8302,13 @@ def inversor_comunicacion_preview(request, perfil_id: int):
         titulo = (data.get("titulo") or "").strip()
         mensaje = (data.get("mensaje") or "").strip()
 
-        part = (
+        part = _participaciones_ordenadas_por_fecha_aportacion(
             Participacion.objects.filter(
                 cliente=perfil.cliente,
                 proyecto=proyecto,
                 estado="confirmada",
             )
-            .order_by("fecha_aportacion", "creado", "id")
-            .first()
-        )
+        ).first()
         if not part:
             return JsonResponse(
                 {"ok": False, "error": "El inversor no tiene participación confirmada en este proyecto."},
@@ -8338,15 +8396,13 @@ def inversor_comunicacion_send(request, perfil_id: int):
         titulo = (data.get("titulo") or "").strip()
         mensaje = (data.get("mensaje") or "").strip()
 
-        part = (
+        part = _participaciones_ordenadas_por_fecha_aportacion(
             Participacion.objects.filter(
                 cliente=perfil.cliente,
                 proyecto=proyecto,
                 estado="confirmada",
             )
-            .order_by("fecha_aportacion", "creado", "id")
-            .first()
-        )
+        ).first()
         if not part:
             return JsonResponse(
                 {"ok": False, "error": "El inversor no tiene participación confirmada en este proyecto."},
