@@ -3941,7 +3941,9 @@ def lista_estudio(request):
 
 def lista_proyectos(request):
     estados_cerrados = {"cerrado", "descartado"}
-    proyectos = Proyecto.objects.exclude(estado__in=estados_cerrados).exclude(extra__rama="otros").order_by("-id")
+    proyectos = Proyecto.objects.exclude(estado__in=estados_cerrados).order_by("-id")
+    if not _user_is_admin_or_direccion(request.user):
+        proyectos = proyectos.exclude(extra__rama="otros")
     if is_comercial_user(request.user) and not _user_is_admin_or_direccion(request.user) and not use_custom_permissions(request.user):
         proyectos_filtrados = proyectos.filter(responsable_user=request.user)
         if proyectos_filtrados.exists():
@@ -4056,6 +4058,8 @@ def lista_proyectos(request):
 def lista_proyectos_cerrados(request):
     estados_cerrados = {"cerrado", "descartado"}
     proyectos = Proyecto.objects.filter(estado__in=estados_cerrados).order_by("-id")
+    if not _user_is_admin_or_direccion(request.user):
+        proyectos = proyectos.exclude(extra__rama="otros")
     if is_comercial_user(request.user) and not _user_is_admin_or_direccion(request.user) and not use_custom_permissions(request.user):
         proyectos_filtrados = proyectos.filter(responsable_user=request.user)
         if proyectos_filtrados.exists():
