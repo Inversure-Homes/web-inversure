@@ -77,7 +77,7 @@
           {% if es_conciertos %}
             <h1 class="mb-1">Conciertos{% if proyecto and proyecto.nombre and proyecto.nombre|lower != "conciertos" %} · {{ proyecto.nombre }}{% endif %}</h1>
           {% else %}
-            <h1 class="mb-1">Proyecto{% if proyecto and proyecto.nombre %} · {{ proyecto.nombre }}{% endif %}</h1>
+            <h1 class="mb-1">Proyecto inmobiliario{% if proyecto and proyecto.nombre %} · {{ proyecto.nombre }}{% endif %}</h1>
           {% endif %}
 
           {% if proyecto and proyecto.id %}
@@ -140,8 +140,8 @@
     <div class="card mb-4 shadow-sm border-0" data-fase="proyecto">
         <div class="card-header bg-inversure-dark text-inversure fw-semibold border-0 d-flex align-items-center gap-2">
             <span class="icon-inversure">📌</span>
-            <span>{% if es_conciertos %}Acuerdo{% else %}Proyecto{% endif %}</span>
-        </div>
+            <span>{% if es_conciertos %}Acuerdo{% else %}Proyecto inmobiliario{% endif %}</span>
+          </div>
         <div class="card-body">
             {% if es_conciertos %}
             <div class="row">
