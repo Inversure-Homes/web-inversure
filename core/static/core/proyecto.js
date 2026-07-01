@@ -3228,15 +3228,24 @@ function bindParticipaciones() {
     const clienteId = elCliente ? elCliente.value : "";
     const fechaAportacion = elFechaAportacion ? (elFechaAportacion.value || "").trim() : "";
     const importe = parseEuro(_getElText(elImporte));
-    if (!clienteId || importe === null || (esConciertos && !fechaAportacion)) {
-      alert("Selecciona cliente, fecha e importe.");
+    const faltan = [];
+    if (!clienteId) faltan.push("cliente");
+    if (esConciertos && !fechaAportacion) faltan.push("fecha de aportación");
+    if (importe === null) faltan.push("importe");
+    if (faltan.length) {
+      alert(`Falta ${faltan.join(" y ")}.`);
       return;
     }
     const payload = { cliente_id: clienteId, importe_invertido: importe };
     if (esConciertos) payload.fecha_aportacion = fechaAportacion;
     const resp = await postJson(url, payload, { keepalive: false });
     if (!resp.ok) {
-      alert("No se pudo añadir la participación.");
+      let msg = "No se pudo añadir la participación.";
+      try {
+        const data = await resp.json();
+        if (data && data.error) msg = data.error;
+      } catch (e) {}
+      alert(msg);
       return;
     }
     if (elImporte) elImporte.value = "";
