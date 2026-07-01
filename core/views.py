@@ -3943,7 +3943,9 @@ def lista_proyectos(request):
     estados_cerrados = {"cerrado", "descartado"}
     proyectos = Proyecto.objects.exclude(estado__in=estados_cerrados).exclude(extra__rama="otros").order_by("-id")
     if is_comercial_user(request.user) and not _user_is_admin_or_direccion(request.user) and not use_custom_permissions(request.user):
-        proyectos = proyectos.filter(responsable_user=request.user)
+        proyectos_filtrados = proyectos.filter(responsable_user=request.user)
+        if proyectos_filtrados.exists():
+            proyectos = proyectos_filtrados
     proyectos_ids = list(proyectos.values_list("id", flat=True))
 
     def _as_float(val, default=0.0):
@@ -4055,7 +4057,9 @@ def lista_proyectos_cerrados(request):
     estados_cerrados = {"cerrado", "descartado"}
     proyectos = Proyecto.objects.filter(estado__in=estados_cerrados).order_by("-id")
     if is_comercial_user(request.user) and not _user_is_admin_or_direccion(request.user) and not use_custom_permissions(request.user):
-        proyectos = proyectos.filter(responsable_user=request.user)
+        proyectos_filtrados = proyectos.filter(responsable_user=request.user)
+        if proyectos_filtrados.exists():
+            proyectos = proyectos_filtrados
     proyectos_ids = list(proyectos.values_list("id", flat=True))
 
     def _as_float(val, default=0.0):
