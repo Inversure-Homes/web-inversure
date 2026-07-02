@@ -3959,12 +3959,13 @@ def lista_estudio(request):
 
 def lista_proyectos(request):
     estados_cerrados = {"cerrado", "descartado"}
-    base_proyectos = Proyecto.objects.exclude(estado__in=estados_cerrados).exclude(
+    all_active = Proyecto.objects.exclude(estado__in=estados_cerrados).order_by("-id")
+    base_proyectos = all_active.exclude(
         Q(extra__tipo="conciertos") | Q(nombre__iexact="Conciertos")
     ).order_by("-id")
     proyectos = base_proyectos
     if not proyectos.exists():
-        proyectos = base_proyectos
+        proyectos = all_active
     if is_comercial_user(request.user) and not _user_is_admin_or_direccion(request.user) and not use_custom_permissions(request.user):
         proyectos_filtrados = proyectos.filter(responsable_user=request.user)
         if proyectos_filtrados.exists():
@@ -4078,12 +4079,13 @@ def lista_proyectos(request):
 
 def lista_proyectos_cerrados(request):
     estados_cerrados = {"cerrado", "descartado"}
-    base_proyectos = Proyecto.objects.filter(estado__in=estados_cerrados).exclude(
+    all_closed = Proyecto.objects.filter(estado__in=estados_cerrados).order_by("-id")
+    base_proyectos = all_closed.exclude(
         Q(extra__tipo="conciertos") | Q(nombre__iexact="Conciertos")
     ).order_by("-id")
     proyectos = base_proyectos
     if not proyectos.exists():
-        proyectos = base_proyectos
+        proyectos = all_closed
     if is_comercial_user(request.user) and not _user_is_admin_or_direccion(request.user) and not use_custom_permissions(request.user):
         proyectos_filtrados = proyectos.filter(responsable_user=request.user)
         if proyectos_filtrados.exists():
