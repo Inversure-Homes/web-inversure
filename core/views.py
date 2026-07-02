@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils.http import urlencode
 from django.db import transaction
 from django.db import IntegrityError
-from django.db.models import Sum, Count, Max, Prefetch, Min, OuterRef, Subquery
+from django.db.models import Sum, Count, Max, Prefetch, Min, OuterRef, Subquery, Q
 from django.core.paginator import Paginator
 from django.utils import timezone
 from django.conf import settings
@@ -351,6 +351,24 @@ def _user_matches_responsable(user, proyecto: Proyecto) -> bool:
     username = (getattr(user, "username", "") or "").strip().lower()
     full_name = f"{getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')}".strip().lower()
     return responsable_raw in {username, full_name}
+
+
+def _proyecto_es_conciertos(proyecto_or_extra) -> bool:
+    extra = {}
+    nombre = ""
+    if isinstance(proyecto_or_extra, dict):
+        extra = proyecto_or_extra
+    else:
+        extra = getattr(proyecto_or_extra, "extra", None)
+        nombre = (getattr(proyecto_or_extra, "nombre", "") or "").strip().lower()
+    if not isinstance(extra, dict):
+        extra = {}
+    tipo = (extra.get("tipo") or "").strip().lower()
+    if tipo == "conciertos":
+        return True
+    if nombre == "conciertos":
+        return True
+    return False
 
 
 def _user_can_view_project(user, proyecto: Proyecto) -> bool:
@@ -3691,7 +3709,7 @@ def otros_proyectos(request):
         conciertos.roi = 0
 
     otros = (
-        Proyecto.objects.filter(extra__rama="otros")
+        Proyecto.objects.filter(Q(extra__tipo="conciertos") | Q(nombre__iexact="Conciertos"))
         .exclude(id=conciertos.id)
         .order_by("nombre", "id")
     )
@@ -3941,10 +3959,10 @@ def lista_estudio(request):
 
 def lista_proyectos(request):
     estados_cerrados = {"cerrado", "descartado"}
-    base_proyectos = Proyecto.objects.exclude(estado__in=estados_cerrados).order_by("-id")
+    base_proyectos = Proyecto.objects.exclude(estado__in=estados_cerrados).exclude(
+        Q(extra__tipo="conciertos") | Q(nombre__iexact="Conciertos")
+    ).order_by("-id")
     proyectos = base_proyectos
-    if not _user_is_admin_or_direccion(request.user):
-        proyectos = proyectos.exclude(extra__rama="otros")
     if not proyectos.exists():
         proyectos = base_proyectos
     if is_comercial_user(request.user) and not _user_is_admin_or_direccion(request.user) and not use_custom_permissions(request.user):
@@ -4060,10 +4078,10 @@ def lista_proyectos(request):
 
 def lista_proyectos_cerrados(request):
     estados_cerrados = {"cerrado", "descartado"}
-    base_proyectos = Proyecto.objects.filter(estado__in=estados_cerrados).order_by("-id")
+    base_proyectos = Proyecto.objects.filter(estado__in=estados_cerrados).exclude(
+        Q(extra__tipo="conciertos") | Q(nombre__iexact="Conciertos")
+    ).order_by("-id")
     proyectos = base_proyectos
-    if not _user_is_admin_or_direccion(request.user):
-        proyectos = proyectos.exclude(extra__rama="otros")
     if not proyectos.exists():
         proyectos = base_proyectos
     if is_comercial_user(request.user) and not _user_is_admin_or_direccion(request.user) and not use_custom_permissions(request.user):
@@ -5319,11 +5337,7 @@ def proyecto(request, proyecto_id: int):
     extra_proyecto = getattr(proyecto_obj, "extra", None)
     if not isinstance(extra_proyecto, dict):
         extra_proyecto = {}
-    es_conciertos = (
-        (extra_proyecto.get("tipo") or "").strip().lower() == "conciertos"
-        or (extra_proyecto.get("rama") or "").strip().lower() == "otros"
-        and nombre_p.strip().lower() == "conciertos"
-    )
+    es_conciertos = _proyecto_es_conciertos(proyecto_obj)
     conciertos_raw = snapshot.get("conciertos") if isinstance(snapshot.get("conciertos"), dict) else {}
     if not isinstance(conciertos_raw, dict):
         conciertos_raw = {}
@@ -7685,10 +7699,7 @@ def proyecto_participaciones(request, proyecto_id: int):
         extra = getattr(proyecto, "extra", None)
         if not isinstance(extra, dict):
             extra = {}
-        es_conciertos = (
-            (extra.get("tipo") or "").strip().lower() == "conciertos"
-            or (extra.get("rama") or "").strip().lower() == "otros"
-        )
+        es_conciertos = _proyecto_es_conciertos(proyecto)
         fecha_aportacion = _parse_date(fecha_aportacion_raw) if fecha_aportacion_raw else None
         if es_conciertos and fecha_aportacion is None:
             return JsonResponse({"ok": False, "error": "La fecha de aportación es obligatoria en Conciertos."}, status=400)
