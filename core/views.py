@@ -4064,6 +4064,18 @@ def lista_proyectos(request):
             p._snapshot = {}
             p.notificar_inversores = True
 
+    debug_lista = None
+    if (request.GET.get("debug") or "").strip().lower() in {"1", "true", "si", "sí", "on"}:
+        debug_lista = {
+            "total_activos": all_active.count(),
+            "inmobiliarios_pre_filter": base_proyectos.count(),
+            "conciertos_detectados": all_active.filter(Q(extra__tipo="conciertos") | Q(nombre__iexact="Conciertos")).count(),
+            "resultado_final": proyectos.count(),
+            "es_admin": _user_is_admin_or_direccion(request.user),
+            "es_comercial": is_comercial_user(request.user),
+            "usa_permisos_personalizados": use_custom_permissions(request.user),
+        }
+
     return render(
         request,
         "core/lista_proyectos.html",
@@ -4073,6 +4085,7 @@ def lista_proyectos(request):
             "subtitulo": "Operaciones activas en fase de ejecución y seguimiento",
             "cerrados_url": reverse("core:lista_proyectos_cerrados"),
             "cerrados_label": "Ver proyectos cerrados",
+            "debug_lista": debug_lista,
         },
     )
 
@@ -4178,6 +4191,18 @@ def lista_proyectos_cerrados(request):
             p._snapshot = {}
             p.notificar_inversores = True
 
+    debug_lista = None
+    if (request.GET.get("debug") or "").strip().lower() in {"1", "true", "si", "sí", "on"}:
+        debug_lista = {
+            "total_cerrados": all_closed.count(),
+            "cerrados_pre_filter": base_proyectos.count(),
+            "conciertos_detectados": all_closed.filter(Q(extra__tipo="conciertos") | Q(nombre__iexact="Conciertos")).count(),
+            "resultado_final": proyectos.count(),
+            "es_admin": _user_is_admin_or_direccion(request.user),
+            "es_comercial": is_comercial_user(request.user),
+            "usa_permisos_personalizados": use_custom_permissions(request.user),
+        }
+
     return render(
         request,
         "core/lista_proyectos.html",
@@ -4187,6 +4212,7 @@ def lista_proyectos_cerrados(request):
             "subtitulo": "Operaciones finalizadas o descartadas",
             "cerrados_url": reverse("core:lista_proyectos"),
             "cerrados_label": "Ver proyectos activos",
+            "debug_lista": debug_lista,
         },
     )
 

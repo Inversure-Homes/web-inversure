@@ -26,6 +26,21 @@
         {% endif %}
       </section>
 
+      {% if debug_lista %}
+      <div class="alert alert-info border mb-4">
+        <div class="fw-semibold mb-2">Diagnóstico de listado</div>
+        <div class="row g-2 small">
+          <div class="col-md-3"><strong>Total activos:</strong> {{ debug_lista.total_activos }}</div>
+          <div class="col-md-3"><strong>Inmobiliarios previos:</strong> {{ debug_lista.inmobiliarios_pre_filter }}</div>
+          <div class="col-md-3"><strong>Conciertos detectados:</strong> {{ debug_lista.conciertos_detectados }}</div>
+          <div class="col-md-3"><strong>Resultado final:</strong> {{ debug_lista.resultado_final }}</div>
+          <div class="col-md-3"><strong>Admin/dirección:</strong> {% if debug_lista.es_admin %}sí{% else %}no{% endif %}</div>
+          <div class="col-md-3"><strong>Comercial:</strong> {% if debug_lista.es_comercial %}sí{% else %}no{% endif %}</div>
+          <div class="col-md-3"><strong>Permisos personalizados:</strong> {% if debug_lista.usa_permisos_personalizados %}sí{% else %}no{% endif %}</div>
+        </div>
+      </div>
+      {% endif %}
+
       <!-- PROYECTOS GUARDADOS -->
       {% if proyectos %}
         <div class="row gx-4">
