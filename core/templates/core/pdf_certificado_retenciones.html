@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <style>
+      @page {
+        size: A4;
+        margin: 18mm 14mm 16mm;
+      }
+
+      :root {
+        --brand-blue: #162a4a;
+        --brand-accent: #d38a4f;
+        --bg: #eef3f8;
+        --card: #ffffff;
+        --line: #dbe4ee;
+        --muted: #6b778c;
+        --text: #253047;
+      }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: linear-gradient(180deg, #f5f8fb 0%, var(--bg) 100%);
+        color: var(--text);
+        font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      body {
+        min-height: 100vh;
+      }
+
+      .sheet {
+        max-width: 980px;
+        margin: 0 auto;
+        background: var(--card);
+        border-radius: 26px;
+        box-shadow: 0 18px 42px rgba(26, 39, 64, 0.12);
+        overflow: hidden;
+      }
+
+      .brand-bar {
+        height: 10px;
+        background: linear-gradient(90deg, var(--brand-blue), #1f4b82 55%, var(--brand-accent));
+      }
+
+      .header {
+        padding: 28px 30px 20px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .header-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        align-items: flex-start;
+      }
+
+      .descriptor {
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-size: 10.5px;
+        font-weight: 800;
+        color: var(--brand-accent);
+      }
+
+      .title {
+        margin-top: 10px;
+        font-size: 31px;
+        line-height: 1.08;
+        font-weight: 900;
+        color: var(--brand-blue);
+      }
+
+      .subtitle {
+        margin-top: 10px;
+        max-width: 70ch;
+        font-size: 15px;
+        line-height: 1.55;
+        color: var(--muted);
+      }
+
+      .logo {
+        max-height: 46px;
+        max-width: 180px;
+        object-fit: contain;
+      }
+
+      .meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 18px;
+      }
+
+      .meta-pill {
+        display: inline-block;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: #f4f7fb;
+        color: #4f5c72;
+        font-size: 12.2px;
+        font-weight: 600;
+      }
+
+      .body {
+        padding: 22px 30px 30px;
+      }
+
+      .intro {
+        padding: 18px 20px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: linear-gradient(180deg, #fcfdff 0%, #f7f9fc 100%);
+        margin-bottom: 18px;
+      }
+
+      .intro-title {
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--brand-accent);
+        margin-bottom: 10px;
+      }
+
+      .message {
+        font-size: 13.8px;
+        line-height: 1.7;
+        color: #3f4a5e;
+      }
+
+      .message strong {
+        color: var(--brand-blue);
+      }
+
+      .message ul,
+      .message ol {
+        margin: 10px 0 0 18px;
+        padding: 0;
+      }
+
+      .summary-columns {
+        display: flex;
+        gap: 16px;
+        align-items: stretch;
+      }
+
+      .summary-card {
+        flex: 1 1 0;
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        background: var(--card);
+        box-shadow: 0 10px 28px rgba(34, 50, 78, 0.08);
+        padding: 20px;
+        page-break-inside: avoid;
+      }
+
+      .summary-card--main {
+        flex: 1.15 1 0;
+      }
+
+      .hero-label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-weight: 800;
+        color: var(--brand-accent);
+      }
+
+      .hero-amount {
+        margin-top: 8px;
+        font-size: 34px;
+        line-height: 1;
+        font-weight: 900;
+        color: var(--brand-blue);
+      }
+
+      .hero-caption {
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 13.4px;
+        line-height: 1.55;
+      }
+
+      .section-title {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        font-weight: 800;
+        color: var(--brand-accent);
+        margin-bottom: 14px;
+      }
+
+      .breakdown {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 18px;
+      }
+
+      .breakdown td {
+        padding: 11px 0;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+
+      .breakdown td.label {
+        width: 63%;
+        color: #6a7488;
+        font-size: 13.6px;
+        padding-right: 14px;
+      }
+
+      .breakdown td.value {
+        width: 37%;
+        text-align: right;
+        color: #182741;
+        font-size: 15.3px;
+        font-weight: 800;
+      }
+
+      .breakdown tr.total-row td {
+        border-bottom: 0;
+        padding-top: 16px;
+      }
+
+      .breakdown tr.total-row td.label,
+      .breakdown tr.total-row td.value {
+        color: var(--brand-blue);
+        font-size: 16px;
+        font-weight: 900;
+      }
+
+      .retencion-pct {
+        display: block;
+        margin-top: 2px;
+        font-size: 11px;
+        color: var(--muted);
+        font-weight: 700;
+      }
+
+      .info-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .info-card {
+        border-radius: 18px;
+        border: 1px solid #e8eef5;
+        background: #f8fafc;
+        padding: 14px 16px;
+      }
+
+      .info-label {
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--muted);
+        font-weight: 800;
+      }
+
+      .info-value {
+        margin-top: 5px;
+        color: var(--brand-blue);
+        font-size: 15px;
+        line-height: 1.45;
+        font-weight: 800;
+      }
+
+      .note {
+        margin-top: 16px;
+        padding: 16px 18px;
+        border-left: 4px solid var(--brand-accent);
+        border-radius: 16px;
+        background: #fff8f1;
+        color: #5f697c;
+        font-size: 12.9px;
+        line-height: 1.6;
+      }
+
+      .signature {
+        margin-top: 22px;
+        padding-top: 16px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        align-items: flex-end;
+      }
+
+      .signature-name {
+        color: var(--brand-blue);
+        font-size: 16px;
+        font-weight: 900;
+      }
+
+      .signature-role {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .footer {
+        margin-top: 14px;
+        color: #7b8797;
+        font-size: 9px;
+        line-height: 1.45;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sheet">
+      <div class="brand-bar"></div>
+      <div class="header">
+        <div class="header-top">
+          <div>
+            <div class="descriptor">Certificado fiscal</div>
+            <div class="title">{{ titulo }}</div>
+            <div class="subtitle">
+              Documento emitido para facilitar la declaración de la renta. Incluye el capital aportado y el
+              desglose económico de la operación con la retención practicada.
+            </div>
+          </div>
+          <div>
+            {% if logo_data_uri %}
+              <img class="logo" src="{{ logo_data_uri }}" alt="Inversure">
+            {% elif logo_url %}
+              <img class="logo" src="{{ logo_url }}" alt="Inversure">
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="meta-row">
+          <span class="meta-pill">Fecha de emisión: {{ fecha|date:"d/m/Y" }}</span>
+          {% if proyecto %}
+            <span class="meta-pill">Proyecto: {{ proyecto.nombre|default:"Proyecto" }}</span>
+            <span class="meta-pill">Estado: {{ proyecto.estado|default:"-"|capfirst }}</span>
+          {% endif %}
+          {% if cliente %}
+            <span class="meta-pill">Inversor: {{ cliente.nombre|default:"Inversor" }}</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="body">
+        <div class="intro">
+          <div class="intro-title">Resumen fiscal</div>
+          <div class="message">
+            {% if mensaje_html %}
+              {{ mensaje_html|safe }}
+            {% else %}
+              {{ mensaje|linebreaksbr|safe }}
+            {% endif %}
+          </div>
+        </div>
+
+        {% if resumen_fiscal %}
+          <div class="summary-columns">
+            <div class="summary-card summary-card--main">
+              <div class="hero-label">Importe neto a percibir</div>
+              <div class="hero-amount">{{ resumen_fiscal.total_a_percibir }}</div>
+              <div class="hero-caption">
+                Capital aportado más beneficio neto tras la retención practicada.
+              </div>
+
+              <table class="breakdown">
+                <tr>
+                  <td class="label">Capital aportado</td>
+                  <td class="value">{{ resumen_fiscal.capital_invertido }}</td>
+                </tr>
+                <tr>
+                  <td class="label">Beneficio bruto liquidable</td>
+                  <td class="value">{{ resumen_fiscal.beneficio_bruto_inversor }}</td>
+                </tr>
+                <tr>
+                  <td class="label">
+                    Retención practicada
+                    <span class="retencion-pct">({{ resumen_fiscal.retencion_pct_aplicada }})</span>
+                  </td>
+                  <td class="value">{{ resumen_fiscal.retencion }}</td>
+                </tr>
+                <tr>
+                  <td class="label">Beneficio neto a liquidar</td>
+                  <td class="value">{{ resumen_fiscal.beneficio_neto_liquidacion }}</td>
+                </tr>
+                <tr class="total-row">
+                  <td class="label">Total a percibir</td>
+                  <td class="value">{{ resumen_fiscal.total_a_percibir }}</td>
+                </tr>
+              </table>
+            </div>
+
+            <div class="summary-card">
+              <div class="section-title">Datos del titular</div>
+              <div class="info-stack">
+                <div class="info-card">
+                  <div class="info-label">Titular</div>
+                  <div class="info-value">{{ cliente.nombre|default:"—" }}</div>
+                  <div class="info-label" style="margin-top: 12px;">NIF/CIF</div>
+                  <div class="info-value">{{ cliente.dni_cif|default:"—" }}</div>
+                </div>
+                <div class="info-card">
+                  <div class="info-label">Fecha de adquisición</div>
+                  <div class="info-value">{{ fecha_compra|default:"—" }}</div>
+                  <div class="info-label" style="margin-top: 12px;">Fecha de liquidación</div>
+                  <div class="info-value">{{ fecha_transmision|default:"—" }}</div>
+                </div>
+                <div class="info-card">
+                  <div class="info-label">Uso recomendado</div>
+                  <div class="info-value">Declaración de la renta</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        {% endif %}
+
+        <div class="note">
+          Los importes en euros son la base del certificado. El porcentaje de retención se muestra solo como
+          referencia complementaria para localizar la cuantía practicada.
+        </div>
+
+        <div class="signature">
+          <div>
+            <div class="signature-name">Equipo INVERSURE</div>
+            <div class="signature-role">Área de comunicación y seguimiento de inversores</div>
+          </div>
+          <div class="signature-role">MXIMENEZ@INVERSUREHOMES.ES</div>
+        </div>
+
+        <div class="footer">
+          Documento informativo emitido a partir de los datos registrados en la operación. Los importes pueden
+          requerir validación adicional por parte del asesor fiscal del titular.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

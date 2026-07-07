@@ -1,6 +1,8 @@
 import os
 from datetime import date
 from decimal import Decimal
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.contrib.sessions.middleware import SessionMiddleware
@@ -400,6 +402,88 @@ class SecurityHardeningTests(TestCase):
         self.assertEqual(ctx["retencion_pct_aplicada"], "19,00 %")
         self.assertEqual(ctx["beneficio_neto_liquidacion"], "16.200,00 €")
         self.assertEqual(ctx["total_a_percibir"], "66.200,00 €")
+
+    def test_normalize_match_text_handles_liquidacion_with_accent(self):
+        self.assertEqual(core_views._normalize_match_text("Liquidación final de la operación"), "liquidacion final de la operacion")
+
+    def test_certificado_retenciones_template_is_available(self):
+        templates = core_views._comunicacion_templates()
+        self.assertIn("certificado_retenciones", templates)
+        self.assertEqual(templates["certificado_retenciones"]["label"], "Certificado retenciones")
+        self.assertTrue(core_views._template_requires_settlement("certificado_retenciones"))
+        self.assertEqual(
+            core_views._pdf_document_kind_from_template("certificado_retenciones", "Certificado de retenciones"),
+            "retenciones",
+        )
+        self.assertEqual(
+            core_views._pdf_document_kind_from_template(None, "Liquidación final de la operación"),
+            "liquidacion",
+        )
+
+    def test_build_carta_pdf_uses_certificate_template_for_retenciones(self):
+        cliente = Cliente.objects.create(
+            nombre="Cliente retenciones",
+            dni_cif="X-TEST-0000",
+            email="retenciones@example.com",
+            telefono="600000099",
+        )
+        perfil = InversorPerfil.objects.create(cliente=cliente)
+        proyecto = Proyecto.objects.create(
+            nombre="Proyecto retenciones",
+            estado="cerrado",
+            fecha=date(2026, 6, 1),
+            precio_compra_inmueble=Decimal("100000.00"),
+            precio_propiedad=Decimal("100000.00"),
+        )
+        GastoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 1, 1),
+            categoria="adquisicion",
+            concepto="Compraventa inmueble",
+            importe=Decimal("100000.00"),
+            estado="confirmado",
+            imputable_inversores=True,
+        )
+        IngresoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 6, 1),
+            tipo="venta",
+            concepto="Venta final",
+            importe=Decimal("140000.00"),
+            estado="confirmado",
+            imputable_inversores=True,
+        )
+        Participacion.objects.create(
+            proyecto=proyecto,
+            cliente=cliente,
+            importe_invertido=Decimal("25000.00"),
+            estado="confirmada",
+        )
+        request = RequestFactory().get("/")
+
+        class _FakeHTML:
+            def __init__(self, string, base_url=None):
+                self.string = string
+                self.base_url = base_url
+
+            def write_pdf(self):
+                return b"pdf-bytes"
+
+        fake_weasyprint = SimpleNamespace(HTML=_FakeHTML)
+        with patch.dict("sys.modules", {"weasyprint": fake_weasyprint}):
+            with patch.object(core_views, "render_to_string", return_value="<html></html>") as mock_render:
+                pdf, error = core_views._build_carta_pdf_with_error(
+                    request,
+                    "Certificado de retenciones final",
+                    "Mensaje de prueba",
+                    perfil,
+                    proyecto,
+                    template_key="certificado_retenciones",
+                )
+
+        self.assertIsNone(error)
+        self.assertEqual(pdf, b"pdf-bytes")
+        self.assertEqual(mock_render.call_args.args[0], "core/pdf_certificado_retenciones.html")
 
     def test_proyecto_listo_para_liquidacion_requires_closed_state_and_confirmed_income(self):
         proyecto = Proyecto.objects.create(

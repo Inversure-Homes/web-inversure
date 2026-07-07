@@ -32,6 +32,7 @@ from types import SimpleNamespace
 import json
 import os
 import shutil
+import unicodedata
 import boto3
 import base64
 import mimetypes
@@ -589,17 +590,22 @@ def _guardar_pdf_comunicacion_inversor(
     titulo: str,
     pdf_bytes: bytes | None,
     filename: str | None = None,
+    categoria: str = "comunicaciones",
+    filename_prefix: str | None = None,
 ) -> DocumentoInversor | None:
     if not pdf_bytes:
         return None
     if not filename:
         proyecto_slug = slugify(getattr(proyecto, "nombre", "") or "proyecto") or "proyecto"
-        filename = f"liquidacion_{perfil.id}_{proyecto_slug}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        if not filename_prefix:
+            filename_prefix = "liquidacion" if categoria == "comunicaciones" else "certificado_retenciones" if categoria == "retenciones" else "documento"
+        filename = f"{filename_prefix}_{perfil.id}_{proyecto_slug}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     try:
+        default_title = "Certificado de retenciones" if categoria == "retenciones" else "Carta de liquidación" if categoria == "comunicaciones" else "Documento"
         documento = DocumentoInversor(
             inversor=perfil,
-            categoria="comunicaciones",
-            titulo=(titulo or "Carta de liquidación")[:255],
+            categoria=categoria,
+            titulo=(titulo or default_title)[:255],
         )
         documento.archivo.save(filename, ContentFile(pdf_bytes), save=False)
         documento.save()
@@ -695,8 +701,28 @@ def _estado_label(estado: str) -> str:
     }.get((estado or "").lower(), estado or "")
 
 
+def _normalize_match_text(value: str | None) -> str:
+    raw = unicodedata.normalize("NFKD", value or "")
+    return "".join(ch for ch in raw if not unicodedata.combining(ch)).lower()
+
+
 def _template_requires_settlement(template_key: str) -> bool:
-    return (template_key or "").strip().lower() == "cierre"
+    key = (template_key or "").strip().lower()
+    return key in {"cierre", "certificado_retenciones"}
+
+
+def _pdf_document_kind_from_template(template_key: str | None, titulo: str | None = None) -> str:
+    key = (template_key or "").strip().lower()
+    if key in {"cierre", "liquidacion"}:
+        return "liquidacion"
+    if key in {"certificado_retenciones", "retenciones"}:
+        return "retenciones"
+    normalized = _normalize_match_text(titulo)
+    if "liquidacion" in normalized:
+        return "liquidacion"
+    if "certificado" in normalized and "retencion" in normalized:
+        return "retenciones"
+    return "comunicacion"
 
 
 def _proyecto_listo_para_liquidacion(proyecto: Proyecto) -> tuple[bool, str | None]:
@@ -840,6 +866,30 @@ def _comunicacion_templates() -> dict:
                 "incluyendo el capital aportado, el beneficio liquidable, la retención aplicada y el total final a percibir.\n\n"
                 "La liquidación se ha calculado conforme al cierre económico de la operación y a la retención fiscal aplicable.\n\n"
                 "Gracias por tu confianza.\n\n"
+                f"{disclaimer}\n\n"
+                "Atentamente,\nEquipo INVERSURE"
+            ),
+        },
+        "certificado_retenciones": {
+            "label": "Certificado retenciones",
+            "titulo": "Certificado de retenciones {proyecto_nombre}",
+            "mensaje": (
+                "Estimado/a {inversor_nombre},\n\n"
+                "Adjuntamos el certificado fiscal de la operación {proyecto_nombre}, preparado para facilitar "
+                "tu declaración de la renta.\n\n"
+                "El documento recoge el capital aportado, la ganancia económica liquidable, la retención "
+                "practicada y el importe neto resultante.\n\n"
+                "Desglose fiscal:\n"
+                "- Titular: {inversor_nombre}\n"
+                "- NIF/CIF: {cliente_dni_cif}\n"
+                "- Fecha de emisión: {fecha_hoy}\n"
+                "- Fecha de liquidación: {fecha_transmision}\n"
+                "- Capital aportado: {capital_invertido}\n"
+                "- Ganancia económica liquidable: {beneficio_bruto_inversor}\n"
+                "- Retención practicada: {retencion} ({retencion_pct_aplicada})\n"
+                "- Beneficio neto a liquidar: {beneficio_neto_liquidacion}\n"
+                "- Total a percibir: {total_a_percibir}\n\n"
+                "Este certificado resume los importes económicos relevantes a efectos fiscales.\n\n"
                 f"{disclaimer}\n\n"
                 "Atentamente,\nEquipo INVERSURE"
             ),
@@ -1150,6 +1200,7 @@ def _build_comunicacion_context(
     usuarios_responsables = User.objects.filter(is_active=True).order_by("first_name", "last_name", "username")
     ctx = {
         "inversor_nombre": getattr(part.cliente, "nombre", "") or "",
+        "cliente_dni_cif": getattr(part.cliente, "dni_cif", "") or "",
         "proyecto_nombre": proyecto.nombre or "",
         "proyecto_estado": _estado_label(proyecto.estado),
         "inmueble_estado": inm.get("estado") or "",
@@ -1359,9 +1410,12 @@ def _build_carta_pdf_with_error(
     mensaje: str,
     perfil: InversorPerfil,
     proyecto: Proyecto | None,
+    template_key: str | None = None,
 ) -> tuple[bytes | None, str | None]:
     try:
-        is_liquidacion = "liquidacion" in ((titulo or "").strip().lower())
+        document_kind = _pdf_document_kind_from_template(template_key, titulo)
+        is_liquidacion = document_kind == "liquidacion"
+        is_retenciones = document_kind == "retenciones"
         # Enriquecer datos para mejorar el formato de la carta (píldoras, hito, QR)
         pill_participacion = ""
         pill_plazo = ""
@@ -1372,7 +1426,7 @@ def _build_carta_pdf_with_error(
         hito_siguiente = ""
         portal_link = ""
         qr_data_uri = ""
-        liquidacion_resumen = None
+        resumen_fiscal = None
         try:
             if request is not None and perfil is not None:
                 portal_link = request.build_absolute_uri(reverse("core:inversor_portal", args=[perfil.token]))
@@ -1413,7 +1467,7 @@ def _build_carta_pdf_with_error(
                     pill_rent_inv_neta = ctx.get("rentabilidad_inversor_neta") or ""
                     hito_resumen = ctx.get("hito_resumen") or ""
                     hito_siguiente = ctx.get("hito_siguiente") or ""
-                    liquidacion_resumen = {
+                    resumen_fiscal = {
                         "capital_invertido": ctx.get("capital_invertido") or "",
                         "beneficio_bruto_inversor": ctx.get("beneficio_bruto_inversor") or "",
                         "retencion": ctx.get("retencion") or "",
@@ -1426,7 +1480,7 @@ def _build_carta_pdf_with_error(
 
         # QR del portal (opcional si la librería está disponible)
         try:
-            if portal_link and not is_liquidacion:
+            if portal_link and not is_liquidacion and not is_retenciones:
                 import qrcode
                 from io import BytesIO
 
@@ -1493,8 +1547,9 @@ def _build_carta_pdf_with_error(
         if getattr(settings, "PDF_MESSAGE_SANITIZE", False):
             raw = _sanitize_pdf_message_html(raw)
         mensaje_html = mark_safe(raw)
+        template_name = "core/pdf_certificado_retenciones.html" if is_retenciones else "core/pdf_carta_inversor.html"
         html = render_to_string(
-            "core/pdf_carta_inversor.html",
+            template_name,
             {
                 "titulo": titulo,
                 "mensaje": mensaje,
@@ -1513,8 +1568,11 @@ def _build_carta_pdf_with_error(
                 "hito_siguiente": hito_siguiente,
                 "portal_link": portal_link,
                 "qr_data_uri": qr_data_uri,
+                "document_kind": document_kind,
                 "is_liquidacion": is_liquidacion,
-                "liquidacion_resumen": liquidacion_resumen,
+                "is_retenciones": is_retenciones,
+                "liquidacion_resumen": resumen_fiscal,
+                "resumen_fiscal": resumen_fiscal,
             },
         )
         from weasyprint import HTML  # defer import
@@ -1524,8 +1582,15 @@ def _build_carta_pdf_with_error(
         return None, str(e)
 
 
-def _build_carta_pdf(request, titulo: str, mensaje: str, perfil: InversorPerfil, proyecto: Proyecto | None) -> bytes | None:
-    pdf, _ = _build_carta_pdf_with_error(request, titulo, mensaje, perfil, proyecto)
+def _build_carta_pdf(
+    request,
+    titulo: str,
+    mensaje: str,
+    perfil: InversorPerfil,
+    proyecto: Proyecto | None,
+    template_key: str | None = None,
+) -> bytes | None:
+    pdf, _ = _build_carta_pdf_with_error(request, titulo, mensaje, perfil, proyecto, template_key=template_key)
     return pdf
 
 
@@ -8278,6 +8343,9 @@ def proyecto_comunicaciones(request, proyecto_id: int):
                 ok_liquidacion, liquidacion_error = _proyecto_listo_para_liquidacion(proyecto)
                 if not ok_liquidacion:
                     return JsonResponse({"ok": False, "error": liquidacion_error}, status=400)
+            document_kind = _pdf_document_kind_from_template(template_key)
+            filename_prefix = "certificado_retenciones" if document_kind == "retenciones" else "liquidacion" if document_kind == "liquidacion" else "carta_inversure"
+            attachment_name = f"{filename_prefix}.pdf"
 
             if preview_only:
                 part = participaciones.first()
@@ -8301,17 +8369,18 @@ def proyecto_comunicaciones(request, proyecto_id: int):
                 if not titulo or not mensaje:
                     continue
                 attachments = None
-                carta_pdf = _build_carta_pdf(request, titulo, mensaje, perfil, proyecto)
+                carta_pdf = _build_carta_pdf(request, titulo, mensaje, perfil, proyecto, template_key=template_key)
                 merged_pdf = _merge_pdf_with_anexos(carta_pdf, anexos, request=request) if carta_pdf else None
                 if merged_pdf:
-                    attachments = [("carta_inversure.pdf", merged_pdf, "application/pdf")]
+                    attachments = [(attachment_name, merged_pdf, "application/pdf")]
                     if _template_requires_settlement(template_key):
                         _guardar_pdf_comunicacion_inversor(
                             perfil=perfil,
                             proyecto=proyecto,
                             titulo=titulo,
                             pdf_bytes=merged_pdf,
-                            filename=f"liquidacion_{proyecto.id}_{perfil.id}.pdf",
+                            categoria="retenciones" if document_kind == "retenciones" else "comunicaciones",
+                            filename_prefix=filename_prefix,
                         )
                 _crear_comunicacion(request, perfil, proyecto, titulo, mensaje, attachments=attachments)
                 count += 1
@@ -8403,6 +8472,7 @@ def inversor_comunicacion_preview(request, perfil_id: int):
             titulo, mensaje = _render_comunicacion_template(template_key, ctx)
         if not titulo or not mensaje:
             return JsonResponse({"ok": False, "error": "Título y mensaje son obligatorios"}, status=400)
+        document_kind = _pdf_document_kind_from_template(template_key, titulo)
 
         if preview_only:
             return JsonResponse({"ok": True, "titulo": titulo, "mensaje": mensaje})
@@ -8418,13 +8488,14 @@ def inversor_comunicacion_preview(request, perfil_id: int):
             )
         )
 
-        carta_pdf, carta_error = _build_carta_pdf_with_error(request, titulo, mensaje, perfil, proyecto)
+        carta_pdf, carta_error = _build_carta_pdf_with_error(request, titulo, mensaje, perfil, proyecto, template_key=template_key)
         merged_pdf = _merge_pdf_with_anexos(carta_pdf, anexos, request=request) if carta_pdf else None
         if not merged_pdf:
             detalle = f": {carta_error}" if carta_error else ""
             return JsonResponse({"ok": False, "error": f"No se pudo generar el PDF{detalle}"}, status=400)
 
-        filename = f"carta_inversor_{perfil.id}_{proyecto.id}.pdf"
+        filename_prefix = "certificado_retenciones" if document_kind == "retenciones" else "liquidacion" if document_kind == "liquidacion" else "carta_inversor"
+        filename = f"{filename_prefix}_{perfil.id}_{proyecto.id}.pdf"
         response = HttpResponse(merged_pdf, content_type="application/pdf")
         response["Content-Disposition"] = f'inline; filename="{filename}"'
         return response
@@ -8497,6 +8568,7 @@ def inversor_comunicacion_send(request, perfil_id: int):
             titulo, mensaje = _render_comunicacion_template(template_key, ctx)
         if not titulo or not mensaje:
             return JsonResponse({"ok": False, "error": "Título y mensaje son obligatorios"}, status=400)
+        document_kind = _pdf_document_kind_from_template(template_key, titulo)
 
         doc_ids = data.get("doc_ids") or []
         if not isinstance(doc_ids, list):
@@ -8510,17 +8582,19 @@ def inversor_comunicacion_send(request, perfil_id: int):
         )
 
         attachments = None
-        carta_pdf = _build_carta_pdf(request, titulo, mensaje, perfil, proyecto)
+        carta_pdf = _build_carta_pdf(request, titulo, mensaje, perfil, proyecto, template_key=template_key)
         merged_pdf = _merge_pdf_with_anexos(carta_pdf, anexos, request=request) if carta_pdf else None
         if merged_pdf:
-            attachments = [("carta_inversure.pdf", merged_pdf, "application/pdf")]
+            filename_prefix = "certificado_retenciones" if document_kind == "retenciones" else "liquidacion" if document_kind == "liquidacion" else "carta_inversure"
+            attachments = [(f"{filename_prefix}.pdf", merged_pdf, "application/pdf")]
             if _template_requires_settlement(template_key):
                 _guardar_pdf_comunicacion_inversor(
                     perfil=perfil,
                     proyecto=proyecto,
                     titulo=titulo,
                     pdf_bytes=merged_pdf,
-                    filename=f"liquidacion_{proyecto.id}_{perfil.id}.pdf",
+                    categoria="retenciones" if document_kind == "retenciones" else "comunicaciones",
+                    filename_prefix=filename_prefix,
                 )
 
         _crear_comunicacion(request, perfil, proyecto, titulo, mensaje, attachments=attachments)
