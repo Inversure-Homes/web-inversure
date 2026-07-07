@@ -233,10 +233,30 @@
   .portal-beneficios-table .col-action { width: 6%; }
   .portal-beneficios-table .col-money,
   .portal-beneficios-table td.col-money {
-    white-space: nowrap;
+    white-space: normal;
   }
   .portal-beneficios-table td.text-end,
   .portal-beneficios-table th.text-end {
+    font-variant-numeric: tabular-nums;
+  }
+  .portal-beneficios-table .money-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    min-width: 0;
+  }
+  .portal-beneficios-table .money-label {
+    font-size: 11px;
+    line-height: 1.05;
+    color: #64748b;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    max-width: 100%;
+    text-align: right;
+  }
+  .portal-beneficios-table .money-value {
+    white-space: nowrap;
     font-variant-numeric: tabular-nums;
   }
   .portal-beneficios-table input.form-control {
@@ -528,87 +548,103 @@
                 </td>
                 <td class="text-end col-pct">{{ b.participacion_pct|es_number }} %</td>
                 <td class="text-end col-money">
-                  {% if internal_view %}
-                    <div class="input-group input-group-sm flex-nowrap">
-                      <input type="text" name="beneficio_bruto" form="beneficio-form-{{ b.participacion_id }}" class="form-control text-end" value="{{ b.beneficio_bruto|es_number }}">
-                      <span class="input-group-text">€</span>
-                    </div>
-                  {% else %}
-                    {{ b.beneficio_bruto|es_number }} €
-                  {% endif %}
+                  <div class="money-stack">
+                    {% if internal_view %}
+                      <div class="input-group input-group-sm flex-nowrap">
+                        <input type="text" name="beneficio_bruto" form="beneficio-form-{{ b.participacion_id }}" class="form-control text-end" value="{{ b.beneficio_bruto|es_number }}">
+                        <span class="input-group-text">€</span>
+                      </div>
+                    {% else %}
+                      <span class="money-value">{{ b.beneficio_bruto|es_number }} €</span>
+                    {% endif %}
+                  </div>
                 </td>
                 <td class="text-end col-money">
-                  {% if internal_view %}
-                    <div class="input-group input-group-sm flex-nowrap">
-                      <input type="text" name="comision_eur" form="beneficio-form-{{ b.participacion_id }}" class="form-control text-end" value="{{ b.comision_eur|es_number }}">
-                      <span class="input-group-text">€</span>
-                    </div>
-                  {% else %}
-                    {{ b.comision_eur|es_number }} €
-                  {% endif %}
+                  <div class="money-stack">
+                    {% if internal_view %}
+                      <div class="input-group input-group-sm flex-nowrap">
+                        <input type="text" name="comision_eur" form="beneficio-form-{{ b.participacion_id }}" class="form-control text-end" value="{{ b.comision_eur|es_number }}">
+                        <span class="input-group-text">€</span>
+                      </div>
+                    {% else %}
+                      <span class="money-value">{{ b.comision_eur|es_number }} €</span>
+                    {% endif %}
+                  </div>
                 </td>
                 <td class="text-end col-money">
-                  {% if internal_view %}
-                    <div class="input-group input-group-sm flex-nowrap">
-                      <input type="text" name="beneficio_neto_total" form="beneficio-form-{{ b.participacion_id }}" class="form-control text-end" value="{{ b.beneficio_neto_total|es_number }}">
-                      <span class="input-group-text">€</span>
-                    </div>
-                  {% else %}
-                    {{ b.beneficio_neto_total|es_number }} €
-                  {% endif %}
+                  <div class="money-stack">
+                    {% if internal_view %}
+                      <div class="input-group input-group-sm flex-nowrap">
+                        <input type="text" name="beneficio_neto_total" form="beneficio-form-{{ b.participacion_id }}" class="form-control text-end" value="{{ b.beneficio_neto_total|es_number }}">
+                        <span class="input-group-text">€</span>
+                      </div>
+                    {% else %}
+                      <span class="money-value">{{ b.beneficio_neto_total|es_number }} €</span>
+                    {% endif %}
+                  </div>
                 </td>
                 <td class="text-end col-money">
-                  {% if internal_view %}
-                    <div class="input-group input-group-sm flex-nowrap">
-                      <input type="text" name="impuesto_sociedades" form="beneficio-form-{{ b.participacion_id }}" class="form-control text-end" value="{{ b.impuesto_sociedades|es_number }}">
-                      <span class="input-group-text">€</span>
-                    </div>
-                  {% else %}
-                    {{ b.impuesto_sociedades|es_number }} €
-                  {% endif %}
+                  <div class="money-stack">
+                    {% if internal_view %}
+                      <div class="input-group input-group-sm flex-nowrap">
+                        <input type="text" name="impuesto_sociedades" form="beneficio-form-{{ b.participacion_id }}" class="form-control text-end" value="{{ b.impuesto_sociedades|es_number }}">
+                        <span class="input-group-text">€</span>
+                      </div>
+                    {% else %}
+                      <span class="money-value">{{ b.impuesto_sociedades|es_number }} €</span>
+                    {% endif %}
+                  </div>
                 </td>
                 <td class="text-end col-money">
-                  {% if internal_view %}
-                    <div class="input-group input-group-sm flex-nowrap">
-                      <input type="text" name="beneficio_inversor" form="beneficio-form-{{ b.participacion_id }}" class="form-control text-end" value="{{ b.beneficio_inversor|es_number }}">
-                      <span class="input-group-text">€</span>
-                    </div>
-                  {% else %}
-                    {{ b.beneficio_inversor|es_number }} €
-                  {% endif %}
+                  <div class="money-stack">
+                    {% if internal_view %}
+                      <div class="input-group input-group-sm flex-nowrap">
+                        <input type="text" name="beneficio_inversor" form="beneficio-form-{{ b.participacion_id }}" class="form-control text-end" value="{{ b.beneficio_inversor|es_number }}">
+                        <span class="input-group-text">€</span>
+                      </div>
+                    {% else %}
+                      <span class="money-value">{{ b.beneficio_inversor|es_number }} €</span>
+                    {% endif %}
+                  </div>
                 </td>
                 <td class="text-end col-money">
-                  <div class="small text-muted">{{ b.retencion_label }}</div>
-                  {% if internal_view %}
-                    <div class="input-group input-group-sm flex-nowrap">
-                      <input type="text" name="retencion" form="beneficio-form-{{ b.participacion_id }}" class="form-control text-end" value="{{ b.retencion|es_number }}">
-                      <span class="input-group-text">€</span>
-                    </div>
-                  {% else %}
-                    {{ b.retencion|es_number }} €
-                  {% endif %}
+                  <div class="money-stack">
+                    <div class="money-label">{{ b.retencion_label }}</div>
+                    {% if internal_view %}
+                      <div class="input-group input-group-sm flex-nowrap">
+                        <input type="text" name="retencion" form="beneficio-form-{{ b.participacion_id }}" class="form-control text-end" value="{{ b.retencion|es_number }}">
+                        <span class="input-group-text">€</span>
+                      </div>
+                    {% else %}
+                      <span class="money-value">{{ b.retencion|es_number }} €</span>
+                    {% endif %}
+                  </div>
                 </td>
 	                <td class="text-end col-money">
-                    <div class="small text-muted">{{ b.neto_label }}</div>
+                  <div class="money-stack">
+                    <div class="money-label">{{ b.neto_label }}</div>
 	                  {% if internal_view %}
 	                    <div class="input-group input-group-sm flex-nowrap">
 	                      <input type="text" name="neto_cobrar" form="beneficio-form-{{ b.participacion_id }}" class="form-control text-end" value="{{ b.neto_cobrar|es_number }}">
 	                      <span class="input-group-text">€</span>
 	                    </div>
 	                  {% else %}
-	                    {{ b.neto_cobrar|es_number }} €
+	                    <span class="money-value">{{ b.neto_cobrar|es_number }} €</span>
 	                  {% endif %}
+                  </div>
 	                </td>
 	                <td class="text-end col-money">
-                    <div class="small text-muted">{{ b.total_label }}</div>
+                  <div class="money-stack">
+                    <div class="money-label">{{ b.total_label }}</div>
 	                  {% if internal_view %}
 	                    <div class="input-group input-group-sm flex-nowrap">
 	                      <input type="text" name="total_a_percibir" form="beneficio-form-{{ b.participacion_id }}" class="form-control text-end" value="{{ b.total_a_percibir|es_number }}">
 	                      <span class="input-group-text">€</span>
 	                    </div>
 	                  {% else %}
-	                    {{ b.total_a_percibir|es_number }} €
+	                    <span class="money-value">{{ b.total_a_percibir|es_number }} €</span>
 	                  {% endif %}
+                  </div>
 	                </td>
 	                <td class="text-end col-action">
 	                  {% if internal_view %}
