@@ -10,7 +10,7 @@ from django.test import RequestFactory, TestCase
 from django.test.utils import override_settings
 
 from core import views as core_views
-from core.models import Cliente, Estudio, GastoProyecto, IngresoProyecto, InversorPerfil, Participacion, Proyecto
+from core.models import Cliente, DatosEconomicosProyecto, Estudio, GastoProyecto, IngresoProyecto, InversorPerfil, Participacion, Proyecto
 
 
 def _add_session(request):
@@ -403,6 +403,51 @@ class SecurityHardeningTests(TestCase):
         self.assertEqual(ctx["beneficio_neto_liquidacion"], "16.200,00 €")
         self.assertEqual(ctx["total_a_percibir"], "66.200,00 €")
 
+    @override_settings(INVERSOR_RETENCION_PCT=19.0, INVERSOR_RETENCION_PCT_F=19.0)
+    def test_build_comunicacion_context_uses_certificate_dates(self):
+        proyecto = Proyecto.objects.create(
+            nombre="P6-dates",
+            estado="cerrado",
+            fecha=None,
+            fecha_compra=None,
+            precio_compra_inmueble=Decimal("100000.00"),
+            precio_propiedad=Decimal("100000.00"),
+        )
+        DatosEconomicosProyecto.objects.create(
+            proyecto=proyecto,
+            fecha_venta_real=date(2026, 6, 1),
+        )
+        GastoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 1, 3),
+            categoria="adquisicion",
+            concepto="Compraventa inmueble",
+            importe=Decimal("100000.00"),
+            estado="confirmado",
+            imputable_inversores=True,
+        )
+        cliente = Cliente.objects.create(
+            nombre="Cliente fechas",
+            dni_cif="X-TEST-0010",
+            email="cliente-fechas@example.com",
+            telefono="600000010",
+        )
+        participacion = Participacion.objects.create(
+            proyecto=proyecto,
+            cliente=cliente,
+            importe_invertido=Decimal("50000.00"),
+            estado="confirmada",
+        )
+        ctx = core_views._build_comunicacion_context(
+            proyecto,
+            participacion,
+            {},
+            {"beneficio_neto": 40000.0, "valor_adquisicion": 100000.0, "valor_transmision": 140000.0, "roi": 40.0},
+            total_proj=100000.0,
+        )
+        self.assertEqual(ctx["fecha_compra"], "03/01/2026")
+        self.assertEqual(ctx["fecha_transmision"], "01/06/2026")
+
     def test_normalize_match_text_handles_liquidacion_with_accent(self):
         self.assertEqual(core_views._normalize_match_text("Liquidación final de la operación"), "liquidacion final de la operacion")
 
@@ -442,18 +487,14 @@ class SecurityHardeningTests(TestCase):
         proyecto = Proyecto.objects.create(
             nombre="Proyecto retenciones",
             estado="cerrado",
-            fecha=date(2026, 6, 1),
+            fecha=None,
+            fecha_compra=date(2026, 1, 1),
             precio_compra_inmueble=Decimal("100000.00"),
             precio_propiedad=Decimal("100000.00"),
         )
-        GastoProyecto.objects.create(
+        DatosEconomicosProyecto.objects.create(
             proyecto=proyecto,
-            fecha=date(2026, 1, 1),
-            categoria="adquisicion",
-            concepto="Compraventa inmueble",
-            importe=Decimal("100000.00"),
-            estado="confirmado",
-            imputable_inversores=True,
+            fecha_venta_real=date(2026, 6, 1),
         )
         IngresoProyecto.objects.create(
             proyecto=proyecto,
@@ -495,6 +536,9 @@ class SecurityHardeningTests(TestCase):
         self.assertIsNone(error)
         self.assertEqual(pdf, b"pdf-bytes")
         self.assertEqual(mock_render.call_args.args[0], "core/pdf_certificado_retenciones.html")
+        render_ctx = mock_render.call_args.args[1]
+        self.assertEqual(render_ctx["fecha_compra"], "01/01/2026")
+        self.assertEqual(render_ctx["fecha_transmision"], "01/06/2026")
 
     def test_proyecto_listo_para_liquidacion_requires_closed_state_and_confirmed_income(self):
         proyecto = Proyecto.objects.create(

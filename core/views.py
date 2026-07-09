@@ -1103,6 +1103,136 @@ def _calc_beneficio_inversor(
     }
 
 
+def _coerce_date_like(value):
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return None
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d", "%d-%m-%Y"):
+            try:
+                return datetime.strptime(raw, fmt).date()
+            except Exception:
+                continue
+        try:
+            return date.fromisoformat(raw)
+        except Exception:
+            return None
+    return None
+
+
+def _fecha_adquisicion_certificado(proyecto: Proyecto, snapshot: dict | None = None):
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    candidates = [getattr(proyecto, "fecha_compra", None)]
+
+    try:
+        de = getattr(proyecto, "datos_economicos", None)
+    except Exception:
+        de = None
+    if de is not None:
+        candidates.extend(
+            [
+                getattr(de, "fecha_compra_real", None),
+                getattr(de, "fecha_compra", None),
+            ]
+        )
+
+    econ = snapshot.get("economico") if isinstance(snapshot.get("economico"), dict) else {}
+    if isinstance(econ, dict):
+        candidates.extend(
+            [
+                econ.get("fecha_compra_real"),
+                econ.get("fecha_compra"),
+            ]
+        )
+
+    for candidate in candidates:
+        fecha = _coerce_date_like(candidate)
+        if fecha:
+            return fecha
+
+    # Fallback: primer gasto confirmado de adquisición, priorizando conceptos de compra reales.
+    qs = GastoProyecto.objects.filter(
+        proyecto=proyecto,
+        categoria="adquisicion",
+        estado="confirmado",
+    ).order_by("fecha", "id")
+    first_gasto = None
+    for gasto in qs:
+        if first_gasto is None:
+            first_gasto = gasto
+        concepto = _normalize_match_text(getattr(gasto, "concepto", "") or "")
+        if any(
+            token in concepto
+            for token in ("compraventa", "compra", "precio compra", "precio inmueble", "propiedad")
+        ):
+            fecha = _coerce_date_like(getattr(gasto, "fecha", None))
+            if fecha:
+                return fecha
+    if first_gasto is not None:
+        return _coerce_date_like(getattr(first_gasto, "fecha", None))
+    return None
+
+
+def _fecha_transmision_certificado(proyecto: Proyecto, snapshot: dict | None = None):
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    candidates = []
+    estado = (getattr(proyecto, "estado", "") or "").strip().lower()
+
+    try:
+        de = getattr(proyecto, "datos_economicos", None)
+    except Exception:
+        de = None
+    if de is not None:
+        candidates.extend(
+            [
+                getattr(de, "fecha_venta_real", None),
+            ]
+        )
+
+    econ = snapshot.get("economico") if isinstance(snapshot.get("economico"), dict) else {}
+    if isinstance(econ, dict):
+        candidates.extend(
+            [
+                econ.get("fecha_venta_real"),
+                econ.get("fecha_liquidacion"),
+                econ.get("liquidacion_fecha"),
+            ]
+        )
+
+    conciertos = snapshot.get("conciertos") if isinstance(snapshot.get("conciertos"), dict) else {}
+    if isinstance(conciertos, dict):
+        candidates.extend(
+            [
+                conciertos.get("fecha_liquidacion"),
+                conciertos.get("liquidacion_fecha"),
+            ]
+        )
+
+    for candidate in candidates:
+        fecha = _coerce_date_like(candidate)
+        if fecha:
+            return fecha
+
+    ingresos = IngresoProyecto.objects.filter(
+        proyecto=proyecto,
+        estado="confirmado",
+    ).order_by("fecha", "id")
+    tipos_venta = {"venta"}
+    if estado in {"vendido", "cerrado"}:
+        tipos_venta.update({"senal", "anticipo"})
+    for ingreso in ingresos:
+        if (getattr(ingreso, "tipo", "") or "").lower() in tipos_venta:
+            fecha = _coerce_date_like(getattr(ingreso, "fecha", None))
+            if fecha:
+                return fecha
+
+    return _coerce_date_like(getattr(proyecto, "fecha", None))
+
+
 def _build_comunicacion_context(
     proyecto: Proyecto,
     part: Participacion,
@@ -1225,8 +1355,8 @@ def _build_comunicacion_context(
         "progreso_pct": progreso_map.get(estado_lower, 30),
         "progreso_label": _estado_label(proyecto.estado),
         "fecha_hoy": timezone.now().date().strftime("%d/%m/%Y"),
-        "fecha_compra": getattr(proyecto, "fecha_compra", None) or getattr(proyecto, "fecha", None),
-        "fecha_transmision": getattr(proyecto, "fecha", None),
+        "fecha_compra": _fecha_adquisicion_certificado(proyecto, snapshot),
+        "fecha_transmision": _fecha_transmision_certificado(proyecto, snapshot),
         "valor_adquisicion": _fmt_eur(float(resultado_mem.get("valor_adquisicion") or 0.0)),
         "valor_transmision": _fmt_eur(float(resultado_mem.get("valor_transmision") or 0.0)),
     }
@@ -1329,45 +1459,7 @@ def _build_comunicacion_context(
             plazo_set = False
 
         if not plazo_set:
-            def _parse_date_maybe(value):
-                if isinstance(value, datetime):
-                    return value.date()
-                if isinstance(value, date):
-                    return value
-                if isinstance(value, str):
-                    s = value.strip()
-                    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d", "%d-%m-%Y"):
-                        try:
-                            return datetime.strptime(s, fmt).date()
-                        except Exception:
-                            continue
-                return None
-
-            fecha_inicio = _parse_date_maybe(getattr(proyecto, "fecha_compra", None))
-            if not fecha_inicio:
-                # compra: buscar un gasto confirmado de categoría adquisición asociado a compraventa/compra
-                qs = GastoProyecto.objects.filter(
-                    proyecto=proyecto, categoria="adquisicion", estado="confirmado"
-                ).order_by("fecha", "id")
-                for g in qs:
-                    concepto = (getattr(g, "concepto", "") or "").lower()
-                    normalized = (
-                        concepto.replace("á", "a")
-                        .replace("é", "e")
-                        .replace("í", "i")
-                        .replace("ó", "o")
-                        .replace("ú", "u")
-                    )
-                    if any(
-                        k in normalized
-                        for k in ("compraventa", "compra", "precio compra", "precio inmueble", "propiedad")
-                    ):
-                        fecha_inicio = _parse_date_maybe(getattr(g, "fecha", None))
-                        break
-                if not fecha_inicio:
-                    first_g = qs.first()
-                    if first_g:
-                        fecha_inicio = _parse_date_maybe(getattr(first_g, "fecha", None))
+            fecha_inicio = _fecha_adquisicion_certificado(proyecto, snapshot)
 
             fecha_fin = None
             if estado_lower in {"reservado", "vendido", "cerrado"}:
@@ -1434,6 +1526,8 @@ def _build_carta_pdf_with_error(
         portal_link = ""
         qr_data_uri = ""
         resumen_fiscal = None
+        fecha_compra = ""
+        fecha_transmision = ""
         try:
             if request is not None and perfil is not None:
                 portal_link = request.build_absolute_uri(reverse("core:inversor_portal", args=[perfil.token]))
@@ -1474,6 +1568,8 @@ def _build_carta_pdf_with_error(
                     pill_rent_inv_neta = ctx.get("rentabilidad_inversor_neta") or ""
                     hito_resumen = ctx.get("hito_resumen") or ""
                     hito_siguiente = ctx.get("hito_siguiente") or ""
+                    fecha_compra = ctx.get("fecha_compra") or ""
+                    fecha_transmision = ctx.get("fecha_transmision") or ""
                     resumen_fiscal = {
                         "capital_invertido": ctx.get("capital_invertido") or "",
                         "beneficio_bruto_inversor": ctx.get("beneficio_bruto_inversor") or "",
@@ -1564,6 +1660,8 @@ def _build_carta_pdf_with_error(
                 "cliente": perfil.cliente,
                 "proyecto": proyecto,
                 "fecha": timezone.now().date(),
+                "fecha_compra": fecha_compra,
+                "fecha_transmision": fecha_transmision,
                 "logo_url": logo_url,
                 "logo_data_uri": logo_data_uri,
                 "pill_participacion": pill_participacion,
