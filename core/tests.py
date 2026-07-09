@@ -419,6 +419,17 @@ class SecurityHardeningTests(TestCase):
             core_views._pdf_document_kind_from_template(None, "Liquidación final de la operación"),
             "liquidacion",
         )
+        legal_text = (
+            "Se advierte al inversor que las cantidades expresadas en el certificados, podrán ser eventualmente "
+            "modificadada, en el caso de que posterior a  la liquidación practicada, se devenguen gastos no "
+            "previstos ni previsibles de la emisión de la misma y que deberán ser asumidos en las mismas "
+            "previsiones en que se ha participado en la inversión.En el caso de que esto se produzca se emitirá "
+            "una liquidación complementaria"
+        )
+        self.assertIn(legal_text, templates["cierre"]["mensaje"])
+        self.assertIn(legal_text, templates["certificado_retenciones"]["mensaje"])
+        self.assertNotIn("Los datos son orientativos", templates["cierre"]["mensaje"])
+        self.assertNotIn("Los datos son orientativos", templates["certificado_retenciones"]["mensaje"])
 
     def test_build_carta_pdf_uses_certificate_template_for_retenciones(self):
         cliente = Cliente.objects.create(

@@ -763,6 +763,13 @@ def _comunicacion_templates() -> dict:
     disclaimer = (
         "Nota legal: Los datos son orientativos y pueden variar tanto al alza como a la baja."
     )
+    disclaimer_liquidacion = (
+        "Se advierte al inversor que las cantidades expresadas en el certificados, podrán ser eventualmente "
+        "modificadada, en el caso de que posterior a  la liquidación practicada, se devenguen gastos no "
+        "previstos ni previsibles de la emisión de la misma y que deberán ser asumidos en las mismas "
+        "previsiones en que se ha participado en la inversión.En el caso de que esto se produzca se emitirá "
+        "una liquidación complementaria"
+    )
     return {
         "bienvenida": {
             "label": "Carta de bienvenida",
@@ -866,7 +873,7 @@ def _comunicacion_templates() -> dict:
                 "incluyendo el capital aportado, el beneficio liquidable, la retención aplicada y el total final a percibir.\n\n"
                 "La liquidación se ha calculado conforme al cierre económico de la operación y a la retención fiscal aplicable.\n\n"
                 "Gracias por tu confianza.\n\n"
-                f"{disclaimer}\n\n"
+                f"Nota legal:\n{disclaimer_liquidacion}\n\n"
                 "Atentamente,\nEquipo INVERSURE"
             ),
         },
@@ -890,7 +897,7 @@ def _comunicacion_templates() -> dict:
                 "- Beneficio neto a liquidar: {beneficio_neto_liquidacion}\n"
                 "- Total a percibir: {total_a_percibir}\n\n"
                 "Este certificado resume los importes económicos relevantes a efectos fiscales.\n\n"
-                f"{disclaimer}\n\n"
+                f"Nota legal:\n{disclaimer_liquidacion}\n\n"
                 "Atentamente,\nEquipo INVERSURE"
             ),
         },
