@@ -398,23 +398,12 @@
 
       .legal-disclaimer {
         margin-top: 14px;
-        padding-top: 12px;
-        border-top: 1px solid var(--line-soft);
-        color: #7a8597;
-        font-size: 7.8px;
-        line-height: 1.38;
+        color: #8a96a8;
+        font-size: 7.2px;
+        line-height: 1.34;
+        font-style: italic;
         page-break-inside: avoid;
         break-inside: avoid;
-      }
-
-      .legal-disclaimer-title {
-        display: block;
-        margin-bottom: 4px;
-        color: var(--brand-blue);
-        font-size: 7.8px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.14em;
       }
     </style>
   </head>
@@ -610,7 +599,6 @@
 
       {% if legal_disclaimer %}
         <div class="legal-disclaimer">
-          <span class="legal-disclaimer-title">Nota legal</span>
           {{ legal_disclaimer }}
         </div>
       {% endif %}
