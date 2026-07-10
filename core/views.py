@@ -866,6 +866,7 @@ def _comunicacion_templates() -> dict:
         "cierre": {
             "label": "Carta de liquidación",
             "titulo": "Liquidación final de la operación",
+            "legal_disclaimer": disclaimer_liquidacion,
             "mensaje": (
                 "Estimado/a {inversor_nombre},\n\n"
                 "El proyecto {proyecto_nombre} ha finalizado y la operación queda liquidada.\n\n"
@@ -880,6 +881,7 @@ def _comunicacion_templates() -> dict:
         "certificado_retenciones": {
             "label": "Certificado retenciones",
             "titulo": "Certificado de retenciones {proyecto_nombre}",
+            "legal_disclaimer": disclaimer_liquidacion,
             "mensaje": (
                 "Estimado/a {inversor_nombre},\n\n"
                 "Adjuntamos el certificado fiscal de la operación {proyecto_nombre}, preparado para facilitar "
@@ -1515,6 +1517,12 @@ def _build_carta_pdf_with_error(
         document_kind = _pdf_document_kind_from_template(template_key, titulo)
         is_liquidacion = document_kind == "liquidacion"
         is_retenciones = document_kind == "retenciones"
+        legal_disclaimer = ""
+        if template_key:
+            try:
+                legal_disclaimer = (_comunicacion_templates().get(template_key) or {}).get("legal_disclaimer") or ""
+            except Exception:
+                legal_disclaimer = ""
         # Enriquecer datos para mejorar el formato de la carta (píldoras, hito, QR)
         pill_participacion = ""
         pill_plazo = ""
@@ -1612,6 +1620,16 @@ def _build_carta_pdf_with_error(
         except Exception:
             logo_data_uri = ""
         raw = (mensaje or "")
+        if legal_disclaimer and (is_liquidacion or is_retenciones):
+            legal_block = f"Nota legal:\n{legal_disclaimer}".strip()
+            for variant in (
+                f"\n\n{legal_block}\n\n",
+                f"\n{legal_block}\n\n",
+                f"\n\n{legal_block}\n",
+                f"\n{legal_block}\n",
+                legal_block,
+            ):
+                raw = raw.replace(variant, "\n\n")
         # Mejorar formato: headings, negritas y linkificación simple para que WeasyPrint los renderice como CTA.
         try:
             import re
@@ -1662,6 +1680,7 @@ def _build_carta_pdf_with_error(
                 "fecha": timezone.now().date(),
                 "fecha_compra": fecha_compra,
                 "fecha_transmision": fecha_transmision,
+                "legal_disclaimer": legal_disclaimer,
                 "logo_url": logo_url,
                 "logo_data_uri": logo_data_uri,
                 "pill_participacion": pill_participacion,

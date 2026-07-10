@@ -471,6 +471,8 @@ class SecurityHardeningTests(TestCase):
             "previsiones en que se ha participado en la inversión.En el caso de que esto se produzca se emitirá "
             "una liquidación complementaria"
         )
+        self.assertEqual(templates["cierre"]["legal_disclaimer"], legal_text)
+        self.assertEqual(templates["certificado_retenciones"]["legal_disclaimer"], legal_text)
         self.assertIn(legal_text, templates["cierre"]["mensaje"])
         self.assertIn(legal_text, templates["certificado_retenciones"]["mensaje"])
         self.assertNotIn("Los datos son orientativos", templates["cierre"]["mensaje"])
@@ -539,6 +541,9 @@ class SecurityHardeningTests(TestCase):
         render_ctx = mock_render.call_args.args[1]
         self.assertEqual(render_ctx["fecha_compra"], "01/01/2026")
         self.assertEqual(render_ctx["fecha_transmision"], "01/06/2026")
+        self.assertIn("legal_disclaimer", render_ctx)
+        self.assertTrue(render_ctx["legal_disclaimer"])
+        self.assertNotIn("Se advierte al inversor", render_ctx["mensaje_html"])
 
     def test_proyecto_listo_para_liquidacion_requires_closed_state_and_confirmed_income(self):
         proyecto = Proyecto.objects.create(

@@ -310,6 +310,27 @@
         font-size: 9px;
         line-height: 1.45;
       }
+
+      .legal-disclaimer {
+        margin-top: 14px;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+        color: #7a8597;
+        font-size: 7.8px;
+        line-height: 1.38;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      .legal-disclaimer-title {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--brand-blue);
+        font-size: 7.8px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+      }
     </style>
   </head>
   <body>
@@ -435,6 +456,13 @@
           Documento informativo emitido a partir de los datos registrados en la operación. Los importes pueden
           requerir validación adicional por parte del asesor fiscal del titular.
         </div>
+
+        {% if legal_disclaimer %}
+          <div class="legal-disclaimer">
+            <span class="legal-disclaimer-title">Nota legal</span>
+            {{ legal_disclaimer }}
+          </div>
+        {% endif %}
       </div>
     </div>
   </body>
