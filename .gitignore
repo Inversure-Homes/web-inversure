@@ -3,20 +3,34 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.pre-commit-cache/
+.coverage
+coverage.xml
+htmlcov/
 
 # Virtualenv
 .venv/
 env/
 venv/
+.env
+.env.*
+!.env.example
 
 # Django
 db.sqlite3
+*.sqlite3
 staticfiles/
 media/
+*.pdf
 
 # Mac
 .DS_Store
 tmp/
+*.log
+*.tmp
 
 # Data fixtures / exports (avoid committing PII)
 datos_iniciales.json

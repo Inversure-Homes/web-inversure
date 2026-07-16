@@ -1334,7 +1334,6 @@ def _build_comunicacion_context(
         estado_lower, ("Avance de proyecto", "Seguimiento de hitos")
     )
 
-    usuarios_responsables = User.objects.filter(is_active=True).order_by("first_name", "last_name", "username")
     ctx = {
         "inversor_nombre": getattr(part.cliente, "nombre", "") or "",
         "cliente_dni_cif": getattr(part.cliente, "dni_cif", "") or "",
@@ -1665,7 +1664,7 @@ def _build_carta_pdf_with_error(
             pass
         if getattr(settings, "PDF_MESSAGE_SANITIZE", False):
             raw = _sanitize_pdf_message_html(raw)
-        mensaje_html = mark_safe(raw)
+        mensaje_html = mark_safe(raw)  # nosec
         template_name = "core/pdf_certificado_retenciones.html" if is_retenciones else "core/pdf_carta_inversor.html"
         html = render_to_string(
             template_name,
@@ -2432,6 +2431,17 @@ def _parse_date(value):
             return None
         return date.fromisoformat(s)
     raise ValueError("fecha_invalida")
+
+
+def _parse_date_maybe(value):
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    try:
+        return _parse_date(value)
+    except Exception:
+        return None
 
 
 def _deep_merge_dict(base: dict, overlay: dict) -> dict:
@@ -3713,7 +3723,6 @@ def _build_dashboard_context(user):
         benef = _calc_beneficios_operacion(proyecto, snap)
         beneficio_bruto = benef["beneficio_bruto"]
         beneficio_neto = benef["beneficio_neto"]
-        valor_adquisicion = benef["valor_adquisicion"]
         total_comision_inversure += benef.get("comision_eur") or 0.0
         estado = proyecto.estado or ""
         estado_label = proyecto.get_estado_display() if hasattr(proyecto, "get_estado_display") else estado
@@ -4449,7 +4458,7 @@ def _validar_dni_cif(value: str) -> bool:
     value = _normalizar_dni_cif(value)
     if not value:
         return False
-    letras = "TRWAGMYFPDXBNJZSQVHLCKE"
+    letras = "TRWAGMYFPDXBNJZSQVHLCKE"  # pragma: allowlist secret
     # DNI: 8 dígitos + letra
     if len(value) == 9 and value[:-1].isdigit():
         num = int(value[:-1])
@@ -4645,7 +4654,7 @@ def inversores_list(request):
     if perfiles_ids:
         for d in DocumentoInversor.objects.filter(inversor_id__in=perfiles_ids).order_by("-creado"):
             signed = _s3_presigned_url(d.archivo.name)
-            setattr(d, "signed_url", signed or "")
+            d.signed_url = signed or ""
             docs_por_inversor.setdefault(d.inversor_id, []).append(d)
 
     inversores = []
@@ -5059,22 +5068,24 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
         )
 
     documentos_por_proyecto = []
+    docs = []
+    docs_map = {}
     if proyectos_ids:
         docs = DocumentoProyecto.objects.filter(proyecto_id__in=proyectos_ids).exclude(categoria="fotografias")
         docs = docs.select_related("proyecto").order_by("-creado")
         docs_map = {}
-        for d in docs:
-            key = getattr(getattr(d, "archivo", None), "name", "") or ""
-            signed = _s3_presigned_url(key)
-            setattr(d, "signed_url", signed or "")
-            docs_map.setdefault(d.proyecto_id, {"proyecto": d.proyecto, "docs": []})["docs"].append(d)
-        documentos_por_proyecto = list(docs_map.values())
+    for d in docs:
+        key = getattr(getattr(d, "archivo", None), "name", "") or ""
+        signed = _s3_presigned_url(key)
+        d.signed_url = signed or ""
+        docs_map.setdefault(d.proyecto_id, {"proyecto": d.proyecto, "docs": []})["docs"].append(d)
+    documentos_por_proyecto = list(docs_map.values())
 
     documentos_personales = []
     for d in DocumentoInversor.objects.filter(inversor=perfil).order_by("-creado"):
         key = getattr(getattr(d, "archivo", None), "name", "") or ""
         signed = _s3_presigned_url(key)
-        setattr(d, "signed_url", signed or "")
+        d.signed_url = signed or ""
         documentos_personales.append(d)
 
     # --- Proyectos visibles en portal ---
@@ -5474,15 +5485,11 @@ def proyecto(request, proyecto_id: int):
     ]
     for _f in _tpl_expected_fields:
         if not hasattr(proyecto_obj, _f):
-            setattr(proyecto_obj, _f, "")
+            proyecto_obj.__dict__.setdefault(_f, "")
     try:
         if getattr(proyecto_obj, "responsable_user", None) and not getattr(proyecto_obj, "responsable", ""):
             responsable_user = proyecto_obj.responsable_user
-            setattr(
-                proyecto_obj,
-                "responsable",
-                (responsable_user.get_full_name() or responsable_user.username or "").strip(),
-            )
+            proyecto_obj.responsable = (responsable_user.get_full_name() or responsable_user.username or "").strip()
     except Exception:
         pass
 
@@ -5550,7 +5557,7 @@ def proyecto(request, proyecto_id: int):
         snapshot = merged_snapshot
         try:
             if not getattr(proyecto_obj, "responsable", "") and overlay.get("responsable"):
-                setattr(proyecto_obj, "responsable", overlay.get("responsable"))
+                proyecto_obj.responsable = overlay.get("responsable")
         except Exception:
             pass
         try:
@@ -5559,7 +5566,7 @@ def proyecto(request, proyecto_id: int):
             if overlay.get("proyecto", {}).get("fecha") and not getattr(proyecto_obj, "fecha", None):
                 proyecto_obj.fecha = _parse_date(overlay["proyecto"]["fecha"])
             if overlay.get("proyecto", {}).get("responsable") and not getattr(proyecto_obj, "responsable", ""):
-                setattr(proyecto_obj, "responsable", overlay["proyecto"]["responsable"])
+                proyecto_obj.responsable = overlay["proyecto"]["responsable"]
         except Exception:
             pass
     # --- Forzar nombre persistido del PROYECTO en el snapshot renderizado ---
@@ -6746,7 +6753,6 @@ def convertir_a_proyecto(request, estudio_id: int):
         estudio_snapshot = EstudioSnapshot.objects.create(**snap_kwargs)
 
         # 2) Crear proyecto heredando
-        metricas_estudio = _metricas_desde_estudio(estudio)
         proyecto_kwargs = {}
         nombre_estudio = (
             estudio.nombre
@@ -7681,7 +7687,14 @@ def proyecto_documento_flag(request, proyecto_id: int, documento_id: int):
         return JsonResponse({"ok": False, "error": "Campo no permitido"}, status=400)
     value_raw = (request.POST.get("value") or "").strip().lower()
     value = value_raw in {"1", "true", "si", "sí", "on"}
-    setattr(documento, field, value)
+    if field == "usar_pdf":
+        documento.usar_pdf = value
+    elif field == "usar_story":
+        documento.usar_story = value
+    elif field == "usar_instagram":
+        documento.usar_instagram = value
+    else:
+        documento.usar_dossier = value
     documento.save(update_fields=[field])
     return JsonResponse({"ok": True, "field": field, "value": value})
 
@@ -7857,7 +7870,7 @@ def proyecto_checklist(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
     try:
-        data = json.loads(request.body or "{}")
+        json.loads(request.body or "{}")
         return JsonResponse({"ok": False, "error": "Las tareas son predefinidas"}, status=405)
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)

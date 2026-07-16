@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    env:
+      DJANGO_SECRET_KEY: ci-secret-key-change-me  # pragma: allowlist secret
+      SECRET_KEY: ci-secret-key-change-me  # pragma: allowlist secret
+      DJANGO_DEBUG: "1"
+      DEBUG: "1"
+      DATABASE_URL: "sqlite:///./ci.sqlite3"
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,[::1]
+      ALLOWED_HOSTS: localhost,127.0.0.1,[::1]
+      DJANGO_CSRF_TRUSTED_ORIGINS: http://localhost:8000,http://127.0.0.1:8000
+      CSRF_TRUSTED_ORIGINS: http://localhost:8000,http://127.0.0.1:8000
+      DJANGO_ALLOWED_HOSTS_STRICT: "0"
+      DJANGO_CSRF_TRUSTED_ORIGINS_STRICT: "0"
+      DJANGO_DEBUG_TOOLBAR: "0"
+      DJANGO_DEV_APPS: "0"
+      SENTRY_DSN: ""
+      SENTRY_SEND_DEFAULT_PII: "0"
+      SENSITIVE_DATA_KEY: ci-sensitive-data-key
+      SENSITIVE_DATA_HMAC_KEY: ci-sensitive-data-hmac-key
+      EMAIL_BACKEND: django.core.mail.backends.locmem.EmailBackend
+      DEFAULT_FROM_EMAIL: Inversure <no-reply@example.com>
+      LANDING_LEAD_NOTIFY_EMAILS: test@example.com
+      VAPID_PUBLIC_KEY: ci-public-key
+      VAPID_PRIVATE_KEY: ci-private-key  # pragma: allowlist secret
+      VAPID_SUBJECT: mailto:ci@example.com
+      MAINTENANCE_MODE: "0"
+      AUTO_ADMIN_NOTIFICATIONS: "0"
+      PDF_MESSAGE_SANITIZE: "1"
+      MAX_UPLOAD_MB: "25"
+      MAX_UPLOAD_FILES: "50"
+      INVERSOR_RETENCION_PCT: "19"
+      INVERSOR_RETENCION_PCT_F: "19"
+      INVERSOR_RETENCION_PCT_J: "19"
+      CUENTAS_PARTICIPACION_LIMIT_LOSS_TO_CAPITAL: "1"
+      MEMORIA_BENEFICIO_NETO_DESDE_TRANSMISION: "0"
+      WAGTAILADMIN_BASE_URL: "http://localhost:8000"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+            pyproject.toml
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libcairo2 \
+            libcairo2-dev \
+            libpango-1.0-0 \
+            libpangocairo-1.0-0 \
+            libpangoft2-1.0-0 \
+            libgdk-pixbuf-2.0-0 \
+            libffi-dev \
+            poppler-utils \
+            shared-mime-info \
+            fonts-dejavu-core \
+            fonts-liberation
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install -r requirements-dev.txt
+
+      - name: Django checks
+        run: |
+          python manage.py check
+          python manage.py makemigrations --check --dry-run
+
+      - name: Ruff
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: Tests
+        run: pytest --cov=. --cov-report=term-missing --cov-report=xml
+
+      - name: Bandit
+        run: bandit -ll -r . -x ".git,.venv,venv,env,media,staticfiles,tests,core/tests.py,accounts/migrations,cms/migrations,core/migrations,landing/migrations"
+
+      - name: pip-audit (production)
+        run: python -m pip_audit -r requirements.txt
+
+      - name: pip-audit (development, informational)
+        continue-on-error: true
+        run: python -m pip_audit -r requirements-dev.txt
+
+      - name: Pre-commit
+        run: pre-commit run --all-files

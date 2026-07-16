@@ -11,7 +11,7 @@ orientada a la simulación de operaciones inmobiliarias con financiación
 mediante cuentas partícipes, garantizando trazabilidad, transparencia
 y métricas de rentabilidad claras.
 
-Uso inicial: empleados Inversure  
+Uso inicial: empleados Inversure
 Uso futuro: inversores (acceso controlado)
 
 ----------------------------------------
@@ -133,7 +133,7 @@ A2.1 – Diseño de KPIs profesionales
 ESTADO FINAL DEL DÍA
 ----------------------------------------
 
-Proyecto sano  
-Base sólida  
-Sin errores críticos  
+Proyecto sano
+Base sólida
+Sin errores críticos
 Listo para continuar

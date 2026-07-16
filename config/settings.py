@@ -1,5 +1,7 @@
-from pathlib import Path
 import os
+from pathlib import Path
+
+import dj_database_url
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
 
@@ -13,6 +15,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # =========================
 # SEGURIDAD / ENTORNO
 # =========================
+
 
 def _env_bool(name: str, default: bool = False) -> bool:
     raw = os.environ.get(name)
@@ -29,15 +32,15 @@ def _env_csv(name: str) -> list[str]:
 
 
 SECRET_KEY = (
-    os.environ.get("DJANGO_SECRET_KEY")
-    or os.environ.get("SECRET_KEY")
-    or "django-insecure-cambia-esto-en-produccion"
+    os.environ.get("DJANGO_SECRET_KEY") or os.environ.get("SECRET_KEY") or "django-insecure-cambia-esto-en-produccion"
 )
 
 _IS_RENDER = str(os.environ.get("RENDER") or "").strip().lower() in {"1", "true", "yes", "y"}
 DEBUG = _env_bool("DJANGO_DEBUG", _env_bool("DEBUG", not _IS_RENDER))
 
 PDF_MESSAGE_SANITIZE = _env_bool("PDF_MESSAGE_SANITIZE", _IS_RENDER)
+DEBUG_TOOLBAR_ENABLED = DEBUG and _env_bool("DJANGO_DEBUG_TOOLBAR", False)
+DEV_APPS_ENABLED = DEBUG and _env_bool("DJANGO_DEV_APPS", False)
 
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 if SENTRY_DSN:
@@ -54,6 +57,8 @@ _DEFAULT_ALLOWED_HOSTS = [
     "www.inversurehomes.es",
     "app.inversurehomes.es",
 ]
+if DEBUG:
+    _DEFAULT_ALLOWED_HOSTS.extend(["localhost", "127.0.0.1", "[::1]"])
 _ENV_ALLOWED_HOSTS = _env_csv("DJANGO_ALLOWED_HOSTS") + _env_csv("ALLOWED_HOSTS")
 if _env_bool("DJANGO_ALLOWED_HOSTS_STRICT", False):
     ALLOWED_HOSTS = _ENV_ALLOWED_HOSTS or list(_DEFAULT_ALLOWED_HOSTS)
@@ -70,6 +75,14 @@ _DEFAULT_CSRF_TRUSTED_ORIGINS = [
     "https://www.inversurehomes.es",
     "https://app.inversurehomes.es",
 ]
+if DEBUG:
+    _DEFAULT_CSRF_TRUSTED_ORIGINS.extend(
+        [
+            "http://localhost:8000",
+            "http://127.0.0.1:8000",
+            "http://[::1]:8000",
+        ]
+    )
 _ENV_CSRF_TRUSTED_ORIGINS = _env_csv("DJANGO_CSRF_TRUSTED_ORIGINS") + _env_csv("CSRF_TRUSTED_ORIGINS")
 if _env_bool("DJANGO_CSRF_TRUSTED_ORIGINS_STRICT", False):
     CSRF_TRUSTED_ORIGINS = _ENV_CSRF_TRUSTED_ORIGINS or list(_DEFAULT_CSRF_TRUSTED_ORIGINS)
@@ -82,41 +95,45 @@ else:
 # =========================
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'django.contrib.humanize',
-    'axes',
-    'django_otp',
-    'django_otp.plugins.otp_totp',
-    'django_otp.plugins.otp_static',
-    'django_otp.plugins.otp_email',
-    'auditlog',
-    'accounts.apps.AccountsConfig',
-    'two_factor',
-    'two_factor.plugins.phonenumber',
-    'two_factor.plugins.email',
-    'wagtail.contrib.forms',
-    'wagtail.contrib.redirects',
-    'wagtail.embeds',
-    'wagtail.sites',
-    'wagtail.users',
-    'wagtail.snippets',
-    'wagtail.documents',
-    'wagtail.images',
-    'wagtail.search',
-    'wagtail.admin',
-    'wagtail',
-    'modelcluster',
-    'taggit',
-    'cms',
-    'core.apps.CoreConfig',
-    'landing',
-    'storages',
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "django.contrib.humanize",
+    "axes",
+    "django_otp",
+    "django_otp.plugins.otp_totp",
+    "django_otp.plugins.otp_static",
+    "django_otp.plugins.otp_email",
+    "auditlog",
+    "accounts.apps.AccountsConfig",
+    "two_factor",
+    "two_factor.plugins.phonenumber",
+    "two_factor.plugins.email",
+    "wagtail.contrib.forms",
+    "wagtail.contrib.redirects",
+    "wagtail.embeds",
+    "wagtail.sites",
+    "wagtail.users",
+    "wagtail.snippets",
+    "wagtail.documents",
+    "wagtail.images",
+    "wagtail.search",
+    "wagtail.admin",
+    "wagtail",
+    "modelcluster",
+    "taggit",
+    "cms",
+    "core.apps.CoreConfig",
+    "landing",
+    "storages",
 ]
+if DEBUG_TOOLBAR_ENABLED:
+    INSTALLED_APPS.insert(6, "debug_toolbar")
+if DEV_APPS_ENABLED:
+    INSTALLED_APPS.append("django_extensions")
 
 
 # =========================
@@ -124,30 +141,32 @@ INSTALLED_APPS = [
 # =========================
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',   # ← ESTA LÍNEA
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'axes.middleware.AxesMiddleware',
-    'auditlog.middleware.AuditlogMiddleware',
-    'django_otp.middleware.OTPMiddleware',
-    'config.middleware.MaintenanceModeMiddleware',
-    'accounts.middleware.UserSessionMiddleware',
-    'accounts.middleware.RoleAccessMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'wagtail.contrib.redirects.middleware.RedirectMiddleware',
+    "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # ← ESTA LÍNEA
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "axes.middleware.AxesMiddleware",
+    "auditlog.middleware.AuditlogMiddleware",
+    "django_otp.middleware.OTPMiddleware",
+    "config.middleware.MaintenanceModeMiddleware",
+    "accounts.middleware.UserSessionMiddleware",
+    "accounts.middleware.RoleAccessMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "wagtail.contrib.redirects.middleware.RedirectMiddleware",
 ]
+if DEBUG_TOOLBAR_ENABLED:
+    MIDDLEWARE.insert(3, "debug_toolbar.middleware.DebugToolbarMiddleware")
 
 # =========================
 # URLS / WSGI
 # =========================
 
-ROOT_URLCONF = 'config.urls'
+ROOT_URLCONF = "config.urls"
 
-WSGI_APPLICATION = 'config.wsgi.application'
+WSGI_APPLICATION = "config.wsgi.application"
 
 # =========================
 # AUTH / AXES
@@ -167,16 +186,16 @@ AUTHENTICATION_BACKENDS = [
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-                'core.context_processors.pending_solicitudes',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+                "core.context_processors.pending_solicitudes",
             ],
         },
     },
@@ -190,29 +209,32 @@ LOGIN_REDIRECT_URL = "/app/"
 # =========================
 # BASE DE DATOS (ÚNICA FUENTE)
 # =========================
-import dj_database_url
-
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 SENSITIVE_DATA_KEY = os.environ.get("SENSITIVE_DATA_KEY", "")
 SENSITIVE_DATA_HMAC_KEY = os.environ.get("SENSITIVE_DATA_HMAC_KEY", "")
 
-if DATABASE_URL:
-    DATABASES = {
-        "default": dj_database_url.config(
-            default=DATABASE_URL,
-            conn_max_age=600,
-            ssl_require=True,
-        )
-    }
-else:
+
+def _build_database_config(database_url: str | None) -> dict[str, dict[str, object]]:
+    if database_url:
+        scheme = database_url.split(":", 1)[0].strip().lower()
+        database = dj_database_url.parse(database_url, conn_max_age=600)
+        if scheme.startswith("postgres"):
+            options = dict(database.get("OPTIONS") or {})
+            options["sslmode"] = "require"
+            database["OPTIONS"] = options
+        return {"default": database}
+
     # LOCAL (SQLite)
-    DATABASES = {
+    return {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": BASE_DIR / "db.sqlite3",
         }
     }
+
+
+DATABASES = _build_database_config(DATABASE_URL)
 
 
 # =========================
@@ -221,16 +243,16 @@ else:
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -239,9 +261,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # INTERNACIONALIZACIÓN
 # =========================
 
-LANGUAGE_CODE = 'es-es'
+LANGUAGE_CODE = "es-es"
 
-TIME_ZONE = 'Europe/Madrid'
+TIME_ZONE = "Europe/Madrid"
 
 USE_I18N = True
 USE_TZ = True
@@ -251,12 +273,12 @@ USE_TZ = True
 # STATIC FILES
 # =========================
 
-STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Media (subidas)
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 # =========================
 # LÍMITES DE SUBIDA
@@ -299,16 +321,23 @@ else:
 # OTROS
 # =========================
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 WAGTAIL_SITE_NAME = "Inversure Homes"
 
 # Base URL para Wagtail admin (links en notificaciones).
 WAGTAILADMIN_BASE_URL = os.environ.get("WAGTAILADMIN_BASE_URL", "").strip()
 if not WAGTAILADMIN_BASE_URL:
-    # Heurística segura: usar el primer host conocido, forzando https en no-debug.
-    _host = (ALLOWED_HOSTS[0] if ALLOWED_HOSTS else "localhost").strip()
-    _scheme = "http" if DEBUG else "https"
+    # En local priorizamos localhost; en producción usamos un host conocido.
+    if DEBUG:
+        _host = "localhost:8000"
+        _scheme = "http"
+    else:
+        _host = (ALLOWED_HOSTS[0] if ALLOWED_HOSTS else "localhost").strip()
+        _scheme = "https"
     WAGTAILADMIN_BASE_URL = f"{_scheme}://{_host}"
+
+if DEBUG_TOOLBAR_ENABLED:
+    INTERNAL_IPS = ["127.0.0.1", "localhost", "::1"]
 
 # =========================
 # EMAIL
@@ -393,6 +422,7 @@ if INVERSOR_RETENCION_PCT < 0:
 if INVERSOR_RETENCION_PCT > 100:
     INVERSOR_RETENCION_PCT = 100.0
 
+
 # Retención por tipo de partícipe (F/J). Por defecto hereda la global.
 def _pct_env(name: str, default: float) -> float:
     try:
@@ -411,13 +441,13 @@ INVERSOR_RETENCION_PCT_J = max(0.0, min(100.0, float(INVERSOR_RETENCION_PCT_J)))
 
 # En cuentas en participación, por defecto se asume que el partícipe no responde más allá de su aportación.
 # Si el resultado fuera muy negativo, el "total a percibir" se limita a 0€.
-CUENTAS_PARTICIPACION_LIMIT_LOSS_TO_CAPITAL = str(
-    os.environ.get("CUENTAS_PARTICIPACION_LIMIT_LOSS_TO_CAPITAL", "1")
-).strip() == "1"
+CUENTAS_PARTICIPACION_LIMIT_LOSS_TO_CAPITAL = (
+    str(os.environ.get("CUENTAS_PARTICIPACION_LIMIT_LOSS_TO_CAPITAL", "1")).strip() == "1"
+)
 
 # Si se activa, el beneficio/ROI de `_resultado_desde_memoria` se recalcula como:
 # beneficio_neto = valor_transmision_neto - valor_adquisicion
 # Esto suele incluir gastos de venta (si existen) aunque estén estimados.
-MEMORIA_BENEFICIO_NETO_DESDE_TRANSMISION = str(
-    os.environ.get("MEMORIA_BENEFICIO_NETO_DESDE_TRANSMISION", "0")
-).strip() == "1"
+MEMORIA_BENEFICIO_NETO_DESDE_TRANSMISION = (
+    str(os.environ.get("MEMORIA_BENEFICIO_NETO_DESDE_TRANSMISION", "0")).strip() == "1"
+)

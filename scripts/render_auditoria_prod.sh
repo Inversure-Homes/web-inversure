@@ -11,4 +11,3 @@ python manage.py audit_logica_economica --only-mismatches --epsilon 1
 echo ""
 echo "== audit_integridad_datos (solo warnings) =="
 python manage.py audit_integridad_datos --only-warnings
-
