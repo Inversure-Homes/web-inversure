@@ -214,22 +214,28 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 SENSITIVE_DATA_KEY = os.environ.get("SENSITIVE_DATA_KEY", "")
 SENSITIVE_DATA_HMAC_KEY = os.environ.get("SENSITIVE_DATA_HMAC_KEY", "")
 
-if DATABASE_URL:
-    DATABASES = {
-        "default": dj_database_url.config(
-            default=DATABASE_URL,
-            conn_max_age=600,
-            ssl_require=True,
-        )
-    }
-else:
+
+def _build_database_config(database_url: str | None) -> dict[str, dict[str, object]]:
+    if database_url:
+        config_kwargs = {
+            "default": database_url,
+            "conn_max_age": 600,
+        }
+        scheme = database_url.split(":", 1)[0].strip().lower()
+        if scheme.startswith("postgres"):
+            config_kwargs["ssl_require"] = True
+        return {"default": dj_database_url.config(**config_kwargs)}
+
     # LOCAL (SQLite)
-    DATABASES = {
+    return {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": BASE_DIR / "db.sqlite3",
         }
     }
+
+
+DATABASES = _build_database_config(DATABASE_URL)
 
 
 # =========================
