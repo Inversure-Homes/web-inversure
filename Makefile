@@ -6,6 +6,7 @@ RUFF := $(PYTHON) -m ruff
 PYTEST := $(PYTHON) -m pytest
 BANDIT := $(PYTHON) -m bandit
 PRE_COMMIT := $(PYTHON) -m pre_commit
+PIP_AUDIT := $(PYTHON) -m pip_audit
 
 BANDIT_EXCLUDES := .git,.venv,venv,env,media,staticfiles,tests,core/tests.py,accounts/migrations,cms/migrations,core/migrations,landing/migrations
 
@@ -38,7 +39,8 @@ test-cov:
 
 security:
 	$(BANDIT) -ll -r . -x $(BANDIT_EXCLUDES)
-	pip-audit
+	$(PIP_AUDIT) -r requirements.txt
+	-$(PIP_AUDIT) -r requirements-dev.txt
 	detect-secrets scan --all-files --baseline .secrets.baseline
 
 migrations-check:

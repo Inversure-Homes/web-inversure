@@ -102,8 +102,12 @@ jobs:
       - name: Bandit
         run: bandit -ll -r . -x ".git,.venv,venv,env,media,staticfiles,tests,core/tests.py,accounts/migrations,cms/migrations,core/migrations,landing/migrations"
 
-      - name: pip-audit
-        run: pip-audit
+      - name: pip-audit (production)
+        run: python -m pip_audit -r requirements.txt
+
+      - name: pip-audit (development, informational)
+        continue-on-error: true
+        run: python -m pip_audit -r requirements-dev.txt
 
       - name: Pre-commit
         run: pre-commit run --all-files

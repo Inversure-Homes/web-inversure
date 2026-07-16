@@ -26,7 +26,7 @@ known-first-party = ["accounts", "cms", "config", "core", "landing", "tests"]
 [tool.ruff.lint.per-file-ignores]
 "accounts/**/*.py" = ["I001"]
 "cms/**/*.py" = ["I001"]
-"core/**/*.py" = ["I001", "F401", "F821", "F841", "B010"]
+"core/**/*.py" = ["I001", "F401"]
 "landing/**/*.py" = ["I001", "F401", "F841"]
 
 [tool.ruff.format]
