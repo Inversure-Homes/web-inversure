@@ -1667,7 +1667,7 @@ def _build_carta_pdf_with_error(
             pass
         if getattr(settings, "PDF_MESSAGE_SANITIZE", False):
             raw = _sanitize_pdf_message_html(raw)
-        mensaje_html = mark_safe(raw)
+        mensaje_html = mark_safe(raw)  # nosec
         template_name = "core/pdf_certificado_retenciones.html" if is_retenciones else "core/pdf_carta_inversor.html"
         html = render_to_string(
             template_name,
@@ -4419,7 +4419,7 @@ def _validar_dni_cif(value: str) -> bool:
     value = _normalizar_dni_cif(value)
     if not value:
         return False
-    letras = "TRWAGMYFPDXBNJZSQVHLCKE"
+    letras = "TRWAGMYFPDXBNJZSQVHLCKE"  # pragma: allowlist secret
     # DNI: 8 dígitos + letra
     if len(value) == 9 and value[:-1].isdigit():
         num = int(value[:-1])

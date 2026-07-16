@@ -176,4 +176,3 @@ def calc_inversor_settlement(
         "roi_bruto_pct": roi_bruto_pct,
         "roi_neto_pct": roi_neto_pct,
     }
-
