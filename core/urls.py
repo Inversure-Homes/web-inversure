@@ -8,6 +8,7 @@ urlpatterns = [
     path("", views.home, name="home"),
     path("otros-proyectos/", views.otros_proyectos, name="otros_proyectos"),
     path("dashboard/", views.dashboard, name="dashboard"),
+    path("dashboard/data/", views.dashboard_data, name="dashboard_data"),
     path("checklist/pendientes/", views.checklist_pendientes, name="checklist_pendientes"),
 
     # Simulador / Estudios

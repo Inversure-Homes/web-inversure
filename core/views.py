@@ -28,6 +28,7 @@ from django.contrib.auth.models import User
 
 from copy import deepcopy
 from types import SimpleNamespace
+from typing import Any
 
 import json
 import os
@@ -50,6 +51,7 @@ from .models import EstudioSnapshot, ProyectoSnapshot
 from .models import GastoProyecto, IngresoProyecto, ChecklistItem
 from .models import Cliente, Participacion, InversorPerfil, InversorPushSubscription, SolicitudParticipacion, ComunicacionInversor, DocumentoProyecto, DocumentoInversor, FacturaGasto, JustificanteIngreso
 from .finance import limit_loss_to_capital_enabled
+from .services.financial_dashboard import FinancialDashboardFilters, FinancialDashboardService
 from accounts.utils import (
     is_admin_user,
     is_comercial_user,
@@ -3562,237 +3564,159 @@ def _datos_inmueble_desde_estudio(estudio: Estudio) -> dict:
     }
 
 
-def _build_dashboard_context(user):
-    perms = resolve_permissions(user)
-    estados_cerrados = {"cerrado", "descartado"}
-    proyectos = Proyecto.objects.all()
-    proyectos_activos = proyectos.exclude(estado__in=estados_cerrados)
-    activos_ids = list(proyectos_activos.values_list("id", flat=True))
-    capital_acumulado = (
-        Participacion.objects.filter(estado="confirmada")
-        .aggregate(total=Sum("importe_invertido"))
-        .get("total")
-        or Decimal("0")
-    )
-    inversores_con_cuota = (
-        Cliente.objects.filter(participaciones__estado="confirmada", cuota_abonada=True)
-        .distinct()
-        .count()
-    )
-    capital_actual = (
-        Participacion.objects.filter(estado="confirmada", proyecto_id__in=activos_ids)
-        .aggregate(total=Sum("importe_invertido"))
-        .get("total")
-        or Decimal("0")
-    )
-    inversores_activos = (
-        Participacion.objects.filter(estado="confirmada", proyecto_id__in=activos_ids)
-        .values_list("cliente_id", flat=True)
-        .distinct()
-        .count()
-    )
-    total_operaciones = proyectos.count()
-
-    perfiles = {
-        p.cliente_id: p
-        for p in InversorPerfil.objects.filter(cliente_id__in=Participacion.objects.filter(estado="confirmada").values_list("cliente_id", flat=True))
-    }
-    aportacion_por_cliente = {}
-    for part in (
-        Participacion.objects.filter(estado="confirmada")
-        .order_by("cliente_id", "creado", "id")
-    ):
-        if part.cliente_id in aportacion_por_cliente:
-            continue
-        perfil = perfiles.get(part.cliente_id)
-        override = getattr(perfil, "aportacion_inicial_override", None) if perfil else None
-        if override not in (None, ""):
-            aportacion_por_cliente[part.cliente_id] = Decimal(override)
-        else:
-            aportacion_por_cliente[part.cliente_id] = Decimal(part.importe_invertido or 0)
-    capital_en_vigor = sum(aportacion_por_cliente.values(), Decimal("0"))
-
-    estado_colores = {
-        "captacion": "#f59e0b",
-        "comprado": "#0ea5e9",
-        "comercializacion": "#6366f1",
-        "reservado": "#22c55e",
-        "vendido": "#10b981",
-        "cerrado": "#14b8a6",
-        "descartado": "#94a3b8",
-    }
-    beneficios = []
-    total_beneficio = 0.0
-    for proyecto in proyectos:
-        snap = _get_snapshot_comunicacion(proyecto)
-        resultado = _resultado_desde_memoria(proyecto, snap)
-        beneficio = float(resultado.get("beneficio_neto") or 0.0)
-        valor_adq = float(resultado.get("valor_adquisicion") or 0.0)
-        pct_beneficio = (beneficio / valor_adq * 100.0) if valor_adq else 0.0
-        total_beneficio += beneficio
-        estado = proyecto.estado or ""
-        estado_label = proyecto.get_estado_display() if hasattr(proyecto, "get_estado_display") else estado
-        beneficios.append(
-            {
-                "nombre": proyecto.nombre or f"Proyecto {proyecto.id}",
-                "valor": beneficio,
-                "pct_beneficio": pct_beneficio,
-                "estado": estado,
-                "estado_label": estado_label,
+def _empty_dashboard_payload() -> dict[str, Any]:
+    empty_filters = FinancialDashboardFilters().to_dict()
+    return {
+        "meta": {
+            "generated_at": "",
+            "cache_key": "",
+            "cache_ready": False,
+            "scope": "",
+        },
+        "filters": empty_filters,
+        "permissions": {},
+        "scope": {
+            "project_count": 0,
+            "active_project_count": 0,
+            "finalized_project_count": 0,
+            "has_filters": False,
+        },
+        "kpis": {
+            "inversores_activos": 0,
+            "inversores_cuota": 0,
+            "capital_en_vigor": Decimal("0"),
+            "capital_actual": Decimal("0"),
+            "capital_acumulado": Decimal("0"),
+            "capital_total_invertido": Decimal("0"),
+            "capital_total_invertido_activo": Decimal("0"),
+            "capital_pendiente": Decimal("0"),
+            "capital_pendiente_total": Decimal("0"),
+            "operaciones": 0,
+            "proyectos_activos": 0,
+            "proyectos_finalizados": 0,
+            "beneficio_total": 0.0,
+            "beneficio_medio": 0.0,
+            "beneficio_estimado_total": 0.0,
+            "beneficio_real_total": 0.0,
+            "roi_medio": 0.0,
+            "roi_medio_ponderado": 0.0,
+            "beneficio_cerrado_bruto": 0.0,
+            "beneficio_cerrado_neto": 0.0,
+            "beneficio_cerrado_bruto_medio": 0.0,
+            "beneficio_cerrado_neto_medio": 0.0,
+            "beneficio_abierto_bruto": 0.0,
+            "beneficio_abierto_neto": 0.0,
+            "beneficio_cerrado_roi_bruto_total": 0.0,
+            "beneficio_cerrado_roi_neto_total": 0.0,
+            "beneficio_cerrado_roi_bruto_medio": 0.0,
+            "beneficio_cerrado_roi_neto_medio": 0.0,
+            "beneficio_inversure": 0.0,
+        },
+        "period": {
+            "applied": False,
+            "fecha_desde": None,
+            "fecha_hasta": None,
+            "proyecto_id": None,
+            "estado": None,
+            "project_count": 0,
+            "range_days": None,
+        },
+        "series": {
+            "monthly": {
+                "investment": [],
+                "income": [],
+                "expense": [],
+                "performance": [],
             }
-        )
+        },
+        "charts": {
+            "state_distribution": [],
+            "benefit_bars": [],
+            "deviation": [],
+        },
+        "rankings": {
+            "best_roi": [],
+            "worst_roi": [],
+            "best_benefit": [],
+            "worst_benefit": [],
+            "investment_return": [],
+        },
+        "alerts": {
+            "operational": {"pendientes": 0, "vencidas": 0, "items": []},
+            "financial": {
+                "pending_solicitudes": 0,
+                "negative_roi_projects": [],
+                "over_budget_projects": [],
+                "missing_facturas": [],
+                "missing_justificantes": [],
+                "items": [],
+            },
+            "summary": {"total": 0, "critical": 0, "warning": 0, "info": 0},
+        },
+        "projects": [],
+    }
 
-    beneficios_validos = [b for b in beneficios if b["valor"] is not None]
-    avg_beneficio = (
-        (total_beneficio / len(beneficios_validos)) if beneficios_validos else 0.0
-    )
-    max_beneficio = max([b["valor"] for b in beneficios_validos], default=0.0)
-    beneficios_chart = []
-    for b in sorted(beneficios_validos, key=lambda x: x["valor"], reverse=True):
-        pct = (b["valor"] / max_beneficio * 100.0) if max_beneficio else 0.0
-        beneficios_chart.append(
-            {
-                "nombre": b["nombre"],
-                "valor": b["valor"],
-                "valor_fmt": _fmt_eur(b["valor"]),
-                "pct_fmt": _fmt_pct(b.get("pct_beneficio") or 0.0),
-                "estado": b.get("estado") or "",
-                "estado_label": b.get("estado_label") or "",
-                "color": estado_colores.get(b.get("estado"), "#f2b53b"),
-                "pct": pct,
-            }
-        )
 
-    def _fmt_money(value):
+def _dashboard_context_from_payload(user, dashboard: dict[str, Any]) -> dict[str, Any]:
+    perms = dashboard.get("permissions", {}) if isinstance(dashboard, dict) else {}
+    summary = dashboard.get("kpis", {}) if isinstance(dashboard, dict) else {}
+    charts = dashboard.get("charts", {}) if isinstance(dashboard, dict) else {}
+    alerts = dashboard.get("alerts", {}) if isinstance(dashboard, dict) else {}
+    project_metrics = dashboard.get("projects", []) if isinstance(dashboard, dict) else []
+
+    def _money_fmt(value):
         return _fmt_eur(float(value or 0.0))
 
-    def _calc_beneficios_operacion(proyecto: Proyecto, snapshot: dict) -> dict:
-        resultado = _resultado_desde_memoria(proyecto, snapshot)
-        beneficio_bruto = float(resultado.get("beneficio_neto") or 0.0)
-        valor_adquisicion = float(resultado.get("valor_adquisicion") or 0.0)
-        inversion_total = float(resultado.get("inversion_total") or 0.0)
-        inv_sec = snapshot.get("inversor") if isinstance(snapshot.get("inversor"), dict) else {}
-        comision_pct = _safe_float(
-            inv_sec.get("comision_inversure_pct")
-            or inv_sec.get("inversure_comision_pct")
-            or inv_sec.get("comision_pct")
-            or snapshot.get("comision_inversure_pct")
-            or snapshot.get("inversure_comision_pct")
-            or snapshot.get("comision_pct")
-            or 0.0,
-            0.0,
-        )
-        comision_pct = max(0.0, min(100.0, comision_pct))
-        comision_eur = beneficio_bruto * (comision_pct / 100.0) if beneficio_bruto else 0.0
-        beneficio_neto = beneficio_bruto - comision_eur
+    dashboard_stats = {
+        "inversores_activos": summary.get("inversores_activos", 0),
+        "inversores_cuota": summary.get("inversores_cuota", 0),
+        "capital_en_vigor": summary.get("capital_en_vigor", Decimal("0")),
+        "capital_actual": summary.get("capital_actual", Decimal("0")),
+        "capital_acumulado": summary.get("capital_acumulado", Decimal("0")),
+        "operaciones": summary.get("operaciones", 0),
+        "beneficio_total": summary.get("beneficio_total", 0.0),
+        "beneficio_medio": summary.get("beneficio_medio", 0.0),
+        "beneficio_cerrado_bruto": summary.get("beneficio_cerrado_bruto", 0.0),
+        "beneficio_cerrado_neto": summary.get("beneficio_cerrado_neto", 0.0),
+        "beneficio_cerrado_bruto_medio": summary.get("beneficio_cerrado_bruto_medio", 0.0),
+        "beneficio_cerrado_neto_medio": summary.get("beneficio_cerrado_neto_medio", 0.0),
+        "beneficio_abierto_bruto": summary.get("beneficio_abierto_bruto", 0.0),
+        "beneficio_abierto_neto": summary.get("beneficio_abierto_neto", 0.0),
+        "beneficio_cerrado_roi_bruto_total": summary.get("beneficio_cerrado_roi_bruto_total", 0.0),
+        "beneficio_cerrado_roi_neto_total": summary.get("beneficio_cerrado_roi_neto_total", 0.0),
+        "beneficio_cerrado_roi_bruto_medio": summary.get("beneficio_cerrado_roi_bruto_medio", 0.0),
+        "beneficio_cerrado_roi_neto_medio": summary.get("beneficio_cerrado_roi_neto_medio", 0.0),
+        "beneficio_inversure": summary.get("beneficio_inversure", 0.0),
+    }
 
-        proj_extra = proyecto.extra if isinstance(proyecto.extra, dict) else {}
-        proj_override = proj_extra.get("beneficio_operacion_override")
-        if isinstance(proj_override, dict):
-            override_bruto = proj_override.get("beneficio_bruto")
-            override_comision = proj_override.get("comision_eur")
-            override_neto = proj_override.get("beneficio_neto_total")
-            if override_bruto not in (None, ""):
-                beneficio_bruto = _safe_float(override_bruto, beneficio_bruto)
-            if override_comision not in (None, ""):
-                comision_eur = _safe_float(override_comision, comision_eur)
-            if override_neto not in (None, ""):
-                beneficio_neto = _safe_float(override_neto, beneficio_neto)
-            elif override_bruto not in (None, "") or override_comision not in (None, ""):
-                beneficio_neto = beneficio_bruto - comision_eur
-        return {
-            "beneficio_bruto": beneficio_bruto,
-            "beneficio_neto": beneficio_neto,
-            "comision_eur": comision_eur,
-            "valor_adquisicion": valor_adquisicion,
-            "inversion_total": inversion_total,
+    dashboard_stats_fmt = {
+        "capital_en_vigor": _money_fmt(dashboard_stats["capital_en_vigor"]),
+        "capital_actual": _money_fmt(dashboard_stats["capital_actual"]),
+        "capital_acumulado": _money_fmt(dashboard_stats["capital_acumulado"]),
+        "beneficio_total": _money_fmt(dashboard_stats["beneficio_total"]),
+        "beneficio_medio": _money_fmt(dashboard_stats["beneficio_medio"]),
+        "beneficio_cerrado_bruto": _money_fmt(dashboard_stats["beneficio_cerrado_bruto"]),
+        "beneficio_cerrado_neto": _money_fmt(dashboard_stats["beneficio_cerrado_neto"]),
+        "beneficio_cerrado_bruto_medio": _money_fmt(dashboard_stats["beneficio_cerrado_bruto_medio"]),
+        "beneficio_cerrado_neto_medio": _money_fmt(dashboard_stats["beneficio_cerrado_neto_medio"]),
+        "beneficio_abierto_bruto": _money_fmt(dashboard_stats["beneficio_abierto_bruto"]),
+        "beneficio_abierto_neto": _money_fmt(dashboard_stats["beneficio_abierto_neto"]),
+        "beneficio_cerrado_roi_bruto_total": _fmt_pct(float(dashboard_stats["beneficio_cerrado_roi_bruto_total"] or 0.0)),
+        "beneficio_cerrado_roi_neto_total": _fmt_pct(float(dashboard_stats["beneficio_cerrado_roi_neto_total"] or 0.0)),
+        "beneficio_cerrado_roi_bruto_medio": _fmt_pct(float(dashboard_stats["beneficio_cerrado_roi_bruto_medio"] or 0.0)),
+        "beneficio_cerrado_roi_neto_medio": _fmt_pct(float(dashboard_stats["beneficio_cerrado_roi_neto_medio"] or 0.0)),
+        "beneficio_inversure": _money_fmt(dashboard_stats["beneficio_inversure"]),
+    }
+
+    proyectos_estado = [
+        {
+            "id": metric["project_id"],
+            "nombre": metric["nombre"],
+            "estado": metric["estado"],
+            "estado_label": metric["estado_label"],
         }
-
-    proyectos_estado = []
-    cerrado_estados = {"cerrado"}
-    abierto_estados = {"captacion", "comprado", "comercializacion", "reservado", "vendido"}
-    cerrado_bruto = cerrado_neto = 0.0
-    cerrado_inversion_total = 0.0
-    cerrado_roi_bruto = []
-    cerrado_roi_neto = []
-    abierto_bruto = abierto_neto = 0.0
-    total_comision_inversure = 0.0
-    beneficio_deviation = []
-    for proyecto in proyectos:
-        snap = _get_snapshot_comunicacion(proyecto)
-        benef = _calc_beneficios_operacion(proyecto, snap)
-        beneficio_bruto = benef["beneficio_bruto"]
-        beneficio_neto = benef["beneficio_neto"]
-        total_comision_inversure += benef.get("comision_eur") or 0.0
-        estado = proyecto.estado or ""
-        estado_label = proyecto.get_estado_display() if hasattr(proyecto, "get_estado_display") else estado
-        proyectos_estado.append(
-            {
-                "id": proyecto.id,
-                "nombre": proyecto.nombre or f"Proyecto {proyecto.id}",
-                "estado": estado,
-                "estado_label": estado_label,
-            }
-        )
-        if estado in cerrado_estados:
-            cerrado_bruto += beneficio_bruto
-            cerrado_neto += beneficio_neto
-            inversion_total = float(benef.get("inversion_total") or 0.0)
-            cerrado_inversion_total += inversion_total
-            if inversion_total:
-                cerrado_roi_bruto.append(beneficio_bruto / inversion_total * 100.0)
-                cerrado_roi_neto.append(beneficio_neto / inversion_total * 100.0)
-        elif estado in abierto_estados:
-            abierto_bruto += beneficio_bruto
-            abierto_neto += beneficio_neto
-
-        memoria_benef = _beneficio_estimado_real_memoria(proyecto)
-        beneficio_estimado = memoria_benef.get("beneficio_estimado", 0.0)
-        beneficio_real = memoria_benef.get("beneficio_real", 0.0)
-        if memoria_benef.get("has_movimientos"):
-            beneficio_deviation.append(
-                {
-                    "nombre": proyecto.nombre or f"Proyecto {proyecto.id}",
-                    "estimado": float(beneficio_estimado or 0.0),
-                    "real": float(beneficio_real or 0.0),
-                }
-            )
-
-    cerrado_roi_bruto_total = (
-        (cerrado_bruto / cerrado_inversion_total * 100.0) if cerrado_inversion_total else 0.0
-    )
-    cerrado_roi_neto_total = (
-        (cerrado_neto / cerrado_inversion_total * 100.0) if cerrado_inversion_total else 0.0
-    )
-    cerrado_roi_bruto_medio = (
-        sum(cerrado_roi_bruto) / len(cerrado_roi_bruto) if cerrado_roi_bruto else 0.0
-    )
-    cerrado_roi_neto_medio = (
-        sum(cerrado_roi_neto) / len(cerrado_roi_neto) if cerrado_roi_neto else 0.0
-    )
-    cerrado_bruto_medio = (cerrado_bruto / len(cerrado_roi_bruto)) if cerrado_roi_bruto else 0.0
-    cerrado_neto_medio = (cerrado_neto / len(cerrado_roi_neto)) if cerrado_roi_neto else 0.0
-
-    today = timezone.now().date()
-    checklist_qs = ChecklistItem.objects.select_related("proyecto").exclude(estado="hecho")
-    if is_comercial_user(user) and not _user_is_admin_or_direccion(user):
-        checklist_qs = checklist_qs.filter(responsable_user=user)
-    checklist_overdue_qs = checklist_qs.filter(fecha_objetivo__lt=today)
-    checklist_items = []
-    for it in checklist_qs.order_by("fecha_objetivo", "id")[:6]:
-        overdue = bool(it.fecha_objetivo and it.fecha_objetivo < today)
-        dias_retraso = (today - it.fecha_objetivo).days if overdue else 0
-        checklist_items.append(
-            {
-                "proyecto": it.proyecto.nombre if it.proyecto else "",
-                "fase": it.get_fase_display(),
-                "titulo": it.titulo,
-                "responsable": it.responsable or "",
-                "fecha_objetivo": it.fecha_objetivo,
-                "overdue": overdue,
-                "dias_retraso": dias_retraso,
-            }
-        )
+        for metric in project_metrics
+    ]
 
     return {
         "is_admin": is_admin_user(user),
@@ -3803,54 +3727,43 @@ def _build_dashboard_context(user):
         "can_inversores": perms.get("can_inversores"),
         "can_usuarios": perms.get("can_usuarios"),
         "can_cms": perms.get("can_cms"),
-        "dashboard_stats": {
-            "inversores_activos": inversores_activos,
-            "inversores_cuota": inversores_con_cuota,
-            "capital_en_vigor": capital_en_vigor,
-            "capital_actual": capital_actual,
-            "capital_acumulado": capital_acumulado,
-            "operaciones": total_operaciones,
-            "beneficio_total": total_beneficio,
-            "beneficio_medio": avg_beneficio,
-            "beneficio_cerrado_bruto": cerrado_bruto,
-            "beneficio_cerrado_neto": cerrado_neto,
-            "beneficio_cerrado_bruto_medio": cerrado_bruto_medio,
-            "beneficio_cerrado_neto_medio": cerrado_neto_medio,
-            "beneficio_abierto_bruto": abierto_bruto,
-            "beneficio_abierto_neto": abierto_neto,
-            "beneficio_cerrado_roi_bruto_total": cerrado_roi_bruto_total,
-            "beneficio_cerrado_roi_neto_total": cerrado_roi_neto_total,
-            "beneficio_cerrado_roi_bruto_medio": cerrado_roi_bruto_medio,
-            "beneficio_cerrado_roi_neto_medio": cerrado_roi_neto_medio,
-            "beneficio_inversure": total_comision_inversure,
-        },
-        "dashboard_stats_fmt": {
-            "capital_en_vigor": _fmt_money(capital_en_vigor),
-            "capital_actual": _fmt_money(capital_actual),
-            "capital_acumulado": _fmt_money(capital_acumulado),
-            "beneficio_total": _fmt_money(total_beneficio),
-            "beneficio_medio": _fmt_money(avg_beneficio),
-            "beneficio_cerrado_bruto": _fmt_money(cerrado_bruto),
-            "beneficio_cerrado_neto": _fmt_money(cerrado_neto),
-            "beneficio_cerrado_bruto_medio": _fmt_money(cerrado_bruto_medio),
-            "beneficio_cerrado_neto_medio": _fmt_money(cerrado_neto_medio),
-            "beneficio_abierto_bruto": _fmt_money(abierto_bruto),
-            "beneficio_abierto_neto": _fmt_money(abierto_neto),
-            "beneficio_cerrado_roi_bruto_total": _fmt_pct(cerrado_roi_bruto_total),
-            "beneficio_cerrado_roi_neto_total": _fmt_pct(cerrado_roi_neto_total),
-            "beneficio_cerrado_roi_bruto_medio": _fmt_pct(cerrado_roi_bruto_medio),
-            "beneficio_cerrado_roi_neto_medio": _fmt_pct(cerrado_roi_neto_medio),
-            "beneficio_inversure": _fmt_money(total_comision_inversure),
-        },
-        "beneficios_chart": beneficios_chart,
-        "beneficio_deviation_chart": beneficio_deviation,
+        "dashboard_stats": dashboard_stats,
+        "dashboard_stats_fmt": dashboard_stats_fmt,
+        "beneficios_chart": list(charts.get("benefit_bars", [])),
+        "beneficio_deviation_chart": [
+            {
+                "nombre": item.get("nombre", ""),
+                "estimado": item.get("estimado", 0.0),
+                "real": item.get("real", 0.0),
+            }
+            for item in charts.get("deviation", [])
+        ],
         "proyectos_estado": proyectos_estado,
-        "checklist_alerts": {
-            "pendientes": checklist_qs.count(),
-            "vencidas": checklist_overdue_qs.count(),
-            "items": checklist_items,
-        },
+        "checklist_alerts": alerts.get("operational", {"pendientes": 0, "vencidas": 0, "items": []}),
+        "dashboard_operational_alert_items": alerts.get("operational", {}).get("items", []),
+        "dashboard_financial_alert_items": alerts.get("financial", {}).get("items", []),
+        "dashboard_alert_summary": alerts.get("summary", {"total": 0, "critical": 0, "warning": 0, "info": 0}),
+        "dashboard_state_distribution": charts.get("state_distribution", []),
+        "dashboard_benefit_bars": charts.get("benefit_bars", []),
+        "dashboard_deviation_rows": dashboard.get("charts", {}).get("deviation", []) if isinstance(dashboard, dict) else [],
+        "dashboard_best_roi": dashboard.get("rankings", {}).get("best_roi", []) if isinstance(dashboard, dict) else [],
+        "dashboard_worst_roi": dashboard.get("rankings", {}).get("worst_roi", []) if isinstance(dashboard, dict) else [],
+        "dashboard_investment_return": dashboard.get("rankings", {}).get("investment_return", []) if isinstance(dashboard, dict) else [],
+        "dashboard_monthly_series": dashboard.get("series", {}).get("monthly", {}) if isinstance(dashboard, dict) else {},
+        "dashboard_payload": dashboard,
+        "dashboard_filters": dashboard.get("filters", {}) if isinstance(dashboard, dict) else {},
+        "dashboard_projects": project_metrics,
+        "dashboard_rankings": dashboard.get("rankings", {}) if isinstance(dashboard, dict) else {},
+        "dashboard_series": dashboard.get("series", {}) if isinstance(dashboard, dict) else {},
+        "dashboard_charts": charts,
+        "dashboard_alerts": alerts,
+        "dashboard_state_options": list(Proyecto.ESTADO_CHOICES),
     }
+
+
+def _build_dashboard_context(user, filters: FinancialDashboardFilters | None = None):
+    dashboard = FinancialDashboardService(user, filters=filters).build()
+    return _dashboard_context_from_payload(user, dashboard)
 
 
 def home(request):
@@ -3968,7 +3881,8 @@ def otros_proyectos(request):
 
 def dashboard(request):
     try:
-        ctx = _build_dashboard_context(request.user)
+        filters = FinancialDashboardFilters.from_mapping(request.GET)
+        ctx = _build_dashboard_context(request.user, filters=filters)
     except Exception as exc:
         try:
             import traceback
@@ -3977,11 +3891,21 @@ def dashboard(request):
             traceback.print_exc()
         except Exception:
             pass
-        ctx = {
-            "is_admin": is_admin_user(request.user),
-            "dashboard_error": f"{type(exc).__name__}: {exc}",
-        }
+        ctx = _dashboard_context_from_payload(request.user, _empty_dashboard_payload())
+        ctx.update(
+            {
+                "is_admin": is_admin_user(request.user),
+                "dashboard_error": f"{type(exc).__name__}: {exc}",
+            }
+        )
     return render(request, "core/dashboard.html", ctx)
+
+
+@require_GET
+def dashboard_data(request):
+    filters = FinancialDashboardFilters.from_mapping(request.GET)
+    payload = FinancialDashboardService(request.user, filters=filters).build()
+    return JsonResponse(payload)
 
 
 def checklist_pendientes(request):
