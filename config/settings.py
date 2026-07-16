@@ -217,14 +217,13 @@ SENSITIVE_DATA_HMAC_KEY = os.environ.get("SENSITIVE_DATA_HMAC_KEY", "")
 
 def _build_database_config(database_url: str | None) -> dict[str, dict[str, object]]:
     if database_url:
-        config_kwargs = {
-            "default": database_url,
-            "conn_max_age": 600,
-        }
         scheme = database_url.split(":", 1)[0].strip().lower()
+        database = dj_database_url.parse(database_url, conn_max_age=600)
         if scheme.startswith("postgres"):
-            config_kwargs["ssl_require"] = True
-        return {"default": dj_database_url.config(**config_kwargs)}
+            options = dict(database.get("OPTIONS") or {})
+            options["sslmode"] = "require"
+            database["OPTIONS"] = options
+        return {"default": database}
 
     # LOCAL (SQLite)
     return {
