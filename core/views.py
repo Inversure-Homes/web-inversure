@@ -49,6 +49,7 @@ from .models import Estudio, Proyecto
 from .models import EstudioSnapshot, ProyectoSnapshot
 from .models import GastoProyecto, IngresoProyecto, ChecklistItem
 from .models import Cliente, Participacion, InversorPerfil, InversorPushSubscription, SolicitudParticipacion, ComunicacionInversor, DocumentoProyecto, DocumentoInversor, FacturaGasto, JustificanteIngreso
+from .finance import limit_loss_to_capital_enabled
 from accounts.utils import (
     is_admin_user,
     is_comercial_user,
@@ -1021,33 +1022,28 @@ def _calc_beneficio_inversor(
         if override_comision not in (None, ""):
             comision_eur = _safe_float(override_comision, comision_eur)
         if override_neto not in (None, ""):
-            beneficio_neto_total_operacion = _safe_float(override_neto, beneficio_neto_total_operacion)
+            beneficio_neto_total_operacion_pre_impuesto = _safe_float(override_neto, beneficio_neto_total_operacion_pre_impuesto)
+            beneficio_neto_total_operacion = beneficio_neto_total_operacion_pre_impuesto
         elif override_bruto not in (None, "") or override_comision not in (None, ""):
             # Si se overridea bruto o comisión, asegurar que el neto sigue siendo coherente.
             beneficio_neto_total_operacion_pre_impuesto = beneficio_bruto_operacion - comision_eur
             beneficio_neto_total_operacion = beneficio_neto_total_operacion_pre_impuesto
 
-    # Si se especifica la cuota de beneficios del proyecto, descuenta impuesto de sociedades antes de repartir.
-    if override_neto not in (None, ""):
-        impuesto_sociedades = 0.0
-        impuesto_sociedades_total_operacion = 0.0
+    if override_impuesto_pct not in (None, ""):
+        impuesto_sociedades_pct_aplicada = _safe_float(override_impuesto_pct, impuesto_sociedades_pct_aplicada)
+    if impuesto_sociedades_pct_aplicada < 0:
         impuesto_sociedades_pct_aplicada = 0.0
+    if impuesto_sociedades_pct_aplicada > 100:
+        impuesto_sociedades_pct_aplicada = 100.0
+
+    if override_impuesto not in (None, ""):
+        impuesto_sociedades_total_operacion = _safe_float(override_impuesto, 0.0)
+        if impuesto_sociedades_total_operacion < 0:
+            impuesto_sociedades_total_operacion = 0.0
     else:
-        if override_impuesto_pct not in (None, ""):
-            impuesto_sociedades_pct_aplicada = _safe_float(override_impuesto_pct, impuesto_sociedades_pct_aplicada)
-        if impuesto_sociedades_pct_aplicada < 0:
-            impuesto_sociedades_pct_aplicada = 0.0
-        if impuesto_sociedades_pct_aplicada > 100:
-            impuesto_sociedades_pct_aplicada = 100.0
+        impuesto_sociedades_total_operacion = max(0.0, float(beneficio_neto_total_operacion_pre_impuesto or 0.0)) * (impuesto_sociedades_pct_aplicada / 100.0)
 
-        if override_impuesto not in (None, ""):
-            impuesto_sociedades_total_operacion = _safe_float(override_impuesto, 0.0)
-            if impuesto_sociedades_total_operacion < 0:
-                impuesto_sociedades_total_operacion = 0.0
-        else:
-            impuesto_sociedades_total_operacion = max(0.0, float(beneficio_neto_total_operacion_pre_impuesto or 0.0)) * (impuesto_sociedades_pct_aplicada / 100.0)
-
-        beneficio_neto_total_operacion = beneficio_neto_total_operacion_pre_impuesto - impuesto_sociedades_total_operacion
+    beneficio_neto_total_operacion = beneficio_neto_total_operacion_pre_impuesto - impuesto_sociedades_total_operacion
 
     inversion = float(getattr(part, "importe_invertido", 0) or 0)
     ratio = inversion / total_proj if total_proj > 0 else 0.0
@@ -1078,13 +1074,15 @@ def _calc_beneficio_inversor(
         neto_beneficio = _safe_float(override_data.get("neto_cobrar"), neto_beneficio)
 
     total_a_percibir = inversion + neto_beneficio
-    try:
-        if getattr(settings, "CUENTAS_PARTICIPACION_LIMIT_LOSS_TO_CAPITAL", True):
-            total_a_percibir = max(0.0, total_a_percibir)
-    except Exception:
-        pass
     if override_data.get("total_a_percibir") not in (None, ""):
         total_a_percibir = _safe_float(override_data.get("total_a_percibir"), total_a_percibir)
+
+    try:
+        if limit_loss_to_capital_enabled() and total_a_percibir < 0:
+            total_a_percibir = 0.0
+            neto_beneficio = -inversion
+    except Exception:
+        pass
 
     return {
         # Componentes de la operación
@@ -3095,6 +3093,11 @@ def _metricas_desde_estudio(estudio: Estudio) -> dict:
     roi = _safe_float(d.get("roi"), (beneficio / valor_adquisicion * 100.0) if valor_adquisicion else 0.0)
 
     media_valoraciones = _safe_float(d.get("media_valoraciones"), 0.0)
+    impuesto_sociedades_pct = _safe_float(_deep_get("impuesto_sociedades_pct"), 0.0)
+    if impuesto_sociedades_pct < 0:
+        impuesto_sociedades_pct = 0.0
+    if impuesto_sociedades_pct > 100:
+        impuesto_sociedades_pct = 100.0
 
     metricas = {
         "valor_adquisicion": valor_adquisicion,
@@ -3107,6 +3110,7 @@ def _metricas_desde_estudio(estudio: Estudio) -> dict:
         "beneficio": beneficio,
         "roi": roi,
         "media_valoraciones": media_valoraciones,
+        "impuesto_sociedades_pct": impuesto_sociedades_pct,
         # alias típicos por si la plantilla usa otros nombres
         "inversion_total": valor_adquisicion,
         "beneficio_neto": beneficio,
@@ -3124,6 +3128,7 @@ def _metricas_desde_estudio(estudio: Estudio) -> dict:
         "beneficio": _fmt_eur(beneficio),
         "roi": _fmt_pct(roi),
         "media_valoraciones": _fmt_eur(media_valoraciones),
+        "impuesto_sociedades_pct": _fmt_pct(impuesto_sociedades_pct),
         # alias
         "inversion_total": _fmt_eur(valor_adquisicion),
         "beneficio_neto": _fmt_eur(beneficio),
@@ -3304,6 +3309,23 @@ def _metricas_desde_estudio(estudio: Estudio) -> dict:
     metricas_fmt["beneficio_estimado"] = _fmt_eur(metricas["beneficio_estimado"])
     metricas_fmt["roi_estimado"] = _fmt_pct(metricas["roi_estimado"])
 
+    # El impuesto de sociedades se calcula sobre la base ya recortada por comisión.
+    base_imponible_impuesto = max(0.0, beneficio_neto_inversor)
+    impuesto_sociedades = base_imponible_impuesto * (impuesto_sociedades_pct / 100.0)
+    beneficio_neto_tras_impuestos = beneficio_neto_inversor - impuesto_sociedades
+    roi_neto_tras_impuestos = _safe_float(
+        metricas.get("roi_neto_tras_impuestos")
+        or ((beneficio_neto_tras_impuestos / inversion_total) * 100.0 if inversion_total else 0.0),
+        0.0,
+    )
+
+    metricas["impuesto_sociedades"] = impuesto_sociedades
+    metricas["beneficio_neto_tras_impuestos"] = beneficio_neto_tras_impuestos
+    metricas["roi_neto_tras_impuestos"] = roi_neto_tras_impuestos
+    metricas_fmt["impuesto_sociedades"] = _fmt_eur(impuesto_sociedades)
+    metricas_fmt["beneficio_neto_tras_impuestos"] = _fmt_eur(beneficio_neto_tras_impuestos)
+    metricas_fmt["roi_neto_tras_impuestos"] = _fmt_pct(roi_neto_tras_impuestos)
+
     inversor = SafeAccessDict(
         {
             "inversion_total": inversion_total,
@@ -3311,6 +3333,10 @@ def _metricas_desde_estudio(estudio: Estudio) -> dict:
             "comision_inversure_eur": comision_eur,
             "beneficio_neto_inversor": beneficio_neto_inversor,
             "roi_neto_inversor": roi_neto_inversor,
+            "impuesto_sociedades_pct": impuesto_sociedades_pct,
+            "impuesto_sociedades": impuesto_sociedades,
+            "beneficio_neto_tras_impuestos": beneficio_neto_tras_impuestos,
+            "roi_neto_tras_impuestos": roi_neto_tras_impuestos,
             # aliases por si el template usa otros nombres
             "comision_pct": comision_pct,
             "comision_eur": comision_eur,
@@ -3326,6 +3352,10 @@ def _metricas_desde_estudio(estudio: Estudio) -> dict:
             "comision_inversure_eur": _fmt_eur(comision_eur),
             "beneficio_neto_inversor": _fmt_eur(beneficio_neto_inversor),
             "roi_neto_inversor": _fmt_pct(roi_neto_inversor),
+            "impuesto_sociedades_pct": _fmt_pct(impuesto_sociedades_pct),
+            "impuesto_sociedades": _fmt_eur(impuesto_sociedades),
+            "beneficio_neto_tras_impuestos": _fmt_eur(beneficio_neto_tras_impuestos),
+            "roi_neto_tras_impuestos": _fmt_pct(roi_neto_tras_impuestos),
             # aliases
             "comision_pct": _fmt_pct(comision_pct),
             "comision_eur": _fmt_eur(comision_eur),
@@ -6943,6 +6973,7 @@ def pdf_memoria_economica(request, proyecto_id: int):
 
     snapshot = _get_snapshot_comunicacion(proyecto)
     inv_sec = snapshot.get("inversor") if isinstance(snapshot.get("inversor"), dict) else {}
+    econ_sec = snapshot.get("economico") if isinstance(snapshot.get("economico"), dict) else {}
     comision_pct = _safe_float(
         inv_sec.get("comision_inversure_pct")
         or inv_sec.get("comision_pct")
@@ -6951,21 +6982,59 @@ def pdf_memoria_economica(request, proyecto_id: int):
         or 0.0,
         0.0,
     )
+    impuesto_sociedades_pct = _safe_float(
+        econ_sec.get("impuesto_sociedades_pct")
+        or snapshot.get("impuesto_sociedades_pct")
+        or 0.0,
+        0.0,
+    )
     if comision_pct < 0:
         comision_pct = 0.0
     if comision_pct > 100:
         comision_pct = 100.0
+    if impuesto_sociedades_pct < 0:
+        impuesto_sociedades_pct = 0.0
+    if impuesto_sociedades_pct > 100:
+        impuesto_sociedades_pct = 100.0
 
-    pct_decimal = Decimal(str(comision_pct)) / Decimal("100")
+    pct_comision_decimal = Decimal(str(comision_pct)) / Decimal("100")
+    pct_impuesto_decimal = Decimal(str(impuesto_sociedades_pct)) / Decimal("100")
     # Comisión sobre beneficio: si hay pérdidas, no debe generar comisión negativa.
-    comision_estimada = max(Decimal("0"), beneficio_estimado) * pct_decimal if beneficio_estimado else Decimal("0")
-    comision_real = max(Decimal("0"), beneficio_real) * pct_decimal if beneficio_real else Decimal("0")
+    comision_estimada = max(Decimal("0"), beneficio_estimado) * pct_comision_decimal if beneficio_estimado else Decimal("0")
+    comision_real = max(Decimal("0"), beneficio_real) * pct_comision_decimal if beneficio_real else Decimal("0")
     beneficio_neto_estimado = beneficio_estimado - comision_estimada
     beneficio_neto_real = beneficio_real - comision_real
 
     # ROI consistente con KPIs: beneficio / gastos.
     roi_estimado = (beneficio_estimado / gastos_estimados * Decimal("100")) if gastos_estimados > 0 else None
     roi_real = (beneficio_real / gastos_reales * Decimal("100")) if gastos_reales > 0 else None
+
+    impuesto_sociedades_estimada = (
+        max(Decimal("0"), beneficio_neto_estimado) * pct_impuesto_decimal if beneficio_neto_estimado else Decimal("0")
+    )
+    impuesto_sociedades_real = max(Decimal("0"), beneficio_neto_real) * pct_impuesto_decimal if beneficio_neto_real else Decimal("0")
+    beneficio_neto_estimado_tras_impuestos = beneficio_neto_estimado - impuesto_sociedades_estimada
+    beneficio_neto_real_tras_impuestos = beneficio_neto_real - impuesto_sociedades_real
+    gastos_totales_estimados_con_impuesto = gastos_estimados + impuesto_sociedades_estimada
+    gastos_totales_reales_con_impuesto = gastos_reales + impuesto_sociedades_real
+    roi_estimado_tras_impuestos = (
+        (
+            beneficio_neto_estimado_tras_impuestos
+            / gastos_totales_estimados_con_impuesto
+            * Decimal("100")
+        )
+        if gastos_totales_estimados_con_impuesto > 0
+        else None
+    )
+    roi_real_tras_impuestos = (
+        (
+            beneficio_neto_real_tras_impuestos
+            / gastos_totales_reales_con_impuesto
+            * Decimal("100")
+        )
+        if gastos_totales_reales_con_impuesto > 0
+        else None
+    )
 
     categorias = []
     for key, label in GastoProyecto.CATEGORIAS:
@@ -6986,6 +7055,15 @@ def pdf_memoria_economica(request, proyecto_id: int):
         "comision_inversure_real": comision_real,
         "beneficio_neto_estimado": beneficio_neto_estimado,
         "beneficio_neto_real": beneficio_neto_real,
+        "impuesto_sociedades_pct": impuesto_sociedades_pct,
+        "impuesto_sociedades_estimada": impuesto_sociedades_estimada,
+        "impuesto_sociedades_real": impuesto_sociedades_real,
+        "beneficio_neto_estimado_tras_impuestos": beneficio_neto_estimado_tras_impuestos,
+        "beneficio_neto_real_tras_impuestos": beneficio_neto_real_tras_impuestos,
+        "roi_estimado_tras_impuestos": roi_estimado_tras_impuestos,
+        "roi_real_tras_impuestos": roi_real_tras_impuestos,
+        "gastos_totales_estimados_con_impuesto": gastos_totales_estimados_con_impuesto,
+        "gastos_totales_reales_con_impuesto": gastos_totales_reales_con_impuesto,
         "roi_estimado": roi_estimado,
         "roi_real": roi_real,
         "categorias": categorias,

@@ -918,16 +918,21 @@ function buildOverlayPayloadFromDOM() {
   return payload;
 }
 
-function updateComisionInversureMetrics({ beneficioBase = 0, valorAdqBase = 0 } = {}) {
+function updateComisionInversureMetrics({ beneficioBase, valorAdqBase } = {}) {
   const pctInput = document.getElementById("inv_comision_pct");
   const impuestoSociedadesPctInput = document.getElementById("inv_impuesto_sociedades_pct");
   const eurInput = document.getElementById("inv_comision_eur");
   const netoInput = document.getElementById("inv_beneficio_neto");
+  const impuestoSociedadesEurInput = document.getElementById("inv_impuesto_sociedades_eur");
+  const beneficioPostImpuestosInput = document.getElementById("inv_beneficio_neto_post_impuestos");
   const roiInput = document.getElementById("inv_roi_neto");
   const beneficioHidden = document.getElementById("inv_beneficio_neto_hidden");
   const roiHidden = document.getElementById("inv_roi_neto_hidden");
   const beneficioBaseHidden = document.getElementById("inv_beneficio_neto_base");
   const roiBaseHidden = document.getElementById("inv_roi_neto_base");
+  const impuestoHidden = document.getElementById("inv_impuesto_sociedades_hidden");
+  const beneficioPostHidden = document.getElementById("inv_beneficio_neto_post_impuestos_hidden");
+  const roiPostHidden = document.getElementById("inv_roi_neto_post_impuestos_hidden");
   const dashComision = document.getElementById("dash_comision_inversure");
   const dashNeto = document.getElementById("dash_beneficio_neto_inversor");
   const dashRoi = document.getElementById("dash_roi_neto_inversor");
@@ -955,30 +960,36 @@ function updateComisionInversureMetrics({ beneficioBase = 0, valorAdqBase = 0 } 
 
   const pct = parseNumberEs(_getElText(pctInput)) || 0;
   const impuestoSociedadesPct = parseNumberEs(_getElText(impuestoSociedadesPctInput)) || 0;
-  const bruto = Number.isFinite(beneficioBase) && beneficioBase !== 0 ? beneficioBase : beneficioFallback;
+  const bruto = Number.isFinite(beneficioBase) ? beneficioBase : beneficioFallback;
   const comision = bruto > 0 ? (bruto * (pct / 100)) : 0;
-  const beneficioPostComision = bruto - comision;
-  const beneficioInversorBase = parseNumberEs(beneficioHidden?.value || "") || 0;
-  const ratio = beneficioPostComision > 0 && beneficioInversorBase > 0 ? Math.min(Math.max(beneficioInversorBase / beneficioPostComision, 0), 1) : 1;
-  const baseNetoInversor = beneficioPostComision * ratio;
-  const impuestoSociedades = Math.max(0, baseNetoInversor) * (impuestoSociedadesPct / 100);
-  const neto = baseNetoInversor - impuestoSociedades;
-  const valorAdqCalc = Number.isFinite(valorAdqBase) && valorAdqBase > 0 ? valorAdqBase : (Number.isFinite(adqFallback) ? adqFallback : 0);
-  const roi = valorAdqCalc > 0 ? (neto / valorAdqCalc) * 100 : 0;
+  const beneficioAntesImpuestos = bruto - comision;
+  const impuestoSociedades = Math.max(0, beneficioAntesImpuestos) * (impuestoSociedadesPct / 100);
+  const beneficioDespuesImpuestos = beneficioAntesImpuestos - impuestoSociedades;
+  const valorAdqCalc = Number.isFinite(valorAdqBase) ? valorAdqBase : (Number.isFinite(adqFallback) ? adqFallback : 0);
+  const capitalCaptado = Number.isFinite(window.__captacionCaptado) ? window.__captacionCaptado : 0;
+  const capitalObjetivo = Number.isFinite(window.__captacionObjetivo) ? window.__captacionObjetivo : 0;
+  const capitalInvertido = capitalCaptado > 0 ? capitalCaptado : (capitalObjetivo > 0 ? capitalObjetivo : (valorAdqCalc > 0 ? valorAdqCalc : 0));
+  const roiAntesImpuestos = capitalInvertido > 0 ? (beneficioAntesImpuestos / capitalInvertido) * 100 : 0;
+  const roiDespuesImpuestos = capitalInvertido > 0 ? (beneficioDespuesImpuestos / capitalInvertido) * 100 : 0;
 
   _setElText(eurInput, formatEuro(comision));
-  _setElText(netoInput, formatEuro(neto));
-  _setElText(roiInput, formatNumberEs(roi, 2));
-  if (beneficioHidden) beneficioHidden.value = neto;
-  if (roiHidden) roiHidden.value = roi;
-  if (beneficioBaseHidden) beneficioBaseHidden.value = neto;
-  if (roiBaseHidden) roiBaseHidden.value = roi;
+  _setElText(netoInput, formatEuro(beneficioAntesImpuestos));
+  if (impuestoSociedadesEurInput) _setElText(impuestoSociedadesEurInput, formatEuro(impuestoSociedades));
+  if (beneficioPostImpuestosInput) _setElText(beneficioPostImpuestosInput, formatEuro(beneficioDespuesImpuestos));
+  _setElText(roiInput, formatNumberEs(roiDespuesImpuestos, 2));
+  if (beneficioHidden) beneficioHidden.value = beneficioDespuesImpuestos;
+  if (roiHidden) roiHidden.value = roiDespuesImpuestos;
+  if (beneficioBaseHidden) beneficioBaseHidden.value = beneficioAntesImpuestos;
+  if (roiBaseHidden) roiBaseHidden.value = roiAntesImpuestos;
+  if (impuestoHidden) impuestoHidden.value = impuestoSociedades;
+  if (beneficioPostHidden) beneficioPostHidden.value = beneficioDespuesImpuestos;
+  if (roiPostHidden) roiPostHidden.value = roiDespuesImpuestos;
 
   if (dashComision) dashComision.textContent = formatEuro(comision);
   if (dashImpuesto) dashImpuesto.textContent = formatEuro(impuestoSociedades);
-  if (dashBeneficioNetoPostImpuestos) dashBeneficioNetoPostImpuestos.textContent = formatEuro(neto);
-  if (dashNeto) dashNeto.textContent = formatEuro(neto);
-  if (dashRoi) dashRoi.textContent = formatNumberEs(roi, 2) + " %";
+  if (dashBeneficioNetoPostImpuestos) dashBeneficioNetoPostImpuestos.textContent = formatEuro(beneficioDespuesImpuestos);
+  if (dashNeto) dashNeto.textContent = formatEuro(beneficioAntesImpuestos);
+  if (dashRoi) dashRoi.textContent = formatNumberEs(roiDespuesImpuestos, 2) + " %";
 }
 
 function bindComisionInversureInputs() {
@@ -1748,7 +1759,7 @@ function bindMemoriaEconomica() {
     }
     if (labelGastos) labelGastos.textContent = usarEstimados ? "Gastos estimados" : "Gastos reales";
     if (labelBeneficio) labelBeneficio.textContent = usarEstimados ? "Beneficio neto estimado" : "Beneficio neto real";
-    if (labelRoi) labelRoi.textContent = usarEstimados ? "ROI estimado" : "ROI real";
+    if (labelRoi) labelRoi.textContent = usarEstimados ? "ROI estimado sobre costes" : "ROI real sobre costes";
     if (subIngresosLabel) {
       if (usarEstimados) {
         subIngresosLabel.textContent = "Real:";

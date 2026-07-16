@@ -2,6 +2,7 @@ import os
 from datetime import date
 from decimal import Decimal
 from types import SimpleNamespace
+from unittest import mock
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -211,6 +212,55 @@ class SecurityHardeningTests(TestCase):
         # total a percibir = capital + neto_beneficio (negativo)
         self.assertAlmostEqual(out["total_a_percibir"], 500.0, places=6)
 
+    def test_loss_clamp_caps_total_a_percibir_and_net_loss(self):
+        class _Part:
+            importe_invertido = Decimal("1000.00")
+            beneficio_neto_override = None
+            beneficio_override_data = {}
+            cliente = type("C", (), {"tipo_persona": "F"})()
+
+        class _Proj:
+            extra = {}
+
+        part = _Part()
+        proyecto = _Proj()
+        snapshot = {"inversor": {"comision_inversure_pct": 0}}
+        resultado_mem = {"beneficio_neto": -2000.0}
+        with mock.patch.dict(os.environ, {"CUENTAS_PARTICIPACION_LIMIT_LOSS_TO_CAPITAL": "1"}, clear=False):
+            out = core_views._calc_beneficio_inversor(part, proyecto, snapshot, resultado_mem, total_proj=1000.0)
+        self.assertEqual(out["neto_cobrar"], -1000.0)
+        self.assertEqual(out["total_a_percibir"], 0.0)
+
+    @override_settings(INVERSOR_RETENCION_PCT=0.0, INVERSOR_RETENCION_PCT_F=0.0, INVERSOR_RETENCION_PCT_J=0.0)
+    def test_override_beneficio_neto_total_keeps_impuesto_sociedades(self):
+        class _Part:
+            importe_invertido = Decimal("1000.00")
+            beneficio_neto_override = None
+            beneficio_override_data = {}
+            cliente = type("C", (), {"tipo_persona": "F"})()
+
+        class _Proj:
+            extra = {
+                "beneficio_operacion_override": {
+                    "beneficio_neto_total": 2000.0,
+                }
+            }
+
+        part = _Part()
+        proyecto = _Proj()
+        snapshot = {
+            "inversor": {"comision_inversure_pct": 0},
+            "economico": {"impuesto_sociedades_pct": 25},
+        }
+        resultado_mem = {"beneficio_neto": 1000.0}
+        out = core_views._calc_beneficio_inversor(part, proyecto, snapshot, resultado_mem, total_proj=1000.0)
+        self.assertAlmostEqual(out["beneficio_neto_operacion_pre_impuesto"], 2000.0, places=6)
+        self.assertAlmostEqual(out["beneficio_neto_total_operacion"], 1500.0, places=6)
+        self.assertAlmostEqual(out["impuesto_sociedades"], 500.0, places=6)
+        self.assertAlmostEqual(out["beneficio_neto_inversor"], 1500.0, places=6)
+        self.assertAlmostEqual(out["neto_cobrar"], 1500.0, places=6)
+        self.assertAlmostEqual(out["total_a_percibir"], 2500.0, places=6)
+
     def test_closed_project_counts_anticipo_as_venta(self):
         proyecto = Proyecto.objects.create(
             nombre="P3",
@@ -312,6 +362,70 @@ class SecurityHardeningTests(TestCase):
         self.assertGreaterEqual(float(inv.get("comision_inversure_eur") or 0.0), 0.0)
         self.assertAlmostEqual(float(inv.get("comision_inversure_eur") or 0.0), 2000.0, places=6)
         self.assertAlmostEqual(float(inv.get("beneficio_neto_inversor") or 0.0), 18000.0, places=6)
+
+    def test_metricas_desde_estudio_aplica_impuesto_sobre_base_reparto(self):
+        estudio = Estudio.objects.create(
+            nombre="E-tax",
+            direccion="X",
+            ref_catastral="",
+            datos={
+                "valor_adquisicion": 100000,
+                "beneficio": 20000,
+                "comision_inversure_pct": 10,
+                "impuesto_sociedades_pct": 25,
+            },
+        )
+        out = core_views._metricas_desde_estudio(estudio)
+        inv = out.get("inversor", {}) if isinstance(out.get("inversor"), dict) else {}
+        self.assertAlmostEqual(float(inv.get("beneficio_neto") or 0.0), 18000.0, places=6)
+        self.assertAlmostEqual(float(inv.get("impuesto_sociedades") or 0.0), 4500.0, places=6)
+        self.assertAlmostEqual(float(inv.get("beneficio_neto_tras_impuestos") or 0.0), 13500.0, places=6)
+        self.assertAlmostEqual(float(inv.get("roi_neto_tras_impuestos") or 0.0), 13.5, places=6)
+
+    def test_pdf_memoria_economica_aplica_impuesto_como_gasto_extra(self):
+        proyecto = Proyecto.objects.create(
+            nombre="P-tax",
+            estado="cerrado",
+            fecha=date(2026, 7, 1),
+            snapshot_datos={
+                "inversor": {"comision_inversure_pct": 10},
+                "economico": {"impuesto_sociedades_pct": 25},
+            },
+        )
+        IngresoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 7, 2),
+            tipo="venta",
+            concepto="Venta",
+            importe=Decimal("150000.00"),
+            importe_estimado=Decimal("150000.00"),
+            importe_real=Decimal("150000.00"),
+            estado="confirmado",
+            imputable_inversores=True,
+        )
+        GastoProyecto.objects.create(
+            proyecto=proyecto,
+            fecha=date(2026, 7, 1),
+            categoria="reforma",
+            concepto="Reforma",
+            importe=Decimal("100000.00"),
+            importe_estimado=Decimal("100000.00"),
+            importe_real=Decimal("100000.00"),
+            estado="confirmado",
+            imputable_inversores=True,
+        )
+        req = self.factory.get(f"/app/proyectos/{proyecto.id}/memoria/pdf/")
+        with mock.patch("core.views.render") as mocked_render:
+            mocked_render.return_value = mock.Mock(status_code=200)
+            core_views.pdf_memoria_economica(req, proyecto.id)
+        args, kwargs = mocked_render.call_args
+        ctx = args[2] if len(args) >= 3 else kwargs.get("context", {})
+        resumen = ctx.get("resumen") or {}
+        self.assertAlmostEqual(float(resumen.get("comision_inversure_real") or 0.0), 5000.0, places=6)
+        self.assertAlmostEqual(float(resumen.get("impuesto_sociedades_real") or 0.0), 11250.0, places=6)
+        self.assertAlmostEqual(float(resumen.get("beneficio_neto_real_tras_impuestos") or 0.0), 33750.0, places=6)
+        self.assertAlmostEqual(float(resumen.get("gastos_totales_reales_con_impuesto") or 0.0), 111250.0, places=6)
+        self.assertAlmostEqual(float(resumen.get("roi_real_tras_impuestos") or 0.0), 30.33707865168539, places=6)
 
     def test_resultado_memoria_can_filter_non_imputable_items(self):
         proyecto = Proyecto.objects.create(

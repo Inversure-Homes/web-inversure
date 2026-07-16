@@ -397,7 +397,7 @@
               {% elif snapshot.economico.roi_estimado or snapshot.economico.roi_estimado == 0 %} pill--bad
               {% else %} pill--muted
               {% endif %}">
-              ROI:
+              ROI sobre costes:
               {% if snapshot.economico.roi_estimado or snapshot.economico.roi_estimado == 0 %}
                 {{ snapshot.economico.roi_estimado|es_number }} %
               {% else %}—{% endif %}

@@ -119,39 +119,37 @@
             <div class="sub">Estimado: {{ resumen.gastos_estimados|es_number }} €</div>
           </div>
           <div class="kpi">
-            <div class="label">Beneficio neto</div>
-            <div class="value">{{ resumen.beneficio_real|es_number }} €</div>
-            <div class="sub">Estimado: {{ resumen.beneficio_estimado|es_number }} €</div>
-          </div>
-          <div class="kpi">
-            <div class="label">ROI</div>
-            <div class="value">
-              {% if resumen.roi_real is not None %}
-                {{ resumen.roi_real|es_number }} %
-              {% else %}
-                —
-              {% endif %}
-            </div>
-            <div class="sub">
-              Estimado:
-              {% if resumen.roi_estimado is not None %}
-                {{ resumen.roi_estimado|es_number }} %
-              {% else %}
-                —
-              {% endif %}
-            </div>
-          </div>
-        </div>
-        <div class="grid grid-2" style="margin-top:12px;">
-          <div class="kpi">
             <div class="label">Comisión Inversure{% if resumen.comision_inversure_pct %} ({{ resumen.comision_inversure_pct|es_number }} %){% endif %}</div>
             <div class="value">{{ resumen.comision_inversure_real|es_number }} €</div>
             <div class="sub">Estimado: {{ resumen.comision_inversure_estimada|es_number }} €</div>
           </div>
           <div class="kpi">
-            <div class="label">Beneficio neto inversor</div>
-            <div class="value">{{ resumen.beneficio_neto_real|es_number }} €</div>
-            <div class="sub">Estimado: {{ resumen.beneficio_neto_estimado|es_number }} €</div>
+            <div class="label">Impuesto sociedades{% if resumen.impuesto_sociedades_pct %} ({{ resumen.impuesto_sociedades_pct|es_number }} %){% endif %}</div>
+            <div class="value">{{ resumen.impuesto_sociedades_real|es_number }} €</div>
+            <div class="sub">Estimado: {{ resumen.impuesto_sociedades_estimada|es_number }} €</div>
+          </div>
+        </div>
+        <div class="grid grid-2" style="margin-top:12px;">
+          <div class="kpi">
+            <div class="label">Beneficio neto tras impuestos</div>
+            <div class="value">{{ resumen.beneficio_neto_real_tras_impuestos|es_number }} €</div>
+            <div class="sub">Antes de impuestos: {{ resumen.beneficio_neto_real|es_number }} €</div>
+          </div>
+          <div class="kpi">
+            <div class="label">ROI tras impuestos</div>
+            <div class="value">
+              {% if resumen.roi_real_tras_impuestos is not None %}
+                {{ resumen.roi_real_tras_impuestos|es_number }} %
+              {% else %}
+                —
+              {% endif %}
+            </div>
+            <div class="sub">
+              Sobre gastos totales con impuesto
+              {% if resumen.roi_estimado_tras_impuestos is not None %}
+                · Estimado: {{ resumen.roi_estimado_tras_impuestos|es_number }} %
+              {% endif %}
+            </div>
           </div>
         </div>
       </div>
@@ -226,6 +224,22 @@
                 {{ resumen.gastos_reales|es_number }} €
               </td>
             </tr>
+            {% if resumen.impuesto_sociedades_estimada or resumen.impuesto_sociedades_real %}
+            <tr class="table-total">
+              <td colspan="3">Impuesto sociedades</td>
+              <td class="right nowrap" colspan="3">
+                {{ resumen.impuesto_sociedades_estimada|es_number }} € /
+                {{ resumen.impuesto_sociedades_real|es_number }} €
+              </td>
+            </tr>
+            <tr class="table-total">
+              <td colspan="3">Total gastos + impuesto sociedades</td>
+              <td class="right nowrap" colspan="3">
+                {{ resumen.gastos_totales_estimados_con_impuesto|es_number }} € /
+                {{ resumen.gastos_totales_reales_con_impuesto|es_number }} €
+              </td>
+            </tr>
+            {% endif %}
           </tbody>
         </table>
 
