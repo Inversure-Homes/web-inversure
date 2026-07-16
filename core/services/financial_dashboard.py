@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
-from hashlib import sha1
+from hashlib import sha256
 from typing import Any, Mapping, cast
 
 from django.db.models import Prefetch, Q, Sum
@@ -241,7 +241,7 @@ class FinancialDashboardService:
             "project_signature": project_signature,
             "version": 1,
         }
-        cache_key = sha1(json.dumps(scope_signature, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+        cache_key = sha256(json.dumps(scope_signature, sort_keys=True, default=str).encode("utf-8")).hexdigest()
         return {
             "generated_at": timezone.now().isoformat(),
             "cache_key": f"financial-dashboard:{cache_key}",

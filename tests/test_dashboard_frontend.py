@@ -21,9 +21,7 @@ def _run_node(script: str) -> dict[str, object]:
     )
     if result.returncode != 0:
         raise AssertionError(
-            "node script failed\n"
-            f"stdout:\n{result.stdout}\n"
-            f"stderr:\n{result.stderr}\n",
+            "node script failed\n" f"stdout:\n{result.stdout}\n" f"stderr:\n{result.stderr}\n",
         )
     return json.loads(result.stdout)
 
@@ -170,7 +168,9 @@ def _payload() -> dict[str, object]:
     }
 
 
-def _node_script(*, initial_payload: dict[str, object], next_payload: dict[str, object] | None = None, scenario: str) -> str:
+def _node_script(
+    *, initial_payload: dict[str, object], next_payload: dict[str, object] | None = None, scenario: str
+) -> str:
     initial_json = json.dumps(initial_payload)
     next_json = json.dumps(next_payload) if next_payload is not None else "null"
     js_path = json.dumps(str(DASHBOARD_JS))
@@ -501,7 +501,9 @@ def test_dashboard_controller_scenarios(scenario_name):
         """
         result = _run_node(_node_script(initial_payload=initial_payload, next_payload=next_payload, scenario=scenario))
 
-        assert result["fetchUrl"].endswith("fecha_desde=2026-07-01&fecha_hasta=2026-07-31&proyecto_id=22&estado=cerrado")
+        assert result["fetchUrl"].endswith(
+            "fecha_desde=2026-07-01&fecha_hasta=2026-07-31&proyecto_id=22&estado=cerrado"
+        )
         assert result["pushUrl"].endswith("fecha_desde=2026-07-01&fecha_hasta=2026-07-31&proyecto_id=22&estado=cerrado")
         assert result["kpi"] == "3.500,00\xa0€"
         assert "Proyecto C" in result["ranking"]

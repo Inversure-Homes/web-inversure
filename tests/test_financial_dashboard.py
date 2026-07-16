@@ -296,7 +296,9 @@ def test_financial_dashboard_service_builds_structured_payload():
     assert payload["alerts"]["financial"]["negative_roi_projects"][0]["project_id"] == dataset["proyectos"]["activo"].id
     assert payload["alerts"]["financial"]["over_budget_projects"][0]["project_id"] == dataset["proyectos"]["activo"].id
     assert payload["alerts"]["financial"]["missing_facturas"][0]["project_id"] == dataset["proyectos"]["cerrado"].id
-    assert payload["alerts"]["financial"]["missing_justificantes"][0]["project_id"] == dataset["proyectos"]["cerrado"].id
+    assert (
+        payload["alerts"]["financial"]["missing_justificantes"][0]["project_id"] == dataset["proyectos"]["cerrado"].id
+    )
     assert payload["alerts"]["summary"] == {"total": 7, "critical": 0, "warning": 4, "info": 1}
 
     assert payload["series"]["monthly"]["investment"]

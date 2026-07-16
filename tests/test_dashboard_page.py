@@ -53,13 +53,16 @@ def test_dashboard_html_reflects_querystring_filters_and_embeds_initial_payload(
     html = response.content.decode("utf-8")
 
     assert response.status_code == 200
-    assert 'data-dashboard-filters-form' in html
-    assert 'data-dashboard-root' in html
-    assert 'data-dashboard-reset' in html
+    assert "data-dashboard-filters-form" in html
+    assert "data-dashboard-root" in html
+    assert "data-dashboard-reset" in html
     assert "/static/core/dashboard." in html
     assert f'value="{start.isoformat()}"' in html
     assert f'value="{fixed_today.isoformat()}"' in html
-    assert f'value="{dataset["proyectos"]["activo"].id}" selected' in html or f'selected>{dataset["proyectos"]["activo"].nombre}' in html
+    assert (
+        f'value="{dataset["proyectos"]["activo"].id}" selected' in html
+        or f'selected>{dataset["proyectos"]["activo"].nombre}' in html
+    )
     assert '"estado": "captacion"' in html
     assert f'"proyecto_id": {dataset["proyectos"]["activo"].id}' in html
     assert "financialDashboardData" in html
