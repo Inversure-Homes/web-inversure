@@ -21,7 +21,7 @@ def _run_node(script: str) -> dict[str, object]:
     )
     if result.returncode != 0:
         raise AssertionError(
-            "node script failed\n" f"stdout:\n{result.stdout}\n" f"stderr:\n{result.stderr}\n",
+            f"node script failed\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}\n",
         )
     return json.loads(result.stdout)
 

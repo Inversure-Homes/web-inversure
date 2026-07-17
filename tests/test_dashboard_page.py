@@ -61,7 +61,7 @@ def test_dashboard_html_reflects_querystring_filters_and_embeds_initial_payload(
     assert f'value="{fixed_today.isoformat()}"' in html
     assert (
         f'value="{dataset["proyectos"]["activo"].id}" selected' in html
-        or f'selected>{dataset["proyectos"]["activo"].nombre}' in html
+        or f"selected>{dataset['proyectos']['activo'].nombre}" in html
     )
     assert '"estado": "captacion"' in html
     assert f'"proyecto_id": {dataset["proyectos"]["activo"].id}' in html
