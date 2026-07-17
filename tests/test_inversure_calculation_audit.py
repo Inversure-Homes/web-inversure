@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from contextlib import contextmanager
+from copy import deepcopy
 from decimal import Decimal
 from typing import Any
 from unittest.mock import patch
@@ -603,6 +604,29 @@ def test_closed_project_distinguishes_project_pdf_and_liquidation_tax_bases(veri
         label="liquidation.total_a_percibir",
     )
     assert liquidation_response.json()["liquidaciones"][0]["estado"] == "Liquidación cerrada"
+
+
+def test_project_detail_keeps_snapshot_roi_and_benefit_when_latest_snapshot_differs_from_live(
+    verified_client,
+    direccion_user,
+):
+    scenario = build_closed_profit_scenario()
+    snapshot = deepcopy(scenario.project.snapshot_datos or {})
+    snapshot.setdefault("resultado", {})["roi"] = 16.3729
+    snapshot["resultado"]["beneficio_neto"] = 26019.30
+    snapshot.setdefault("economico", {})["roi"] = 16.3729
+    snapshot.setdefault("kpis", {}).setdefault("metricas", {})["roi"] = 16.3729
+    scenario.project.snapshots.create(datos=snapshot, fuente="guardado")
+
+    with _freeze_financial_now():
+        response = verified_client.get(reverse("core:proyecto", args=[scenario.project.id]))
+
+    context = _response_context(response, must_have=("captacion", "resultado", "inv"))
+
+    assert _decimal(context["resultado"]["roi"]) == Decimal("16.3729")
+    assert _decimal(context["resultado"]["beneficio_neto"]) == Decimal("26019.30")
+    # El detalle sigue mostrando el último snapshot guardado por compatibilidad histórica.
+    assert _decimal(context["captacion"]["capital_objetivo"]) == Decimal("100000.00")
 
 
 def test_zero_investment_project_keeps_settlement_and_liquidation_safe(verified_client, direccion_user):
