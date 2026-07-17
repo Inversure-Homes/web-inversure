@@ -5,7 +5,15 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from core.models import Cliente, GastoProyecto, IngresoProyecto, Participacion, Proyecto, ProyectoSnapshot
+from core.models import (
+    Cliente,
+    DatosEconomicosProyecto,
+    GastoProyecto,
+    IngresoProyecto,
+    Participacion,
+    Proyecto,
+    ProyectoSnapshot,
+)
 
 from .factories import ClienteFactory, InversorPerfilFactory, ProyectoFactory
 
@@ -201,9 +209,7 @@ def _expected_study_metrics(
     beneficio_neto_tras_impuestos = beneficio_neto - impuesto
     roi_neto = (beneficio / capital_objetivo * Decimal("100")) if capital_objetivo else Decimal("0")
     roi_neto_tras_impuestos = (
-        beneficio_neto_tras_impuestos / capital_objetivo * Decimal("100")
-        if capital_objetivo
-        else Decimal("0")
+        beneficio_neto_tras_impuestos / capital_objetivo * Decimal("100") if capital_objetivo else Decimal("0")
     )
     return {
         "comision_inversure_pct": commission_pct,
@@ -233,7 +239,9 @@ def _expected_settlement(
     retencion = max(Decimal("0"), beneficio_neto_inversor) * (retencion_pct / Decimal("100"))
     neto_cobrar = beneficio_neto_inversor - retencion
     total_a_percibir = capital_invertido + neto_cobrar
-    roi_bruto_pct = (beneficio_neto_total * ratio / capital_invertido * Decimal("100")) if capital_invertido else Decimal("0")
+    roi_bruto_pct = (
+        (beneficio_neto_total * ratio / capital_invertido * Decimal("100")) if capital_invertido else Decimal("0")
+    )
     roi_neto_pct = (neto_cobrar / capital_invertido * Decimal("100")) if capital_invertido else Decimal("0")
     return {
         "beneficio_bruto": beneficio_bruto_operacion,
@@ -275,10 +283,7 @@ def _finalize_project(
         Decimal("0"),
     )
     ingresos_reales = sum(
-        (
-            importe_real if importe_real is not None else importe
-            for _, importe, _, _, _, importe_real in incomes
-        ),
+        (importe_real if importe_real is not None else importe for _, importe, _, _, _, importe_real in incomes),
         Decimal("0"),
     )
     gastos_estimados = sum((importe for _, importe, _ in acquisition_costs), Decimal("0"))
@@ -298,6 +303,21 @@ def _finalize_project(
         state=state,
         snapshot=snapshot,
         purchase_price=purchase_price,
+    )
+    DatosEconomicosProyecto.objects.create(
+        proyecto=project,
+        estado_operativo="vendido"
+        if state == "vendido"
+        else "cierre"
+        if state in {"cerrado", "descartado", "cancelado"}
+        else "captacion",
+        precio_compra_real=purchase_price,
+        precio_venta_real=sale_amount,
+        tipo_comision_gestion="porcentaje_beneficio",
+        valor_comision_gestion=commission_pct,
+        impuesto_porcentaje_real=tax_pct,
+        porcentaje_comercializacion=Decimal("0"),
+        porcentaje_administracion=Decimal("0"),
     )
 
     clients: dict[str, Cliente] = {}

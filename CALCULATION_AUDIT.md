@@ -438,3 +438,29 @@ Conclusión operativa:
   - `roi_neto_tras_impuestos` sí usa el beneficio neto tras impuestos;
   - en pérdidas con devoluciones, el margen usa `valor_transmision` bruto como denominador;
   - `financiacion_pct` sigue siendo metadato y no altera los importes.
+
+### 15.2 Auditor ejecutable de métricas Inversure
+
+- Archivos añadidos:
+  - `core/services/inversure_metric_audit.py`
+  - `core/management/commands/audit_inversure_metricas.py`
+  - `tests/test_inversure_metricas_audit.py`
+- Fuente de verdad del recálculo:
+  - datos persistidos de `Proyecto`, `GastoProyecto`, `IngresoProyecto`, `Participacion` y `DatosEconomicosProyecto`;
+  - no reutiliza `FinancialDashboardService` ni helpers de cálculo visibles como fuente de verdad.
+- Corrección objetiva encontrada:
+  - el impuesto de sociedades se estaba tratando como porcentaje entero en una ruta del auditor y se corregió para aplicar la tasa como ratio en el cálculo;
+  - la métrica expuesta sigue mostrándose en porcentaje.
+- Decisiones pendientes documentadas:
+  - métricas sin `DatosEconomicosProyecto` quedan como `no_verificable_de_forma_independiente`;
+  - `financiacion_pct` se considera metadato y no se reconstruye como KPI financiero.
+- Validación ejecutada:
+  - `tests/test_inversure_metricas_audit.py`: 11 passed;
+  - `pytest -q`: 77 passed.
+- Cobertura añadida:
+  - recálculo independiente;
+  - comparación de detalle, dashboard, endpoint JSON, PDF y liquidación;
+  - exportación CSV y Markdown;
+  - detección de discrepancias;
+  - clasificación de métricas no verificables;
+  - escenarios de inversión cero, pérdidas, aportaciones parciales y beneficio cerrado.
