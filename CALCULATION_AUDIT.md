@@ -330,6 +330,8 @@ Hallazgos principales:
 - ¿Se cachea el dashboard financiero por rol y filtros?
 - ¿Se unifican los textos de ratio para evitar ambigüedad visual?
 - ¿Se crea un motor separado para financiación/hipoteca, o se deja como dato informativo?
+- ¿Debe renombrarse `roi_neto_inversor` para dejar claro que usa beneficio bruto / capital objetivo en el estudio?
+- ¿Debe el margen de proyectos con devoluciones usar `valor_transmision` bruto o neto de ajustes? La validación ejecutable confirma el uso bruto actual.
 
 ## 12. Cobertura y pruebas
 
@@ -369,8 +371,9 @@ Hallazgos principales:
 
 - Alto:
   - `core/services/financial_dashboard.py`
-  - `core/views.py` memoria económica y liquidación
+  - `core/views.py` detalle de proyecto, memoria económica, PDF y liquidación
   - `core/finance.py`
+  - `tests/test_inversure_calculation_audit.py`
   - `tests` de dashboard, finanzas y PDF
 - Medio:
   - `landing/views.py`
@@ -400,7 +403,7 @@ Conclusión operativa:
 
 ## 15. Validación ejecutada
 
-- `pytest -q`: 59 passed.
+- `pytest -q`: 66 passed.
 - `ruff check .`: passed.
 - `pre-commit run --all-files`: passed.
 - `git diff --check`: passed.
@@ -414,3 +417,24 @@ Conclusión operativa:
   - ejecutado con red habilitada;
   - reporta 1 vulnerabilidad conocida en `pytest 8.4.2` (`PYSEC-2026-1845`).
 
+### 15.1 Validación ejecutable Inversure
+
+- `tests/test_inversure_calculation_audit.py`: 7 tests nuevos, 7 passed.
+- Escenarios validados:
+  - proyecto rentable;
+  - proyecto con pérdidas;
+  - proyecto financiado;
+  - proyecto con aportaciones parciales;
+  - proyecto cerrado con beneficio real;
+  - proyecto con inversión cero;
+  - portfolio completo de los cinco escenarios.
+- Reconciliación confirmada:
+  - detalle de proyecto frente a dashboard, endpoint JSON, PDF y liquidación;
+  - `FinancialDashboardService` frente al endpoint `GET /dashboard/data/`;
+  - filtros por fecha, proyecto y estado;
+  - rankings, series mensuales y alertas coherentes con los datos del repositorio.
+- Diferencias documentadas y ahora fijadas por tests:
+  - `roi_neto_inversor` del estudio usa beneficio bruto sobre capital objetivo;
+  - `roi_neto_tras_impuestos` sí usa el beneficio neto tras impuestos;
+  - en pérdidas con devoluciones, el margen usa `valor_transmision` bruto como denominador;
+  - `financiacion_pct` sigue siendo metadato y no altera los importes.
