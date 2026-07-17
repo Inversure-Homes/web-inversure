@@ -980,9 +980,7 @@ class InversureMetricAuditService:
             ("neto_tras_impuestos_estimado", resumen.get("beneficio_neto_estimado_tras_impuestos"), "money"),
             ("neto_tras_impuestos_real", resumen.get("beneficio_neto_real_tras_impuestos"), "money"),
             ("roi_estimado", resumen.get("roi_estimado"), "percent"),
-            ("roi_real", resumen.get("roi_real"), "percent"),
             ("roi_tras_impuestos_costes_estimado", resumen.get("roi_estimado_tras_impuestos"), "percent"),
-            ("roi_tras_impuestos_costes_real", resumen.get("roi_real_tras_impuestos"), "percent"),
         ]
         for metric, shown_value, kind in mapping:
             if uses_estimated_income_fallback and metric in {"ingresos_reales", "beneficio_bruto_real"}:
@@ -1019,6 +1017,43 @@ class InversureMetricAuditService:
                     shown_value=shown_value,
                     recalc=recalc[metric],
                     kind=kind,
+                )
+            )
+        roi_tras_impuestos_visible = resumen.get("roi_real_tras_impuestos")
+        if roi_tras_impuestos_visible is None:
+            rows.extend(
+                self._compare_metric(
+                    project_id=project_id,
+                    project_name=project_name,
+                    state=state,
+                    surface=surface,
+                    subject_type="project",
+                    subject_id=str(project_id),
+                    metric="roi_tras_impuestos_costes_real",
+                    shown_value=None,
+                    recalc=_non_verifiable_metric_result(
+                        source=f"{surface}.resumen.roi_real_tras_impuestos",
+                        explanation=(
+                            "La superficie visible del PDF es 'ROI tras impuestos'; sin un valor real confirmado "
+                            "no puede verificarse de forma independiente."
+                        ),
+                    ),
+                    kind="percent",
+                )
+            )
+        else:
+            rows.extend(
+                self._compare_metric(
+                    project_id=project_id,
+                    project_name=project_name,
+                    state=state,
+                    surface=surface,
+                    subject_type="project",
+                    subject_id=str(project_id),
+                    metric="roi_tras_impuestos_costes_real",
+                    shown_value=roi_tras_impuestos_visible,
+                    recalc=recalc["roi_tras_impuestos_costes_real"],
+                    kind="percent",
                 )
             )
         return rows

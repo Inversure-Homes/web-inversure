@@ -363,7 +363,12 @@ def test_audit_service_treats_detail_roi_as_snapshot_when_it_differs_from_live(d
     dashboard_json_row = _find_row(
         rows, surface="dashboard_json", metric="roi_real", subject_id=str(scenario.project.id)
     )
-    pdf_row = _find_row(rows, surface="pdf_memoria", metric="roi_real", subject_id=str(scenario.project.id))
+    pdf_row = _find_row(
+        rows,
+        surface="pdf_memoria",
+        metric="roi_tras_impuestos_costes_real",
+        subject_id=str(scenario.project.id),
+    )
 
     assert _pct(recalc["roi_real"]["value"]) != _pct(Decimal("16.3729"))
     assert snapshot_row.shown_value is not None
@@ -372,6 +377,7 @@ def test_audit_service_treats_detail_roi_as_snapshot_when_it_differs_from_live(d
     assert snapshot_row.severity == "warning"
     assert snapshot_row.recalculated_value is None
     assert not any(row.surface == "detail" and row.metric == "roi_real" for row in rows)
+    assert not any(row.surface == "pdf_memoria" and row.metric == "roi_real" for row in rows)
 
     for row in (dashboard_row, dashboard_json_row, pdf_row):
         assert row.verifiability == "verificable_independientemente"
@@ -429,6 +435,7 @@ def test_audit_service_marks_pdf_fallback_real_values_non_verifiable(
     resumen["ingresos_reales_estimados"] = True
     resumen["ingresos_reales"] = income_estimado
     resumen["beneficio_real"] = beneficio_estimado
+    resumen["roi_real_tras_impuestos"] = None
 
     rows = service.compare_project(scenario.project, recalc, surfaces)
 
@@ -437,6 +444,12 @@ def test_audit_service_marks_pdf_fallback_real_values_non_verifiable(
         rows,
         surface="pdf_memoria",
         metric="beneficio_bruto_real",
+        subject_id=str(scenario.project.id),
+    )
+    roi_row = _find_row(
+        rows,
+        surface="pdf_memoria",
+        metric="roi_tras_impuestos_costes_real",
         subject_id=str(scenario.project.id),
     )
 
@@ -449,6 +462,13 @@ def test_audit_service_marks_pdf_fallback_real_values_non_verifiable(
         assert "fallback" in row.explanation.lower()
     assert _money(income_row.shown_value) == _money(income_estimado)
     assert _money(benefit_row.shown_value) == _money(beneficio_estimado)
+    assert roi_row.shown_value is None
+    assert roi_row.recalculated_value is None
+    assert roi_row.verifiability == "no_verificable_de_forma_independiente"
+    assert roi_row.classification == "regla_de_negocio_pendiente"
+    assert roi_row.severity == "warning"
+    assert "ROI tras impuestos" in roi_row.explanation
+    assert not any(row.surface == "pdf_memoria" and row.metric == "roi_real" for row in rows)
 
 
 def test_audit_service_reads_liquidacion_json_resumen_and_keeps_flat_schema(direccion_user):
