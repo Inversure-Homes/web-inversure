@@ -110,4 +110,3 @@ La validación de esta capa común es puramente técnica:
 - suite completa del proyecto;
 - lint y formato;
 - comprobación de que no se altera ningún resultado observable.
-
