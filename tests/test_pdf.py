@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -27,3 +28,13 @@ def test_build_presentacion_pdf_uses_weasyprint_mock(monkeypatch):
     assert pdf == b"pdf-bytes"
     mock_html.assert_called_once_with(request, {"titulo": "Demo"})
     assert captured["base_url"] == "http://testserver/"
+
+
+def test_ratio_metrics_are_not_rendered_as_currency_symbols():
+    root = Path(__file__).resolve().parents[1]
+
+    proyecto_template = (root / "core/templates/core/proyecto.html").read_text(encoding="utf-8")
+    pdf_template = (root / "core/templates/core/pdf_estudio_rentabilidad.html").read_text(encoding="utf-8")
+
+    assert 'data-decimals="2">{{ resultado.ratio_euro }}</span> €' not in proyecto_template
+    assert "{{ snapshot.kpis.ratio_euro_beneficio|es_number }} €" not in pdf_template
