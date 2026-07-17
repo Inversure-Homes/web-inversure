@@ -37,3 +37,7 @@ datos_iniciales.json
 
 # Local audit reports
 AUDITORIA_*.md
+audit_output/
+audit_output_limit1/
+audit_output_full/
+audit_output_full_v2/

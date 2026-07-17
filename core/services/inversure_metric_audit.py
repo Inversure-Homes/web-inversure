@@ -85,6 +85,15 @@ def _metric_result(
     }
 
 
+def _non_verifiable_metric_result(source: str, explanation: str) -> dict[str, Any]:
+    return _metric_result(
+        None,
+        verifiability="no_verificable_de_forma_independiente",
+        source=source,
+        explanation=explanation,
+    )
+
+
 def _format_decimal(value: Decimal | None, *, kind: str = "money") -> str:
     if value is None:
         return ""
@@ -140,8 +149,8 @@ class AuditProjectResult:
     project_id: int
     project_name: str
     state: str
-    metrics: dict[str, dict[str, Any]]
-    surfaces: dict[str, dict[str, Any]]
+    metrics: dict[str, Any]
+    surfaces: dict[str, Any]
     liquidation_rows: list[dict[str, Any]]
     rows: list[AuditComparisonRow]
 
@@ -198,7 +207,7 @@ class InversureMetricAuditService:
             rows=rows,
         )
 
-    def recalculate_project(self, project: Proyecto) -> dict[str, dict[str, Any]]:
+    def recalculate_project(self, project: Proyecto) -> dict[str, Any]:
         gastos = self._related_items(project, "gastos_proyecto")
         ingresos = self._related_items(project, "ingresos")
         participaciones = self._related_confirmed_participations(project)
@@ -211,9 +220,9 @@ class InversureMetricAuditService:
         estimated_cost_items = [item for item in gastos if _normalize_state(getattr(item, "estado", "")) == "estimado"]
 
         ingresos_reales = self._sum_income_amounts(real_income_items, amount_kind="real")
-        ingresos_estimados = self._sum_income_amounts(estimated_income_items, amount_kind="estimated")
+        ingresos_estimados = self._sum_income_amounts(ingresos, amount_kind="estimated")
         costes_reales = self._sum_cost_amounts(real_cost_items, amount_kind="real")
-        costes_estimados = self._sum_cost_amounts(estimated_cost_items, amount_kind="estimated")
+        costes_estimados = self._sum_cost_amounts(gastos, amount_kind="estimated")
 
         transmission_reales = self._sum_transmission_amounts(real_income_items, real_cost_items, amount_kind="real")
         transmission_estimados = self._sum_transmission_amounts(estimated_income_items, estimated_cost_items, amount_kind="estimated")
@@ -509,9 +518,28 @@ class InversureMetricAuditService:
             base_before_tax_estimado=base_before_tax_estimado,
             impuesto_sociedades_sobre_base_real=impuesto_sociedades_sobre_base_real,
             impuesto_sociedades_sobre_base_estimado=impuesto_sociedades_sobre_base_estimado,
+            liquidation_verifiability=(
+                "verificable_independientemente"
+                if commission_config["verifiability"] == "verificable_independientemente"
+                and self._tax_rate_verifiability(project, datos_economicos) == "verificable_independientemente"
+                else "no_verificable_de_forma_independiente"
+            ),
+            liquidation_source=(
+                "liquidacion_json.resumen"
+                if commission_config["verifiability"] == "verificable_independientemente"
+                and self._tax_rate_verifiability(project, datos_economicos) == "verificable_independientemente"
+                else "liquidacion_json.incompleta"
+            ),
+            liquidation_explanation=(
+                "Liquidación reconstruida desde participaciones confirmadas y configuración económica persistida."
+                if commission_config["verifiability"] == "verificable_independientemente"
+                and self._tax_rate_verifiability(project, datos_economicos) == "verificable_independientemente"
+                else "No se puede reconstruir la liquidación de forma independiente con los datos persistidos disponibles."
+            ),
         )
         metrics["liquidation_rows"] = liquidation_rows.get("rows", [])
         metrics["liquidation_summary"] = liquidation_rows.get("summary", {})
+        metrics["liquidation_summary_meta"] = liquidation_rows.get("meta", {})
 
         return metrics
 
@@ -532,7 +560,7 @@ class InversureMetricAuditService:
     def compare_project(
         self,
         project: Proyecto,
-        recalc: dict[str, dict[str, Any]],
+        recalc: dict[str, Any],
         surfaces: dict[str, dict[str, Any]],
     ) -> list[AuditComparisonRow]:
         rows: list[AuditComparisonRow] = []
@@ -599,9 +627,12 @@ class InversureMetricAuditService:
                 surface="detail",
                 subject_type="project",
                 subject_id=str(project_id),
-                metric="beneficio_bruto_real",
+                metric="beneficio_esperado",
                 shown_value=self._get_nested(detail_context, "resultado", "beneficio_neto"),
-                recalc=recalc["beneficio_bruto_real"],
+                recalc=_non_verifiable_metric_result(
+                    source="detail.resultado.beneficio_neto",
+                    explanation="La vista muestra el beneficio esperado desde el snapshot del proyecto; el auditor no lo reconstruye sin usar esa misma definición.",
+                ),
                 kind="money",
             )
         )
@@ -613,9 +644,12 @@ class InversureMetricAuditService:
                 surface="detail",
                 subject_type="project",
                 subject_id=str(project_id),
-                metric="roi_real",
+                metric="roi_snapshot",
                 shown_value=self._get_nested(detail_context, "resultado", "roi"),
-                recalc=recalc["roi_real"],
+                recalc=_non_verifiable_metric_result(
+                    source="detail.resultado.roi",
+                    explanation="La vista muestra el ROI histórico del snapshot del proyecto; el auditor no lo compara contra el ROI vivo.",
+                ),
                 kind="percent",
             )
         )
@@ -792,7 +826,7 @@ class InversureMetricAuditService:
         self,
         project: Proyecto,
         project_payload: Mapping[str, Any],
-        recalc: dict[str, dict[str, Any]],
+        recalc: dict[str, Any],
         *,
         surface: str,
     ) -> list[AuditComparisonRow]:
@@ -806,8 +840,6 @@ class InversureMetricAuditService:
             ("capital_aportado", project_payload.get("capital_captado"), "money"),
             ("capital_pendiente", project_payload.get("capital_pendiente"), "money"),
             ("inversion_total", project_payload.get("inversion_total"), "money"),
-            ("ingresos_estimados", project_payload.get("beneficio_estimado"), "money"),
-            ("ingresos_reales", project_payload.get("beneficio_real"), "money"),
             ("beneficio_bruto_real", project_payload.get("beneficio_neto"), "money"),
             ("beneficio_bruto_estimado", project_payload.get("beneficio_estimado"), "money"),
             ("neto_tras_impuestos_real", project_payload.get("beneficio_neto_tras_impuestos"), "money"),
@@ -817,6 +849,40 @@ class InversureMetricAuditService:
             ("costes_reales", project_payload.get("gastos_real_total"), "money"),
             ("costes_estimados", project_payload.get("gastos_est_total"), "money"),
         ]
+        rows.extend(
+            self._compare_metric(
+                project_id=project_id,
+                project_name=project_name,
+                state=state,
+                surface=surface,
+                subject_type="project",
+                subject_id=str(project_id),
+                metric="ingresos_estimados",
+                shown_value=project_payload.get("ingresos_estimados"),
+                recalc=_non_verifiable_metric_result(
+                    source=f"{surface}.ingresos_estimados",
+                    explanation="La superficie no expone un valor servidor verificable de ingresos_estimados; no se compara contra beneficio_estimado.",
+                ),
+                kind="money",
+            )
+        )
+        rows.extend(
+            self._compare_metric(
+                project_id=project_id,
+                project_name=project_name,
+                state=state,
+                surface=surface,
+                subject_type="project",
+                subject_id=str(project_id),
+                metric="ingresos_reales",
+                shown_value=project_payload.get("ingresos_reales"),
+                recalc=_non_verifiable_metric_result(
+                    source=f"{surface}.ingresos_reales",
+                    explanation="La superficie no expone un valor servidor verificable de ingresos_reales; no se compara contra otro KPI.",
+                ),
+                kind="money",
+            )
+        )
         for metric, shown_value, kind in mapping:
             rows.extend(
                 self._compare_metric(
@@ -884,7 +950,7 @@ class InversureMetricAuditService:
         *,
         project: Proyecto,
         pdf_context: Mapping[str, Any],
-        recalc: dict[str, dict[str, Any]],
+        recalc: dict[str, Any],
         surface: str,
     ) -> list[AuditComparisonRow]:
         rows: list[AuditComparisonRow] = []
@@ -894,6 +960,7 @@ class InversureMetricAuditService:
         resumen = pdf_context.get("resumen") if isinstance(pdf_context.get("resumen"), Mapping) else {}
         if not resumen:
             return rows
+        uses_estimated_income_fallback = bool(resumen.get("ingresos_reales_estimados"))
 
         mapping = [
             ("ingresos_estimados", resumen.get("ingresos_estimados"), "money"),
@@ -918,6 +985,28 @@ class InversureMetricAuditService:
             ("roi_tras_impuestos_costes_real", resumen.get("roi_real_tras_impuestos"), "percent"),
         ]
         for metric, shown_value, kind in mapping:
+            if uses_estimated_income_fallback and metric in {"ingresos_reales", "beneficio_bruto_real"}:
+                rows.extend(
+                    self._compare_metric(
+                        project_id=project_id,
+                        project_name=project_name,
+                        state=state,
+                        surface=surface,
+                        subject_type="project",
+                        subject_id=str(project_id),
+                        metric=metric,
+                        shown_value=shown_value,
+                        recalc=_non_verifiable_metric_result(
+                            source=f"{surface}.resumen.ingresos_reales_estimados",
+                            explanation=(
+                                "La superficie usa ingresos_estimados como fallback para el valor etiquetado como real; "
+                                "no es una reconstrucción real pura."
+                            ),
+                        ),
+                        kind=kind,
+                    )
+                )
+                continue
             rows.extend(
                 self._compare_metric(
                     project_id=project_id,
@@ -939,7 +1028,7 @@ class InversureMetricAuditService:
         *,
         project: Proyecto,
         liquidation_json: Mapping[str, Any],
-        recalc: dict[str, dict[str, Any]],
+        recalc: dict[str, Any],
         surface: str,
     ) -> list[AuditComparisonRow]:
         rows: list[AuditComparisonRow] = []
@@ -951,6 +1040,7 @@ class InversureMetricAuditService:
             rows_payload = []
         expected_rows = recalc.get("liquidation_rows", [])
         rows_by_id = {str(item.get("participacion_id")): item for item in expected_rows if isinstance(item, Mapping)}
+        liquidation_meta = self._liquidation_meta(recalc)
 
         for row_payload in rows_payload:
             if not isinstance(row_payload, Mapping):
@@ -960,10 +1050,30 @@ class InversureMetricAuditService:
             if expected is None:
                 continue
             metric_map = [
-                ("liquidacion_beneficio_bruto_inversor", row_payload.get("beneficio_bruto"), expected.get("beneficio_bruto_inversor"), "money"),
-                ("liquidacion_retencion", row_payload.get("retencion"), expected.get("retencion"), "money"),
-                ("liquidacion_neto", row_payload.get("neto"), expected.get("neto_cobrar"), "money"),
-                ("liquidacion_total_a_percibir", row_payload.get("total_a_percibir"), expected.get("total_a_percibir"), "money"),
+                (
+                    "liquidacion_beneficio_bruto_inversor",
+                    row_payload.get("beneficio_bruto"),
+                    self._liquidation_metric_result(expected.get("beneficio_bruto_inversor"), liquidation_meta),
+                    "money",
+                ),
+                (
+                    "liquidacion_retencion",
+                    row_payload.get("retencion"),
+                    self._liquidation_metric_result(expected.get("retencion"), liquidation_meta),
+                    "money",
+                ),
+                (
+                    "liquidacion_neto",
+                    row_payload.get("neto"),
+                    self._liquidation_metric_result(expected.get("neto_cobrar"), liquidation_meta),
+                    "money",
+                ),
+                (
+                    "liquidacion_total_a_percibir",
+                    row_payload.get("total_a_percibir"),
+                    self._liquidation_metric_result(expected.get("total_a_percibir"), liquidation_meta),
+                    "money",
+                ),
                 ("liquidacion_roi_bruto", row_payload.get("porcentaje_participacion"), expected.get("ratio_participacion_pct"), "percent"),
             ]
             for metric, shown_value, recalc_value, kind in metric_map:
@@ -987,13 +1097,28 @@ class InversureMetricAuditService:
             liquidation_summary = recalc.get("liquidation_summary", {})
             summary_mapping = [
                 ("liquidacion_capital_aportado", resumen.get("invertido"), recalc["capital_aportado"]["value"], "money"),
-                ("liquidacion_beneficio_bruto_inversor", resumen.get("bruto"), liquidation_summary.get("bruto"), "money"),
-                ("liquidacion_retencion", resumen.get("retencion"), liquidation_summary.get("retencion"), "money"),
-                ("liquidacion_neto", resumen.get("neto"), liquidation_summary.get("neto"), "money"),
+                (
+                    "liquidacion_beneficio_bruto_inversor",
+                    resumen.get("bruto"),
+                    self._liquidation_metric_result(liquidation_summary.get("bruto"), liquidation_meta),
+                    "money",
+                ),
+                (
+                    "liquidacion_retencion",
+                    resumen.get("retencion"),
+                    self._liquidation_metric_result(liquidation_summary.get("retencion"), liquidation_meta),
+                    "money",
+                ),
+                (
+                    "liquidacion_neto",
+                    resumen.get("neto"),
+                    self._liquidation_metric_result(liquidation_summary.get("neto"), liquidation_meta),
+                    "money",
+                ),
                 (
                     "liquidacion_total_a_percibir",
                     resumen.get("total_a_percibir"),
-                    liquidation_summary.get("total_a_percibir"),
+                    self._liquidation_metric_result(liquidation_summary.get("total_a_percibir"), liquidation_meta),
                     "money",
                 ),
             ]
@@ -1044,6 +1169,27 @@ class InversureMetricAuditService:
             shown_decimal = _decimal(_extract_number(shown_value), None)
 
         recalc_decimal = _decimal(recalc_value, None)
+        if verifiability == "no_verificable_de_forma_independiente":
+            diff_abs = abs(shown_decimal - recalc_decimal) if shown_decimal is not None and recalc_decimal is not None else None
+            diff_pct = None if diff_abs is None or recalc_decimal in (None, Decimal("0")) else (diff_abs / abs(recalc_decimal) * Decimal("100"))
+            row = AuditComparisonRow(
+                project_id=project_id,
+                project_name=project_name,
+                state=state,
+                surface=surface,
+                subject_type=subject_type,
+                subject_id=subject_id,
+                metric=metric,
+                shown_value=shown_decimal,
+                recalculated_value=recalc_decimal,
+                diff_abs=diff_abs,
+                diff_pct=diff_pct,
+                verifiability=verifiability,
+                classification="regla_de_negocio_pendiente",
+                severity="warning",
+                explanation=self._build_explanation(metric, surface, source, explanation, "regla_de_negocio_pendiente", diff_abs or Decimal("0"), diff_pct),
+            )
+            return [row]
         if shown_decimal is None and recalc_decimal is None:
             row = AuditComparisonRow(
                 project_id=project_id,
@@ -1109,9 +1255,6 @@ class InversureMetricAuditService:
             severity = "info"
         elif self._is_rounding_difference(metric, kind, diff_abs):
             classification = "diferencia_de_redondeo"
-            severity = "warning"
-        elif verifiability == "no_verificable_de_forma_independiente":
-            classification = "regla_de_negocio_pendiente"
             severity = "warning"
         elif self._is_definition_mismatch(metric, surface):
             classification = "diferencia_de_definicion"
@@ -1521,17 +1664,40 @@ class InversureMetricAuditService:
             pieces.append(f"diff_pct={_format_decimal(diff_pct, kind='percent')}%")
         return " | ".join(pieces)
 
-    def _aggregate_liquidation_metric(self, recalc: dict[str, dict[str, Any]], key: str) -> Decimal | None:
+    def _aggregate_liquidation_metric(self, recalc: dict[str, Any], key: str) -> dict[str, Any] | None:
+        meta = self._liquidation_meta(recalc)
         liquidation_rows = recalc.get("liquidation_rows", [])
         if key == "liquidacion_total_a_percibir":
-            return _sum_decimals(_decimal(row.get("total_a_percibir"), None) for row in liquidation_rows)
+            value = _sum_decimals(_decimal(row.get("total_a_percibir"), None) for row in liquidation_rows)
+            return _metric_result(value, verifiability=meta["verifiability"], source=meta["source"], explanation=meta["explanation"])
         if key == "liquidacion_beneficio_bruto_inversor":
-            return _sum_decimals(_decimal(row.get("beneficio_bruto_inversor"), None) for row in liquidation_rows)
+            value = _sum_decimals(_decimal(row.get("beneficio_bruto_inversor"), None) for row in liquidation_rows)
+            return _metric_result(value, verifiability=meta["verifiability"], source=meta["source"], explanation=meta["explanation"])
         if key == "liquidacion_retencion":
-            return _sum_decimals(_decimal(row.get("retencion"), None) for row in liquidation_rows)
+            value = _sum_decimals(_decimal(row.get("retencion"), None) for row in liquidation_rows)
+            return _metric_result(value, verifiability=meta["verifiability"], source=meta["source"], explanation=meta["explanation"])
         if key == "liquidacion_neto":
-            return _sum_decimals(_decimal(row.get("neto_cobrar"), None) for row in liquidation_rows)
+            value = _sum_decimals(_decimal(row.get("neto_cobrar"), None) for row in liquidation_rows)
+            return _metric_result(value, verifiability=meta["verifiability"], source=meta["source"], explanation=meta["explanation"])
         return None
+
+    def _liquidation_meta(self, recalc: dict[str, Any]) -> dict[str, str]:
+        meta = recalc.get("liquidation_summary_meta", {})
+        if not isinstance(meta, Mapping):
+            meta = {}
+        return {
+            "verifiability": str(meta.get("verifiability") or "verificable_independientemente"),
+            "source": str(meta.get("source") or "liquidacion_json.resumen"),
+            "explanation": str(meta.get("explanation") or ""),
+        }
+
+    def _liquidation_metric_result(self, value: Any, liquidation_meta: Mapping[str, Any]) -> dict[str, Any]:
+        return _metric_result(
+            value if value is not None else None,
+            verifiability=str(liquidation_meta.get("verifiability") or "verificable_independientemente"),
+            source=str(liquidation_meta.get("source") or "liquidacion_json.resumen"),
+            explanation=str(liquidation_meta.get("explanation") or ""),
+        )
 
     def _build_liquidation_rows(
         self,
@@ -1546,6 +1712,9 @@ class InversureMetricAuditService:
         base_before_tax_estimado: Decimal | None,
         impuesto_sociedades_sobre_base_real: Decimal,
         impuesto_sociedades_sobre_base_estimado: Decimal,
+        liquidation_verifiability: str,
+        liquidation_source: str,
+        liquidation_explanation: str,
     ) -> dict[str, Any]:
         total_project_invested = _sum_decimals(_decimal_or_zero(getattr(part, "importe_invertido", None)) for part in participaciones)
         rows: list[dict[str, Any]] = []
@@ -1565,6 +1734,11 @@ class InversureMetricAuditService:
                     "retencion": Decimal("0"),
                     "neto": Decimal("0"),
                     "total_a_percibir": Decimal("0"),
+                },
+                "meta": {
+                    "verifiability": "verificable_independientemente",
+                    "source": "liquidacion_json.sin_participaciones",
+                    "explanation": "No hay participaciones confirmadas; la liquidación es cero por definición.",
                 },
             }
         project_net_after_tax = base_before_tax_real - impuesto_sociedades_sobre_base_real if base_before_tax_real is not None else Decimal("0")
@@ -1594,6 +1768,9 @@ class InversureMetricAuditService:
                 "total_a_percibir": total_a_percibir,
                 "roi_bruto_pct": self._percentage(beneficio_bruto_inversor, capital),
                 "roi_neto_pct": self._percentage(neto_cobrar, capital),
+                "verifiability": liquidation_verifiability,
+                "source": liquidation_source,
+                "explanation": liquidation_explanation,
             }
             rows.append(row)
             totals["beneficio_bruto_inversor"] += beneficio_bruto_inversor
@@ -1608,6 +1785,11 @@ class InversureMetricAuditService:
                 "retencion": totals["retencion"],
                 "neto": totals["neto_cobrar"],
                 "total_a_percibir": totals["total_a_percibir"],
+            },
+            "meta": {
+                "verifiability": liquidation_verifiability,
+                "source": liquidation_source,
+                "explanation": liquidation_explanation,
             },
         }
 
