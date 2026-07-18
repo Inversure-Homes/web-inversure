@@ -3037,6 +3037,19 @@ def _build_captacion_context(capital_objetivo: float, capital_captado: float) ->
     })
 
 
+def _build_conciertos_context(conciertos_raw: dict[str, Any] | None = None) -> SafeAccessDict:
+    """Construir el contexto de conciertos sin tocar ORM ni mutar entradas."""
+    conciertos_raw = conciertos_raw if isinstance(conciertos_raw, dict) else {}
+    return SafeAccessDict({
+        "plazo_acuerdo": conciertos_raw.get("plazo_acuerdo", "") or conciertos_raw.get("plazo", "") or "",
+        "interes_acordado": conciertos_raw.get("interes_acordado", "") or conciertos_raw.get("interes", "") or "",
+        "empresa": conciertos_raw.get("empresa", "") or conciertos_raw.get("empresa_acuerdo", "") or "",
+        "empresa_acuerdo": conciertos_raw.get("empresa_acuerdo", "") or conciertos_raw.get("empresa", "") or "",
+        "gasto_solicitado": conciertos_raw.get("gasto_solicitado", "") or conciertos_raw.get("gasto", "") or "",
+        "fecha_liquidacion": conciertos_raw.get("fecha_liquidacion", "") or conciertos_raw.get("liquidacion_fecha", "") or "",
+    })
+
+
 def _capital_objetivo_desde_memoria(proyecto: Proyecto, snapshot: dict | None = None) -> float:
     snap = snapshot if isinstance(snapshot, dict) else {}
     resultado = _resultado_desde_memoria(proyecto, snap)
@@ -5648,14 +5661,7 @@ def proyecto(request, proyecto_id: int):
     conciertos_raw = snapshot.get("conciertos") if isinstance(snapshot.get("conciertos"), dict) else {}
     if not isinstance(conciertos_raw, dict):
         conciertos_raw = {}
-    conciertos_ctx = SafeAccessDict({
-        "plazo_acuerdo": conciertos_raw.get("plazo_acuerdo", "") or conciertos_raw.get("plazo", "") or "",
-        "interes_acordado": conciertos_raw.get("interes_acordado", "") or conciertos_raw.get("interes", "") or "",
-        "empresa": conciertos_raw.get("empresa", "") or conciertos_raw.get("empresa_acuerdo", "") or "",
-        "empresa_acuerdo": conciertos_raw.get("empresa_acuerdo", "") or conciertos_raw.get("empresa", "") or "",
-        "gasto_solicitado": conciertos_raw.get("gasto_solicitado", "") or conciertos_raw.get("gasto", "") or "",
-        "fecha_liquidacion": conciertos_raw.get("fecha_liquidacion", "") or conciertos_raw.get("liquidacion_fecha", "") or "",
-    })
+    conciertos_ctx = _build_conciertos_context(conciertos_raw)
     kpis_raw = snapshot.get("kpis")
     if not isinstance(kpis_raw, dict):
         kpis_raw = {}
