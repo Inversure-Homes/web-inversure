@@ -10,6 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import UserAccess
+from core.decimal_utils import ZERO, to_decimal
 from core.models import ChecklistItem, GastoProyecto, IngresoProyecto, Participacion, SolicitudParticipacion
 from core.services.financial_dashboard import (
     FinancialDashboardFilters,
@@ -204,6 +205,17 @@ def _fake_settlement(*, capital_invertido, total_proyecto_invertido, beneficio_b
     }
 
 
+def _legacy_dashboard_to_decimal(value, default=ZERO):
+    if value is None or value == "":
+        return default
+    if isinstance(value, Decimal):
+        return value
+    try:
+        return Decimal(str(value))
+    except Exception:
+        return default
+
+
 def test_financial_dashboard_filters_normalize_inputs():
     filters = FinancialDashboardFilters.from_mapping(
         {
@@ -355,6 +367,32 @@ def test_financial_dashboard_service_applies_project_state_and_date_filters():
     assert payload["charts"]["state_distribution"][0]["pct"] == pytest.approx(100.0)
     assert payload["alerts"]["financial"]["pending_solicitudes"] == 1
     assert payload["alerts"]["operational"]["pendientes"] == 1
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        True,
+        False,
+        None,
+        "",
+        " ",
+        "\t",
+        "\n",
+        "abc",
+        Decimal("1.25"),
+        1,
+        1.25,
+        "1.25",
+        -3.5,
+    ],
+)
+def test_financial_dashboard_decimal_coercion_matches_legacy_helper(value):
+    legacy = _legacy_dashboard_to_decimal(value, default=ZERO)
+    current = to_decimal(value, default=ZERO)
+
+    assert current == legacy
+    assert type(current) is Decimal
 
 
 def test_verified_direccion_user_can_open_dashboard(verified_client):
