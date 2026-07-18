@@ -2861,7 +2861,32 @@ def _resultado_desde_memoria(
     except Exception:
         pass
 
-    impuesto_sociedades_pct = snap_impuesto_sociedades_pct
+    return _resultado_desde_memoria_calculo(
+        beneficio=beneficio,
+        gastos_base=gastos_base,
+        valor_adquisicion=valor_adquisicion,
+        valor_transmision=valor_transmision,
+        gastos_real=gastos_real,
+        gastos_est=gastos_est,
+        gastos_venta_base=gastos_venta_base,
+        impuesto_sociedades_pct=snap_impuesto_sociedades_pct,
+        has_real=has_real,
+    )
+
+
+def _resultado_desde_memoria_calculo(
+    *,
+    beneficio: Decimal,
+    gastos_base: Decimal,
+    valor_adquisicion: Decimal,
+    valor_transmision: Decimal,
+    gastos_real: Decimal,
+    gastos_est: Decimal,
+    gastos_venta_base: Decimal,
+    impuesto_sociedades_pct: Decimal,
+    has_real: bool,
+) -> dict:
+    """Calcular el resultado público de memoria sin tocar ORM ni snapshot."""
     if impuesto_sociedades_pct < Decimal("0"):
         impuesto_sociedades_pct = Decimal("0")
     if impuesto_sociedades_pct > Decimal("100"):
