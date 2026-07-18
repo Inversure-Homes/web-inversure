@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from decimal import Decimal
+
+from core.decimal_utils import HUNDRED, ZERO, to_decimal
 
 
 def _clamp(x: float, lo: float, hi: float) -> float:
@@ -64,32 +67,51 @@ def calc_operacion_economica(
     - comision_eur (solo sobre beneficio positivo)
     - beneficio_neto_total (beneficio tras comisión, a repartir)
     """
-    bruto = float(beneficio_bruto or 0.0)
-    pct = _clamp(float(comision_pct or 0.0), 0.0, 100.0)
+
+    def _to_decimal(value: object, *, blank_zero: bool = False) -> Decimal:
+        if value is None or (blank_zero and value == ""):
+            return ZERO
+        if isinstance(value, bool):
+            return Decimal(int(value))
+        return to_decimal(value)
+
+    bruto = _to_decimal(beneficio_bruto, blank_zero=True)
+    pct = _to_decimal(comision_pct, blank_zero=True)
+    if pct < ZERO:
+        pct = ZERO
+    elif pct > HUNDRED:
+        pct = HUNDRED
 
     if override_bruto is not None:
-        bruto = float(override_bruto)
+        bruto = _to_decimal(override_bruto)
 
     comision_override = override_comision_eur if override_comision_eur is not None else comision_eur
 
     # Comisión: solo se descuenta sobre beneficio positivo
-    if bruto <= 0:
-        com_eur = 0.0
+    if bruto <= ZERO:
+        com_eur = ZERO
     else:
         if comision_override is not None and comision_override != "":
-            com_eur = float(comision_override)
-        elif pct > 0:
-            com_eur = bruto * (pct / 100.0)
+            com_eur = _to_decimal(comision_override)
+        elif pct > ZERO:
+            com_eur = bruto * (pct / HUNDRED)
         else:
-            com_eur = 0.0
-        com_eur = _clamp(com_eur, 0.0, bruto)
+            com_eur = ZERO
+        if com_eur < ZERO:
+            com_eur = ZERO
+        elif com_eur > bruto:
+            com_eur = bruto
 
     if override_beneficio_neto_total is not None:
-        neto_total = float(override_beneficio_neto_total)
+        neto_total = _to_decimal(override_beneficio_neto_total)
     else:
         neto_total = bruto - com_eur
 
-    return OperacionEconomica(beneficio_bruto=bruto, comision_eur=com_eur, beneficio_neto_total=neto_total)
+    return OperacionEconomica(
+        beneficio_bruto=float(bruto),
+        comision_eur=float(com_eur),
+        beneficio_neto_total=float(neto_total),
+    )
 
 
 def calc_inversor_settlement(
