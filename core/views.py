@@ -3003,6 +3003,40 @@ def _build_inversor_context(
     return inv
 
 
+def _build_captacion_context(capital_objetivo: float, capital_captado: float) -> SafeAccessDict:
+    """Construir el contexto de captación sin tocar ORM ni mutar entradas."""
+    if capital_objetivo < 0:
+        capital_objetivo = 0.0
+    if capital_captado < 0:
+        capital_captado = 0.0
+
+    if capital_objetivo > 0:
+        pct_captado = (capital_captado / capital_objetivo) * 100.0
+    else:
+        pct_captado = 0.0
+
+    if pct_captado < 0:
+        pct_captado = 0.0
+    if pct_captado > 100:
+        pct_captado = 100.0
+
+    restante = max(capital_objetivo - capital_captado, 0.0)
+    pct_restante = max(0.0, 100.0 - pct_captado)
+
+    return SafeAccessDict({
+        "capital_objetivo": capital_objetivo,
+        "capital_captado": capital_captado,
+        "pct_captado": pct_captado,
+        "restante": restante,
+        "pct_restante": pct_restante,
+        "capital_objetivo_fmt": _fmt_eur(capital_objetivo),
+        "capital_captado_fmt": _fmt_eur(capital_captado),
+        "restante_fmt": _fmt_eur(restante),
+        "pct_captado_fmt": _fmt_pct(pct_captado),
+        "pct_restante_fmt": _fmt_pct(pct_restante),
+    })
+
+
 def _capital_objetivo_desde_memoria(proyecto: Proyecto, snapshot: dict | None = None) -> float:
     snap = snapshot if isinstance(snapshot, dict) else {}
     resultado = _resultado_desde_memoria(proyecto, snap)
@@ -5777,46 +5811,9 @@ def proyecto(request, proyecto_id: int):
         if capital_captado < 0:
             capital_captado = 0.0
 
-        # % captado
-        if capital_objetivo > 0:
-            pct_captado = (capital_captado / capital_objetivo) * 100.0
-        else:
-            pct_captado = 0.0
-
-        # clamp 0..100
-        if pct_captado < 0:
-            pct_captado = 0.0
-        if pct_captado > 100:
-            pct_captado = 100.0
-
-        restante = max(capital_objetivo - capital_captado, 0.0)
-        pct_restante = max(0.0, 100.0 - pct_captado)
-
-        captacion_ctx = SafeAccessDict({
-            "capital_objetivo": capital_objetivo,
-            "capital_captado": capital_captado,
-            "pct_captado": pct_captado,
-            "restante": restante,
-            "pct_restante": pct_restante,
-            "capital_objetivo_fmt": _fmt_eur(capital_objetivo),
-            "capital_captado_fmt": _fmt_eur(capital_captado),
-            "restante_fmt": _fmt_eur(restante),
-            "pct_captado_fmt": _fmt_pct(pct_captado),
-            "pct_restante_fmt": _fmt_pct(pct_restante),
-        })
+        captacion_ctx = _build_captacion_context(capital_objetivo, capital_captado)
     except Exception:
-        captacion_ctx = SafeAccessDict({
-            "capital_objetivo": 0.0,
-            "capital_captado": 0.0,
-            "pct_captado": 0.0,
-            "restante": 0.0,
-            "pct_restante": 0.0,
-            "capital_objetivo_fmt": _fmt_eur(0.0),
-            "capital_captado_fmt": _fmt_eur(0.0),
-            "restante_fmt": _fmt_eur(0.0),
-            "pct_captado_fmt": _fmt_pct(0.0),
-            "pct_restante_fmt": _fmt_pct(0.0),
-        })
+        captacion_ctx = _build_captacion_context(0.0, 0.0)
 
     notify_flag = True
     try:
