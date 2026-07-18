@@ -2967,6 +2967,27 @@ def _resultado_desde_memoria_calculo(
     }
 
 
+def _build_resultado_context(
+    resultado_calc: dict[str, Any],
+    resultado_memoria: dict[str, Any] | None = None,
+    snap_result: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Construir el resultado público de proyecto sin tocar ORM ni mutar entradas."""
+    resultado = dict(resultado_calc or {})
+
+    if isinstance(resultado_memoria, dict):
+        for key, value in resultado_memoria.items():
+            if value not in (None, ""):
+                resultado[key] = value
+
+    if isinstance(snap_result, dict):
+        for key, value in snap_result.items():
+            if value not in (None, "", []):
+                resultado[key] = value
+
+    return resultado
+
+
 def _capital_objetivo_desde_memoria(proyecto: Proyecto, snapshot: dict | None = None) -> float:
     snap = snapshot if isinstance(snapshot, dict) else {}
     resultado = _resultado_desde_memoria(proyecto, snap)
@@ -5658,18 +5679,12 @@ def proyecto(request, proyecto_id: int):
         calc = _metricas_desde_estudio(Estudio(datos=snapshot))
         metricas_calc = calc.get("metricas", {}) if isinstance(calc.get("metricas"), dict) else {}
         resultado_calc = _resultado_desde_metricas(metricas_calc)
-        resultado = dict(resultado_calc)
+        resultado_memoria = {}
         try:
             resultado_memoria = _resultado_desde_memoria(proyecto_obj, snapshot)
-            for k, v in resultado_memoria.items():
-                if v not in (None, ""):
-                    resultado[k] = v
         except Exception:
             pass
-        if isinstance(snap_result, dict):
-            for k, v in snap_result.items():
-                if v not in (None, "", []):
-                    resultado[k] = v
+        resultado = _build_resultado_context(resultado_calc, resultado_memoria, snap_result)
     except Exception:
         resultado = snapshot.get("resultado") if isinstance(snapshot.get("resultado"), dict) else {}
 
