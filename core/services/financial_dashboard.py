@@ -20,6 +20,7 @@ from accounts.utils import (
     resolve_permissions,
     use_custom_permissions,
 )
+from core.decimal_utils import ZERO, to_decimal
 from core.finance import calc_inversor_settlement, calc_operacion_economica
 from core.models import (
     ChecklistItem,
@@ -44,17 +45,6 @@ def _core_views():
     from core import views as core_views
 
     return core_views
-
-
-def _to_decimal(value: Any, default: Decimal = Decimal("0")) -> Decimal:
-    if value is None or value == "":
-        return default
-    if isinstance(value, Decimal):
-        return value
-    try:
-        return Decimal(str(value))
-    except Exception:
-        return default
 
 
 def _to_float(value: Any, default: float = 0.0) -> float:
@@ -119,7 +109,7 @@ def _sum_monthly_rows(rows: list[dict[str, Any]]) -> dict[date, Decimal]:
         month = _month_floor(row.get("month"))
         if month is None:
             continue
-        totals[month] = totals.get(month, Decimal("0")) + _to_decimal(row.get("total"))
+        totals[month] = totals.get(month, ZERO) + to_decimal(row.get("total"), default=ZERO)
     return totals
 
 
@@ -308,10 +298,10 @@ class FinancialDashboardService:
             snapshot = core_views._get_snapshot_comunicacion(project)
             resultado = core_views._resultado_desde_memoria(project, snapshot)
             beneficio_memoria = core_views._beneficio_estimado_real_memoria(project)
-            capital_objetivo = _to_decimal(core_views._capital_objetivo_desde_memoria(project, snapshot))
+            capital_objetivo = to_decimal(core_views._capital_objetivo_desde_memoria(project, snapshot), default=ZERO)
             participaciones_confirmadas = list(getattr(project, "participaciones_confirmadas", []))
-            capital_captado = sum((_to_decimal(part.importe_invertido) for part in participaciones_confirmadas), Decimal("0"))
-            capital_pendiente = max(capital_objetivo - capital_captado, Decimal("0"))
+            capital_captado = sum((to_decimal(part.importe_invertido, default=ZERO) for part in participaciones_confirmadas), ZERO)
+            capital_pendiente = max(capital_objetivo - capital_captado, ZERO)
 
             operacion = self._build_operacion_summary(project, snapshot, resultado)
             settlement = self._build_investment_return_summary(
@@ -443,8 +433,8 @@ class FinancialDashboardService:
                     operacion_override=operation_override,
                     inversor_override=inversor_override,
                 )
-                total_retorno += _to_decimal(settlement.get("total_a_percibir"))
-                total_beneficio += _to_decimal(settlement.get("neto_cobrar"))
+                total_retorno += to_decimal(settlement.get("total_a_percibir"), default=ZERO)
+                total_beneficio += to_decimal(settlement.get("neto_cobrar"), default=ZERO)
                 roi_bruto_vals.append(_to_float(settlement.get("roi_bruto_pct")))
                 roi_neto_vals.append(_to_float(settlement.get("roi_neto_pct")))
         return {
@@ -464,13 +454,13 @@ class FinancialDashboardService:
             Participacion.objects.filter(estado="confirmada", proyecto_id__in=project_ids)
             .aggregate(total=Sum("importe_invertido"))
             .get("total")
-            or Decimal("0")
+            or ZERO
         )
         capital_actual = (
             Participacion.objects.filter(estado="confirmada", proyecto_id__in=active_project_ids)
             .aggregate(total=Sum("importe_invertido"))
             .get("total")
-            or Decimal("0")
+            or ZERO
         )
         inversores_con_cuota = (
             Cliente.objects.filter(
@@ -504,10 +494,10 @@ class FinancialDashboardService:
             perfil = perfil_map.get(part.cliente_id)
             override = getattr(perfil, "aportacion_inicial_override", None) if perfil else None
             if override not in (None, ""):
-                aportacion_por_cliente[part.cliente_id] = _to_decimal(override)
+                aportacion_por_cliente[part.cliente_id] = to_decimal(override, default=ZERO)
             else:
-                aportacion_por_cliente[part.cliente_id] = _to_decimal(part.importe_invertido)
-        capital_en_vigor = sum(aportacion_por_cliente.values(), Decimal("0"))
+                aportacion_por_cliente[part.cliente_id] = to_decimal(part.importe_invertido, default=ZERO)
+        capital_en_vigor = sum(aportacion_por_cliente.values(), ZERO)
 
         active_projects = [metric for metric in project_metrics if metric["estado"] in ACTIVE_PROJECT_STATES]
         closed_projects = [metric for metric in project_metrics if metric["estado"] in LEGACY_CLOSED_PROJECT_STATES]
@@ -538,8 +528,8 @@ class FinancialDashboardService:
             "capital_acumulado": capital_acumulado,
             "capital_total_invertido": capital_acumulado,
             "capital_total_invertido_activo": capital_actual,
-            "capital_pendiente": sum((metric["capital_pendiente"] for metric in active_projects), Decimal("0")),
-            "capital_pendiente_total": sum((metric["capital_pendiente"] for metric in active_projects), Decimal("0")),
+            "capital_pendiente": sum((metric["capital_pendiente"] for metric in active_projects), ZERO),
+            "capital_pendiente_total": sum((metric["capital_pendiente"] for metric in active_projects), ZERO),
             "operaciones": len(project_metrics),
             "proyectos_activos": len(active_projects),
             "proyectos_finalizados": len(finalized_projects),
@@ -697,7 +687,7 @@ class FinancialDashboardService:
             amount = row.get(amount_field)
             if amount in (None, ""):
                 amount = row.get(fallback_field)
-            totals[month] = totals.get(month, Decimal("0")) + _to_decimal(amount)
+            totals[month] = totals.get(month, ZERO) + to_decimal(amount, default=ZERO)
         return totals
 
     def _build_series(self, projects: list[Proyecto]) -> dict[str, Any]:
