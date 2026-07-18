@@ -2988,6 +2988,21 @@ def _build_resultado_context(
     return resultado
 
 
+def _build_inversor_context(
+    inv_calc: dict[str, Any],
+    inv_snap: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Construir el contexto público de inversor sin tocar ORM ni mutar entradas."""
+    inv = dict(inv_calc or {})
+
+    if isinstance(inv_snap, dict):
+        for key, value in inv_snap.items():
+            if key not in inv or inv.get(key) in (None, ""):
+                inv[key] = value
+
+    return inv
+
+
 def _capital_objetivo_desde_memoria(proyecto: Proyecto, snapshot: dict | None = None) -> float:
     snap = snapshot if isinstance(snapshot, dict) else {}
     resultado = _resultado_desde_memoria(proyecto, snap)
@@ -5697,10 +5712,7 @@ def proyecto(request, proyecto_id: int):
         inv_snap = snapshot.get("inversor") if isinstance(snapshot.get("inversor"), dict) else {}
     except Exception:
         inv_snap = {}
-    if isinstance(inv_snap, dict) and isinstance(inv_calc, dict):
-        for k, v in inv_snap.items():
-            if k not in inv_calc or inv_calc.get(k) in (None, ""):
-                inv_calc[k] = v
+    inv_calc = _build_inversor_context(inv_calc, inv_snap)
 
     # --- Estado inicial para hidratar el simulador en modo proyecto ---
     estado_inicial = {}
