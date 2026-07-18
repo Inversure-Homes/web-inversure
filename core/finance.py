@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass
 from decimal import Decimal
 
-from core.decimal_utils import HUNDRED, ZERO, to_decimal
+from core.decimal_utils import HUNDRED, ZERO, percentage_to_ratio, to_decimal
 
 
 def _clamp(x: float, lo: float, hi: float) -> float:
@@ -134,67 +134,93 @@ def calc_inversor_settlement(
     - retención solo sobre beneficio positivo
     - total a percibir = capital + neto_beneficio (con clamp opcional a 0)
     """
-    capital = float(capital_invertido or 0.0)
-    total_proj = float(total_proyecto_invertido or 0.0)
-    ratio = (capital / total_proj) if total_proj > 0 else 0.0
+    def _legacy_decimal(value: object) -> Decimal:
+        if value is None or value == "":
+            return ZERO
+        if isinstance(value, bool):
+            return Decimal(int(value))
+        return to_decimal(value)
+
+    def _optional_decimal(value: object) -> Decimal | None:
+        if value in (None, ""):
+            return None
+        if isinstance(value, bool):
+            return Decimal(int(value))
+        return to_decimal(value)
+
+    capital = _legacy_decimal(capital_invertido)
+    total_proj = _legacy_decimal(total_proyecto_invertido)
+    ratio = (capital / total_proj) if total_proj > ZERO else ZERO
 
     op_ov = operacion_override or {}
     inv_ov = inversor_override or {}
 
     op = calc_operacion_economica(
-        beneficio_bruto=float(beneficio_bruto_operacion or 0.0),
-        comision_pct=float(comision_pct or 0.0),
+        beneficio_bruto=beneficio_bruto_operacion,
+        comision_pct=comision_pct,
         comision_eur=comision_eur,
-        override_bruto=_as_float(op_ov.get("beneficio_bruto"), None),
-        override_comision_eur=_as_float(op_ov.get("comision_eur"), None),
-        override_beneficio_neto_total=_as_float(op_ov.get("beneficio_neto_total"), None),
+        override_bruto=_optional_decimal(op_ov.get("beneficio_bruto")),
+        override_comision_eur=_optional_decimal(op_ov.get("comision_eur")),
+        override_beneficio_neto_total=_optional_decimal(op_ov.get("beneficio_neto_total")),
     )
 
-    beneficio_inversor = op.beneficio_neto_total * ratio
-    if inv_ov.get("beneficio_inversor") not in (None, ""):
-        beneficio_inversor = float(inv_ov.get("beneficio_inversor"))
+    beneficio_bruto_total = to_decimal(op.beneficio_bruto)
+    comision_eur_total = to_decimal(op.comision_eur)
+    beneficio_neto_total = to_decimal(op.beneficio_neto_total)
 
-    ret_pct = (
-        _as_float(inv_ov.get("retencion_pct"), None)
-        if inv_ov.get("retencion_pct") not in (None, "")
-        else (float(retencion_pct) if retencion_pct is not None else retencion_pct_for_tipo_persona(tipo_persona))
-    )
-    ret_pct = _clamp(float(ret_pct or 0.0), 0.0, 100.0)
+    beneficio_inversor = beneficio_neto_total * ratio
+    beneficio_inversor_override = _optional_decimal(inv_ov.get("beneficio_inversor"))
+    if beneficio_inversor_override is not None:
+        beneficio_inversor = beneficio_inversor_override
+
+    if inv_ov.get("retencion_pct") not in (None, ""):
+        ret_pct = _legacy_decimal(inv_ov.get("retencion_pct"))
+    elif retencion_pct is not None:
+        ret_pct = Decimal(int(retencion_pct)) if isinstance(retencion_pct, bool) else to_decimal(retencion_pct)
+    else:
+        ret_pct = to_decimal(retencion_pct_for_tipo_persona(tipo_persona))
+    if ret_pct < ZERO:
+        ret_pct = ZERO
+    elif ret_pct > HUNDRED:
+        ret_pct = HUNDRED
 
     # Retención: solo sobre beneficio positivo
-    retencion = (beneficio_inversor * (ret_pct / 100.0)) if beneficio_inversor > 0 else 0.0
-    if inv_ov.get("retencion") not in (None, ""):
-        retencion = float(inv_ov.get("retencion"))
-    retencion = max(0.0, retencion)
+    retencion = beneficio_inversor * percentage_to_ratio(ret_pct) if beneficio_inversor > ZERO else ZERO
+    retencion_override = _optional_decimal(inv_ov.get("retencion"))
+    if retencion_override is not None:
+        retencion = retencion_override
+    if retencion < ZERO:
+        retencion = ZERO
 
     neto_beneficio = beneficio_inversor - retencion
-    if inv_ov.get("neto_cobrar") not in (None, ""):
-        neto_beneficio = float(inv_ov.get("neto_cobrar"))
+    neto_cobrar_override = _optional_decimal(inv_ov.get("neto_cobrar"))
+    if neto_cobrar_override is not None:
+        neto_beneficio = neto_cobrar_override
 
     total_a_percibir = capital + neto_beneficio
 
     if limit_loss_to_capital is None:
         limit_loss_to_capital = limit_loss_to_capital_enabled()
-    if limit_loss_to_capital and total_a_percibir < 0:
-        total_a_percibir = 0.0
+    if limit_loss_to_capital and total_a_percibir < ZERO:
+        total_a_percibir = ZERO
         neto_beneficio = -capital
 
-    roi_bruto_pct = (beneficio_inversor / capital * 100.0) if capital > 0 else 0.0
-    roi_neto_pct = (neto_beneficio / capital * 100.0) if capital > 0 else 0.0
+    roi_bruto_pct = (beneficio_inversor / capital * HUNDRED) if capital > ZERO else ZERO
+    roi_neto_pct = (neto_beneficio / capital * HUNDRED) if capital > ZERO else ZERO
 
     return {
         # Operación / proyecto
-        "beneficio_bruto": op.beneficio_bruto,
-        "comision_eur": op.comision_eur,
-        "beneficio_neto_total": op.beneficio_neto_total,
+        "beneficio_bruto": float(beneficio_bruto_total),
+        "comision_eur": float(comision_eur_total),
+        "beneficio_neto_total": float(beneficio_neto_total),
         # Inversor
-        "participacion_pct": ratio * 100.0,
-        "capital_invertido": capital,
-        "beneficio_inversor": beneficio_inversor,
-        "retencion_pct": ret_pct,
-        "retencion": retencion,
-        "neto_cobrar": neto_beneficio,
-        "total_a_percibir": total_a_percibir,
-        "roi_bruto_pct": roi_bruto_pct,
-        "roi_neto_pct": roi_neto_pct,
+        "participacion_pct": float(ratio * HUNDRED),
+        "capital_invertido": float(capital),
+        "beneficio_inversor": float(beneficio_inversor),
+        "retencion_pct": float(ret_pct),
+        "retencion": float(retencion),
+        "neto_cobrar": float(neto_beneficio),
+        "total_a_percibir": float(total_a_percibir),
+        "roi_bruto_pct": float(roi_bruto_pct),
+        "roi_neto_pct": float(roi_neto_pct),
     }
