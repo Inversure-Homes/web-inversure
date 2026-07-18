@@ -2645,6 +2645,32 @@ def _resultado_desde_memoria(
     if only_imputable_inversores:
         gastos = [g for g in gastos if bool(getattr(g, "imputable_inversores", True))]
         ingresos = [i for i in ingresos if bool(getattr(i, "imputable_inversores", True))]
+    estado_proyecto = (getattr(proyecto, "estado", "") or "").strip().lower()
+    seleccion = _resultado_desde_memoria_seleccion(
+        estado_proyecto=estado_proyecto,
+        precio_compra_inmueble=getattr(proyecto, "precio_compra_inmueble", None),
+        precio_propiedad=getattr(proyecto, "precio_propiedad", None),
+        snapshot=snapshot if isinstance(snapshot, dict) else {},
+        gastos=gastos,
+        ingresos=ingresos,
+        memoria_beneficio_neto_desde_transmision=bool(
+            getattr(settings, "MEMORIA_BENEFICIO_NETO_DESDE_TRANSMISION", False)
+        ),
+    )
+    return _resultado_desde_memoria_calculo(**seleccion)
+
+
+def _resultado_desde_memoria_seleccion(
+    *,
+    estado_proyecto: str,
+    precio_compra_inmueble: Decimal | None,
+    precio_propiedad: Decimal | None,
+    snapshot: dict,
+    gastos: list[Any],
+    ingresos: list[Any],
+    memoria_beneficio_neto_desde_transmision: bool = False,
+) -> dict:
+    """Seleccionar los importes vivos o de snapshot sin tocar ORM ni construir el resultado final."""
 
     def _sum_importes(items):
         total = Decimal("0")
@@ -2672,7 +2698,6 @@ def _resultado_desde_memoria(
 
     ingresos_est = _sum_importes([_importe_estimado(i) for i in ingresos])
     ingresos_real = _sum_importes([_importe_real(i) for i in ingresos])
-    estado_proyecto = (getattr(proyecto, "estado", "") or "").strip().lower()
     tipos_venta = {"venta"}
     # En operaciones cerradas/vendidas, a veces la venta llega repartida como señal/anticipo (o incluso mal tipada).
     # Para evitar valor_transmision=0 en proyectos cerrados, consideramos también señal/anticipo como venta.
@@ -2746,8 +2771,8 @@ def _resultado_desde_memoria(
             return False
 
     base_precio = (
-        proyecto.precio_compra_inmueble
-        or proyecto.precio_propiedad
+        precio_compra_inmueble
+        or precio_propiedad
         or _parse_decimal(snap_econ.get("precio_propiedad") or snap_econ.get("precio_escritura") or "")
         or _parse_decimal(snap_met.get("precio_propiedad") or snap_met.get("precio_escritura") or "")
         or Decimal("0")
@@ -2855,23 +2880,20 @@ def _resultado_desde_memoria(
     # Opcional: forzar consistencia entre componentes y "beneficio_neto".
     # Útil cuando hay gastos de venta estimados y el beneficio calculado por movimientos
     # no los incluye (porque prioriza "real" vs "estimado" por bloque).
-    try:
-        if getattr(settings, "MEMORIA_BENEFICIO_NETO_DESDE_TRANSMISION", False) and valor_transmision > 0:
-            beneficio = valor_transmision - valor_adquisicion
-    except Exception:
-        pass
+    if memoria_beneficio_neto_desde_transmision and valor_transmision > 0:
+        beneficio = valor_transmision - valor_adquisicion
 
-    return _resultado_desde_memoria_calculo(
-        beneficio=beneficio,
-        gastos_base=gastos_base,
-        valor_adquisicion=valor_adquisicion,
-        valor_transmision=valor_transmision,
-        gastos_real=gastos_real,
-        gastos_est=gastos_est,
-        gastos_venta_base=gastos_venta_base,
-        impuesto_sociedades_pct=snap_impuesto_sociedades_pct,
-        has_real=has_real,
-    )
+    return {
+        "beneficio": beneficio,
+        "gastos_base": gastos_base,
+        "valor_adquisicion": valor_adquisicion,
+        "valor_transmision": valor_transmision,
+        "gastos_real": gastos_real,
+        "gastos_est": gastos_est,
+        "gastos_venta_base": gastos_venta_base,
+        "impuesto_sociedades_pct": snap_impuesto_sociedades_pct,
+        "has_real": has_real,
+    }
 
 
 def _resultado_desde_memoria_calculo(
