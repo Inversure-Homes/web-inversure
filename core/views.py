@@ -4214,26 +4214,38 @@ def lista_proyectos(request):
         ):
             captado_map[row["proyecto_id"]] = _as_float(row.get("total"), 0.0)
 
+    def _capital_objetivo_desde_resultado(resultado: dict, proyecto: Proyecto) -> float:
+        capital_objetivo = _as_float(resultado.get("gastos_real_total"), 0.0)
+        if capital_objetivo > 0:
+            return capital_objetivo
+        capital_objetivo = _as_float(resultado.get("gastos_est_total"), 0.0)
+        if capital_objetivo > 0:
+            return capital_objetivo
+        capital_objetivo = _as_float(resultado.get("valor_adquisicion"), 0.0)
+        if capital_objetivo <= 0:
+            capital_objetivo = _as_float(
+                getattr(proyecto, "precio_compra_inmueble", None)
+                or getattr(proyecto, "precio_propiedad", None)
+                or 0.0,
+                0.0,
+            )
+        return capital_objetivo
+
     # Enriquecer cada proyecto con métricas heredadas (sin exigir cambios en el template)
     for p in proyectos:
         try:
             snap = _get_snapshot(p)
 
-            # Capital objetivo: total de gastos (real/estimado) desde memoria
             try:
-                capital_objetivo = _as_float(_capital_objetivo_desde_memoria(p, snap), 0.0)
+                resultado = _resultado_desde_memoria(p, snap)
+                capital_objetivo = _capital_objetivo_desde_resultado(resultado, p)
+                roi = _as_float(resultado.get("roi"), 0.0)
             except Exception:
                 capital_objetivo = 0.0
+                roi = 0.0
 
             # Capital captado: suma de participaciones confirmadas del proyecto
             capital_captado = _as_float(captado_map.get(p.id), 0.0)
-
-            # ROI dinámico (fuente de verdad: movimientos reales/estimados del proyecto).
-            try:
-                resultado = _resultado_desde_memoria(p, snap)
-                roi = _as_float(resultado.get("roi"), 0.0)
-            except Exception:
-                roi = 0.0
 
             # Adjuntar atributos para plantilla
             p.capital_objetivo = capital_objetivo
