@@ -3102,10 +3102,12 @@ def _build_project_documents_context(
     documentos: Iterable[Any],
     principal: Any | None = None,
     landing_config: dict[str, Any] | None = None,
+    publicaciones_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Construir el bloque de medios del proyecto sin tocar ORM ni mutar entradas."""
     documentos = documentos if isinstance(documentos, list) else list(documentos)
     landing_config = landing_config if isinstance(landing_config, dict) else {}
+    publicaciones_config = publicaciones_config if isinstance(publicaciones_config, dict) else {}
 
     ctx: dict[str, Any] = {
         "fotos_docs": [],
@@ -3147,6 +3149,30 @@ def _build_project_documents_context(
         ctx["landing_preview_url"] = landing_preview_url
     except Exception:
         ctx["landing_preview_url"] = None
+
+    try:
+        if principal:
+            ctx["foto_principal_url"] = (
+                principal.signed_url if hasattr(principal, "signed_url") and principal.signed_url else principal.archivo.url
+            )
+            ctx["foto_principal_titulo"] = principal.titulo
+    except Exception:
+        pass
+
+    try:
+        cabecera_id = publicaciones_config.get("cabecera_imagen_id")
+        if cabecera_id:
+            cabecera_doc = next(
+                (d for d in documentos if str(d.id) == str(cabecera_id) and d.categoria == "fotografias"),
+                None,
+            )
+            if cabecera_doc:
+                ctx["foto_principal_url"] = (
+                    cabecera_doc.signed_url if hasattr(cabecera_doc, "signed_url") and cabecera_doc.signed_url else cabecera_doc.archivo.url
+                )
+                ctx["foto_principal_titulo"] = cabecera_doc.titulo
+    except Exception:
+        pass
 
     try:
         facturas_docs = []
@@ -6224,27 +6250,6 @@ def proyecto(request, proyecto_id: int):
         if principal is None:
             principal = next((d for d in documentos if d.categoria == "fotografias"), None)
 
-        if principal:
-            try:
-                ctx["foto_principal_url"] = principal.signed_url if hasattr(principal, "signed_url") and principal.signed_url else principal.archivo.url
-                ctx["foto_principal_titulo"] = principal.titulo
-            except Exception:
-                pass
-
-        try:
-            publicaciones_config = ctx.get("publicaciones_config") if isinstance(ctx.get("publicaciones_config"), dict) else {}
-            cabecera_id = publicaciones_config.get("cabecera_imagen_id")
-            if cabecera_id:
-                cabecera_doc = next(
-                    (d for d in documentos if str(d.id) == str(cabecera_id) and d.categoria == "fotografias"),
-                    None,
-                )
-                if cabecera_doc:
-                    ctx["foto_principal_url"] = cabecera_doc.signed_url if hasattr(cabecera_doc, "signed_url") and cabecera_doc.signed_url else cabecera_doc.archivo.url
-                    ctx["foto_principal_titulo"] = cabecera_doc.titulo
-        except Exception:
-            pass
-
         ctx.update(
             _build_project_aux_context(
                 checklist_items,
@@ -6258,6 +6263,7 @@ def proyecto(request, proyecto_id: int):
             documentos,
             principal,
             ctx.get("landing_config"),
+            ctx.get("publicaciones_config"),
         )
         ctx.update(project_documents_ctx)
     except Exception:

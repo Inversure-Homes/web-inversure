@@ -228,12 +228,15 @@ def test_build_project_documents_context_preserves_order_and_document_shapes():
         ),
     ]
     landing_config = {"imagen_id": 3}
+    publicaciones_config = {"cabecera_imagen_id": 3}
     original_documentos = deepcopy(documentos)
     original_landing = deepcopy(landing_config)
     principal = documentos[1]
 
-    result = _build_project_documents_context(documentos, principal, landing_config)
+    result = _build_project_documents_context(documentos, principal, landing_config, publicaciones_config)
 
+    assert result["foto_principal_url"] == "landing-signed.jpg"
+    assert result["foto_principal_titulo"] == "Landing"
     assert result["landing_preview_url"] == "landing-signed.jpg"
     assert result["fotos_docs"] == [
         {"id": 2, "titulo": "Principal base", "archivo_url": "principal-signed.jpg"},
@@ -287,6 +290,8 @@ def test_build_project_documents_context_falls_back_to_principal_and_handles_mis
 
     result = _build_project_documents_context(documentos, principal, landing_config)
 
+    assert result["foto_principal_url"] == "principal.jpg"
+    assert result["foto_principal_titulo"] == "Principal"
     assert result["landing_preview_url"] == "principal.jpg"
     assert result["fotos_docs"] == [
         {"id": 10, "titulo": "Principal", "archivo_url": "principal.jpg"},
@@ -324,12 +329,15 @@ def test_build_project_documents_context_keeps_partial_context_when_landing_conf
         ),
     ]
     landing_config = _GetRaisesDict({"imagen_id": 20})
+    publicaciones_config = _GetRaisesDict({"cabecera_imagen_id": 20})
     principal = documentos[0]
     original_documentos = deepcopy(documentos)
 
-    result = _build_project_documents_context(documentos, principal, landing_config)
+    result = _build_project_documents_context(documentos, principal, landing_config, publicaciones_config)
 
     assert result["landing_preview_url"] is None
+    assert result["foto_principal_url"] == "principal-signed.jpg"
+    assert result["foto_principal_titulo"] == "Principal"
     assert result["fotos_docs"] == [
         {"id": 20, "titulo": "Principal", "archivo_url": "principal-signed.jpg"},
     ]
