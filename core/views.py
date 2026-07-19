@@ -352,7 +352,7 @@ def _user_matches_responsable(user, proyecto: Proyecto) -> bool:
     responsable_raw = (getattr(proyecto, "responsable", "") or "").strip().lower()
     if not responsable_raw:
         return False
-    username = (getattr(user, "username", "") or "").strip().lower()
+    username = _build_username_key(user)
     full_name = f"{getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')}".strip().lower()
     return responsable_raw in {username, full_name}
 
@@ -621,7 +621,7 @@ def _admin_notify_users():
     users = []
     try:
         for u in User.objects.filter(is_active=True):
-            if is_admin_user(u) or is_direccion_user(u) or (getattr(u, "username", "").strip().lower() == "mperez"):
+            if is_admin_user(u) or is_direccion_user(u) or (_build_username_key(u) == "mperez"):
                 users.append(u)
     except Exception:
         users = []
@@ -3431,6 +3431,11 @@ def _build_responsable_label(responsable_user: Any) -> str:
     return _build_user_display_name(responsable_user, strip=True)
 
 
+def _build_username_key(user: Any) -> str:
+    """Normalizar un username para comparaciones sin mutar la entrada."""
+    return (getattr(user, "username", "") or "").strip().lower()
+
+
 def _build_checklist_users_context(usuarios_responsables: Iterable[Any]) -> list[dict[str, Any]]:
     """Construir el payload de usuarios para checklist sin tocar ORM ni mutar entradas."""
     try:
@@ -6142,7 +6147,7 @@ def proyecto(request, proyecto_id: int):
     editable = _user_can_edit_project(request.user, proyecto_obj)
     editable_estado = editable
     try:
-        username = (getattr(request.user, "username", "") or "").strip().lower()
+        username = _build_username_key(request.user)
         if username == "mperez":
             editable = True
             editable_estado = True
@@ -6676,7 +6681,7 @@ def guardar_proyecto(request, proyecto_id: int):
         if proyecto_payload:
             nested_ok = all(k in allowed_keys for k in proyecto_payload.keys())
         only_estado_changes = (top_keys == set(payload.keys())) and nested_ok
-        username = (getattr(request.user, "username", "") or "").strip().lower()
+        username = _build_username_key(request.user)
         if not only_estado_changes or (not is_admin_user(request.user) and not is_direccion_user(request.user) and username != "mperez"):
             _admin_notify(
                 request,
