@@ -3086,6 +3086,18 @@ def _build_project_notify_flag(
         return True
 
 
+def _build_landing_beneficio_neto_pct_auto(
+    landing_config: dict[str, Any] | None,
+    roi_auto: float | None,
+) -> str | None:
+    """Construir el valor automático del beneficio neto pct de landing sin tocar ORM."""
+    if isinstance(landing_config, dict) and landing_config.get("beneficio_neto_pct"):
+        return None
+    if roi_auto is None:
+        return None
+    return _fmt_es_number(float(roi_auto), 2)
+
+
 def _build_project_overlay_context(
     extra: dict[str, Any] | None,
     overlay: dict[str, Any] | None,
@@ -5945,7 +5957,6 @@ def proyecto(request, proyecto_id: int):
         "pct_captado": captacion_ctx.get("pct_captado"),
         "es_conciertos": es_conciertos,
         "conciertos": conciertos_ctx,
-        "landing_beneficio_neto_pct_auto": None,
     }
     try:
         ctx["checklist_users"] = _build_checklist_users_context(usuarios_responsables)
@@ -5967,12 +5978,14 @@ def proyecto(request, proyecto_id: int):
 
     try:
         landing_config = ctx.get("landing_config") if isinstance(ctx.get("landing_config"), dict) else {}
+        roi_auto = None
         if not landing_config.get("beneficio_neto_pct"):
             roi_auto = _roi_memoria_proyecto(proyecto_obj)
-            if roi_auto is not None:
-                ctx["landing_beneficio_neto_pct_auto"] = _fmt_es_number(float(roi_auto), 2)
+        landing_beneficio_neto_pct_auto = _build_landing_beneficio_neto_pct_auto(landing_config, roi_auto)
+        if landing_beneficio_neto_pct_auto is not None:
+            ctx["landing_beneficio_neto_pct_auto"] = landing_beneficio_neto_pct_auto
     except Exception:
-        ctx["landing_beneficio_neto_pct_auto"] = None
+        pass
 
     try:
         _ensure_checklist_defaults(proyecto_obj)
