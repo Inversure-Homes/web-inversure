@@ -3198,6 +3198,27 @@ def _build_project_documents_context(
     return ctx
 
 
+def _build_project_documents_collection_context(
+    documentos: Iterable[Any],
+    use_signed: bool = False,
+) -> dict[str, Any]:
+    """Preparar la colección de documentos del proyecto sin tocar ORM ni mutar entradas externas."""
+    documentos = documentos if isinstance(documentos, list) else list(documentos)
+    if use_signed:
+        for doc in documentos:
+            try:
+                key = getattr(doc.archivo, "name", "") or ""
+                signed = _s3_presigned_url(key)
+                if signed:
+                    doc.signed_url = signed
+            except Exception:
+                pass
+    return {
+        "documentos_por_categoria": _build_project_documents_by_category(documentos),
+        "documentos": documentos,
+    }
+
+
 def _select_project_document_principal(documentos: Iterable[Any]) -> Any | None:
     """Seleccionar la foto principal del proyecto sin tocar ORM ni mutar entradas."""
     documentos = documentos if isinstance(documentos, list) else list(documentos)
@@ -6243,17 +6264,7 @@ def proyecto(request, proyecto_id: int):
             use_signed = bool(getattr(settings, "AWS_STORAGE_BUCKET_NAME", None))
         except Exception:
             use_signed = False
-        if use_signed:
-            for doc in documentos:
-                try:
-                    key = getattr(doc.archivo, "name", "") or ""
-                    signed = _s3_presigned_url(key)
-                    if signed:
-                        doc.signed_url = signed
-                except Exception:
-                    pass
-        ctx["documentos_por_categoria"] = _build_project_documents_by_category(documentos)
-        ctx["documentos"] = documentos
+        ctx.update(_build_project_documents_collection_context(documentos, use_signed))
 
         ctx.update(
             _build_project_aux_context(
