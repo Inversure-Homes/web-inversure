@@ -3172,6 +3172,15 @@ def _build_project_documents_context(
     return ctx
 
 
+def _build_project_documents_by_category(documentos: Iterable[Any]) -> dict[str, list[Any]]:
+    """Agrupar documentos por categoría sin tocar ORM ni mutar entradas."""
+    categorias_map: dict[str, list[Any]] = {}
+    for doc in documentos:
+        cat = getattr(doc, "categoria", "otros") or "otros"
+        categorias_map.setdefault(cat, []).append(doc)
+    return categorias_map
+
+
 def _build_project_overlay_context(
     extra: dict[str, Any] | None,
     overlay: dict[str, Any] | None,
@@ -6129,11 +6138,7 @@ def proyecto(request, proyecto_id: int):
                         doc.signed_url = signed
                 except Exception:
                     pass
-        categorias_map = {}
-        for doc in documentos:
-            cat = getattr(doc, "categoria", "otros") or "otros"
-            categorias_map.setdefault(cat, []).append(doc)
-        ctx["documentos_por_categoria"] = categorias_map
+        ctx["documentos_por_categoria"] = _build_project_documents_by_category(documentos)
         ctx["documentos"] = documentos
 
         principal = next((d for d in documentos if d.categoria == "fotografias" and d.es_principal), None)
