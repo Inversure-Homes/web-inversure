@@ -3233,6 +3233,27 @@ def _build_project_editability_flags(editable_base: bool, estado: str) -> tuple[
     return editable, editable_estado
 
 
+def _build_project_plazo_context(
+    fecha_compra_calc: date | None,
+    fecha_reserva_calc: date | None,
+    estado_lower: str,
+    *,
+    hoy: date,
+) -> dict[str, Any]:
+    """Construir el KPI de plazo sin tocar ORM ni mutar entradas."""
+    ctx: dict[str, Any] = {}
+    if isinstance(fecha_compra_calc, date):
+        usa_reserva = estado_lower in {"reservado", "vendido", "cerrado"} and isinstance(fecha_reserva_calc, date)
+        fin = fecha_reserva_calc if usa_reserva else hoy
+        if fin >= fecha_compra_calc:
+            dias = (fin - fecha_compra_calc).days
+            ctx["plazo_compra_reserva_dias"] = dias
+            ctx["plazo_compra_reserva_desde"] = fecha_compra_calc.isoformat()
+            ctx["plazo_compra_reserva_hasta"] = fin.isoformat()
+            ctx["plazo_compra_reserva_modo"] = "compra_a_reserva" if usa_reserva else "dias_desde_compra"
+    return ctx
+
+
 def _build_project_overlay_context(
     extra: dict[str, Any] | None,
     overlay: dict[str, Any] | None,
@@ -5950,14 +5971,14 @@ def proyecto(request, proyecto_id: int):
                 if isinstance(fecha_reserva_calc, datetime):
                     fecha_reserva_calc = fecha_reserva_calc.date()
 
-        if isinstance(fecha_compra_calc, date):
-            fin = fecha_reserva_calc if isinstance(fecha_reserva_calc, date) else timezone.now().date()
-            if fin >= fecha_compra_calc:
-                dias = (fin - fecha_compra_calc).days
-                metricas_raw["plazo_compra_reserva_dias"] = dias
-                metricas_raw["plazo_compra_reserva_desde"] = fecha_compra_calc.isoformat()
-                metricas_raw["plazo_compra_reserva_hasta"] = fin.isoformat()
-                metricas_raw["plazo_compra_reserva_modo"] = "compra_a_reserva" if isinstance(fecha_reserva_calc, date) else "dias_desde_compra"
+        metricas_raw.update(
+            _build_project_plazo_context(
+                fecha_compra_calc,
+                fecha_reserva_calc,
+                estado_lower,
+                hoy=timezone.now().date(),
+            )
+        )
     except Exception:
         pass
 
