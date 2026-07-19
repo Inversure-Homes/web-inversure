@@ -28,7 +28,7 @@ from django.contrib.auth.models import User
 
 from copy import deepcopy
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, Iterable
 
 import json
 import os
@@ -3050,6 +3050,59 @@ def _build_conciertos_context(conciertos_raw: dict[str, Any] | None = None) -> S
     })
 
 
+def _build_project_overlay_context(
+    extra: dict[str, Any] | None,
+    overlay: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Construir el bloque de configuración del proyecto sin tocar ORM ni mutar entradas."""
+    extra = extra if isinstance(extra, dict) else {}
+    overlay = overlay if isinstance(overlay, dict) else {}
+
+    landing_config = extra.get("landing", {})
+    if not landing_config and isinstance(overlay, dict):
+        landing_config = overlay.get("landing", {}) or {}
+    landing_config = landing_config if isinstance(landing_config, dict) else {}
+
+    publicaciones_config = extra.get("publicaciones", {})
+    if not publicaciones_config and isinstance(overlay, dict):
+        publicaciones_config = overlay.get("publicaciones", {}) or {}
+    publicaciones_config = publicaciones_config if isinstance(publicaciones_config, dict) else {}
+
+    difusion_config = extra.get("difusion", {})
+    if not difusion_config and isinstance(overlay, dict):
+        difusion_config = overlay.get("difusion", {}) or {}
+    difusion_config = difusion_config if isinstance(difusion_config, dict) else {}
+
+    pending_estado_notif = extra.get("pending_estado_notif")
+    anexos_map = difusion_config.get("anexos") if isinstance(difusion_config, dict) else {}
+    if isinstance(anexos_map, dict):
+        difusion_anexos_ids = {str(k) for k, v in anexos_map.items() if v}
+    else:
+        difusion_anexos_ids = set()
+
+    return {
+        "landing_config": landing_config,
+        "publicaciones_config": publicaciones_config,
+        "difusion_config": difusion_config,
+        "pending_estado_notif": pending_estado_notif,
+        "difusion_anexos_ids": difusion_anexos_ids,
+    }
+
+
+def _build_checklist_users_context(usuarios_responsables: Iterable[Any]) -> list[dict[str, Any]]:
+    """Construir el payload de usuarios para checklist sin tocar ORM ni mutar entradas."""
+    try:
+        return [
+            {
+                "id": u.id,
+                "label": (u.get_full_name() or u.username or "").strip(),
+            }
+            for u in usuarios_responsables
+        ]
+    except Exception:
+        return []
+
+
 def _capital_objetivo_desde_memoria(proyecto: Proyecto, snapshot: dict | None = None) -> float:
     snap = snapshot if isinstance(snapshot, dict) else {}
     resultado = _resultado_desde_memoria(proyecto, snap)
@@ -5868,35 +5921,17 @@ def proyecto(request, proyecto_id: int):
         "landing_beneficio_neto_pct_auto": None,
     }
     try:
-        ctx["checklist_users"] = [
-            {
-                "id": u.id,
-                "label": (u.get_full_name() or u.username or "").strip(),
-            }
-            for u in usuarios_responsables
-        ]
+        ctx["checklist_users"] = _build_checklist_users_context(usuarios_responsables)
     except Exception:
         ctx["checklist_users"] = []
     try:
         extra = getattr(proyecto_obj, "extra", None)
-        landing_config = extra.get("landing", {}) if isinstance(extra, dict) else {}
-        if not landing_config and isinstance(overlay, dict):
-            landing_config = overlay.get("landing", {}) or {}
-        ctx["landing_config"] = landing_config if isinstance(landing_config, dict) else {}
-        publicaciones_config = extra.get("publicaciones", {}) if isinstance(extra, dict) else {}
-        if not publicaciones_config and isinstance(overlay, dict):
-            publicaciones_config = overlay.get("publicaciones", {}) or {}
-        ctx["publicaciones_config"] = publicaciones_config if isinstance(publicaciones_config, dict) else {}
-        difusion_config = extra.get("difusion", {}) if isinstance(extra, dict) else {}
-        if not difusion_config and isinstance(overlay, dict):
-            difusion_config = overlay.get("difusion", {}) or {}
-        ctx["difusion_config"] = difusion_config if isinstance(difusion_config, dict) else {}
-        ctx["pending_estado_notif"] = extra.get("pending_estado_notif") if isinstance(extra, dict) else None
-        anexos_map = difusion_config.get("anexos") if isinstance(difusion_config, dict) else {}
-        if isinstance(anexos_map, dict):
-            ctx["difusion_anexos_ids"] = {str(k) for k, v in anexos_map.items() if v}
-        else:
-            ctx["difusion_anexos_ids"] = set()
+        project_overlay_ctx = _build_project_overlay_context(extra if isinstance(extra, dict) else {}, overlay if isinstance(overlay, dict) else {})
+        ctx["landing_config"] = project_overlay_ctx["landing_config"]
+        ctx["publicaciones_config"] = project_overlay_ctx["publicaciones_config"]
+        ctx["difusion_config"] = project_overlay_ctx["difusion_config"]
+        ctx["pending_estado_notif"] = project_overlay_ctx["pending_estado_notif"]
+        ctx["difusion_anexos_ids"] = project_overlay_ctx["difusion_anexos_ids"]
     except Exception:
         ctx["landing_config"] = {}
         ctx["publicaciones_config"] = {}
