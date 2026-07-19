@@ -628,6 +628,16 @@ def _admin_notify_users():
     return users
 
 
+def _build_admin_notification_body(mensaje: str, actor: str = "", project_label: str = "") -> str:
+    """Componer el cuerpo de una notificación administrativa sin mutar entradas."""
+    body = mensaje
+    if project_label:
+        body = f"{body}\n\n{project_label}"
+    if actor:
+        body = f"{body}\nUsuario: {actor}"
+    return body
+
+
 def _admin_notify(request, proyecto: Proyecto | None, titulo: str, mensaje: str):
     # Nunca notificar automáticamente si no está habilitado explícitamente.
     if not getattr(settings, "AUTO_ADMIN_NOTIFICATIONS", False):
@@ -647,11 +657,7 @@ def _admin_notify(request, proyecto: Proyecto | None, titulo: str, mensaje: str)
             project_label = f"Proyecto: {proyecto.nombre} (ID {proyecto.id})"
     except Exception:
         project_label = ""
-    body = mensaje
-    if project_label:
-        body = f"{body}\n\n{project_label}"
-    if actor:
-        body = f"{body}\nUsuario: {actor}"
+    body = _build_admin_notification_body(mensaje, actor, project_label)
 
     emails = []
     for u in users:
