@@ -3254,6 +3254,22 @@ def _build_project_plazo_context(
     return ctx
 
 
+def _build_project_aux_context(
+    checklist_items: Iterable[Any],
+    clientes: Iterable[Any],
+    difusion_clientes_ids: Iterable[Any],
+    solicitudes_pendientes_count: int,
+) -> dict[str, Any]:
+    """Construir el contexto auxiliar del proyecto sin tocar ORM ni mutar entradas."""
+    return {
+        "checklist_items": checklist_items,
+        "clientes": clientes,
+        "difusion_clientes_ids": list(difusion_clientes_ids),
+        "solicitudes_pendientes_count": solicitudes_pendientes_count,
+        "documento_categorias": DocumentoProyecto.CATEGORIAS,
+    }
+
+
 def _build_project_overlay_context(
     extra: dict[str, Any] | None,
     overlay: dict[str, Any] | None,
@@ -6143,19 +6159,19 @@ def proyecto(request, proyecto_id: int):
 
     try:
         _ensure_checklist_defaults(proyecto_obj)
-        ctx["checklist_items"] = ChecklistItem.objects.filter(proyecto=proyecto_obj).order_by("fase", "fecha_objetivo", "id")
+        checklist_items = ChecklistItem.objects.filter(proyecto=proyecto_obj).order_by("fase", "fecha_objetivo", "id")
     except Exception:
-        ctx["checklist_items"] = []
+        checklist_items = []
     try:
-        ctx["clientes"] = Cliente.objects.all().order_by("nombre")
+        clientes = Cliente.objects.all().order_by("nombre")
     except Exception:
-        ctx["clientes"] = []
+        clientes = []
     try:
-        ctx["difusion_clientes_ids"] = list(
+        difusion_clientes_ids = list(
             proyecto_obj.difusion_clientes.values_list("id", flat=True)
         )
     except Exception:
-        ctx["difusion_clientes_ids"] = []
+        difusion_clientes_ids = []
     try:
         participaciones = list(
             Participacion.objects.filter(proyecto=proyecto_obj)
@@ -6179,12 +6195,12 @@ def proyecto(request, proyecto_id: int):
     except Exception:
         ctx["participaciones"] = []
     try:
-        ctx["solicitudes_pendientes_count"] = SolicitudParticipacion.objects.filter(
+        solicitudes_pendientes_count = SolicitudParticipacion.objects.filter(
             proyecto=proyecto_obj,
             estado="pendiente",
         ).count()
     except Exception:
-        ctx["solicitudes_pendientes_count"] = 0
+        solicitudes_pendientes_count = 0
     try:
         documentos = list(DocumentoProyecto.objects.filter(proyecto=proyecto_obj).order_by("-creado", "-id"))
         use_signed = False
@@ -6229,6 +6245,15 @@ def proyecto(request, proyecto_id: int):
         except Exception:
             pass
 
+        ctx.update(
+            _build_project_aux_context(
+                checklist_items,
+                clientes,
+                difusion_clientes_ids,
+                solicitudes_pendientes_count,
+            )
+        )
+
         project_documents_ctx = _build_project_documents_context(
             documentos,
             principal,
@@ -6242,8 +6267,6 @@ def proyecto(request, proyecto_id: int):
         ctx["facturas_gasto"] = _build_project_facturas_gasto_context(facturas)
     except Exception:
         ctx["facturas_gasto"] = []
-
-    ctx["documento_categorias"] = DocumentoProyecto.CATEGORIAS
 
     return render(request, "core/proyecto.html", ctx)
 
