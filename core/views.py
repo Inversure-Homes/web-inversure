@@ -3069,6 +3069,23 @@ def _build_estado_inicial_context(
     return nested_snapshot or source
 
 
+def _build_project_notify_flag(
+    extra: dict[str, Any] | None,
+    snapshot: dict[str, Any] | None,
+) -> bool:
+    """Resolver `notificar_inversores` sin tocar ORM ni mutar entradas."""
+    try:
+        if isinstance(extra, dict) and "notificar_inversores" in extra:
+            return bool(extra.get("notificar_inversores"))
+        if isinstance(snapshot, dict):
+            sec = snapshot.get("proyecto") if isinstance(snapshot.get("proyecto"), dict) else {}
+            if "notificar_inversores" in sec:
+                return bool(sec.get("notificar_inversores"))
+        return True
+    except Exception:
+        return True
+
+
 def _build_project_overlay_context(
     extra: dict[str, Any] | None,
     overlay: dict[str, Any] | None,
@@ -5892,12 +5909,7 @@ def proyecto(request, proyecto_id: int):
     notify_flag = True
     try:
         extra = getattr(proyecto_obj, "extra", None)
-        if isinstance(extra, dict) and "notificar_inversores" in extra:
-            notify_flag = bool(extra.get("notificar_inversores"))
-        elif isinstance(snapshot, dict):
-            sec = snapshot.get("proyecto") if isinstance(snapshot.get("proyecto"), dict) else {}
-            if "notificar_inversores" in sec:
-                notify_flag = bool(sec.get("notificar_inversores"))
+        notify_flag = _build_project_notify_flag(extra, snapshot if isinstance(snapshot, dict) else None)
     except Exception:
         notify_flag = True
 
