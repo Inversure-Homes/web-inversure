@@ -638,7 +638,7 @@ def _admin_notify(request, proyecto: Proyecto | None, titulo: str, mensaje: str)
     actor = ""
     try:
         if request and getattr(request, "user", None) and request.user.is_authenticated:
-            actor = request.user.get_full_name() or request.user.username or ""
+            actor = _build_user_display_name(request.user)
     except Exception:
         actor = ""
     project_label = ""
@@ -3406,9 +3406,23 @@ def _build_project_overlay_context(
     }
 
 
+def _build_user_display_name(
+    user: Any,
+    *,
+    strip: bool = False,
+    prefer_get_username: bool = False,
+) -> str:
+    """Normalizar un nombre visible sin mutar la entrada."""
+    if prefer_get_username:
+        label = user.get_full_name() or user.get_username() or ""
+    else:
+        label = user.get_full_name() or user.username or ""
+    return label.strip() if strip else label
+
+
 def _build_responsable_label(responsable_user: Any) -> str:
     """Normalizar el nombre visible de un responsable sin tocar la entrada."""
-    return (responsable_user.get_full_name() or responsable_user.username or "").strip()
+    return _build_user_display_name(responsable_user, strip=True)
 
 
 def _build_checklist_users_context(usuarios_responsables: Iterable[Any]) -> list[dict[str, Any]]:
@@ -8513,7 +8527,7 @@ def proyecto_solicitudes(request, proyecto_id: int):
             decision_by = None
             try:
                 if s.decision_by:
-                    decision_by = s.decision_by.get_full_name() or s.decision_by.get_username()
+                    decision_by = _build_user_display_name(s.decision_by, prefer_get_username=True)
             except Exception:
                 decision_by = None
             solicitudes.append({
