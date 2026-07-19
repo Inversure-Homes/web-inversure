@@ -3406,13 +3406,18 @@ def _build_project_overlay_context(
     }
 
 
+def _build_responsable_label(responsable_user: Any) -> str:
+    """Normalizar el nombre visible de un responsable sin tocar la entrada."""
+    return (responsable_user.get_full_name() or responsable_user.username or "").strip()
+
+
 def _build_checklist_users_context(usuarios_responsables: Iterable[Any]) -> list[dict[str, Any]]:
     """Construir el payload de usuarios para checklist sin tocar ORM ni mutar entradas."""
     try:
         return [
             {
                 "id": u.id,
-                "label": (u.get_full_name() or u.username or "").strip(),
+                "label": _build_responsable_label(u),
             }
             for u in usuarios_responsables
         ]
@@ -5906,7 +5911,7 @@ def proyecto(request, proyecto_id: int):
     try:
         if getattr(proyecto_obj, "responsable_user", None) and not getattr(proyecto_obj, "responsable", ""):
             responsable_user = proyecto_obj.responsable_user
-            proyecto_obj.responsable = (responsable_user.get_full_name() or responsable_user.username or "").strip()
+            proyecto_obj.responsable = _build_responsable_label(responsable_user)
     except Exception:
         pass
 
@@ -6718,14 +6723,14 @@ def guardar_proyecto(request, proyecto_id: int):
             responsable_user = User.objects.get(id=responsable_user_id, is_active=True)
             proyecto_obj.responsable_user = responsable_user
             if not responsable and responsable_user:
-                proyecto_obj.responsable = (responsable_user.get_full_name() or responsable_user.username or "").strip()
+                proyecto_obj.responsable = _build_responsable_label(responsable_user)
                 update_fields.append("responsable")
             update_fields.append("responsable_user")
         except Exception:
             pass
     elif not proyecto_obj.responsable_user_id and is_comercial_user(request.user) and not _user_is_admin_or_direccion(request.user):
         proyecto_obj.responsable_user = request.user
-        proyecto_obj.responsable = (request.user.get_full_name() or request.user.username or "").strip()
+        proyecto_obj.responsable = _build_responsable_label(request.user)
         update_fields.extend(["responsable_user", "responsable"])
 
     # Nota: no bloqueamos guardados automáticos por falta de responsable.
@@ -7031,7 +7036,7 @@ def convertir_a_proyecto(request, estudio_id: int):
         if _has_field(Proyecto, "responsable_user"):
             proyecto_kwargs["responsable_user"] = request.user
         if _has_field(Proyecto, "responsable"):
-            proyecto_kwargs["responsable"] = (request.user.get_full_name() or request.user.username or "").strip()
+            proyecto_kwargs["responsable"] = _build_responsable_label(request.user)
         if _has_field(Proyecto, "convertido_desde_estudio"):
             proyecto_kwargs["convertido_desde_estudio"] = True
         proyecto = None
@@ -8081,7 +8086,7 @@ def proyecto_checklist(request, proyecto_id: int):
             responsable_label = it.responsable
             if not responsable_label and getattr(it, "responsable_user", None):
                 responsable_user = it.responsable_user
-                responsable_label = (responsable_user.get_full_name() or responsable_user.username or "").strip()
+                responsable_label = _build_responsable_label(responsable_user)
             items.append({
                 "id": it.id,
                 "fase": it.fase,
@@ -8142,7 +8147,7 @@ def proyecto_checklist_detalle(request, proyecto_id: int, item_id: int):
                     responsable_user = None
                 item.responsable_user = responsable_user
                 if responsable_user:
-                    item.responsable = (responsable_user.get_full_name() or responsable_user.username or "").strip()
+                    item.responsable = _build_responsable_label(responsable_user)
         if "responsable" in data and "responsable_user_id" not in data:
             item.responsable = (data.get("responsable") or "").strip() or None
         if "fecha_objetivo" in data:
