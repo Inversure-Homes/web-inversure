@@ -3098,6 +3098,80 @@ def _build_landing_beneficio_neto_pct_auto(
     return _fmt_es_number(float(roi_auto), 2)
 
 
+def _build_project_documents_context(
+    documentos: Iterable[Any],
+    principal: Any | None = None,
+    landing_config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Construir el bloque de medios del proyecto sin tocar ORM ni mutar entradas."""
+    documentos = documentos if isinstance(documentos, list) else list(documentos)
+    landing_config = landing_config if isinstance(landing_config, dict) else {}
+
+    ctx: dict[str, Any] = {
+        "fotos_docs": [],
+        "landing_preview_url": None,
+        "facturas_docs": [],
+    }
+
+    try:
+        fotos_docs = []
+        for doc in documentos:
+            if doc.categoria != "fotografias":
+                continue
+            archivo_url = None
+            try:
+                archivo_url = doc.signed_url if hasattr(doc, "signed_url") and doc.signed_url else doc.archivo.url
+            except Exception:
+                archivo_url = None
+            fotos_docs.append({
+                "id": doc.id,
+                "titulo": doc.titulo,
+                "archivo_url": archivo_url,
+            })
+        ctx["fotos_docs"] = fotos_docs
+    except Exception:
+        ctx["fotos_docs"] = []
+
+    try:
+        landing_img_id = landing_config.get("imagen_id")
+        landing_preview_url = None
+        if landing_img_id:
+            landing_doc = next(
+                (d for d in documentos if str(d.id) == str(landing_img_id) and d.categoria == "fotografias"),
+                None,
+            )
+            if landing_doc:
+                landing_preview_url = landing_doc.signed_url if hasattr(landing_doc, "signed_url") and landing_doc.signed_url else landing_doc.archivo.url
+        if not landing_preview_url and principal:
+            landing_preview_url = principal.signed_url if hasattr(principal, "signed_url") and principal.signed_url else principal.archivo.url
+        ctx["landing_preview_url"] = landing_preview_url
+    except Exception:
+        ctx["landing_preview_url"] = None
+
+    try:
+        facturas_docs = []
+        for doc in documentos:
+            if doc.categoria != "facturas":
+                continue
+            archivo_url = None
+            try:
+                archivo_url = doc.signed_url if hasattr(doc, "signed_url") and doc.signed_url else doc.archivo.url
+            except Exception:
+                archivo_url = None
+            facturas_docs.append({
+                "id": doc.id,
+                "titulo": doc.titulo,
+                "fecha": doc.fecha_factura.isoformat() if doc.fecha_factura else None,
+                "importe": float(doc.importe_factura) if doc.importe_factura is not None else None,
+                "archivo_url": archivo_url,
+            })
+        ctx["facturas_docs"] = facturas_docs
+    except Exception:
+        ctx["facturas_docs"] = []
+
+    return ctx
+
+
 def _build_project_overlay_context(
     extra: dict[str, Any] | None,
     overlay: dict[str, Any] | None,
@@ -6061,15 +6135,18 @@ def proyecto(request, proyecto_id: int):
             categorias_map.setdefault(cat, []).append(doc)
         ctx["documentos_por_categoria"] = categorias_map
         ctx["documentos"] = documentos
+
         principal = next((d for d in documentos if d.categoria == "fotografias" and d.es_principal), None)
         if principal is None:
             principal = next((d for d in documentos if d.categoria == "fotografias"), None)
+
         if principal:
             try:
                 ctx["foto_principal_url"] = principal.signed_url if hasattr(principal, "signed_url") and principal.signed_url else principal.archivo.url
                 ctx["foto_principal_titulo"] = principal.titulo
             except Exception:
                 pass
+
         try:
             publicaciones_config = ctx.get("publicaciones_config") if isinstance(ctx.get("publicaciones_config"), dict) else {}
             cabecera_id = publicaciones_config.get("cabecera_imagen_id")
@@ -6083,61 +6160,13 @@ def proyecto(request, proyecto_id: int):
                     ctx["foto_principal_titulo"] = cabecera_doc.titulo
         except Exception:
             pass
-        try:
-            fotos_docs = []
-            for doc in documentos:
-                if doc.categoria != "fotografias":
-                    continue
-                archivo_url = None
-                try:
-                    archivo_url = doc.signed_url if hasattr(doc, "signed_url") and doc.signed_url else doc.archivo.url
-                except Exception:
-                    archivo_url = None
-                fotos_docs.append({
-                    "id": doc.id,
-                    "titulo": doc.titulo,
-                    "archivo_url": archivo_url,
-                })
-            ctx["fotos_docs"] = fotos_docs
-        except Exception:
-            ctx["fotos_docs"] = []
 
-        try:
-            landing_config = ctx.get("landing_config") if isinstance(ctx.get("landing_config"), dict) else {}
-            landing_img_id = landing_config.get("imagen_id")
-            landing_preview_url = None
-            if landing_img_id:
-                landing_doc = next(
-                    (d for d in documentos if str(d.id) == str(landing_img_id) and d.categoria == "fotografias"),
-                    None,
-                )
-                if landing_doc:
-                    landing_preview_url = landing_doc.signed_url if hasattr(landing_doc, "signed_url") and landing_doc.signed_url else landing_doc.archivo.url
-            if not landing_preview_url and principal:
-                landing_preview_url = principal.signed_url if hasattr(principal, "signed_url") and principal.signed_url else principal.archivo.url
-            ctx["landing_preview_url"] = landing_preview_url
-        except Exception:
-            ctx["landing_preview_url"] = None
-        try:
-            facturas_docs = []
-            for doc in documentos:
-                if doc.categoria != "facturas":
-                    continue
-                archivo_url = None
-                try:
-                    archivo_url = doc.signed_url if hasattr(doc, "signed_url") and doc.signed_url else doc.archivo.url
-                except Exception:
-                    archivo_url = None
-                facturas_docs.append({
-                    "id": doc.id,
-                    "titulo": doc.titulo,
-                    "fecha": doc.fecha_factura.isoformat() if doc.fecha_factura else None,
-                    "importe": float(doc.importe_factura) if doc.importe_factura is not None else None,
-                    "archivo_url": archivo_url,
-                })
-            ctx["facturas_docs"] = facturas_docs
-        except Exception:
-            ctx["facturas_docs"] = []
+        project_documents_ctx = _build_project_documents_context(
+            documentos,
+            principal,
+            ctx.get("landing_config"),
+        )
+        ctx.update(project_documents_ctx)
     except Exception:
         ctx["documentos"] = []
     try:
