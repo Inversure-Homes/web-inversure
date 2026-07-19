@@ -3050,6 +3050,25 @@ def _build_conciertos_context(conciertos_raw: dict[str, Any] | None = None) -> S
     })
 
 
+def _build_estado_inicial_context(
+    source: Any | None,
+    *,
+    nested_snapshot_only_if_dict: bool = False,
+) -> dict[str, Any]:
+    """Construir el estado inicial sin tocar ORM ni mutar entradas."""
+    if not isinstance(source, dict):
+        return {}
+
+    if nested_snapshot_only_if_dict:
+        if not source:
+            return {}
+        nested_snapshot = source.get("snapshot")
+        return nested_snapshot if isinstance(nested_snapshot, dict) else source
+
+    nested_snapshot = source.get("snapshot")
+    return nested_snapshot or source
+
+
 def _build_project_overlay_context(
     extra: dict[str, Any] | None,
     overlay: dict[str, Any] | None,
@@ -4227,9 +4246,7 @@ def simulador(request):
     try:
         if estudio_obj is not None:
             datos0 = getattr(estudio_obj, "datos", None) or {}
-            if isinstance(datos0, dict):
-                # Preferimos snapshot si existe; si no, el JSON completo
-                estado_inicial = datos0.get("snapshot") or datos0
+            estado_inicial = _build_estado_inicial_context(datos0)
     except Exception:
         estado_inicial = {}
 
@@ -5810,9 +5827,7 @@ def proyecto(request, proyecto_id: int):
     # --- Estado inicial para hidratar el simulador en modo proyecto ---
     estado_inicial = {}
     try:
-        if isinstance(snapshot, dict) and snapshot:
-            # Si el snapshot ya incluye un bloque snapshot (overlay completo), lo preferimos
-            estado_inicial = snapshot.get("snapshot") if isinstance(snapshot.get("snapshot"), dict) else snapshot
+        estado_inicial = _build_estado_inicial_context(snapshot, nested_snapshot_only_if_dict=True)
     except Exception:
         estado_inicial = {}
 
