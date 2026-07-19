@@ -3037,6 +3037,26 @@ def _build_captacion_context(capital_objetivo: float, capital_captado: float) ->
     })
 
 
+def _build_project_snapshot_context(
+    snapshot: dict[str, Any],
+    inv_calc: dict[str, Any],
+    resultado: dict[str, Any],
+    metricas_raw: dict[str, Any],
+) -> dict[str, Any]:
+    """Construir el bloque seguro del contexto del proyecto sin tocar ORM ni mutar entradas."""
+    return {
+        "snapshot": _safe_template_obj(snapshot),
+        "inmueble": _safe_template_obj(snapshot.get("inmueble", {})) if isinstance(snapshot.get("inmueble"), dict) else SafeAccessDict(),
+        "economico": _safe_template_obj(snapshot.get("economico", {})) if isinstance(snapshot.get("economico"), dict) else SafeAccessDict(),
+        "inversor": _safe_template_obj(inv_calc) if isinstance(inv_calc, dict) else SafeAccessDict(),
+        "inv": _safe_template_obj(inv_calc) if isinstance(inv_calc, dict) else SafeAccessDict(),
+        "comite": _safe_template_obj(snapshot.get("comite", {})) if isinstance(snapshot.get("comite"), dict) else SafeAccessDict(),
+        "kpis": _safe_template_obj(snapshot.get("kpis", {})) if isinstance(snapshot.get("kpis"), dict) else SafeAccessDict(),
+        "metricas": _safe_template_obj(metricas_raw) if isinstance(metricas_raw, dict) else SafeAccessDict(),
+        "resultado": _safe_template_obj(resultado) if isinstance(resultado, dict) else SafeAccessDict(),
+    }
+
+
 def _build_conciertos_context(conciertos_raw: dict[str, Any] | None = None) -> SafeAccessDict:
     """Construir el contexto de conciertos sin tocar ORM ni mutar entradas."""
     conciertos_raw = conciertos_raw if isinstance(conciertos_raw, dict) else {}
@@ -6167,16 +6187,8 @@ def proyecto(request, proyecto_id: int):
         "usuarios_responsables": usuarios_responsables,
         "proyecto": proyecto_obj,
         "notificar_inversores": notify_flag,
-        "snapshot": _safe_template_obj(snapshot),
+        **_build_project_snapshot_context(snapshot, inv_calc, resultado, metricas_raw),
         # Atajos por si `proyecto.html` los usa como en el PDF/estudio
-        "inmueble": _safe_template_obj(snapshot.get("inmueble", {})) if isinstance(snapshot.get("inmueble"), dict) else SafeAccessDict(),
-        "economico": _safe_template_obj(snapshot.get("economico", {})) if isinstance(snapshot.get("economico"), dict) else SafeAccessDict(),
-        "inversor": _safe_template_obj(inv_calc) if isinstance(inv_calc, dict) else SafeAccessDict(),
-        "inv": _safe_template_obj(inv_calc) if isinstance(inv_calc, dict) else SafeAccessDict(),
-        "comite": _safe_template_obj(snapshot.get("comite", {})) if isinstance(snapshot.get("comite"), dict) else SafeAccessDict(),
-        "kpis": _safe_template_obj(snapshot.get("kpis", {})) if isinstance(snapshot.get("kpis"), dict) else SafeAccessDict(),
-        "metricas": _safe_template_obj(metricas_raw) if isinstance(metricas_raw, dict) else SafeAccessDict(),
-        "resultado": _safe_template_obj(resultado) if isinstance(resultado, dict) else SafeAccessDict(),
         "captacion": captacion_ctx,
         "capital_objetivo": captacion_ctx.get("capital_objetivo"),
         "capital_captado": captacion_ctx.get("capital_captado"),
