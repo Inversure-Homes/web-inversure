@@ -3223,6 +3223,16 @@ def _build_project_participaciones_context(
     return participaciones
 
 
+def _build_project_editability_flags(editable_base: bool, estado: str) -> tuple[bool, bool]:
+    """Aplicar la regla de cierre del proyecto sin tocar ORM ni mutar entradas."""
+    editable = editable_base
+    editable_estado = editable_base
+    estados_cierre = {"cerrado", "cerrado_positivo", "cerrado_negativo", "finalizado", "descartado"}
+    if estado in estados_cierre:
+        editable = False
+    return editable, editable_estado
+
+
 def _build_project_overlay_context(
     extra: dict[str, Any] | None,
     overlay: dict[str, Any] | None,
@@ -5996,9 +6006,7 @@ def proyecto(request, proyecto_id: int):
             editable_estado = True
         else:
             estado = (getattr(proyecto_obj, "estado", "") or "").strip().lower()
-            # Estados típicos de cierre (ajústalos si tu modelo usa otros nombres)
-            if estado in {"cerrado", "cerrado_positivo", "cerrado_negativo", "finalizado", "descartado"}:
-                editable = False
+            editable, editable_estado = _build_project_editability_flags(editable, estado)
     except Exception:
         editable = True
         editable_estado = True
