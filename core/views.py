@@ -3057,6 +3057,27 @@ def _build_project_snapshot_context(
     }
 
 
+def _ensure_project_template_fields(proyecto_obj: Any) -> None:
+    """Añadir atributos dummy para compatibilidad de plantilla sin tocar ORM ni mutar otros estados."""
+    for field in (
+        "venta_estimada",
+        "precio_propiedad",
+        "precio_compra_inmueble",
+        "precio_venta_estimado",
+        "notaria",
+        "registro",
+        "itp",
+        "direccion",
+        "ref_catastral",
+        "valor_referencia",
+        "meses",
+        "financiacion_pct",
+        "responsable",
+    ):
+        if not hasattr(proyecto_obj, field):
+            proyecto_obj.__dict__.setdefault(field, "")
+
+
 def _build_conciertos_context(conciertos_raw: dict[str, Any] | None = None) -> SafeAccessDict:
     """Construir el contexto de conciertos sin tocar ORM ni mutar entradas."""
     conciertos_raw = conciertos_raw if isinstance(conciertos_raw, dict) else {}
@@ -5881,24 +5902,7 @@ def proyecto(request, proyecto_id: int):
     # --- Compatibilidad de plantilla: algunos campos pueden no existir en el modelo Proyecto ---
     # Django templates fallan con VariableDoesNotExist si se accede a un atributo inexistente.
     # Definimos atributos "dummy" para que la plantilla no rompa (los valores reales vendrán del snapshot).
-    _tpl_expected_fields = [
-        "venta_estimada",
-        "precio_propiedad",
-        "precio_compra_inmueble",
-        "precio_venta_estimado",
-        "notaria",
-        "registro",
-        "itp",
-        "direccion",
-        "ref_catastral",
-        "valor_referencia",
-        "meses",
-        "financiacion_pct",
-        "responsable",
-    ]
-    for _f in _tpl_expected_fields:
-        if not hasattr(proyecto_obj, _f):
-            proyecto_obj.__dict__.setdefault(_f, "")
+    _ensure_project_template_fields(proyecto_obj)
     try:
         if getattr(proyecto_obj, "responsable_user", None) and not getattr(proyecto_obj, "responsable", ""):
             responsable_user = proyecto_obj.responsable_user
