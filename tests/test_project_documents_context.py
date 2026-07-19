@@ -11,7 +11,11 @@ from django.http import HttpResponse
 from django.test import RequestFactory
 
 from core import views as core_views
-from core.views import _build_project_documents_context, _select_project_document_principal
+from core.views import (
+    _build_project_documents_collection_context,
+    _build_project_documents_context,
+    _select_project_document_principal,
+)
 
 
 @dataclass
@@ -351,6 +355,63 @@ def test_build_project_documents_context_keeps_partial_context_when_landing_conf
             "archivo_url": "factura-signed.pdf",
         }
     ]
+    assert documentos == original_documentos
+
+
+def test_build_project_documents_collection_context_applies_signed_urls_and_groups_documents(monkeypatch):
+    documentos = [
+        _Documento(
+            id=70,
+            categoria="fotografias",
+            titulo="Principal",
+            archivo=SimpleNamespace(name="principal.jpg", url="principal.jpg"),
+        ),
+        _Documento(
+            id=71,
+            categoria="facturas",
+            titulo="Factura",
+            archivo=SimpleNamespace(name="factura.pdf", url="factura.pdf"),
+        ),
+    ]
+    signed_keys: list[str] = []
+
+    def _fake_signed_url(key):
+        signed_keys.append(key)
+        if key == "principal.jpg":
+            return "principal-signed.jpg"
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(core_views, "_s3_presigned_url", _fake_signed_url)
+
+    result = _build_project_documents_collection_context(documentos, True)
+
+    assert signed_keys == ["principal.jpg", "factura.pdf"]
+    assert result["documentos"] is documentos
+    assert documentos[0].signed_url == "principal-signed.jpg"
+    assert documentos[1].signed_url is None
+    assert result["documentos_por_categoria"] == {
+        "fotografias": [documentos[0]],
+        "facturas": [documentos[1]],
+    }
+
+
+def test_build_project_documents_collection_context_without_signing_keeps_documents_and_groups(monkeypatch):
+    documentos = [
+        _Documento(
+            id=72,
+            categoria="fotografias",
+            titulo="Principal",
+            archivo=SimpleNamespace(name="principal.jpg", url="principal.jpg"),
+        ),
+    ]
+    original_documentos = deepcopy(documentos)
+
+    monkeypatch.setattr(core_views, "_s3_presigned_url", lambda key: (_ for _ in ()).throw(RuntimeError("boom")))
+
+    result = _build_project_documents_collection_context(documentos, False)
+
+    assert result["documentos"] == documentos
+    assert result["documentos_por_categoria"] == {"fotografias": [documentos[0]]}
     assert documentos == original_documentos
 
 
