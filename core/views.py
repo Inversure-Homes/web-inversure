@@ -3181,6 +3181,29 @@ def _build_project_documents_by_category(documentos: Iterable[Any]) -> dict[str,
     return categorias_map
 
 
+def _build_project_facturas_gasto_context(facturas: Iterable[Any]) -> list[dict[str, Any]]:
+    """Serializar facturas de gasto sin tocar ORM ni mutar entradas."""
+    facturas_ctx: list[dict[str, Any]] = []
+    for factura in facturas:
+        factura_url = None
+        try:
+            key = getattr(factura.archivo, "name", "") or ""
+            signed = _s3_presigned_url(key)
+            factura_url = signed if signed else factura.archivo.url
+        except Exception:
+            factura_url = None
+        facturas_ctx.append({
+            "id": factura.id,
+            "gasto_id": factura.gasto_id,
+            "concepto": factura.gasto.concepto if factura.gasto else "—",
+            "fecha": factura.gasto.fecha if factura.gasto else None,
+            "importe": factura.gasto.importe if factura.gasto else None,
+            "archivo_url": factura_url,
+            "nombre": factura.nombre_original or (os.path.basename(factura.archivo.name) if factura.archivo else "Factura"),
+        })
+    return facturas_ctx
+
+
 def _build_project_overlay_context(
     extra: dict[str, Any] | None,
     overlay: dict[str, Any] | None,
@@ -6175,25 +6198,8 @@ def proyecto(request, proyecto_id: int):
     except Exception:
         ctx["documentos"] = []
     try:
-        facturas = []
-        for factura in FacturaGasto.objects.select_related("gasto").filter(gasto__proyecto=proyecto_obj).order_by("-fecha_subida", "-id"):
-            factura_url = None
-            try:
-                key = getattr(factura.archivo, "name", "") or ""
-                signed = _s3_presigned_url(key)
-                factura_url = signed if signed else factura.archivo.url
-            except Exception:
-                factura_url = None
-            facturas.append({
-                "id": factura.id,
-                "gasto_id": factura.gasto_id,
-                "concepto": factura.gasto.concepto if factura.gasto else "—",
-                "fecha": factura.gasto.fecha if factura.gasto else None,
-                "importe": factura.gasto.importe if factura.gasto else None,
-                "archivo_url": factura_url,
-                "nombre": factura.nombre_original or (os.path.basename(factura.archivo.name) if factura.archivo else "Factura"),
-            })
-        ctx["facturas_gasto"] = facturas
+        facturas = FacturaGasto.objects.select_related("gasto").filter(gasto__proyecto=proyecto_obj).order_by("-fecha_subida", "-id")
+        ctx["facturas_gasto"] = _build_project_facturas_gasto_context(facturas)
     except Exception:
         ctx["facturas_gasto"] = []
 
