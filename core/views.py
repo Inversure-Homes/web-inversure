@@ -3204,6 +3204,25 @@ def _build_project_facturas_gasto_context(facturas: Iterable[Any]) -> list[dict[
     return facturas_ctx
 
 
+def _build_project_participaciones_context(
+    participaciones: list[Any],
+    capital_objetivo: Decimal,
+    total_confirmadas: Decimal,
+) -> list[Any]:
+    """Normalizar porcentajes de participaciones sin tocar ORM ni mutar la lista."""
+    for participacion in participaciones:
+        if participacion.porcentaje_participacion is not None:
+            continue
+        pct = None
+        if capital_objetivo > 0:
+            pct = (participacion.importe_invertido / capital_objetivo) * Decimal("100")
+        elif total_confirmadas > 0:
+            pct = (participacion.importe_invertido / total_confirmadas) * Decimal("100")
+        if pct is not None:
+            participacion.porcentaje_participacion = pct
+    return participaciones
+
+
 def _build_project_overlay_context(
     extra: dict[str, Any] | None,
     overlay: dict[str, Any] | None,
@@ -6122,19 +6141,11 @@ def proyecto(request, proyecto_id: int):
             or Decimal("0")
         )
         total_confirmadas = _parse_decimal(total_confirmadas) or Decimal("0")
-        for p in participaciones:
-            # % participación sobre el gasto total/capital objetivo del proyecto.
-            # Si ya hay un valor guardado (p.ej. ajuste manual), respetarlo.
-            if p.porcentaje_participacion is not None:
-                continue
-            pct = None
-            if capital_objetivo > 0:
-                pct = (p.importe_invertido / capital_objetivo) * Decimal("100")
-            elif total_confirmadas > 0:
-                # fallback si no se puede inferir capital objetivo
-                pct = (p.importe_invertido / total_confirmadas) * Decimal("100")
-            if pct is not None:
-                p.porcentaje_participacion = pct
+        participaciones = _build_project_participaciones_context(
+            participaciones,
+            capital_objetivo,
+            total_confirmadas,
+        )
         ctx["participaciones"] = participaciones
     except Exception:
         ctx["participaciones"] = []
