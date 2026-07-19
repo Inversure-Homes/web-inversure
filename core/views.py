@@ -3198,6 +3198,15 @@ def _build_project_documents_context(
     return ctx
 
 
+def _select_project_document_principal(documentos: Iterable[Any]) -> Any | None:
+    """Seleccionar la foto principal del proyecto sin tocar ORM ni mutar entradas."""
+    documentos = documentos if isinstance(documentos, list) else list(documentos)
+    principal = next((d for d in documentos if d.categoria == "fotografias" and d.es_principal), None)
+    if principal is None:
+        principal = next((d for d in documentos if d.categoria == "fotografias"), None)
+    return principal
+
+
 def _build_project_documents_by_category(documentos: Iterable[Any]) -> dict[str, list[Any]]:
     """Agrupar documentos por categoría sin tocar ORM ni mutar entradas."""
     categorias_map: dict[str, list[Any]] = {}
@@ -6246,10 +6255,6 @@ def proyecto(request, proyecto_id: int):
         ctx["documentos_por_categoria"] = _build_project_documents_by_category(documentos)
         ctx["documentos"] = documentos
 
-        principal = next((d for d in documentos if d.categoria == "fotografias" and d.es_principal), None)
-        if principal is None:
-            principal = next((d for d in documentos if d.categoria == "fotografias"), None)
-
         ctx.update(
             _build_project_aux_context(
                 checklist_items,
@@ -6261,7 +6266,7 @@ def proyecto(request, proyecto_id: int):
 
         project_documents_ctx = _build_project_documents_context(
             documentos,
-            principal,
+            _select_project_document_principal(documentos),
             ctx.get("landing_config"),
             ctx.get("publicaciones_config"),
         )

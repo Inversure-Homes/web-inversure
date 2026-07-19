@@ -6,11 +6,12 @@ from datetime import date
 from decimal import Decimal
 from types import SimpleNamespace
 
+import pytest
 from django.http import HttpResponse
 from django.test import RequestFactory
 
 from core import views as core_views
-from core.views import _build_project_documents_context
+from core.views import _build_project_documents_context, _select_project_document_principal
 
 
 @dataclass
@@ -351,6 +352,43 @@ def test_build_project_documents_context_keeps_partial_context_when_landing_conf
         }
     ]
     assert documentos == original_documentos
+
+
+@pytest.mark.parametrize(
+    "documentos, expected_id",
+    [
+        (
+            [
+                _Documento(id=50, categoria="fotografias", titulo="Primera", archivo=_Archivo("primera.jpg")),
+                _Documento(
+                    id=51,
+                    categoria="fotografias",
+                    titulo="Principal",
+                    es_principal=True,
+                    archivo=_Archivo("principal.jpg"),
+                ),
+            ],
+            51,
+        ),
+        (
+            [
+                _Documento(id=60, categoria="fotografias", titulo="Primera", archivo=_Archivo("primera.jpg")),
+                _Documento(id=61, categoria="facturas", titulo="Factura", archivo=_Archivo("factura.pdf")),
+            ],
+            60,
+        ),
+        ([], None),
+    ],
+)
+def test_select_project_document_principal_prefers_principal_photo_and_falls_back_to_first_photo(
+    documentos, expected_id
+):
+    result = _select_project_document_principal(documentos)
+
+    if expected_id is None:
+        assert result is None
+    else:
+        assert result.id == expected_id
 
 
 def test_project_documents_context_preserves_empty_documents_when_principal_selection_raises(monkeypatch):
