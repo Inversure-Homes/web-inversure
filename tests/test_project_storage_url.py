@@ -307,3 +307,36 @@ def test_proyecto_ingreso_detalle_uses_storage_url_for_justificante(monkeypatch)
             "has_justificante": True,
         },
     }
+
+
+def test_proyecto_ingreso_justificante_uses_storage_url_helper(monkeypatch):
+    project = SimpleNamespace(id=1)
+    ingreso = SimpleNamespace(id=12, proyecto=project)
+    just_obj = SimpleNamespace(archivo=None, nombre_original="", save=lambda: None)
+
+    class _IngresoManager:
+        def select_related(self, *args, **kwargs):
+            return self
+
+        def get(self, *args, **kwargs):
+            return ingreso
+
+    _patch_project_access(monkeypatch, project)
+    monkeypatch.setattr(core_views.IngresoProyecto, "objects", _IngresoManager())
+    monkeypatch.setattr(
+        core_views.JustificanteIngreso,
+        "objects",
+        SimpleNamespace(get_or_create=lambda *args, **kwargs: (just_obj, True)),
+    )
+    monkeypatch.setattr(
+        core_views, "_s3_presigned_url", lambda key: "signed://ingreso.pdf" if key == "ingreso.pdf" else ""
+    )
+
+    request = _make_request("POST", "/proyectos/1/ingresos/12/justificante/")
+    request._files = {"justificante": _Archivo(name="ingreso.pdf", url_value="ingreso-url")}
+
+    response = core_views.proyecto_ingreso_justificante(request, project.id, ingreso.id)
+    payload = json.loads(response.content)
+
+    assert response.status_code == 200
+    assert payload == {"ok": True, "justificante_url": "signed://ingreso.pdf"}
