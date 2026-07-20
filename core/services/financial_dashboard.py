@@ -312,50 +312,18 @@ class FinancialDashboardService:
                 capital_captado=capital_captado,
             )
 
-            beneficio_neto = _to_float(resultado.get("beneficio_neto"))
-            valor_adquisicion = _to_float(resultado.get("valor_adquisicion"))
-            roi = _to_float(resultado.get("roi"))
-            beneficio_estimado = _to_float(beneficio_memoria.get("beneficio_estimado"))
-            beneficio_real = _to_float(beneficio_memoria.get("beneficio_real"))
-            delta = beneficio_real - beneficio_estimado
-            delta_pct = (delta / abs(beneficio_estimado) * 100.0) if beneficio_estimado else None
-
             metrics.append(
-                {
-                    "project_id": project.id,
-                    "codigo_proyecto": project.codigo_proyecto,
-                    "nombre": (project.nombre or f"Proyecto {project.id}").strip(),
-                    "estado": project.estado or "",
-                    "estado_label": project.get_estado_display() if hasattr(project, "get_estado_display") else (project.estado or ""),
-                    "estado_operativo": getattr(getattr(project, "datos_economicos", None), "estado_operativo", "") or "",
-                    "capital_objetivo": capital_objetivo,
-                    "capital_captado": capital_captado,
-                    "capital_pendiente": capital_pendiente,
-                    "beneficio_estimado": beneficio_estimado,
-                    "beneficio_real": beneficio_real,
-                    "beneficio_neto": beneficio_neto,
-                    "beneficio_bruto_operacion": _to_float(operacion["beneficio_bruto"]),
-                    "beneficio_neto_operacion": _to_float(operacion["beneficio_neto_total"]),
-                    "beneficio_inversure": _to_float(operacion["comision_eur"]),
-                    "beneficio_neto_tras_impuestos": _to_float(resultado.get("beneficio_neto_tras_impuestos")),
-                    "roi": roi,
-                    "ratio_euro": _to_float(resultado.get("ratio_euro")),
-                    "margen_neto": _to_float(resultado.get("margen_neto")),
-                    "inversion_total": _to_float(resultado.get("inversion_total")),
-                    "valor_adquisicion": valor_adquisicion,
-                    "gastos_real_total": _to_float(resultado.get("gastos_real_total")),
-                    "gastos_est_total": _to_float(resultado.get("gastos_est_total")),
-                    "deviation": {
-                        "estimado": beneficio_estimado,
-                        "real": beneficio_real,
-                        "delta": delta,
-                        "delta_pct": delta_pct,
-                    },
-                    "investment_return": settlement,
-                    "participaciones_confirmadas": len(participaciones_confirmadas),
-                    "has_movimientos": bool(beneficio_memoria.get("has_movimientos")),
-                    "base_memoria_real": bool(resultado.get("base_memoria_real")),
-                }
+                _build_project_metric_row(
+                    project=project,
+                    resultado=resultado,
+                    beneficio_memoria=beneficio_memoria,
+                    operacion=operacion,
+                    settlement=settlement,
+                    capital_objetivo=capital_objetivo,
+                    capital_captado=capital_captado,
+                    capital_pendiente=capital_pendiente,
+                    participaciones_confirmadas=participaciones_confirmadas,
+                )
             )
         return metrics
 
@@ -445,6 +413,7 @@ class FinancialDashboardService:
             "roi_neto_medio": sum(roi_neto_vals) / len(roi_neto_vals) if roi_neto_vals else 0.0,
             "participaciones": len(confirmed_participations),
         }
+
 
     def _build_summary(self, projects: list[Proyecto], project_metrics: list[dict[str, Any]]) -> dict[str, Any]:
         project_ids = [project.id for project in projects if project.id is not None]
@@ -990,3 +959,60 @@ def build_financial_dashboard_data(user, filters: FinancialDashboardFilters | No
     """Convenience wrapper for API views, widgets and the dashboard page."""
 
     return FinancialDashboardService(user=user, filters=filters).build()
+
+
+def _build_project_metric_row(
+    *,
+    project: Proyecto,
+    resultado: dict[str, Any],
+    beneficio_memoria: dict[str, Any],
+    operacion: dict[str, float],
+    settlement: dict[str, Any],
+    capital_objetivo: Decimal,
+    capital_captado: Decimal,
+    capital_pendiente: Decimal,
+    participaciones_confirmadas: list[Participacion],
+) -> dict[str, Any]:
+    beneficio_neto = _to_float(resultado.get("beneficio_neto"))
+    valor_adquisicion = _to_float(resultado.get("valor_adquisicion"))
+    roi = _to_float(resultado.get("roi"))
+    beneficio_estimado = _to_float(beneficio_memoria.get("beneficio_estimado"))
+    beneficio_real = _to_float(beneficio_memoria.get("beneficio_real"))
+    delta = beneficio_real - beneficio_estimado
+    delta_pct = (delta / abs(beneficio_estimado) * 100.0) if beneficio_estimado else None
+
+    return {
+        "project_id": project.id,
+        "codigo_proyecto": project.codigo_proyecto,
+        "nombre": (project.nombre or f"Proyecto {project.id}").strip(),
+        "estado": project.estado or "",
+        "estado_label": project.get_estado_display() if hasattr(project, "get_estado_display") else (project.estado or ""),
+        "estado_operativo": getattr(getattr(project, "datos_economicos", None), "estado_operativo", "") or "",
+        "capital_objetivo": capital_objetivo,
+        "capital_captado": capital_captado,
+        "capital_pendiente": capital_pendiente,
+        "beneficio_estimado": beneficio_estimado,
+        "beneficio_real": beneficio_real,
+        "beneficio_neto": beneficio_neto,
+        "beneficio_bruto_operacion": _to_float(operacion["beneficio_bruto"]),
+        "beneficio_neto_operacion": _to_float(operacion["beneficio_neto_total"]),
+        "beneficio_inversure": _to_float(operacion["comision_eur"]),
+        "beneficio_neto_tras_impuestos": _to_float(resultado.get("beneficio_neto_tras_impuestos")),
+        "roi": roi,
+        "ratio_euro": _to_float(resultado.get("ratio_euro")),
+        "margen_neto": _to_float(resultado.get("margen_neto")),
+        "inversion_total": _to_float(resultado.get("inversion_total")),
+        "valor_adquisicion": valor_adquisicion,
+        "gastos_real_total": _to_float(resultado.get("gastos_real_total")),
+        "gastos_est_total": _to_float(resultado.get("gastos_est_total")),
+        "deviation": {
+            "estimado": beneficio_estimado,
+            "real": beneficio_real,
+            "delta": delta,
+            "delta_pct": delta_pct,
+        },
+        "investment_return": settlement,
+        "participaciones_confirmadas": len(participaciones_confirmadas),
+        "has_movimientos": bool(beneficio_memoria.get("has_movimientos")),
+        "base_memoria_real": bool(resultado.get("base_memoria_real")),
+    }
