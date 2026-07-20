@@ -10,7 +10,13 @@ import pytest
 from django.test import RequestFactory
 
 from core import views as core_views
-from core.views import _build_project_facturas_docs_lookup, _build_project_gasto_factura_url, _build_project_storage_url
+from core.views import (
+    _build_project_facturas_docs_lookup,
+    _build_project_gasto_factura_url,
+    _build_project_ingreso_justificante_url,
+    _build_project_ingreso_payload,
+    _build_project_storage_url,
+)
 
 
 @dataclass
@@ -337,6 +343,63 @@ def test_proyecto_ingresos_uses_storage_urls_for_justificantes(monkeypatch):
             "has_justificante": True,
         }
     ]
+
+
+@pytest.mark.parametrize(
+    ("justificante", "signed", "expected"),
+    [
+        (None, "", None),
+        (SimpleNamespace(archivo=None), "", None),
+        (
+            SimpleNamespace(archivo=_Archivo(name="justificante.pdf", url_value="justificante-url")),
+            "signed://justificante.pdf",
+            "signed://justificante.pdf",
+        ),
+    ],
+)
+def test_build_project_ingreso_justificante_url_prefers_storage_and_handles_missing_file(
+    monkeypatch, justificante, signed, expected
+):
+    monkeypatch.setattr(core_views, "_s3_presigned_url", lambda key: signed if key == "justificante.pdf" else "")
+
+    original = dict(getattr(justificante, "__dict__", {})) if justificante is not None else None
+
+    assert _build_project_ingreso_justificante_url(justificante) == expected
+    if original is not None:
+        assert dict(getattr(justificante, "__dict__", {})) == original
+
+
+def test_build_project_ingreso_payload_serializes_expected_fields_and_preserves_input():
+    ingreso = SimpleNamespace(
+        id=11,
+        fecha=date(2026, 7, 23),
+        tipo="ingreso",
+        concepto="Detalle ingreso",
+        importe=Decimal("33.00"),
+        estado="confirmado",
+        imputable_inversores=False,
+        observaciones="nota",
+        pagado=True,
+    )
+
+    original = dict(getattr(ingreso, "__dict__", {}))
+
+    payload = _build_project_ingreso_payload(ingreso, "signed://ingreso.pdf")
+
+    assert payload == {
+        "id": 11,
+        "fecha": "2026-07-23",
+        "tipo": "ingreso",
+        "concepto": "Detalle ingreso",
+        "importe": 33.0,
+        "estado": "confirmado",
+        "imputable_inversores": False,
+        "observaciones": "nota",
+        "pagado": True,
+        "justificante_url": "signed://ingreso.pdf",
+        "has_justificante": True,
+    }
+    assert dict(getattr(ingreso, "__dict__", {})) == original
 
 
 def test_proyecto_ingreso_detalle_uses_storage_url_for_justificante(monkeypatch):

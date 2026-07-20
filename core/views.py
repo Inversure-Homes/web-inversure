@@ -3402,6 +3402,33 @@ def _build_project_gasto_payload(gasto: Any, factura_url: str | None) -> dict[st
     }
 
 
+def _build_project_ingreso_justificante_url(ingreso_justificante: Any) -> str | None:
+    """Resolver la URL visible de un justificante sin tocar ORM ni mutar la entrada."""
+    if not getattr(ingreso_justificante, "archivo", None):
+        return None
+    try:
+        return _build_project_storage_url(ingreso_justificante)
+    except Exception:
+        return None
+
+
+def _build_project_ingreso_payload(ingreso: Any, justificante_url: str | None) -> dict[str, Any]:
+    """Serializar un ingreso sin tocar ORM ni mutar la entrada."""
+    return {
+        "id": ingreso.id,
+        "fecha": ingreso.fecha.isoformat(),
+        "tipo": ingreso.tipo,
+        "concepto": ingreso.concepto,
+        "importe": float(ingreso.importe),
+        "estado": ingreso.estado or "estimado",
+        "imputable_inversores": ingreso.imputable_inversores,
+        "observaciones": ingreso.observaciones,
+        "pagado": bool(getattr(ingreso, "pagado", False)),
+        "justificante_url": justificante_url,
+        "has_justificante": bool(justificante_url),
+    }
+
+
 def _build_project_participaciones_context(
     participaciones: list[Any],
     capital_objetivo: Decimal,
@@ -7754,25 +7781,10 @@ def proyecto_ingreso_detalle(request, proyecto_id: int, ingreso_id: int):
             return JsonResponse({"ok": False, "error": "No tienes permisos para ver este proyecto."}, status=403)
         justificante_url = None
         if hasattr(ingreso, "justificante") and getattr(ingreso.justificante, "archivo", None):
-            try:
-                justificante_url = _build_project_storage_url(ingreso.justificante)
-            except Exception:
-                justificante_url = None
+            justificante_url = _build_project_ingreso_justificante_url(ingreso.justificante)
         return JsonResponse({
             "ok": True,
-            "ingreso": {
-                "id": ingreso.id,
-                "fecha": ingreso.fecha.isoformat(),
-                "tipo": ingreso.tipo,
-                "concepto": ingreso.concepto,
-                "importe": float(ingreso.importe),
-                "estado": ingreso.estado or "estimado",
-                "imputable_inversores": ingreso.imputable_inversores,
-                "observaciones": ingreso.observaciones,
-                "pagado": bool(getattr(ingreso, "pagado", False)),
-                "justificante_url": justificante_url,
-                "has_justificante": bool(justificante_url),
-            },
+            "ingreso": _build_project_ingreso_payload(ingreso, justificante_url),
         })
 
     if req_method == "DELETE":
@@ -7877,11 +7889,7 @@ def proyecto_ingreso_justificante(request, proyecto_id: int, ingreso_id: int):
     just_obj.nombre_original = getattr(archivo, "name", "") or just_obj.nombre_original
     just_obj.save()
 
-    justificante_url = None
-    try:
-        justificante_url = _build_project_storage_url(just_obj)
-    except Exception:
-        justificante_url = None
+    justificante_url = _build_project_ingreso_justificante_url(just_obj)
 
     return JsonResponse({"ok": True, "justificante_url": justificante_url})
 
