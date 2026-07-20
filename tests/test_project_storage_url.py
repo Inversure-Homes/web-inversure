@@ -10,7 +10,7 @@ import pytest
 from django.test import RequestFactory
 
 from core import views as core_views
-from core.views import _build_project_facturas_docs_lookup, _build_project_storage_url
+from core.views import _build_project_facturas_docs_lookup, _build_project_gasto_factura_url, _build_project_storage_url
 
 
 @dataclass
@@ -179,6 +179,64 @@ def test_build_project_facturas_docs_lookup_preserves_first_document_per_key():
     assert result[(date(2026, 7, 24), Decimal("10.00"))].titulo == "Primero"
     assert result[(date(2026, 7, 25), Decimal("15.00"))].titulo == "Tercero"
     assert [dict(getattr(doc, "__dict__", {})) for doc in docs] == original
+
+
+class _DocsRaises(dict):
+    def get(self, *args, **kwargs):
+        raise AssertionError("facturas_docs should not be consulted when preview is disabled")
+
+
+@pytest.mark.parametrize(
+    ("gasto", "can_preview", "facturas_docs", "expected"),
+    [
+        (
+            SimpleNamespace(
+                fecha=date(2026, 7, 24),
+                importe=Decimal("10.00"),
+                factura=SimpleNamespace(archivo=_Archivo(name="directa.pdf", url_value="directa-url")),
+            ),
+            True,
+            {},
+            "signed://directa.pdf",
+        ),
+        (
+            SimpleNamespace(
+                fecha=date(2026, 7, 24),
+                importe=Decimal("10.00"),
+                factura=None,
+            ),
+            True,
+            {
+                (date(2026, 7, 24), Decimal("10.00")): SimpleNamespace(
+                    archivo=_Archivo(name="fallback.pdf", url_value="fallback-url")
+                )
+            },
+            "signed://fallback.pdf",
+        ),
+        (
+            SimpleNamespace(
+                fecha=date(2026, 7, 24),
+                importe=Decimal("10.00"),
+                factura=SimpleNamespace(archivo=_Archivo(name="directa.pdf", url_value="directa-url")),
+            ),
+            False,
+            _DocsRaises({(date(2026, 7, 24), Decimal("10.00")): SimpleNamespace(archivo=_Archivo(name="x.pdf"))}),
+            None,
+        ),
+    ],
+)
+def test_build_project_gasto_factura_url_prefers_direct_factura_and_short_circuits_when_preview_is_disabled(
+    monkeypatch, gasto, can_preview, facturas_docs, expected
+):
+    monkeypatch.setattr(
+        core_views, "_s3_presigned_url", lambda key: f"signed://{key}" if key in {"directa.pdf", "fallback.pdf"} else ""
+    )
+
+    original_docs = dict(getattr(facturas_docs, "__dict__", {})) if hasattr(facturas_docs, "__dict__") else None
+
+    assert _build_project_gasto_factura_url(gasto, can_preview, facturas_docs) == expected
+    if original_docs is not None:
+        assert dict(getattr(facturas_docs, "__dict__", {})) == original_docs
 
 
 def test_proyecto_gasto_detalle_uses_storage_url_for_factura(monkeypatch):
