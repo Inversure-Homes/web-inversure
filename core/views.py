@@ -3359,6 +3359,31 @@ def _build_project_facturas_docs_lookup(documentos: Iterable[Any]) -> dict[tuple
     return facturas_docs
 
 
+def _build_project_gasto_factura_url(
+    gasto: Any,
+    can_preview: bool,
+    facturas_docs: dict[tuple[Any, Any], Any],
+) -> str | None:
+    """Resolver la URL de factura de un gasto sin tocar ORM ni mutar entradas."""
+    if not can_preview:
+        return None
+
+    factura_url = None
+    if hasattr(gasto, "factura") and gasto.factura:
+        try:
+            factura_url = _build_project_storage_url(gasto.factura)
+        except Exception:
+            factura_url = None
+    if not factura_url and facturas_docs:
+        doc = facturas_docs.get((gasto.fecha, gasto.importe))
+        if doc and doc.archivo:
+            try:
+                factura_url = _build_project_storage_url(doc)
+            except Exception:
+                factura_url = None
+    return factura_url
+
+
 def _build_project_participaciones_context(
     participaciones: list[Any],
     capital_objetivo: Decimal,
@@ -7418,20 +7443,7 @@ def proyecto_gastos(request, proyecto_id: int):
         gastos = []
         for g in GastoProyecto.objects.filter(proyecto=proyecto).order_by("fecha", "id"):
             estado = g.estado or "estimado"
-            factura_url = None
-            if can_preview:
-                if hasattr(g, "factura") and g.factura:
-                    try:
-                        factura_url = _build_project_storage_url(g.factura)
-                    except Exception:
-                        factura_url = None
-                if not factura_url and facturas_docs:
-                    doc = facturas_docs.get((g.fecha, g.importe))
-                    if doc and doc.archivo:
-                        try:
-                            factura_url = _build_project_storage_url(doc)
-                        except Exception:
-                            factura_url = None
+            factura_url = _build_project_gasto_factura_url(g, can_preview, facturas_docs)
             gastos.append({
                 "id": g.id,
                 "fecha": g.fecha.isoformat(),
