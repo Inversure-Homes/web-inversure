@@ -3169,7 +3169,7 @@ def _build_project_documents_context(
                 continue
             archivo_url = None
             try:
-                archivo_url = doc.signed_url if hasattr(doc, "signed_url") and doc.signed_url else doc.archivo.url
+                archivo_url = _build_project_media_url(doc)
             except Exception:
                 archivo_url = None
             fotos_docs.append({
@@ -3190,18 +3190,16 @@ def _build_project_documents_context(
                 None,
             )
             if landing_doc:
-                landing_preview_url = landing_doc.signed_url if hasattr(landing_doc, "signed_url") and landing_doc.signed_url else landing_doc.archivo.url
+                landing_preview_url = _build_project_media_url(landing_doc)
         if not landing_preview_url and principal:
-            landing_preview_url = principal.signed_url if hasattr(principal, "signed_url") and principal.signed_url else principal.archivo.url
+            landing_preview_url = _build_project_media_url(principal)
         ctx["landing_preview_url"] = landing_preview_url
     except Exception:
         ctx["landing_preview_url"] = None
 
     try:
         if principal:
-            ctx["foto_principal_url"] = (
-                principal.signed_url if hasattr(principal, "signed_url") and principal.signed_url else principal.archivo.url
-            )
+            ctx["foto_principal_url"] = _build_project_media_url(principal)
             ctx["foto_principal_titulo"] = principal.titulo
     except Exception:
         pass
@@ -3214,9 +3212,7 @@ def _build_project_documents_context(
                 None,
             )
             if cabecera_doc:
-                ctx["foto_principal_url"] = (
-                    cabecera_doc.signed_url if hasattr(cabecera_doc, "signed_url") and cabecera_doc.signed_url else cabecera_doc.archivo.url
-                )
+                ctx["foto_principal_url"] = _build_project_media_url(cabecera_doc)
                 ctx["foto_principal_titulo"] = cabecera_doc.titulo
     except Exception:
         pass
@@ -3228,7 +3224,7 @@ def _build_project_documents_context(
                 continue
             archivo_url = None
             try:
-                archivo_url = doc.signed_url if hasattr(doc, "signed_url") and doc.signed_url else doc.archivo.url
+                archivo_url = _build_project_media_url(doc)
             except Exception:
                 archivo_url = None
             facturas_docs.append({
@@ -3243,6 +3239,13 @@ def _build_project_documents_context(
         ctx["facturas_docs"] = []
 
     return ctx
+
+
+def _build_project_media_url(media: Any) -> str | None:
+    """Seleccionar la URL visible de un medio sin tocar ORM ni mutar la entrada."""
+    if hasattr(media, "signed_url") and media.signed_url:
+        return media.signed_url
+    return media.archivo.url
 
 
 def _build_project_documents_collection_context(
