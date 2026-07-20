@@ -200,9 +200,7 @@ class FinancialDashboardService:
         alerts = self._build_alerts(projects, project_metrics)
         active_project_count = sum(1 for project in projects if (project.estado or "") in ACTIVE_PROJECT_STATES)
         finalized_project_count = sum(1 for project in projects if (project.estado or "") in TERMINAL_PROJECT_STATES)
-
-        return {
-            "meta": self._build_meta(projects),
+        payload = {
             "filters": self.filters.to_dict(),
             "permissions": dict(self.permissions),
             "scope": {
@@ -220,16 +218,16 @@ class FinancialDashboardService:
             "projects": project_metrics,
         }
 
-    def _build_meta(self, projects: list[Proyecto]) -> dict[str, Any]:
-        project_signature = sorted(
-            ((project.id or 0, project.estado or "") for project in projects),
-            key=lambda item: item[0],
-        )
+        return {
+            "meta": self._build_meta(payload),
+            **payload,
+        }
+
+    def _build_meta(self, payload: dict[str, Any]) -> dict[str, Any]:
         scope_signature = {
             "role": self._role_scope(),
-            "filters": self.filters.to_dict(),
-            "project_signature": project_signature,
-            "version": 1,
+            "payload": payload,
+            "version": 2,
         }
         cache_key = sha256(json.dumps(scope_signature, sort_keys=True, default=str).encode("utf-8")).hexdigest()
         return {

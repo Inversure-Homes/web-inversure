@@ -324,6 +324,32 @@ def test_financial_dashboard_service_builds_structured_payload():
     }
 
 
+def test_financial_dashboard_cache_key_changes_when_payload_changes():
+    dataset = _build_service_dataset()
+    service = FinancialDashboardService(dataset["user"])
+    project = SimpleNamespace(id=dataset["proyectos"]["activo"].id, estado=dataset["proyectos"]["activo"].estado)
+
+    metrics_a = [{"project_id": project.id, "estado": project.estado, "beneficio_neto": 10.0}]
+    metrics_b = [{"project_id": project.id, "estado": project.estado, "beneficio_neto": 20.0}]
+
+    with (
+        patch.object(service, "_load_projects", return_value=[project]),
+        patch.object(service, "_build_summary", return_value={"kpi": 1}),
+        patch.object(service, "_build_period_summary", return_value={"period": "fixed"}),
+        patch.object(service, "_build_charts", return_value={"charts": "fixed"}),
+        patch.object(service, "_build_series", return_value={"series": "fixed"}),
+        patch.object(service, "_build_rankings", return_value={"rankings": "fixed"}),
+        patch.object(service, "_build_alerts", return_value={"alerts": "fixed"}),
+        patch.object(service, "_build_project_metrics", side_effect=[metrics_a, metrics_b]),
+    ):
+        payload_a = service.build()
+        payload_b = service.build()
+
+    assert payload_a["meta"]["cache_key"].startswith("financial-dashboard:")
+    assert payload_b["meta"]["cache_key"].startswith("financial-dashboard:")
+    assert payload_a["meta"]["cache_key"] != payload_b["meta"]["cache_key"]
+
+
 def test_build_project_metric_row_preserves_projection_and_inputs():
     project = SimpleNamespace(
         id=7,
