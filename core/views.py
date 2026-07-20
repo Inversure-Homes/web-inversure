@@ -4838,13 +4838,21 @@ def lista_proyectos(request):
     for p in proyectos:
         try:
             snap = _get_snapshot(p)
+            resultado = None
 
             try:
                 resultado = _resultado_desde_memoria(p, snap)
-                capital_objetivo = _capital_objetivo_desde_resultado(resultado, p)
-                roi = _as_float(resultado.get("roi"), 0.0)
+            except Exception:
+                pass
+
+            try:
+                capital_objetivo = _capital_objetivo_desde_resultado(resultado, p) if resultado is not None else 0.0
             except Exception:
                 capital_objetivo = 0.0
+
+            try:
+                roi = _as_float(resultado.get("roi"), 0.0) if resultado is not None else 0.0
+            except Exception:
                 roi = 0.0
 
             # Capital captado: suma de participaciones confirmadas del proyecto
