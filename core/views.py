@@ -3248,6 +3248,13 @@ def _build_project_media_url(media: Any) -> str | None:
     return media.archivo.url
 
 
+def _build_project_storage_url(media: Any) -> str | None:
+    """Seleccionar la URL visible de un archivo almacenado sin tocar ORM ni mutar la entrada."""
+    key = getattr(media.archivo, "name", "") or ""
+    signed = _s3_presigned_url(key)
+    return signed if signed else media.archivo.url
+
+
 def _build_project_documents_collection_context(
     documentos: Iterable[Any],
     use_signed: bool = False,
@@ -3293,9 +3300,7 @@ def _build_project_facturas_gasto_context(facturas: Iterable[Any]) -> list[dict[
     for factura in facturas:
         factura_url = None
         try:
-            key = getattr(factura.archivo, "name", "") or ""
-            signed = _s3_presigned_url(key)
-            factura_url = signed if signed else factura.archivo.url
+            factura_url = _build_project_storage_url(factura)
         except Exception:
             factura_url = None
         facturas_ctx.append({
@@ -7381,18 +7386,14 @@ def proyecto_gastos(request, proyecto_id: int):
             if can_preview:
                 if hasattr(g, "factura") and g.factura:
                     try:
-                        key = getattr(g.factura.archivo, "name", "") or ""
-                        signed = _s3_presigned_url(key)
-                        factura_url = signed if signed else g.factura.archivo.url
+                        factura_url = _build_project_storage_url(g.factura)
                     except Exception:
                         factura_url = None
                 if not factura_url and facturas_docs:
                     doc = facturas_docs.get((g.fecha, g.importe))
                     if doc and doc.archivo:
                         try:
-                            key = getattr(doc.archivo, "name", "") or ""
-                            signed = _s3_presigned_url(key)
-                            factura_url = signed if signed else doc.archivo.url
+                            factura_url = _build_project_storage_url(doc)
                         except Exception:
                             factura_url = None
             gastos.append({
@@ -7478,9 +7479,7 @@ def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
         factura_url = None
         if _can_preview_facturas(request.user) and hasattr(gasto, "factura") and gasto.factura:
             try:
-                key = getattr(gasto.factura.archivo, "name", "") or ""
-                signed = _s3_presigned_url(key)
-                factura_url = signed if signed else gasto.factura.archivo.url
+                factura_url = _build_project_storage_url(gasto.factura)
             except Exception:
                 factura_url = None
         return JsonResponse({
@@ -7635,9 +7634,7 @@ def proyecto_ingresos(request, proyecto_id: int):
             justificante_url = None
             if hasattr(i, "justificante") and getattr(i.justificante, "archivo", None):
                 try:
-                    key = getattr(i.justificante.archivo, "name", "") or ""
-                    signed = _s3_presigned_url(key)
-                    justificante_url = signed if signed else i.justificante.archivo.url
+                    justificante_url = _build_project_storage_url(i.justificante)
                 except Exception:
                     justificante_url = None
             ingresos.append({
@@ -7721,9 +7718,7 @@ def proyecto_ingreso_detalle(request, proyecto_id: int, ingreso_id: int):
         justificante_url = None
         if hasattr(ingreso, "justificante") and getattr(ingreso.justificante, "archivo", None):
             try:
-                key = getattr(ingreso.justificante.archivo, "name", "") or ""
-                signed = _s3_presigned_url(key)
-                justificante_url = signed if signed else ingreso.justificante.archivo.url
+                justificante_url = _build_project_storage_url(ingreso.justificante)
             except Exception:
                 justificante_url = None
         return JsonResponse({
