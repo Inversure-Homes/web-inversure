@@ -15,6 +15,7 @@ from core.models import ChecklistItem, GastoProyecto, IngresoProyecto, Participa
 from core.services.financial_dashboard import (
     FinancialDashboardFilters,
     FinancialDashboardService,
+    _build_project_metric_row,
     build_financial_dashboard_data,
 )
 
@@ -321,6 +322,93 @@ def test_financial_dashboard_service_builds_structured_payload():
         dataset["proyectos"]["cerrado"].id,
         dataset["proyectos"]["activo"].id,
     }
+
+
+def test_build_project_metric_row_preserves_projection_and_inputs():
+    project = SimpleNamespace(
+        id=7,
+        codigo_proyecto="PR-007",
+        nombre="  Proyecto Demo  ",
+        estado="captacion",
+        datos_economicos=SimpleNamespace(estado_operativo="en marcha"),
+        get_estado_display=lambda: "Captación",
+    )
+    resultado = {
+        "beneficio_neto": 420.0,
+        "valor_adquisicion": 1200.0,
+        "roi": 7.5,
+        "beneficio_neto_tras_impuestos": 390.0,
+        "ratio_euro": 1.25,
+        "margen_neto": 0.2,
+        "inversion_total": 3000.0,
+        "gastos_real_total": 800.0,
+        "gastos_est_total": 900.0,
+        "base_memoria_real": False,
+    }
+    beneficio_memoria = {"beneficio_estimado": 100.0, "beneficio_real": 160.0, "has_movimientos": True}
+    operacion = {"beneficio_bruto": 500.0, "beneficio_neto_total": 450.0, "comision_eur": 50.0}
+    settlement = {
+        "capital_invertido": Decimal("1000.00"),
+        "beneficio_neto": Decimal("20.00"),
+        "retorno_total": Decimal("1020.00"),
+        "roi_bruto_medio": 5.0,
+        "roi_neto_medio": 2.5,
+        "participaciones": 3,
+    }
+    resultado_original = dict(resultado)
+    beneficio_memoria_original = dict(beneficio_memoria)
+    operacion_original = dict(operacion)
+    settlement_original = dict(settlement)
+
+    row = _build_project_metric_row(
+        project=project,
+        resultado=resultado,
+        beneficio_memoria=beneficio_memoria,
+        operacion=operacion,
+        settlement=settlement,
+        capital_objetivo=Decimal("25000.00"),
+        capital_captado=Decimal("10000.00"),
+        capital_pendiente=Decimal("15000.00"),
+        participaciones_confirmadas=[SimpleNamespace(), SimpleNamespace(), SimpleNamespace()],
+    )
+
+    assert row["project_id"] == 7
+    assert row["codigo_proyecto"] == "PR-007"
+    assert row["nombre"] == "Proyecto Demo"
+    assert row["estado"] == "captacion"
+    assert row["estado_label"] == "Captación"
+    assert row["estado_operativo"] == "en marcha"
+    assert row["capital_objetivo"] == Decimal("25000.00")
+    assert row["capital_captado"] == Decimal("10000.00")
+    assert row["capital_pendiente"] == Decimal("15000.00")
+    assert row["beneficio_estimado"] == pytest.approx(100.0)
+    assert row["beneficio_real"] == pytest.approx(160.0)
+    assert row["beneficio_neto"] == pytest.approx(420.0)
+    assert row["beneficio_bruto_operacion"] == pytest.approx(500.0)
+    assert row["beneficio_neto_operacion"] == pytest.approx(450.0)
+    assert row["beneficio_inversure"] == pytest.approx(50.0)
+    assert row["beneficio_neto_tras_impuestos"] == pytest.approx(390.0)
+    assert row["roi"] == pytest.approx(7.5)
+    assert row["ratio_euro"] == pytest.approx(1.25)
+    assert row["margen_neto"] == pytest.approx(0.2)
+    assert row["inversion_total"] == pytest.approx(3000.0)
+    assert row["valor_adquisicion"] == pytest.approx(1200.0)
+    assert row["gastos_real_total"] == pytest.approx(800.0)
+    assert row["gastos_est_total"] == pytest.approx(900.0)
+    assert row["deviation"] == {
+        "estimado": pytest.approx(100.0),
+        "real": pytest.approx(160.0),
+        "delta": pytest.approx(60.0),
+        "delta_pct": pytest.approx(60.0),
+    }
+    assert row["investment_return"] is settlement
+    assert row["participaciones_confirmadas"] == 3
+    assert row["has_movimientos"] is True
+    assert row["base_memoria_real"] is False
+    assert resultado == resultado_original
+    assert beneficio_memoria == beneficio_memoria_original
+    assert operacion == operacion_original
+    assert settlement == settlement_original
 
 
 def test_financial_dashboard_service_applies_project_state_and_date_filters():
