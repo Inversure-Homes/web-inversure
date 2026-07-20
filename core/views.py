@@ -7639,9 +7639,7 @@ def proyecto_gasto_factura(request, proyecto_id: int, gasto_id: int):
 
     factura_url = None
     try:
-        key = getattr(factura_obj.archivo, "name", "") or ""
-        signed = _s3_presigned_url(key)
-        factura_url = signed if signed else factura_obj.archivo.url
+        factura_url = _build_project_storage_url(factura_obj)
     except Exception:
         factura_url = None
 
