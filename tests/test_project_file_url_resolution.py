@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from core import views as core_views
-from core.views import _apply_project_signed_url, _build_project_file_url
+from core.views import _apply_project_signed_url, _build_project_file_url, _build_project_signed_url
 
 
 @dataclass
@@ -87,3 +87,21 @@ def test_apply_project_signed_url_sets_signed_url_without_mutating_other_fields(
     assert _apply_project_signed_url(media) == "signed://signed.pdf"
     assert media.signed_url == "signed://signed.pdf"
     assert media.archivo == original["archivo"]
+
+
+@pytest.mark.parametrize(
+    ("media", "expected"),
+    [
+        (SimpleNamespace(), ""),
+        (_Media(archivo=_Archivo(name="signed.pdf", url_value="raw-url")), "signed://signed.pdf"),
+    ],
+)
+def test_build_project_signed_url_uses_archivo_name_and_falls_back_to_empty_string(monkeypatch, media, expected):
+    monkeypatch.setattr(
+        core_views, "_s3_presigned_url", lambda key: "signed://signed.pdf" if key == "signed.pdf" else ""
+    )
+
+    original = dict(getattr(media, "__dict__", {}))
+
+    assert _build_project_signed_url(media) == expected
+    assert dict(getattr(media, "__dict__", {})) == original

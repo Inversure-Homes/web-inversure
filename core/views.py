@@ -3281,10 +3281,15 @@ def _build_project_file_url(
 
 def _apply_project_signed_url(media: Any) -> str:
     """Calcular y fijar signed_url en un medio sin tocar ORM ni mutar propiedades externas."""
-    key = getattr(media.archivo, "name", "") or ""
-    signed = _s3_presigned_url(key)
-    media.signed_url = signed or ""
+    media.signed_url = _build_project_signed_url(media)
     return media.signed_url
+
+
+def _build_project_signed_url(media: Any) -> str:
+    """Obtener la signed_url visible de un medio sin tocar ORM ni mutar la entrada."""
+    key = getattr(getattr(media, "archivo", None), "name", "") or ""
+    signed = _s3_presigned_url(key)
+    return signed or ""
 
 
 def _build_project_documents_collection_context(
@@ -5575,9 +5580,7 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
         docs = docs.select_related("proyecto").order_by("-creado")
         docs_map = {}
     for d in docs:
-        key = getattr(getattr(d, "archivo", None), "name", "") or ""
-        signed = _s3_presigned_url(key)
-        d.signed_url = signed or ""
+        _apply_project_signed_url(d)
         docs_map.setdefault(d.proyecto_id, {"proyecto": d.proyecto, "docs": []})["docs"].append(d)
     documentos_por_proyecto = list(docs_map.values())
 
@@ -7868,9 +7871,7 @@ def proyecto_ingreso_justificante(request, proyecto_id: int, ingreso_id: int):
 
     justificante_url = None
     try:
-        key = getattr(just_obj.archivo, "name", "") or ""
-        signed = _s3_presigned_url(key)
-        justificante_url = signed if signed else just_obj.archivo.url
+        justificante_url = _build_project_storage_url(just_obj)
     except Exception:
         justificante_url = None
 
