@@ -10,7 +10,7 @@ import pytest
 from django.test import RequestFactory
 
 from core import views as core_views
-from core.views import _build_project_storage_url
+from core.views import _build_project_facturas_docs_lookup, _build_project_storage_url
 
 
 @dataclass
@@ -156,6 +156,29 @@ def test_proyecto_gastos_uses_storage_urls_for_facturas_and_fallback_documents(m
             "has_factura": True,
         },
     ]
+
+
+def test_build_project_facturas_docs_lookup_preserves_first_document_per_key():
+    duplicated = _Archivo(name="duplicado.pdf", url_value="duplicado-url")
+    docs = [
+        SimpleNamespace(
+            fecha_factura=date(2026, 7, 24), importe_factura=Decimal("10.00"), titulo="Primero", archivo=duplicated
+        ),
+        SimpleNamespace(
+            fecha_factura=date(2026, 7, 24), importe_factura=Decimal("10.00"), titulo="Segundo", archivo=duplicated
+        ),
+        SimpleNamespace(
+            fecha_factura=date(2026, 7, 25), importe_factura=Decimal("15.00"), titulo="Tercero", archivo=duplicated
+        ),
+    ]
+
+    original = [dict(getattr(doc, "__dict__", {})) for doc in docs]
+
+    result = _build_project_facturas_docs_lookup(docs)
+
+    assert result[(date(2026, 7, 24), Decimal("10.00"))].titulo == "Primero"
+    assert result[(date(2026, 7, 25), Decimal("15.00"))].titulo == "Tercero"
+    assert [dict(getattr(doc, "__dict__", {})) for doc in docs] == original
 
 
 def test_proyecto_gasto_detalle_uses_storage_url_for_factura(monkeypatch):

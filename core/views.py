@@ -3349,6 +3349,16 @@ def _build_project_facturas_gasto_context(facturas: Iterable[Any]) -> list[dict[
     return facturas_ctx
 
 
+def _build_project_facturas_docs_lookup(documentos: Iterable[Any]) -> dict[tuple[Any, Any], Any]:
+    """Indexar documentos de factura por fecha e importe sin tocar ORM ni mutar entradas."""
+    facturas_docs: dict[tuple[Any, Any], Any] = {}
+    for doc in documentos:
+        key = (doc.fecha_factura, doc.importe_factura)
+        if key not in facturas_docs:
+            facturas_docs[key] = doc
+    return facturas_docs
+
+
 def _build_project_participaciones_context(
     participaciones: list[Any],
     capital_objetivo: Decimal,
@@ -7402,10 +7412,7 @@ def proyecto_gastos(request, proyecto_id: int):
                 )
                 .order_by("-creado", "-id")
             )
-            for doc in docs:
-                key = (doc.fecha_factura, doc.importe_factura)
-                if key not in facturas_docs:
-                    facturas_docs[key] = doc
+            facturas_docs = _build_project_facturas_docs_lookup(docs)
         except Exception:
             facturas_docs = {}
         gastos = []
