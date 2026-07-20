@@ -36,9 +36,18 @@ def retencion_pct_for_tipo_persona(tipo_persona: str) -> float:
     Se usa como configuración del sistema y puede ajustarse vía variables de entorno.
     """
     tipo = (tipo_persona or "F").strip().upper()
-    if tipo == "J":
-        return _env_float("INVERSOR_RETENCION_PCT_J", 19.0) or 19.0
-    return _env_float("INVERSOR_RETENCION_PCT_F", 19.0) or 19.0
+    env_names = ("INVERSOR_RETENCION_PCT_J", "INVERSOR_RETENCION_PCT") if tipo == "J" else (
+        "INVERSOR_RETENCION_PCT_F",
+        "INVERSOR_RETENCION_PCT",
+    )
+    for env_name in env_names:
+        raw = os.environ.get(env_name)
+        if raw in (None, ""):
+            continue
+        value = _as_float(raw, None)
+        if value is not None:
+            return value
+    return 19.0
 
 
 def limit_loss_to_capital_enabled() -> bool:

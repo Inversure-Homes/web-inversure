@@ -293,3 +293,41 @@ def test_calc_inversor_settlement_uses_person_type_retention_override(monkeypatc
     assert result["total_a_percibir"] == 0.0
     assert result["roi_bruto_pct"] == -150.0
     assert result["roi_neto_pct"] == -100.0
+
+
+def test_retencion_pct_for_tipo_persona_preserves_zero_and_global_fallback(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("INVERSOR_RETENCION_PCT", "0")
+    monkeypatch.setenv("INVERSOR_RETENCION_PCT_F", "0")
+    monkeypatch.setenv("INVERSOR_RETENCION_PCT_J", "0")
+
+    assert retencion_pct_for_tipo_persona("F") == 0.0
+    assert retencion_pct_for_tipo_persona("J") == 0.0
+
+    zero_result = calc_inversor_settlement(
+        capital_invertido=1000,
+        total_proyecto_invertido=1000,
+        beneficio_bruto_operacion=1000,
+        tipo_persona="J",
+        comision_pct=0,
+        limit_loss_to_capital=True,
+    )
+    assert zero_result["retencion_pct"] == 0.0
+    assert zero_result["retencion"] == 0.0
+
+    monkeypatch.setenv("INVERSOR_RETENCION_PCT", "17")
+    monkeypatch.delenv("INVERSOR_RETENCION_PCT_F", raising=False)
+    monkeypatch.delenv("INVERSOR_RETENCION_PCT_J", raising=False)
+
+    assert retencion_pct_for_tipo_persona("F") == 17.0
+    assert retencion_pct_for_tipo_persona("J") == 17.0
+
+    fallback_result = calc_inversor_settlement(
+        capital_invertido=1000,
+        total_proyecto_invertido=1000,
+        beneficio_bruto_operacion=1000,
+        tipo_persona="F",
+        comision_pct=0,
+        limit_loss_to_capital=True,
+    )
+    assert fallback_result["retencion_pct"] == 17.0
+    assert fallback_result["retencion"] == 170.0

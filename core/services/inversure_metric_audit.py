@@ -17,6 +17,7 @@ from django.test import RequestFactory
 from django.urls import resolve
 from django.utils import timezone
 
+from core.finance import retencion_pct_for_tipo_persona
 from core.models import DatosEconomicosProyecto, GastoProyecto, IngresoProyecto, Participacion, Proyecto
 
 SEVERITY_LEVELS = ("info", "warning", "error", "critical")
@@ -1831,9 +1832,9 @@ class InversureMetricAuditService:
     def _retention_pct_for_participation(self, part: Participacion) -> Decimal:
         cliente = getattr(part, "cliente", None)
         tipo_persona = _normalize_state(getattr(cliente, "tipo_persona", "")) if cliente is not None else ""
-        env_key = "INVERSOR_RETENCION_PCT_J" if tipo_persona == "j" else "INVERSOR_RETENCION_PCT_F"
-        raw = os.environ.get(env_key) or os.environ.get("INVERSOR_RETENCION_PCT") or "19"
-        rate = _decimal(raw, Decimal("19")) or Decimal("19")
+        rate = _decimal(retencion_pct_for_tipo_persona(tipo_persona), Decimal("19"))
+        if rate is None:
+            rate = Decimal("19")
         return max(Decimal("0"), min(rate, Decimal("100")))
 
     def _limit_loss_to_capital_enabled(self) -> bool:

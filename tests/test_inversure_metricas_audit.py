@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from decimal import Decimal
 from io import StringIO
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -204,6 +205,23 @@ def test_audit_service_marks_dashboard_ingresos_reales_non_verifiable(direccion_
         assert row.classification == "regla_de_negocio_pendiente"
         assert row.severity == "warning"
         assert row.recalculated_value is None
+
+
+def test_audit_service_retention_helper_preserves_zero_and_global_fallback(monkeypatch):
+    service = InversureMetricAuditService(viewer_user=None)
+    part = SimpleNamespace(cliente=SimpleNamespace(tipo_persona="F"))
+
+    monkeypatch.setenv("INVERSOR_RETENCION_PCT", "0")
+    monkeypatch.setenv("INVERSOR_RETENCION_PCT_F", "0")
+    monkeypatch.setenv("INVERSOR_RETENCION_PCT_J", "0")
+
+    assert service._retention_pct_for_participation(part) == Decimal("0")
+
+    monkeypatch.setenv("INVERSOR_RETENCION_PCT", "17")
+    monkeypatch.delenv("INVERSOR_RETENCION_PCT_F", raising=False)
+    monkeypatch.delenv("INVERSOR_RETENCION_PCT_J", raising=False)
+
+    assert service._retention_pct_for_participation(part) == Decimal("17")
 
 
 @pytest.mark.parametrize(
