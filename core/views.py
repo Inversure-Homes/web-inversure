@@ -3384,6 +3384,24 @@ def _build_project_gasto_factura_url(
     return factura_url
 
 
+def _build_project_gasto_payload(gasto: Any, factura_url: str | None) -> dict[str, Any]:
+    """Serializar un gasto sin tocar ORM ni mutar la entrada."""
+    return {
+        "id": gasto.id,
+        "fecha": gasto.fecha.isoformat(),
+        "categoria": gasto.categoria,
+        "concepto": gasto.concepto,
+        "proveedor": gasto.proveedor,
+        "importe": float(gasto.importe),
+        "imputable_inversores": gasto.imputable_inversores,
+        "estado": gasto.estado or "estimado",
+        "observaciones": gasto.observaciones,
+        "pagado": bool(getattr(gasto, "pagado", False)),
+        "factura_url": factura_url,
+        "has_factura": bool(factura_url),
+    }
+
+
 def _build_project_participaciones_context(
     participaciones: list[Any],
     capital_objetivo: Decimal,
@@ -7442,22 +7460,8 @@ def proyecto_gastos(request, proyecto_id: int):
             facturas_docs = {}
         gastos = []
         for g in GastoProyecto.objects.filter(proyecto=proyecto).order_by("fecha", "id"):
-            estado = g.estado or "estimado"
             factura_url = _build_project_gasto_factura_url(g, can_preview, facturas_docs)
-            gastos.append({
-                "id": g.id,
-                "fecha": g.fecha.isoformat(),
-                "categoria": g.categoria,
-                "concepto": g.concepto,
-                "proveedor": g.proveedor,
-                "importe": float(g.importe),
-                "imputable_inversores": g.imputable_inversores,
-                "estado": estado,
-                "observaciones": g.observaciones,
-                "pagado": bool(getattr(g, "pagado", False)),
-                "factura_url": factura_url,
-                "has_factura": bool(factura_url),
-            })
+            gastos.append(_build_project_gasto_payload(g, factura_url))
         return JsonResponse({"ok": True, "gastos": gastos})
 
     if request.method != "POST":
@@ -7532,20 +7536,7 @@ def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
                 factura_url = None
         return JsonResponse({
             "ok": True,
-            "gasto": {
-                "id": gasto.id,
-                "fecha": gasto.fecha.isoformat(),
-                "categoria": gasto.categoria,
-                "concepto": gasto.concepto,
-                "proveedor": gasto.proveedor,
-                "importe": float(gasto.importe),
-                "imputable_inversores": gasto.imputable_inversores,
-                "estado": gasto.estado or "estimado",
-                "observaciones": gasto.observaciones,
-                "pagado": bool(getattr(gasto, "pagado", False)),
-                "factura_url": factura_url,
-                "has_factura": bool(factura_url),
-            },
+            "gasto": _build_project_gasto_payload(gasto, factura_url),
         })
 
     if req_method == "DELETE":
