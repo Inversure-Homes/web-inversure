@@ -1799,19 +1799,13 @@ def _logo_data_uri(logo_name: str = "core/logo_inversure.png") -> str:
 
 
 def _documento_url(request, documento: DocumentoProyecto) -> str:
-    key = getattr(documento.archivo, "name", "") or ""
-    signed = _s3_presigned_url(key)
-    if signed:
-        return signed
-    try:
-        if request:
-            return request.build_absolute_uri(documento.archivo.url)
-    except Exception:
-        pass
-    try:
-        return documento.archivo.url
-    except Exception:
-        return ""
+    return _build_project_file_url(
+        documento,
+        request,
+        use_presigned_url=True,
+        use_request_absolute_uri=True,
+        empty_on_error=True,
+    )
 
 
 def _documento_image_url(request, documento: DocumentoProyecto) -> str:
@@ -3243,16 +3237,54 @@ def _build_project_documents_context(
 
 def _build_project_media_url(media: Any) -> str | None:
     """Seleccionar la URL visible de un medio sin tocar ORM ni mutar la entrada."""
-    if hasattr(media, "signed_url") and media.signed_url:
-        return media.signed_url
-    return media.archivo.url
+    return _build_project_file_url(media, signed_url_attr="signed_url")
 
 
 def _build_project_storage_url(media: Any) -> str | None:
     """Seleccionar la URL visible de un archivo almacenado sin tocar ORM ni mutar la entrada."""
+    return _build_project_file_url(media, use_presigned_url=True)
+
+
+def _build_project_file_url(
+    media: Any,
+    request: Any | None = None,
+    *,
+    signed_url_attr: str | None = None,
+    use_presigned_url: bool = False,
+    use_request_absolute_uri: bool = False,
+    empty_on_error: bool = False,
+) -> str | None:
+    """Seleccionar la URL visible de un archivo o medio sin tocar ORM ni mutar la entrada."""
+    if signed_url_attr:
+        signed_url = getattr(media, signed_url_attr, None)
+        if signed_url:
+            return signed_url
+
+    archivo = media.archivo
+    if use_presigned_url:
+        key = getattr(archivo, "name", "") or ""
+        signed = _s3_presigned_url(key)
+        if signed:
+            return signed
+    if use_request_absolute_uri and request:
+        try:
+            return request.build_absolute_uri(archivo.url)
+        except Exception:
+            pass
+    if empty_on_error:
+        try:
+            return archivo.url
+        except Exception:
+            return ""
+    return archivo.url
+
+
+def _apply_project_signed_url(media: Any) -> str:
+    """Calcular y fijar signed_url en un medio sin tocar ORM ni mutar propiedades externas."""
     key = getattr(media.archivo, "name", "") or ""
     signed = _s3_presigned_url(key)
-    return signed if signed else media.archivo.url
+    media.signed_url = signed or ""
+    return media.signed_url
 
 
 def _build_project_documents_collection_context(
@@ -3264,10 +3296,7 @@ def _build_project_documents_collection_context(
     if use_signed:
         for doc in documentos:
             try:
-                key = getattr(doc.archivo, "name", "") or ""
-                signed = _s3_presigned_url(key)
-                if signed:
-                    doc.signed_url = signed
+                _apply_project_signed_url(doc)
             except Exception:
                 pass
     return {
@@ -5125,8 +5154,7 @@ def inversores_list(request):
     docs_por_inversor = {}
     if perfiles_ids:
         for d in DocumentoInversor.objects.filter(inversor_id__in=perfiles_ids).order_by("-creado"):
-            signed = _s3_presigned_url(d.archivo.name)
-            d.signed_url = signed or ""
+            _apply_project_signed_url(d)
             docs_por_inversor.setdefault(d.inversor_id, []).append(d)
 
     inversores = []
@@ -5555,9 +5583,7 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
 
     documentos_personales = []
     for d in DocumentoInversor.objects.filter(inversor=perfil).order_by("-creado"):
-        key = getattr(getattr(d, "archivo", None), "name", "") or ""
-        signed = _s3_presigned_url(key)
-        d.signed_url = signed or ""
+        _apply_project_signed_url(d)
         documentos_personales.append(d)
 
     # --- Proyectos visibles en portal ---
