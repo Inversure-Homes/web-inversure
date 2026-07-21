@@ -14,6 +14,7 @@ from django.test import RequestFactory
 from django.urls import reverse
 from django.utils import timezone
 
+from core import views as core_views
 from core.services.financial_dashboard import FinancialDashboardFilters, FinancialDashboardService
 
 from .financial_audit_support import (
@@ -627,6 +628,22 @@ def test_project_detail_keeps_snapshot_roi_and_benefit_when_latest_snapshot_diff
     assert _decimal(context["resultado"]["beneficio_neto"]) == Decimal("26019.30")
     # El detalle sigue mostrando el último snapshot guardado por compatibilidad histórica.
     assert _decimal(context["captacion"]["capital_objetivo"]) == Decimal("100000.00")
+
+
+def test_project_detail_keeps_landing_auto_key_even_when_not_needed(direccion_user):
+    scenario = build_rentable_scenario()
+    extra = deepcopy(scenario.project.extra or {})
+    extra.setdefault("landing", {})["beneficio_neto_pct"] = "18"
+    scenario.project.extra = extra
+    scenario.project.save(update_fields=["extra"])
+
+    request = _make_request(reverse("core:proyecto", args=[scenario.project.id]), direccion_user)
+
+    with _freeze_financial_now():
+        response, _, context = _capture_render_context(core_views.proyecto, request, scenario.project.id)
+
+    assert response.status_code == 200
+    assert context["landing_beneficio_neto_pct_auto"] is None
 
 
 def test_zero_investment_project_keeps_settlement_and_liquidation_safe(verified_client, direccion_user):

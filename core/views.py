@@ -6379,8 +6379,7 @@ def proyecto(request, proyecto_id: int):
         if not landing_config.get("beneficio_neto_pct"):
             roi_auto = _roi_memoria_proyecto(proyecto_obj)
         landing_beneficio_neto_pct_auto = _build_landing_beneficio_neto_pct_auto(landing_config, roi_auto)
-        if landing_beneficio_neto_pct_auto is not None:
-            ctx["landing_beneficio_neto_pct_auto"] = landing_beneficio_neto_pct_auto
+        ctx["landing_beneficio_neto_pct_auto"] = landing_beneficio_neto_pct_auto
     except Exception:
         pass
 
