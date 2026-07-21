@@ -644,34 +644,42 @@
           <div>
             <div class="k">Reparto del beneficio estimado</div>
             {% with ben=snapshot.economico.beneficio_estimado com=inversor.comision_inversure_eur|default:inversor.comision_eur net=inversor.beneficio_neto %}
-              {% if (ben or ben == 0) and (com or com == 0) and (net or net == 0) %}
-                {% with com_i=com|floatformat:0 ben_i=ben|floatformat:0 net_i=net|floatformat:0 %}
-                  <div class="stack" title="Comisión (gris) + neto inversor (azul)">
-                    <span class="stack__part--a" style="width:{% widthratio com_i ben_i 100 %}%;"></span>
-                    <span class="stack__part--b" style="width:{% widthratio net_i ben_i 100 %}%;"></span>
-                  </div>
-                  {% widthratio net_i ben_i 100 as pct_net %}
-                  <div class="donut-wrap" title="Neto inversor sobre beneficio">
-                    <div>
-                      <div class="donut">
-                        <svg viewBox="0 0 120 120" role="img" aria-label="Neto inversor">
-                          <circle class="bg" cx="60" cy="60" r="44" pathLength="100" stroke-dasharray="100 100"></circle>
-                          <circle class="fg" cx="60" cy="60" r="44" pathLength="100" stroke-dasharray="{{ pct_net|default:0 }} 100"></circle>
-                        </svg>
-                        <div class="donut-center"><span>{{ pct_net|default:0 }}%</span></div>
+              {% if ben or ben == 0 %}
+                {% if com or com == 0 %}
+                  {% if net or net == 0 %}
+                    {% with com_i=com|floatformat:0 ben_i=ben|floatformat:0 net_i=net|floatformat:0 %}
+                      <div class="stack" title="Comisión (gris) + neto inversor (azul)">
+                        <span class="stack__part--a" style="width:{% widthratio com_i ben_i 100 %}%;"></span>
+                        <span class="stack__part--b" style="width:{% widthratio net_i ben_i 100 %}%;"></span>
                       </div>
+                      {% widthratio net_i ben_i 100 as pct_net %}
+                      <div class="donut-wrap" title="Neto inversor sobre beneficio">
+                        <div>
+                          <div class="donut">
+                            <svg viewBox="0 0 120 120" role="img" aria-label="Neto inversor">
+                              <circle class="bg" cx="60" cy="60" r="44" pathLength="100" stroke-dasharray="100 100"></circle>
+                              <circle class="fg" cx="60" cy="60" r="44" pathLength="100" stroke-dasharray="{{ pct_net|default:0 }} 100"></circle>
+                            </svg>
+                            <div class="donut-center"><span>{{ pct_net|default:0 }}%</span></div>
+                          </div>
+                        </div>
+                        <div class="note" style="margin-top:0;">
+                          <div><strong>Neto inversor</strong> (porcentaje sobre beneficio)</div>
+                          <div>Comisión: {{ com|es_number }} € · Neto: {{ net|es_number }} €</div>
+                        </div>
+                      </div>
+                    {% endwith %}
+                    <div class="note">
+                      Beneficio: {{ ben|es_number }} € ·
+                      Comisión: {{ com|es_number }} € ·
+                      Neto inversor: {{ net|es_number }} €
                     </div>
-                    <div class="note" style="margin-top:0;">
-                      <div><strong>Neto inversor</strong> (porcentaje sobre beneficio)</div>
-                      <div>Comisión: {{ com|es_number }} € · Neto: {{ net|es_number }} €</div>
-                    </div>
-                  </div>
-                {% endwith %}
-                <div class="note">
-                  Beneficio: {{ ben|es_number }} € ·
-                  Comisión: {{ com|es_number }} € ·
-                  Neto inversor: {{ net|es_number }} €
-                </div>
+                  {% else %}
+                    <div class="note">—</div>
+                  {% endif %}
+                {% else %}
+                  <div class="note">—</div>
+                {% endif %}
               {% else %}
                 <div class="note">—</div>
               {% endif %}

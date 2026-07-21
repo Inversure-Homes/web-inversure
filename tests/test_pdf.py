@@ -98,3 +98,33 @@ def test_pdf_estudio_preview_rebuilds_metrics_from_study_payload():
     assert inversor["roi_neto"] == 40.0
     assert inversor["beneficio_neto_tras_impuestos"] == 27000.0
     assert inversor["roi_neto_tras_impuestos"] == 27.0
+
+
+def test_pdf_estudio_preview_renders_real_template():
+    estudio = EstudioFactory(
+        datos={
+            "valor_adquisicion": 100000,
+            "precio_transmision": 140000,
+            "beneficio": 40000,
+            "roi": 40.0,
+            "comision_inversure_pct": 10,
+            "impuesto_sociedades_pct": 25,
+            "snapshot": {
+                "inversor": {
+                    "beneficio_neto": 22222,
+                    "roi_neto": 22.22,
+                    "beneficio_neto_tras_impuestos": 11111,
+                    "roi_neto_tras_impuestos": 11.11,
+                },
+                "kpis": {"metricas": {"roi": 88.0, "beneficio": 88888}},
+            },
+            "kpis": {"metricas": {"beneficio": 99999}},
+            "economico": {"beneficio_estimado": 77777},
+        },
+    )
+    request = RequestFactory().get("/")
+
+    response = core_views.pdf_estudio_preview(request, estudio.id)
+
+    assert response.status_code == 200
+    assert "Informe de rentabilidad" in response.content.decode("utf-8")
