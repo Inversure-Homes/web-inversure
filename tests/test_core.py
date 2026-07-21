@@ -1,4 +1,5 @@
 import pytest
+from django.test import override_settings
 from django.urls import reverse
 
 from .factories import InversorPerfilFactory
@@ -33,3 +34,16 @@ def test_inversor_portal_without_confirmed_participations_does_not_500(client):
     response = client.get(reverse("core:inversor_portal", args=[perfil.token]))
 
     assert response.status_code == 200
+
+
+@override_settings(VAPID_PUBLIC_KEY="")
+def test_inversor_push_public_key_without_vapid_key_does_not_500(client):
+    perfil = InversorPerfilFactory()
+    response = client.get(reverse("core:inversor_push_public_key", args=[perfil.token]))
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "ok": False,
+        "error": "VAPID public key missing",
+        "publicKey": "",
+    }

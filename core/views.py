@@ -280,7 +280,7 @@ def inversor_manifest(request, token: str):
 def inversor_push_public_key(request, token: str):
     get_object_or_404(InversorPerfil, token=token, activo=True)
     if not settings.VAPID_PUBLIC_KEY:
-        return JsonResponse({"ok": False, "error": "VAPID public key missing"}, status=500)
+        return JsonResponse({"ok": False, "error": "VAPID public key missing", "publicKey": ""})
     return JsonResponse({"ok": True, "publicKey": settings.VAPID_PUBLIC_KEY})
 
 
