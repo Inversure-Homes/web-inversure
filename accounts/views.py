@@ -1,6 +1,8 @@
 import json
 import logging
+from urllib.parse import urlparse
 
+from cryptography.hazmat.primitives.asymmetric import ec as crypto_ec
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import Group, User
@@ -13,16 +15,30 @@ from django.conf import settings
 
 from auditlog.models import LogEntry
 try:
-    from pywebpush import webpush, WebPushException
+    import pywebpush
+    from pywebpush import Vapid, WebPusher, WebPushException
 except Exception:  # pragma: no cover
-    webpush = None
+    pywebpush = None
+    Vapid = None
+    WebPusher = None
 
     class WebPushException(Exception):
         pass
-
 from .forms import UserCreateForm, UserEditForm
 from .models import UserConnectionLog, UserSession, WebPushSubscription
 from .utils import is_admin_user
+
+
+class _CallableSECP256R1(crypto_ec.EllipticCurve):
+    name = "secp256r1"
+    key_size = 256
+    group_order = crypto_ec.SECP256R1().group_order
+
+    def __call__(self):
+        return self
+
+
+_SECP256R1_COMPAT = _CallableSECP256R1()
 
 
 def _is_admin(user):
@@ -162,25 +178,36 @@ def push_unsubscribe(request):
 
 
 def _webpush_send(subscription: WebPushSubscription, payload: dict) -> bool:
-    if webpush is None:
+    if Vapid is None or WebPusher is None:
         return False
     if not settings.VAPID_PRIVATE_KEY or not settings.VAPID_PUBLIC_KEY:
         return False
+    curve_module = None
+    restore_curve = None
     sub_info = {
         "endpoint": subscription.endpoint,
         "keys": {"p256dh": subscription.p256dh, "auth": subscription.auth},
     }
     try:
-        webpush(
-            subscription_info=sub_info,
-            data=json.dumps(payload),
-            vapid_private_key=settings.VAPID_PRIVATE_KEY,
-            vapid_claims={"sub": settings.VAPID_SUBJECT},
-        )
+        vapid = Vapid.from_string(settings.VAPID_PRIVATE_KEY)
+        curve_module = getattr(pywebpush, "ec", None)
+        curve = getattr(curve_module, "SECP256R1", None)
+        if isinstance(curve, type):
+            restore_curve = curve
+            curve_module.SECP256R1 = _SECP256R1_COMPAT
+        claims = {
+            "sub": settings.VAPID_SUBJECT,
+            "aud": f"{urlparse(subscription.endpoint).scheme}://{urlparse(subscription.endpoint).netloc}",
+        }
+        headers = vapid.sign(claims)
+        WebPusher(sub_info).send(json.dumps(payload), headers, content_encoding="aes128gcm")
         return True
     except WebPushException:
         logging.getLogger(__name__).exception("WebPush failed")
         return False
+    finally:
+        if restore_curve is not None and curve_module is not None:
+            curve_module.SECP256R1 = restore_curve
 
 
 @login_required
