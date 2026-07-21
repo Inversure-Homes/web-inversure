@@ -1,4 +1,5 @@
 import pytest
+from django.test import override_settings
 from django.urls import reverse
 
 from accounts.models import UserAccess
@@ -36,3 +37,15 @@ def test_non_admin_useraccess_defaults_to_blank_role():
     user = UserFactory()
     access = UserAccess.objects.create(user=user, role="")
     assert access.role == ""
+
+
+@override_settings(VAPID_PUBLIC_KEY="")
+def test_push_public_key_without_vapid_key_does_not_500(verified_client):
+    response = verified_client.get(reverse("accounts:push_public_key"))
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "ok": False,
+        "error": "VAPID public key missing",
+        "publicKey": "",
+    }

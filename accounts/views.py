@@ -113,7 +113,7 @@ def activity_dashboard(request):
 @require_GET
 def push_public_key(request):
     if not settings.VAPID_PUBLIC_KEY:
-        return JsonResponse({"ok": False, "error": "VAPID public key missing"}, status=500)
+        return JsonResponse({"ok": False, "error": "VAPID public key missing", "publicKey": ""})
     return JsonResponse({"ok": True, "publicKey": settings.VAPID_PUBLIC_KEY})
 
 
