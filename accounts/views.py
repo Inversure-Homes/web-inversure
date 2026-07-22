@@ -1,10 +1,11 @@
 import json
 import logging
+from functools import wraps
 from urllib.parse import urlparse
 
 from cryptography.hazmat.primitives.asymmetric import ec as crypto_ec
 from django.contrib.auth import logout
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group, User
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -45,6 +46,19 @@ def _is_admin(user):
     return is_admin_user(user)
 
 
+def admin_required(view_func):
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return redirect(f"{reverse('accounts:login')}?next={request.path}")
+        if not _is_admin(user):
+            return redirect("/app/")
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped
+
+
 def login_view(request):
     return redirect(reverse("two_factor:login"))
 
@@ -55,7 +69,7 @@ def logout_view(request):
 
 
 @login_required
-@user_passes_test(_is_admin)
+@admin_required
 def users_list(request):
     usuarios = User.objects.order_by("username")
     grupos = Group.objects.order_by("name")
@@ -63,7 +77,7 @@ def users_list(request):
 
 
 @login_required
-@user_passes_test(_is_admin)
+@admin_required
 def user_create(request):
     if request.method == "POST":
         form = UserCreateForm(request.POST)
@@ -76,7 +90,7 @@ def user_create(request):
 
 
 @login_required
-@user_passes_test(_is_admin)
+@admin_required
 def user_edit(request, user_id):
     user_obj = get_object_or_404(User, id=user_id)
     if request.method == "POST":
@@ -90,7 +104,7 @@ def user_edit(request, user_id):
 
 
 @login_required
-@user_passes_test(_is_admin)
+@admin_required
 def user_delete(request, user_id):
     user_obj = get_object_or_404(User, id=user_id)
     if request.method == "POST":
@@ -100,7 +114,7 @@ def user_delete(request, user_id):
 
 
 @login_required
-@user_passes_test(_is_admin)
+@admin_required
 def activity_dashboard(request):
     now = timezone.now()
     active_cutoff = now - timezone.timedelta(minutes=15)
@@ -211,7 +225,7 @@ def _webpush_send(subscription: WebPushSubscription, payload: dict) -> bool:
 
 
 @login_required
-@user_passes_test(_is_admin)
+@admin_required
 @require_POST
 def push_send_test(request):
     try:

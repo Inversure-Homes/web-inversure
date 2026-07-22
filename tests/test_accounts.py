@@ -2,7 +2,8 @@ from types import SimpleNamespace
 
 import pytest
 from django.contrib.auth.models import Group
-from django.test import override_settings
+from django.http import HttpResponse
+from django.test import RequestFactory, override_settings
 from django.urls import reverse
 
 from accounts import views
@@ -19,6 +20,19 @@ def test_login_view_redirects_to_two_factor_login(client):
     response = client.get(reverse("accounts:login"))
     assert response.status_code == 302
     assert response.url == reverse("two_factor:login")
+
+
+def test_admin_views_redirect_authenticated_non_admins_to_app_root():
+    request = RequestFactory().get("/app/actividad/")
+    request.user = SimpleNamespace(
+        is_authenticated=True,
+        is_superuser=False,
+    )
+
+    response = views.admin_required(lambda req: HttpResponse("ok"))(request)
+
+    assert response.status_code == 302
+    assert response.url == "/app/"
 
 
 def test_direccion_role_gets_core_permissions(direccion_user):
