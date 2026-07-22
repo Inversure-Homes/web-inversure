@@ -621,7 +621,7 @@ def _admin_notify_users():
     users = []
     try:
         for u in User.objects.filter(is_active=True):
-            if is_admin_user(u) or is_direccion_user(u) or (_build_username_key(u) == "mperez"):
+            if is_admin_user(u) or is_direccion_user(u):
                 users.append(u)
     except Exception:
         users = []
@@ -6272,13 +6272,8 @@ def proyecto(request, proyecto_id: int):
     editable = _user_can_edit_project(request.user, proyecto_obj)
     editable_estado = editable
     try:
-        username = _build_username_key(request.user)
-        if username == "mperez":
-            editable = True
-            editable_estado = True
-        else:
-            estado = (getattr(proyecto_obj, "estado", "") or "").strip().lower()
-            editable, editable_estado = _build_project_editability_flags(editable, estado)
+        estado = (getattr(proyecto_obj, "estado", "") or "").strip().lower()
+        editable, editable_estado = _build_project_editability_flags(editable, estado)
     except Exception:
         editable = True
         editable_estado = True
@@ -6805,8 +6800,7 @@ def guardar_proyecto(request, proyecto_id: int):
         if proyecto_payload:
             nested_ok = all(k in allowed_keys for k in proyecto_payload.keys())
         only_estado_changes = (top_keys == set(payload.keys())) and nested_ok
-        username = _build_username_key(request.user)
-        if not only_estado_changes or (not is_admin_user(request.user) and not is_direccion_user(request.user) and username != "mperez"):
+        if not only_estado_changes or (not is_admin_user(request.user) and not is_direccion_user(request.user)):
             _admin_notify(
                 request,
                 proyecto_obj,
