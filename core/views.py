@@ -2982,7 +2982,7 @@ def _build_resultado_context(
 
     if isinstance(snap_result, dict):
         for key, value in snap_result.items():
-            if value not in (None, "", []):
+            if value not in (None, "", []) and resultado.get(key) in (None, "", []):
                 resultado[key] = value
 
     return resultado
