@@ -30,7 +30,7 @@ def _allow_all_permissions(user):
     }
 
 
-def test_codex_test_bypasses_two_factor_setup(monkeypatch):
+def test_codex_test_is_redirected_to_two_factor_setup(monkeypatch):
     request = _make_request("codex-test")
     middleware = RoleAccessMiddleware(lambda req: HttpResponse("ok"))
 
@@ -40,8 +40,8 @@ def test_codex_test_bypasses_two_factor_setup(monkeypatch):
 
     response = middleware(request)
 
-    assert response.status_code == 200
-    assert response.content == b"ok"
+    assert response.status_code == 302
+    assert response.url == reverse("two_factor:setup")
 
 
 def test_non_bypass_user_is_redirected_to_two_factor_setup(monkeypatch):
