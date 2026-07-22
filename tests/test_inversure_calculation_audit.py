@@ -607,7 +607,7 @@ def test_closed_project_distinguishes_project_pdf_and_liquidation_tax_bases(veri
     assert liquidation_response.json()["liquidaciones"][0]["estado"] == "Liquidación cerrada"
 
 
-def test_project_detail_keeps_snapshot_roi_and_benefit_when_latest_snapshot_differs_from_live(
+def test_project_detail_prefers_live_result_over_historical_snapshot_when_they_differ(
     verified_client,
     direccion_user,
 ):
@@ -624,9 +624,9 @@ def test_project_detail_keeps_snapshot_roi_and_benefit_when_latest_snapshot_diff
 
     context = _response_context(response, must_have=("captacion", "resultado", "inv"))
 
-    assert _decimal(context["resultado"]["roi"]) == Decimal("16.3729")
-    assert _decimal(context["resultado"]["beneficio_neto"]) == Decimal("26019.30")
-    # El detalle sigue mostrando el último snapshot guardado por compatibilidad histórica.
+    assert _decimal(context["resultado"]["roi"]) == scenario.expected["detail"]["roi"]
+    assert _decimal(context["resultado"]["beneficio_neto"]) == scenario.expected["detail"]["beneficio_neto"]
+    assert _decimal(context["resultado"]["impuesto_sociedades"]) == scenario.expected["detail"]["impuesto_sociedades"]
     assert _decimal(context["captacion"]["capital_objetivo"]) == Decimal("100000.00")
 
 
