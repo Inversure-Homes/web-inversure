@@ -494,6 +494,30 @@ def test_project_documents_context_preserves_empty_documents_when_principal_sele
     assert "facturas_docs" not in ctx
 
 
+def test_project_documents_context_does_not_bypass_editability_for_mperez(monkeypatch):
+    documentos = []
+    fake_project = _install_project_flow_stubs(monkeypatch, documentos)
+    request = _make_project_request()
+    request.user = SimpleNamespace(username="mperez", is_authenticated=True)
+    monkeypatch.setattr(core_views, "_user_can_edit_project", lambda user, proyecto: False)
+
+    captured = {}
+
+    def _fake_render(request, template_name, context=None, *args, **kwargs):
+        captured["template_name"] = template_name
+        captured["context"] = context or {}
+        return HttpResponse("captured")
+
+    monkeypatch.setattr(core_views, "render", _fake_render)
+
+    response = core_views.proyecto(request, fake_project.id)
+
+    assert response.status_code == 200
+    ctx = captured["context"]
+    assert ctx["editable"] is False
+    assert ctx["editable_estado"] is False
+
+
 def test_project_documents_context_keeps_materialized_documents_on_normal_flow(monkeypatch):
     documentos = [
         _Documento(
