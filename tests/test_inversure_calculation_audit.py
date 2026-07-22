@@ -612,6 +612,11 @@ def test_project_detail_prefers_live_result_over_historical_snapshot_when_they_d
     direccion_user,
 ):
     scenario = build_closed_profit_scenario()
+    extra = deepcopy(scenario.project.extra or {})
+    extra["resultado_source_version"] = 2
+    scenario.project.extra = extra
+    scenario.project.save(update_fields=["extra"])
+
     snapshot = deepcopy(scenario.project.snapshot_datos or {})
     snapshot.setdefault("resultado", {})["roi"] = 16.3729
     snapshot["resultado"]["beneficio_neto"] = 26019.30
@@ -627,6 +632,28 @@ def test_project_detail_prefers_live_result_over_historical_snapshot_when_they_d
     assert _decimal(context["resultado"]["roi"]) == scenario.expected["detail"]["roi"]
     assert _decimal(context["resultado"]["beneficio_neto"]) == scenario.expected["detail"]["beneficio_neto"]
     assert _decimal(context["resultado"]["impuesto_sociedades"]) == scenario.expected["detail"]["impuesto_sociedades"]
+    assert _decimal(context["captacion"]["capital_objetivo"]) == Decimal("100000.00")
+
+
+def test_project_detail_keeps_snapshot_roi_and_benefit_for_legacy_projects(
+    verified_client,
+    direccion_user,
+):
+    scenario = build_closed_profit_scenario()
+    snapshot = deepcopy(scenario.project.snapshot_datos or {})
+    snapshot.setdefault("resultado", {})["roi"] = 16.3729
+    snapshot["resultado"]["beneficio_neto"] = 26019.30
+    snapshot.setdefault("economico", {})["roi"] = 16.3729
+    snapshot.setdefault("kpis", {}).setdefault("metricas", {})["roi"] = 16.3729
+    scenario.project.snapshots.create(datos=snapshot, fuente="guardado")
+
+    with _freeze_financial_now():
+        response = verified_client.get(reverse("core:proyecto", args=[scenario.project.id]))
+
+    context = _response_context(response, must_have=("captacion", "resultado", "inv"))
+
+    assert _decimal(context["resultado"]["roi"]) == Decimal("16.3729")
+    assert _decimal(context["resultado"]["beneficio_neto"]) == Decimal("26019.30")
     assert _decimal(context["captacion"]["capital_objetivo"]) == Decimal("100000.00")
 
 

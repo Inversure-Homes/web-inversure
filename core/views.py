@@ -2971,6 +2971,8 @@ def _build_resultado_context(
     resultado_calc: dict[str, Any],
     resultado_memoria: dict[str, Any] | None = None,
     snap_result: dict[str, Any] | None = None,
+    *,
+    snapshot_fill_only: bool = False,
 ) -> dict[str, Any]:
     """Construir el resultado público de proyecto sin tocar ORM ni mutar entradas."""
     resultado = dict(resultado_calc or {})
@@ -2982,10 +2984,73 @@ def _build_resultado_context(
 
     if isinstance(snap_result, dict):
         for key, value in snap_result.items():
-            if value not in (None, "", []) and resultado.get(key) in (None, "", []):
-                resultado[key] = value
+            if value in (None, "", []):
+                continue
+            if snapshot_fill_only and resultado.get(key) not in (None, "", []):
+                continue
+            resultado[key] = value
 
     return resultado
+
+
+def _project_result_source_version(
+    proyecto: Any,
+    snapshot: dict[str, Any] | None = None,
+) -> int:
+    """Resolver la versión de precedencia de resultado sin tocar ORM ni mutar entradas."""
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+
+    try:
+        extra = getattr(proyecto, "extra", None)
+        if isinstance(extra, dict):
+            raw = extra.get("resultado_source_version")
+            if raw not in (None, ""):
+                return int(raw)
+    except Exception:
+        pass
+
+    proyecto_sec = snapshot.get("proyecto") if isinstance(snapshot.get("proyecto"), dict) else {}
+    for raw in (
+        snapshot.get("resultado_source_version"),
+        proyecto_sec.get("resultado_source_version"),
+    ):
+        if raw not in (None, ""):
+            try:
+                return int(raw)
+            except Exception:
+                return 1
+    return 1
+
+
+def _project_uses_live_result_precedence(
+    proyecto: Any,
+    snapshot: dict[str, Any] | None = None,
+) -> bool:
+    """Indicar si el proyecto usa la precedencia nueva de resultado."""
+    return _project_result_source_version(proyecto, snapshot) >= 2
+
+
+def _default_new_project_extra(extra: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Construir el bloque extra por defecto para proyectos nuevos."""
+    base = dict(extra) if isinstance(extra, dict) else {}
+    base.setdefault("resultado_source_version", 2)
+    return base
+
+
+def _build_project_result_context(
+    proyecto: Any,
+    snapshot: dict[str, Any],
+    resultado_calc: dict[str, Any],
+    resultado_memoria: dict[str, Any] | None = None,
+    snap_result: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Construir `resultado` respetando la compatibilidad legacy o la precedencia nueva."""
+    return _build_resultado_context(
+        resultado_calc,
+        resultado_memoria,
+        snap_result,
+        snapshot_fill_only=_project_uses_live_result_precedence(proyecto, snapshot),
+    )
 
 
 def _build_inversor_context(
@@ -6245,7 +6310,13 @@ def proyecto(request, proyecto_id: int):
             resultado_memoria = _resultado_desde_memoria(proyecto_obj, snapshot)
         except Exception:
             pass
-        resultado = _build_resultado_context(resultado_calc, resultado_memoria, snap_result)
+        resultado = _build_project_result_context(
+            proyecto_obj,
+            snapshot,
+            resultado_calc,
+            resultado_memoria,
+            snap_result,
+        )
     except Exception:
         resultado = snapshot.get("resultado") if isinstance(snapshot.get("resultado"), dict) else {}
 
@@ -7182,6 +7253,8 @@ def convertir_a_proyecto(request, estudio_id: int):
             proyecto_kwargs["responsable"] = _build_responsable_label(request.user)
         if _has_field(Proyecto, "convertido_desde_estudio"):
             proyecto_kwargs["convertido_desde_estudio"] = True
+        if _has_field(Proyecto, "extra"):
+            proyecto_kwargs["extra"] = _default_new_project_extra()
         proyecto = None
         last_exc = None
         for _attempt in range(4):
