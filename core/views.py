@@ -7950,6 +7950,8 @@ def proyecto_documento_borrar(request, proyecto_id: int, documento_id: int):
         id=documento_id,
         proyecto_id=proyecto_id,
     )
+    if not _user_can_edit_project(request.user, documento.proyecto):
+        return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
     documento.delete()
     return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-documentacion")
 
@@ -7962,6 +7964,8 @@ def proyecto_documento_principal(request, proyecto_id: int, documento_id: int):
         id=documento_id,
         proyecto_id=proyecto_id,
     )
+    if not _user_can_edit_project(request.user, documento.proyecto):
+        return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
     if documento.categoria != "fotografias":
         return JsonResponse({"ok": False, "error": "Solo válido para fotografías"}, status=400)
     DocumentoProyecto.objects.filter(
@@ -7982,6 +7986,8 @@ def proyecto_documento_flag(request, proyecto_id: int, documento_id: int):
         proyecto_id=proyecto_id,
         categoria="fotografias",
     )
+    if not _user_can_edit_project(request.user, documento.proyecto):
+        return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
     field = (request.POST.get("field") or "").strip()
     allowed = {"usar_pdf", "usar_story", "usar_instagram", "usar_dossier"}
     if field not in allowed:
