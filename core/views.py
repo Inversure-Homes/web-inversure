@@ -5837,6 +5837,7 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
     }
 
 
+@ensure_csrf_cookie
 def inversor_portal(request, token: str):
     perfil = get_object_or_404(InversorPerfil, token=token, activo=True)
     portal_pin_hash = getattr(perfil, "portal_pin_hash", "")

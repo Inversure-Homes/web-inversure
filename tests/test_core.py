@@ -36,6 +36,14 @@ def test_inversor_portal_without_confirmed_participations_does_not_500(client):
     assert response.status_code == 200
 
 
+def test_inversor_portal_sets_csrf_cookie_for_frontend_posts(client):
+    perfil = InversorPerfilFactory()
+    response = client.get(reverse("core:inversor_portal", args=[perfil.token]))
+
+    assert response.status_code == 200
+    assert "csrftoken" in response.cookies
+
+
 @override_settings(VAPID_PUBLIC_KEY="")
 def test_inversor_push_public_key_without_vapid_key_does_not_500(client):
     perfil = InversorPerfilFactory()
