@@ -6,19 +6,12 @@ from django.utils.http import urlencode
 from .models import UserSession
 from .utils import resolve_permissions, use_custom_permissions, is_admin_user
 
-_TWO_FACTOR_BYPASS_USERNAMES = {"codex-test"}
-
 
 def _get_client_ip(request):
     forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
     if forwarded:
         return forwarded.split(",")[0].strip()
     return request.META.get("REMOTE_ADDR", "")
-
-
-def _should_bypass_two_factor(user) -> bool:
-    username = (getattr(user, "username", "") or "").strip().lower()
-    return bool(username and username in _TWO_FACTOR_BYPASS_USERNAMES)
 
 
 class UserSessionMiddleware:
@@ -88,7 +81,7 @@ class RoleAccessMiddleware:
                 is_verified = user.is_verified()
             except Exception:
                 is_verified = False
-            if not is_verified and not _should_bypass_two_factor(user):
+            if not is_verified:
                 setup_url = reverse("two_factor:setup")
                 if not path.startswith(setup_url):
                     return redirect(setup_url)

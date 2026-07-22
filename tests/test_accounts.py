@@ -96,12 +96,12 @@ def test_webpush_send_patches_pywebpush_curve_compatibility(monkeypatch):
         "endpoint": "https://example.com/push",
         "keys": {"p256dh": "p256dh-value", "auth": "auth-value"},
     }
-    assert seen["private_key"] == "private-key"
+    assert seen["private_key"] == "private-key"  # pragma: allowlist secret
     assert seen["claims"] == {
         "sub": "mailto:test@example.com",
         "aud": "https://example.com",
     }
-    assert seen["data"] == "{\"title\": \"Inversure\", \"body\": \"Prueba\"}"
+    assert seen["data"] == '{"title": "Inversure", "body": "Prueba"}'
     assert seen["headers"] == {"Authorization": "Bearer test"}
     assert seen["content_encoding"] == "aes128gcm"
     assert seen["curve_call_works"] is True
