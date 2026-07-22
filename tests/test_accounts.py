@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 import pytest
+from django.contrib.auth.models import Group
 from django.test import override_settings
 from django.urls import reverse
 
@@ -40,6 +41,33 @@ def test_non_admin_useraccess_defaults_to_blank_role():
     user = UserFactory()
     access = UserAccess.objects.create(user=user, role="")
     assert access.role == ""
+
+
+def test_group_role_fallback_grants_moderator_project_permissions():
+    user = UserFactory()
+    UserAccess.objects.create(user=user, role="", use_custom_perms=False)
+    group, _ = Group.objects.get_or_create(name="Moderators")
+    user.groups.add(group)
+
+    perms = resolve_permissions(user)
+
+    assert perms["can_proyectos"] is True
+    assert perms["can_simulador"] is False
+    assert perms["can_cms"] is False
+
+
+def test_explicit_useraccess_role_takes_precedence_over_groups():
+    user = UserFactory()
+    UserAccess.objects.create(user=user, role=UserAccess.ROLE_MARKETING, use_custom_perms=False)
+    group, _ = Group.objects.get_or_create(name="Moderators")
+    user.groups.add(group)
+
+    perms = resolve_permissions(user)
+
+    assert perms["can_estudios"] is True
+    assert perms["can_proyectos"] is True
+    assert perms["can_cms"] is True
+    assert perms["can_simulador"] is False
 
 
 @override_settings(VAPID_PUBLIC_KEY="")

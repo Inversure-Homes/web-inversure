@@ -6,11 +6,8 @@ ROLE_COMERCIAL = "comercial"
 ROLE_MODERATORS = "moderators"
 
 
-def _get_role(user):
-    access = get_user_access(user)
-    if not access:
-        return ""
-    raw = (access.role or "").strip().lower()
+def _normalize_role(raw_role: str) -> str:
+    raw = (raw_role or "").strip().lower()
     if not raw:
         return ""
     # Normaliza acentos (p.ej. "dirección" -> "direccion") para evitar roles no reconocidos.
@@ -21,6 +18,34 @@ def _get_role(user):
     except Exception:
         pass
     return raw
+
+
+def _get_role(user):
+    access = get_user_access(user)
+    access_role = _normalize_role(getattr(access, "role", ""))
+    if access_role:
+        return access_role
+
+    if not user or not getattr(user, "is_authenticated", False):
+        return ""
+
+    try:
+        groups = user.groups.values_list("name", flat=True)
+    except Exception:
+        return ""
+
+    for group_name in groups:
+        normalized = _normalize_role(group_name)
+        if normalized in {
+            ROLE_ADMIN,
+            ROLE_ADMIN_ALIAS,
+            ROLE_DIRECCION,
+            ROLE_MARKETING,
+            ROLE_COMERCIAL,
+            ROLE_MODERATORS,
+        }:
+            return normalized
+    return ""
 
 
 def is_admin_user(user) -> bool:
