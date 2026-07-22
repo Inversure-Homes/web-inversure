@@ -6,6 +6,7 @@ from django.test import override_settings
 from django.urls import reverse
 
 from accounts import views
+from accounts.forms import UserCreateForm
 from accounts.models import UserAccess
 from accounts.utils import is_direccion_user, resolve_permissions
 
@@ -68,6 +69,29 @@ def test_explicit_useraccess_role_takes_precedence_over_groups():
     assert perms["can_proyectos"] is True
     assert perms["can_cms"] is True
     assert perms["can_simulador"] is False
+
+
+def test_user_create_form_derives_role_from_groups_when_role_missing():
+    group, _ = Group.objects.get_or_create(name="Moderators")
+    form = UserCreateForm(
+        data={
+            "username": "group-role-user",
+            "email": "group-role@example.com",
+            "first_name": "Group",
+            "last_name": "Role",
+            "password": "secret123",
+            "password_confirm": "secret123",
+            "is_active": "on",
+            "is_staff": "on",
+            "groups": [str(group.id)],
+        }
+    )
+
+    assert form.is_valid(), form.errors
+    user = form.save()
+
+    assert user.user_access.role == UserAccess.ROLE_MODERATORS
+    assert resolve_permissions(user)["can_proyectos"] is True
 
 
 @override_settings(VAPID_PUBLIC_KEY="")

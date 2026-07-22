@@ -74,6 +74,12 @@
       </div>
 
       <div class="mt-4">
+        <label class="form-label" for="{{ form.role.id_for_label }}">Rol principal</label>
+        {{ form.role }}
+        {% if form.role.errors %}<div class="text-danger small">{{ form.role.errors }}</div>{% endif %}
+      </div>
+
+      <div class="mt-4">
         <label class="form-label">Grupos</label>
         <div class="border rounded p-2">
           {{ form.groups }}

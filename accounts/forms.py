@@ -3,6 +3,24 @@ from django.contrib.auth.models import Group, User
 
 from .models import UserAccess
 
+
+ROLE_GROUP_NAMES = {
+    UserAccess.ROLE_ADMIN: "Administracion",
+    UserAccess.ROLE_DIRECCION: "Direccion",
+    UserAccess.ROLE_COMERCIAL: "Comercial",
+    UserAccess.ROLE_MARKETING: "Marketing",
+    UserAccess.ROLE_MODERATORS: "Moderators",
+}
+
+
+def _resolve_role_from_groups(groups) -> str:
+    group_names = {getattr(group, "name", "") for group in (groups or [])}
+    for role, group_name in ROLE_GROUP_NAMES.items():
+        if group_name in group_names:
+            return role
+    return ""
+
+
 class UserCreateForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput, required=True)
     password_confirm = forms.CharField(widget=forms.PasswordInput, required=True)
@@ -63,6 +81,8 @@ class UserCreateForm(forms.ModelForm):
         pw2 = cleaned.get("password_confirm")
         if pw1 and pw2 and pw1 != pw2:
             raise forms.ValidationError("Las contraseñas no coinciden.")
+        if not cleaned.get("role") and not cleaned.get("use_custom_perms"):
+            cleaned["role"] = _resolve_role_from_groups(cleaned.get("groups"))
         return cleaned
 
     def save(self, commit=True):
@@ -72,7 +92,10 @@ class UserCreateForm(forms.ModelForm):
             user.save()
             self.save_m2m()
             access, _ = UserAccess.objects.get_or_create(user=user)
-            access.role = (self.cleaned_data.get("role") or "").strip()
+            role = (self.cleaned_data.get("role") or "").strip()
+            if not role and not self.cleaned_data.get("use_custom_perms"):
+                role = _resolve_role_from_groups(user.groups.all())
+            access.role = role
             access.use_custom_perms = bool(self.cleaned_data.get("use_custom_perms"))
             access.can_simulador = bool(self.cleaned_data.get("can_simulador"))
             access.can_estudios = bool(self.cleaned_data.get("can_estudios"))
@@ -160,6 +183,8 @@ class UserEditForm(forms.ModelForm):
         if pw1 or pw2:
             if pw1 != pw2:
                 raise forms.ValidationError("Las contraseñas no coinciden.")
+        if not cleaned.get("role") and not cleaned.get("use_custom_perms"):
+            cleaned["role"] = _resolve_role_from_groups(cleaned.get("groups"))
         return cleaned
 
     def save(self, commit=True):
@@ -171,7 +196,10 @@ class UserEditForm(forms.ModelForm):
             user.save()
             self.save_m2m()
             access, _ = UserAccess.objects.get_or_create(user=user)
-            access.role = (self.cleaned_data.get("role") or "").strip()
+            role = (self.cleaned_data.get("role") or "").strip()
+            if not role and not self.cleaned_data.get("use_custom_perms"):
+                role = _resolve_role_from_groups(user.groups.all())
+            access.role = role
             access.use_custom_perms = bool(self.cleaned_data.get("use_custom_perms"))
             access.can_simulador = bool(self.cleaned_data.get("can_simulador"))
             access.can_estudios = bool(self.cleaned_data.get("can_estudios"))
