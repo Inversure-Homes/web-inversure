@@ -71,6 +71,124 @@ class Operacion:
     ]
 
 
+# =============================================================================
+# Tipos reducidos
+# =============================================================================
+#
+# El catálogo es DELIBERADAMENTE PARCIAL. Cada comunidad tiene sus propios
+# supuestos, con límites de valor, edad, empadronamiento y plazos, y cambian
+# todos los años. Aquí solo están los que se han podido contrastar; el resto se
+# consulta con la gestoría.
+#
+# Y una decisión de diseño que importa: **ningún tipo reducido se aplica solo**.
+# El software no puede verificar si se cumplen los requisitos —que la sociedad
+# tenga la actividad principal correcta, que se declare en escritura, que se
+# revenda dentro de plazo—, y aplicar uno indebidamente significa pagar después
+# la diferencia más intereses. Se ofrecen como candidatos, con sus requisitos a
+# la vista, y alguien decide.
+#
+# `perfil` son las condiciones que deben darse para que el supuesto ni siquiera
+# se ofrezca. `requisitos` es lo que hay que cumplir y acreditar.
+
+SUPUESTOS_REDUCIDOS = {
+    "andalucia": [
+        {
+            "clave": "reventa_profesional",
+            "nombre": "Adquisición por profesional inmobiliario para reventa",
+            "tipo": Decimal("2"),
+            "perfil": {"empresa_inmobiliaria": True, "reventa": True},
+            "limite_valor": Decimal("500000"),
+            "requisitos": [
+                "La actividad principal debe ser construcción, promoción o compraventa de inmuebles por cuenta propia.",
+                "El inmueble se incorpora al activo circulante (existencias).",
+                "La intención de revender debe declararse en la escritura.",
+                "Desde 2026: revender en 2 años y valor máximo de 500.000 € incluidos anexos y garajes.",
+            ],
+            "aviso": "Si no se revende dentro del plazo hay que ingresar la "
+            "diferencia con el tipo general más intereses de demora.",
+        }
+    ],
+    "madrid": [
+        {
+            "clave": "reventa_profesional",
+            "nombre": "Adquisición por profesional inmobiliario para reventa",
+            "tipo": Decimal("2"),
+            "perfil": {"empresa_inmobiliaria": True, "reventa": True},
+            "requisitos": [
+                "Actividad principal de construcción, promoción o compraventa de inmuebles.",
+                "Incorporación al activo circulante y declaración en escritura.",
+                "Reventa dentro del plazo que fije la normativa vigente.",
+            ],
+            "aviso": "Confirmar el plazo de reventa aplicable en el ejercicio.",
+        }
+    ],
+    "cataluna": [
+        {
+            "clave": "reventa_profesional",
+            "nombre": "Bonificación del 70 % por reventa profesional",
+            "tipo": Decimal("3"),
+            "perfil": {"empresa_inmobiliaria": True, "reventa": True},
+            "requisitos": [
+                "Se articula como bonificación del 70 % de la cuota, no como "
+                "tipo reducido: el 3 % es el efectivo aproximado sobre el 10 %.",
+                "Reventa en un máximo de 3 años.",
+            ],
+            "aviso": "Verificar el importe exacto con la gestoría: la "
+            "bonificación se calcula sobre la cuota, no sobre la base.",
+        }
+    ],
+    "valencia": [
+        {
+            "clave": "joven",
+            "nombre": "Menor de 35 años, primera vivienda habitual",
+            "tipo": Decimal("6"),
+            "perfil": {"joven": True, "vivienda_habitual": True},
+            "requisitos": [
+                "Base liquidable máxima de 30.000 € en tributación individual y 47.000 € en conjunta.",
+            ],
+        },
+        {
+            "clave": "familia_discapacidad",
+            "nombre": "Familia numerosa, discapacidad ≥ 65 % o víctima de violencia",
+            "tipo": Decimal("4"),
+            "perfil": {"vivienda_habitual": True},
+            "limite_valor": Decimal("180000"),
+            "requisitos": ["Vivienda habitual de valor no superior a 180.000 €."],
+        },
+    ],
+    "rioja": [
+        {
+            "clave": "joven",
+            "nombre": "Menor de 40 años",
+            "tipo": Decimal("4"),
+            "perfil": {"joven": True, "vivienda_habitual": True},
+            "requisitos": ["Baja al 3 % en municipios pequeños."],
+        },
+        {
+            "clave": "vpo_discapacidad",
+            "nombre": "VPO o discapacidad ≥ 33 %",
+            "tipo": Decimal("5"),
+            "perfil": {"vivienda_habitual": True},
+            "requisitos": [],
+        },
+    ],
+}
+
+
+def supuestos_aplicables(comunidad, perfil=None):
+    """
+    Tipos reducidos que **podrían** aplicar, dado el perfil de la operación.
+
+    No decide: filtra. La comprobación real de requisitos es de la gestoría.
+    """
+    perfil = perfil or {}
+    candidatos = []
+    for supuesto in SUPUESTOS_REDUCIDOS.get(comunidad, []):
+        if all(perfil.get(k) == v for k, v in supuesto["perfil"].items()):
+            candidatos.append(supuesto)
+    return candidatos
+
+
 def _eur(valor):
     return Decimal(valor).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
@@ -94,12 +212,18 @@ def calcular(
     valor_referencia=None,
     con_vivienda=False,
     ajd=None,
+    supuesto=None,
+    perfil=None,
 ):
     """
     Impuesto de la compra. Devuelve importe, tipo aplicado y de dónde sale.
 
-    No sustituye a una gestoría: no contempla tipos reducidos por edad, familia
-    numerosa, VPO ni los tramos de las comunidades con escala.
+    Con `supuesto` se aplica un tipo reducido concreto, que alguien ha decidido
+    aplicar a sabiendas. Sin él se calcula al tipo general y, si el perfil da
+    para alguno, se devuelven como `candidatos` para que se vean.
+
+    No sustituye a una gestoría: no contempla todos los supuestos de todas las
+    comunidades ni los tramos de las que aplican escala.
     """
     base = base_imponible(precio, valor_referencia)
     avisos = []
@@ -118,8 +242,10 @@ def calcular(
             "impuesto": "IVA + AJD",
             "tipo": tipo,
             "tipo_ajd": tipo_ajd,
+            "supuesto": None,
             "base": base,
             "importe": importe,
+            "candidatos": [],
             "avisos": avisos,
         }
 
@@ -130,8 +256,49 @@ def calcular(
             "tipo": None,
             "base": base,
             "importe": Decimal("0"),
+            "candidatos": [],
             "avisos": ["Indica la comunidad autónoma para calcular el ITP."],
         }
+
+    candidatos = supuestos_aplicables(comunidad, perfil)
+    elegido = None
+    if supuesto:
+        elegido = next((s for s in candidatos if s["clave"] == supuesto), None)
+        if elegido is None:
+            avisos.append(
+                "El tipo reducido «{}» no consta como aplicable en {}: se calcula al tipo general.".format(
+                    supuesto, datos["nombre"]
+                )
+            )
+
+    if elegido:
+        limite = elegido.get("limite_valor")
+        if limite and base > limite:
+            avisos.append(
+                "El valor supera el límite de {:.0f} € del tipo reducido: se aplica el general.".format(limite)
+            )
+            elegido = None
+
+    if elegido:
+        avisos.extend(elegido.get("requisitos", []))
+        if elegido.get("aviso"):
+            avisos.append(elegido["aviso"])
+        return {
+            "impuesto": "ITP",
+            "tipo": elegido["tipo"],
+            "supuesto": elegido["nombre"],
+            "base": base,
+            "importe": _eur(base * elegido["tipo"] / CIEN),
+            "candidatos": candidatos,
+            "avisos": avisos,
+        }
+
+    for c in candidatos:
+        avisos.append(
+            "Podría aplicar el tipo reducido del {:.10g} % por «{}». Habría que comprobar los requisitos.".format(
+                c["tipo"], c["nombre"]
+            )
+        )
 
     if datos.get("escala"):
         avisos.append(
@@ -144,7 +311,9 @@ def calcular(
     return {
         "impuesto": "ITP",
         "tipo": datos["tipo"],
+        "supuesto": None,
         "base": base,
         "importe": _eur(base * datos["tipo"] / CIEN),
+        "candidatos": candidatos,
         "avisos": avisos,
     }

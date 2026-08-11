@@ -277,6 +277,18 @@
                 </tbody>
               </table>
 
+              {% if base.impuesto.avisos %}
+                <div class="alert alert-light border small">
+                  <strong>Sobre el impuesto de la compra</strong>
+                  {% if base.impuesto.supuesto %}
+                    · aplicando «{{ base.impuesto.supuesto }}»
+                  {% endif %}
+                  <ul class="mb-0 mt-1 ps-3">
+                    {% for a in base.impuesto.avisos %}<li>{{ a }}</li>{% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
+
               <h6 class="text-uppercase small text-muted mt-3">Gastos en el proyecto</h6>
               <table class="table table-sm">
                 <tbody>
@@ -296,6 +308,18 @@
                   </tr>
                 </tbody>
               </table>
+
+              {% if base.impuesto.avisos %}
+                <div class="alert alert-light border small">
+                  <strong>Sobre el impuesto de la compra</strong>
+                  {% if base.impuesto.supuesto %}
+                    · aplicando «{{ base.impuesto.supuesto }}»
+                  {% endif %}
+                  <ul class="mb-0 mt-1 ps-3">
+                    {% for a in base.impuesto.avisos %}<li>{{ a }}</li>{% endfor %}
+                  </ul>
+                </div>
+              {% endif %}
             </div>
             <div class="col-md-5">
               <h6 class="text-uppercase small text-muted">Últimos ingresos</h6>

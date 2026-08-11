@@ -59,6 +59,8 @@ class SorteoAdmin(admin.ModelAdmin):
                     "inmueble_valor",
                     "comunidad",
                     "operacion_compra",
+                    "compra_para_reventa",
+                    "supuesto_reducido",
                     "inmueble_cargas",
                     "inmueble_gastos",
                 )

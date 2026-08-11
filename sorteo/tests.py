@@ -253,3 +253,36 @@ class ImpuestoDeCompra(TestCase):
         r = calcular(100000, "")
         self.assertEqual(r["importe"], Decimal("0"))
         self.assertTrue(r["avisos"])
+
+
+class TiposReducidos(TestCase):
+    PERFIL = {"empresa_inmobiliaria": True, "reventa": True}
+
+    def test_se_ofrecen_pero_no_se_aplican_solos(self):
+        r = calcular(200000, "andalucia", perfil=self.PERFIL)
+        # Al tipo general, aunque el perfil daría para el reducido.
+        self.assertEqual(r["tipo"], Decimal("7"))
+        self.assertEqual(r["importe"], Decimal("14000.00"))
+        self.assertEqual(len(r["candidatos"]), 1)
+        self.assertTrue(any("2 %" in a for a in r["avisos"]))
+
+    def test_al_elegirlo_se_aplica_con_sus_requisitos(self):
+        r = calcular(200000, "andalucia", supuesto="reventa_profesional", perfil=self.PERFIL)
+        self.assertEqual(r["tipo"], Decimal("2"))
+        self.assertEqual(r["importe"], Decimal("4000.00"))
+        self.assertTrue(any("existencias" in a for a in r["avisos"]))
+        self.assertTrue(any("intereses de demora" in a for a in r["avisos"]))
+
+    def test_el_limite_de_valor_lo_desactiva(self):
+        r = calcular(600000, "andalucia", supuesto="reventa_profesional", perfil=self.PERFIL)
+        self.assertEqual(r["tipo"], Decimal("7"))
+        self.assertTrue(any("supera el límite" in a for a in r["avisos"]))
+
+    def test_sin_perfil_no_se_ofrece(self):
+        r = calcular(200000, "andalucia", perfil={"empresa_inmobiliaria": True, "reventa": False})
+        self.assertEqual(r["candidatos"], [])
+
+    def test_un_supuesto_inexistente_no_baja_el_tipo(self):
+        r = calcular(200000, "madrid", supuesto="joven", perfil=self.PERFIL)
+        self.assertEqual(r["tipo"], Decimal("6"))
+        self.assertTrue(any("no consta como aplicable" in a for a in r["avisos"]))

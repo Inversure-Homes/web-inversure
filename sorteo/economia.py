@@ -213,6 +213,11 @@ def impuesto_compra(sorteo):
         sorteo.comunidad,
         sorteo.operacion_compra or Operacion.ITP,
         valor_referencia=proyecto.valor_referencia,
+        supuesto=sorteo.supuesto_reducido or None,
+        perfil={
+            "empresa_inmobiliaria": True,
+            "reventa": sorteo.compra_para_reventa,
+        },
     )
 
 

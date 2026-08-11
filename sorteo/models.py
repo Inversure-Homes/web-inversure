@@ -174,6 +174,20 @@ class Sorteo(models.Model):
         choices=Operacion.OPCIONES,
         verbose_name="Impuesto de la compra",
     )
+    # Ningún tipo reducido se aplica solo: hay que elegirlo a sabiendas, porque
+    # aplicarlo sin cumplir los requisitos se paga después con intereses.
+    supuesto_reducido = models.CharField(
+        max_length=40,
+        blank=True,
+        verbose_name="Tipo reducido aplicado",
+        help_text="Déjalo vacío para calcular al tipo general. Los supuestos "
+        "que podrían aplicar se listan en el panel del sorteo.",
+    )
+    compra_para_reventa = models.BooleanField(
+        default=True,
+        verbose_name="Se adquiere para revender, dentro de la actividad inmobiliaria",
+        help_text="Condición de los tipos reducidos por reventa profesional.",
+    )
 
     inmueble_cargas = models.TextField(default="Libre de cargas y gravámenes.")
     inmueble_gastos = models.TextField(
