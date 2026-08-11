@@ -16,7 +16,7 @@ class SorteoConfig(AppConfig):
         """
         from auditlog.registry import auditlog
 
-        from .models import ActaSorteo, Papeleta, Pedido, Sorteo
+        from .models import ActaSorteo, EstudioRifa, Papeleta, Pedido, Sorteo
 
-        for modelo in (Sorteo, Pedido, Papeleta, ActaSorteo):
+        for modelo in (Sorteo, Pedido, Papeleta, ActaSorteo, EstudioRifa):
             auditlog.register(modelo)

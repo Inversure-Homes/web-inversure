@@ -10,6 +10,7 @@ from django.utils.html import format_html
 from .correo import avisar_ganador
 from .models import (
     ActaSorteo,
+    EstudioRifa,
     Interesado,
     Organizador,
     Papeleta,
@@ -267,6 +268,24 @@ class PapeletaAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+
+@admin.register(EstudioRifa)
+class EstudioRifaAdmin(admin.ModelAdmin):
+    list_display = (
+        "nombre",
+        "proyecto",
+        "precio_compra",
+        "participaciones",
+        "precio_participacion",
+        "archivado",
+        "sorteo",
+        "creado_en",
+    )
+    list_filter = ("archivado", "comunidad")
+    search_fields = ("nombre", "notas")
+    date_hierarchy = "creado_en"
+    readonly_fields = ("creado_en", "actualizado_en")
 
 
 @admin.register(Interesado)
