@@ -105,6 +105,42 @@
         </div>
       {% endif %}
 
+      {# ---------------- Cierre y notaría ---------------- #}
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+          <h5 class="mb-1">Cierre de venta y notaría</h5>
+          {% if sorteo.cerrado_en %}
+            <p class="text-muted small mb-2">
+              Venta cerrada el {{ sorteo.cerrado_en|date:"d/m/Y H:i" }} con
+              {{ sorteo.participaciones_vendidas_cierre|intcomma }}
+              participaciones. Huella del listado:
+            </p>
+            <p class="font-monospace small text-break mb-3">{{ sorteo.hash_listado }}</p>
+          {% else %}
+            <p class="text-muted small mb-3">
+              Al cerrar la venta se sella el listado de participaciones con una
+              huella SHA-256. Es lo que se entrega al notario, y permite
+              comprobar después que no se ha tocado. <strong>Es irreversible.</strong>
+            </p>
+          {% endif %}
+
+          <a href="{% url 'sorteo_erp:relacion' sorteo.pk %}?pdf=1"
+             class="btn btn-sm btn-inversure">
+            <i class="bi bi-file-earmark-pdf"></i> Relación para el notario (PDF)
+          </a>
+          <a href="{% url 'sorteo_erp:relacion' sorteo.pk %}"
+             class="btn btn-sm btn-outline-secondary" target="_blank">Ver</a>
+          {% if not sorteo.cerrado_en %}
+            <form method="post" action="{% url 'sorteo_erp:cerrar_venta' sorteo.pk %}"
+                  class="d-inline"
+                  onsubmit="return confirm('Se cerrará la venta y se sellará el listado. No se puede deshacer. ¿Continuar?');">
+              {% csrf_token %}
+              <button class="btn btn-sm btn-outline-danger">Cerrar la venta</button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+
       {# ---------------- Lista de espera ---------------- #}
       {% if demanda.personas or sorteo.estado == "borrador" %}
         <div class="card border-0 shadow-sm mb-4">

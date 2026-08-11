@@ -1,0 +1,16 @@
+Hola {{ interesado.nombre }},
+
+Te hemos anotado en la lista de espera{% if sorteo %} de «{{ sorteo.titulo }}»{% endif %}.
+
+Te escribiremos una sola vez, en cuanto se abra la venta de participaciones.
+No te enviaremos nada más.
+
+Recuerda que apuntarte no es una compra: no reserva participaciones ni obliga
+a comprar después. El sorteo está pendiente de la autorización administrativa
+que exige la Ley 13/2011 y no se comercializará nada hasta obtenerla.
+
+Si prefieres que no te avisemos, date de baja aquí:
+{{ url_baja }}
+
+--
+{% if sorteo %}{{ sorteo.organizador.nombre }}{% else %}Inversure Homes{% endif %}

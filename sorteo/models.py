@@ -175,6 +175,16 @@ class Sorteo(models.Model):
     estado = models.CharField(
         max_length=20, choices=Estado.choices, default=Estado.BORRADOR
     )
+
+    # Sello del listado que se entrega al notario. Se calcula al cerrar la
+    # venta y se publica antes del sorteo: cualquiera puede recalcularlo sobre
+    # el listado recibido y comprobar que no se ha tocado después.
+    cerrado_en = models.DateTimeField(null=True, blank=True)
+    hash_listado = models.CharField(max_length=64, blank=True)
+    participaciones_vendidas_cierre = models.PositiveIntegerField(
+        null=True, blank=True
+    )
+
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
 

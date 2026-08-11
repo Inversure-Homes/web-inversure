@@ -53,6 +53,9 @@
           <a href="{% url 'landing:privacidad' %}">Privacidad</a>
           <a href="{% url 'landing:cookies' %}">Cookies</a>
           <a href="{% url 'landing:terminos' %}">Términos</a>
+          {# Acceso discreto al sorteo. Mientras no esté autorizado no debe
+             subir al menú: es publicidad de juego. #}
+          <a href="{% url 'sorteo:portada' %}" rel="nofollow">Sorteo</a>
         </div>
       </div>
     </footer>

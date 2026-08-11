@@ -15,6 +15,7 @@ from .models import (
     Pedido,
     Sorteo,
 )
+from .correo import avisar_ganador
 from .services import ErrorSorteo, registrar_acta
 
 
@@ -174,7 +175,12 @@ class SorteoAdmin(admin.ModelAdmin):
             except ErrorSorteo as exc:
                 form.add_error("numero_premiado", str(exc))
             else:
-                self.message_user(request, "Acta registrada y resultado publicado.")
+                avisar_ganador(sorteo.acta)
+                self.message_user(
+                    request,
+                    "Acta registrada, resultado publicado y aviso enviado a la "
+                    "persona premiada.",
+                )
                 return redirect("admin:sorteo_sorteo_changelist")
 
         return render(

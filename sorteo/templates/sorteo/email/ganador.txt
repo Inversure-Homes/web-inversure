@@ -1,0 +1,22 @@
+Hola {{ pedido.nombre }},
+
+Tu participación número {{ acta.numero_premiado }} ha resultado premiada en
+«{{ sorteo.titulo }}».
+
+El sorteo se celebró el {{ acta.fecha|date:"j \d\e F \d\e Y" }} ante notario{% if acta.notario %},
+{{ acta.notario }}{% endif %}, y consta en el acta con número de protocolo
+{{ acta.protocolo }}.
+
+Nos pondremos en contacto contigo para coordinar la entrega. Para recibir el
+premio tendrás que acreditar tu identidad y tu mayoría de edad con documento
+oficial en vigor, y comparecer al otorgamiento de la escritura de transmisión.
+
+El plazo para reclamarlo termina el
+{{ sorteo.fecha_caducidad_premio|date:"j \d\e F \d\e Y" }}.
+
+Las condiciones completas, incluidos los gastos e impuestos de la transmisión,
+están en las bases:
+{{ url_bases }}
+
+--
+{{ sorteo.organizador.nombre }}

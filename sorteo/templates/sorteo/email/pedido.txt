@@ -1,0 +1,24 @@
+Hola {{ pedido.nombre }},
+
+Tu pago se ha confirmado. Estas son tus participaciones en «{{ sorteo.titulo }}»:
+
+    {{ pedido.numeros_texto }}
+
+Premio: {{ sorteo.premio_descripcion }}
+Sorteo: {{ sorteo.fecha_sorteo|date:"j \d\e F \d\e Y" }}, ante notario
+Importe: {{ pedido.importe|floatformat:2 }} €
+Precio por participación: {{ sorteo.precio_participacion|floatformat:2 }} €
+Participaciones emitidas: {{ sorteo.total_participaciones }}
+El premio caduca el: {{ sorteo.fecha_caducidad_premio|date:"j \d\e F \d\e Y" }}
+Localizador: {{ pedido.codigo }}
+
+Puedes consultar tu justificante en cualquier momento:
+{{ url_pedido }}
+
+Bases del sorteo (versión aceptada: {{ pedido.version_bases }}):
+{{ url_bases }}
+
+--
+{{ sorteo.organizador.nombre }}{% if sorteo.organizador.autorizacion_dgoj %}
+Autorización DGOJ {{ sorteo.organizador.autorizacion_dgoj }}{% endif %}
+Prohibida la participación de menores de 18 años.

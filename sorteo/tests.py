@@ -1,0 +1,235 @@
+"""
+Pruebas de lo que no puede fallar.
+
+No cubren la interfaz: cubren las cuatro cosas que, si se rompen, cuestan
+dinero o credibilidad — vender dos veces la misma papeleta, cobrar sin
+consentimiento, duplicar un pago y publicar un ganador que no compró.
+"""
+
+import datetime
+from decimal import Decimal
+
+from django.contrib.auth import get_user_model
+from django.test import TestCase
+
+from core.models import Proyecto
+from .calculadora import Config, escenarios, recomendar, umbral
+from .models import ActaSorteo, Interesado, Organizador, Papeleta, Pedido, Sorteo
+from .notaria import cerrar_venta, huella, listado_canonico
+from .services import (
+    NumeroNoVendido,
+    PapeletasNoDisponibles,
+    SinPapeletasSuficientes,
+    confirmar_pago,
+    liberar_caducadas,
+    registrar_acta,
+    reservar_cantidad,
+    reservar_numeros,
+)
+
+DATOS = {"nombre": "Ana Ruiz", "email": "ana@ejemplo.com"}
+
+
+class BaseSorteo(TestCase):
+    def setUp(self):
+        proyecto = Proyecto.objects.create(nombre="Proyecto de prueba")
+        organizador = Organizador.objects.create(
+            nombre="Organizador", email="o@ejemplo.com"
+        )
+        self.sorteo = Sorteo.objects.create(
+            proyecto=proyecto,
+            organizador=organizador,
+            slug="prueba",
+            titulo="Sorteo de prueba",
+            premio_descripcion="Plaza",
+            precio_participacion=Decimal("10"),
+            total_participaciones=50,
+            fecha_inicio_venta=datetime.date(2026, 9, 1),
+            fecha_sorteo=datetime.date(2026, 12, 22),
+            inmueble_valor=Decimal("18000"),
+            estado=Sorteo.Estado.EN_VENTA,
+        )
+        self.sorteo.generar_papeletas()
+
+
+class Reservas(BaseSorteo):
+    def test_no_se_vende_dos_veces_la_misma_papeleta(self):
+        reservar_numeros(self.sorteo, [7], DATOS)
+        with self.assertRaises(PapeletasNoDisponibles) as caso:
+            reservar_numeros(self.sorteo, [7, 8], dict(DATOS, email="b@e.com"))
+        self.assertEqual(caso.exception.numeros, [7])
+        # La transacción se aborta entera: el 8 sigue libre.
+        self.assertEqual(
+            Papeleta.objects.get(sorteo=self.sorteo, numero=8).estado,
+            Papeleta.Estado.LIBRE,
+        )
+
+    def test_la_compra_rapida_no_repite_numeros(self):
+        p1 = reservar_cantidad(self.sorteo, 20, DATOS)
+        p2 = reservar_cantidad(self.sorteo, 20, dict(DATOS, email="b@e.com"))
+        self.assertEqual(len(set(p1.numeros) & set(p2.numeros)), 0)
+
+    def test_no_se_puede_reservar_mas_de_lo_que_queda(self):
+        reservar_cantidad(self.sorteo, 45, DATOS)
+        with self.assertRaises(SinPapeletasSuficientes):
+            reservar_cantidad(self.sorteo, 10, dict(DATOS, email="b@e.com"))
+
+    def test_las_reservas_caducadas_vuelven_a_la_venta(self):
+        pedido = reservar_numeros(self.sorteo, [3], DATOS)
+        Papeleta.objects.filter(pedido=pedido).update(
+            reserva_expira=datetime.datetime(2020, 1, 1, tzinfo=datetime.timezone.utc)
+        )
+        liberar_caducadas(self.sorteo)
+        self.assertEqual(self.sorteo.disponibles, 50)
+        pedido.refresh_from_db()
+        self.assertEqual(pedido.estado, Pedido.Estado.CADUCADO)
+
+    def test_el_importe_lo_calcula_el_servidor(self):
+        pedido = reservar_cantidad(self.sorteo, 3, DATOS)
+        self.assertEqual(pedido.importe, Decimal("30"))
+
+    def test_se_guarda_la_prueba_del_consentimiento(self):
+        pedido = reservar_cantidad(self.sorteo, 1, dict(DATOS, ip="1.2.3.4"))
+        self.assertEqual(pedido.version_bases, self.sorteo.version_bases)
+        self.assertIsNotNone(pedido.acepta_bases_en)
+        self.assertEqual(pedido.ip, "1.2.3.4")
+
+
+class Pagos(BaseSorteo):
+    def test_confirmar_dos_veces_no_duplica(self):
+        pedido = reservar_cantidad(self.sorteo, 2, DATOS)
+        confirmar_pago(pedido.id)
+        confirmar_pago(pedido.id)
+        self.assertEqual(self.sorteo.vendidas, 2)
+        self.assertEqual(Pedido.objects.count(), 1)
+
+    def test_solo_pasan_a_pagadas_las_papeletas_del_pedido(self):
+        a = reservar_numeros(self.sorteo, [1], DATOS)
+        reservar_numeros(self.sorteo, [2], dict(DATOS, email="b@e.com"))
+        confirmar_pago(a.id)
+        self.assertEqual(
+            Papeleta.objects.get(sorteo=self.sorteo, numero=2).estado,
+            Papeleta.Estado.RESERVADA,
+        )
+
+
+class PortalPublico(BaseSorteo):
+    def test_sin_consentimiento_no_se_reserva(self):
+        r = self.client.post(
+            "/sorteo/reservar/",
+            data='{"cantidad": 1, "nombre": "Ana", "email": "a@e.com"}',
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(Pedido.objects.count(), 0)
+
+    def test_con_consentimiento_se_reserva(self):
+        r = self.client.post(
+            "/sorteo/reservar/",
+            data='{"cantidad": 2, "nombre": "Ana", "email": "a@e.com",'
+            ' "acepta_bases": true, "mayor_edad": true}',
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(Pedido.objects.count(), 1)
+
+    def test_no_se_puede_pedir_mas_del_maximo(self):
+        r = self.client.post(
+            "/sorteo/reservar/",
+            data='{"cantidad": 999, "nombre": "Ana", "email": "a@e.com",'
+            ' "acepta_bases": true, "mayor_edad": true}',
+            content_type="application/json",
+        )
+        self.assertEqual(r.status_code, 400)
+
+
+class Acta(BaseSorteo):
+    def test_rechaza_un_numero_no_vendido(self):
+        confirmar_pago(reservar_numeros(self.sorteo, [5], DATOS).id)
+        with self.assertRaises(NumeroNoVendido):
+            registrar_acta(self.sorteo, 6, "2026/1", datetime.date(2026, 12, 22))
+        self.assertFalse(ActaSorteo.objects.exists())
+
+    def test_acepta_un_numero_vendido_y_publica(self):
+        pedido = reservar_numeros(self.sorteo, [5], DATOS)
+        confirmar_pago(pedido.id)
+        acta = registrar_acta(
+            self.sorteo, 5, "2026/1487", datetime.date(2026, 12, 22)
+        )
+        self.assertEqual(acta.numero_premiado, 5)
+        self.assertEqual(acta.pedido, pedido)
+        self.sorteo.refresh_from_db()
+        self.assertEqual(self.sorteo.estado, Sorteo.Estado.SORTEADO)
+
+    def test_no_se_registra_dos_veces(self):
+        confirmar_pago(reservar_numeros(self.sorteo, [5], DATOS).id)
+        registrar_acta(self.sorteo, 5, "2026/1", datetime.date(2026, 12, 22))
+        self.sorteo.refresh_from_db()
+        registrar_acta(self.sorteo, 5, "2026/2", datetime.date(2026, 12, 22))
+        self.assertEqual(ActaSorteo.objects.count(), 1)
+
+
+class ListadoNotarial(BaseSorteo):
+    def test_la_huella_detecta_cualquier_cambio(self):
+        confirmar_pago(reservar_numeros(self.sorteo, [1, 2], DATOS).id)
+        self.sorteo.refresh_from_db()
+        cerrar_venta(self.sorteo)
+        self.sorteo.refresh_from_db()
+
+        texto, _ = listado_canonico(self.sorteo)
+        self.assertEqual(huella(texto), self.sorteo.hash_listado)
+
+        # Una venta posterior cambia el listado, y la huella deja de cuadrar.
+        confirmar_pago(
+            reservar_numeros(self.sorteo, [3], dict(DATOS, email="b@e.com")).id
+        )
+        texto2, _ = listado_canonico(self.sorteo)
+        self.assertNotEqual(huella(texto2), self.sorteo.hash_listado)
+
+    def test_el_listado_es_estable(self):
+        confirmar_pago(reservar_cantidad(self.sorteo, 5, DATOS).id)
+        a, _ = listado_canonico(self.sorteo)
+        b, _ = listado_canonico(self.sorteo)
+        self.assertEqual(a, b)
+
+
+class ListaDeEspera(BaseSorteo):
+    def test_alta_y_baja(self):
+        i = Interesado.objects.create(
+            sorteo=self.sorteo,
+            nombre="Ana",
+            email="a@e.com",
+            mayor_edad=True,
+            acepta_aviso=True,
+        )
+        self.assertTrue(i.activo)
+        r = self.client.get("/sorteo/baja/{}/".format(i.token_baja))
+        self.assertEqual(r.status_code, 200)
+        i.refresh_from_db()
+        self.assertFalse(i.activo)
+        self.assertFalse(i.acepta_aviso)
+
+
+class Calculadora(BaseSorteo):
+    def test_el_umbral_nunca_baja_del_tipo_de_la_tasa(self):
+        # Sin gastos fijos, el umbral es exactamente la tasa corregida por la
+        # comisión: ese es el suelo estructural.
+        cfg = Config(precio=10, emitidas=1000, valor_premio=0, tasa_pct=20)
+        n = umbral(cfg, 0)
+        self.assertGreaterEqual(n / 1000, 0.20)
+        self.assertLess(n / 1000, 0.22)
+
+    def test_subir_el_precio_reduce_las_papeletas_a_vender(self):
+        cfg = Config(precio=10, emitidas=5000, valor_premio=18000)
+        opciones = recomendar(cfg, Decimal("21160"), Decimal("15000"))
+        caras = [o for o in opciones if o["precio"] == Decimal("50.00")][0]
+        baratas = [o for o in opciones if o["precio"] == Decimal("10.00")][0]
+        self.assertLess(caras["umbral"], baratas["umbral"])
+
+    def test_cancelar_no_cuenta_el_inmueble_como_perdida(self):
+        cfg = Config(precio=10, emitidas=5000, valor_premio=18000)
+        filas = escenarios(cfg, Decimal("21160"))["filas"]
+        cancelacion = filas[0]
+        # La perdida es mucho menor que el coste total, porque la plaza queda.
+        self.assertGreater(cancelacion["resultado"], Decimal("-21160"))
+        self.assertLess(cancelacion["resultado"], 0)

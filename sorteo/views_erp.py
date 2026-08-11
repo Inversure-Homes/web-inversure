@@ -17,6 +17,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 
 from accounts.utils import resolve_permissions
 
@@ -29,6 +30,8 @@ from .economia import (
     resumen_economico,
 )
 from .models import Pedido, Sorteo
+from .correo import avisar_ganador, confirmar_pedido
+from .notaria import cerrar_venta, datos_relacion
 from .services import ErrorSorteo, registrar_venta_manual
 
 
@@ -160,6 +163,7 @@ def venta_manual(request, pk):
         except ErrorSorteo as exc:
             messages.error(request, str(exc))
         else:
+            confirmar_pedido(pedido)
             messages.success(
                 request,
                 "Participación registrada: {} · números {}".format(
@@ -328,6 +332,61 @@ def calculadora(request, pk):
         return redirect("core:home")
     sorteo = get_object_or_404(Sorteo.objects.select_related("proyecto"), pk=pk)
     return _dimensionar(request, sorteo)
+
+
+@login_required
+def cerrar_venta_vista(request, pk):
+    """
+    Congela la venta y sella el listado. Irreversible.
+
+    Es el paso previo a llevarle el listado al notario: a partir de aquí la
+    relación que se entrega queda fijada y su huella lo demuestra.
+    """
+    if not _puede(request.user):
+        return redirect("core:home")
+
+    sorteo = get_object_or_404(Sorteo, pk=pk)
+    if request.method == "POST":
+        if sorteo.cerrado_en:
+            messages.warning(request, "La venta ya estaba cerrada.")
+        else:
+            cerrar_venta(sorteo)
+            messages.success(
+                request,
+                "Venta cerrada. Listado sellado con huella {}…".format(
+                    sorteo.hash_listado[:16]
+                ),
+            )
+    return redirect("sorteo_erp:detalle", pk=sorteo.pk)
+
+
+@login_required
+def relacion(request, pk):
+    """Relación de participaciones vendidas para entregar al notario."""
+    if not _puede(request.user):
+        return redirect("core:home")
+
+    sorteo = get_object_or_404(
+        Sorteo.objects.select_related("organizador"), pk=pk
+    )
+    contexto = datos_relacion(sorteo)
+    html = render_to_string("sorteo/relacion_notarial.html", contexto, request)
+
+    if request.GET.get("pdf"):
+        from weasyprint import HTML  # defer import
+
+        pdf = HTML(
+            string=html, base_url=request.build_absolute_uri("/")
+        ).write_pdf()
+        respuesta = HttpResponse(pdf, content_type="application/pdf")
+        respuesta["Content-Disposition"] = (
+            'attachment; filename="relacion-participaciones-{}.pdf"'.format(
+                sorteo.slug
+            )
+        )
+        return respuesta
+
+    return HttpResponse(html)
 
 
 @login_required

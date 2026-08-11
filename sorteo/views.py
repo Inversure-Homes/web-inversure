@@ -7,6 +7,7 @@ from django.views.decorators.http import require_POST
 
 from django.utils import timezone
 
+from .correo import confirmar_alta, confirmar_pedido
 from .models import Interesado, Papeleta, Pedido, Sorteo
 from .services import (
     ErrorSorteo,
@@ -120,7 +121,7 @@ def _alta(request, sorteo):
 
     if request.method == "POST" and form.is_valid():
         datos = form.cleaned_data
-        Interesado.objects.update_or_create(
+        interesado, _ = Interesado.objects.update_or_create(
             sorteo=sorteo,
             email=datos["email"],
             defaults={
@@ -135,6 +136,7 @@ def _alta(request, sorteo):
                 "baja_en": None,
             },
         )
+        confirmar_alta(interesado)
         guardado = True
         form = AltaForm()
 
@@ -268,7 +270,9 @@ def pago_pendiente(request, pedido_id):
         return redirect("sorteo:pedido", pedido_id=pedido.id)
 
     if request.method == "POST":
-        confirmar_pago(pedido.id)
+        confirmado = confirmar_pago(pedido.id)
+        if confirmado:
+            confirmar_pedido(confirmado)
         return redirect("sorteo:pedido", pedido_id=pedido.id)
 
     return render(request, "sorteo/pago_pendiente.html", {"pedido": pedido})
