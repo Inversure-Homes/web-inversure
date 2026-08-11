@@ -123,6 +123,8 @@ def detalle(request, pk):
             "sorteo": sorteo,
             "resumen": resumen_economico(sorteo),
             "demanda": demanda(sorteo),
+            "escenarios": escenarios(Config.desde_sorteo(sorteo), gastos_base(sorteo)),
+            "opciones": recomendar(Config.desde_sorteo(sorteo), gastos_base(sorteo), Decimal("15000")),
             "base": desglose_gastos_base(sorteo),
             "previstos": gastos_previstos(sorteo),
             "gastos": sorteo.proyecto.gastos_proyecto.all().order_by("fecha"),

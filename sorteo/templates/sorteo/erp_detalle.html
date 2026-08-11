@@ -1,6 +1,13 @@
 {% extends "core/base.html" %}
 {% load humanize %}
 
+{% comment %}
+  Ficha del proyecto de rifa.
+
+  Mismo patrón que la ficha de proyecto inmobiliario: una sola página con
+  pestañas, en lugar de repartir las cosas por cinco URLs distintas. Cada
+  pestaña es una fase real del ciclo: dimensionar, vender, cerrar, sortear.
+{% endcomment %}
 {% block content %}
 <div class="inversure-app">
   <section class="inversure-section">
@@ -22,9 +29,7 @@
 
       {% if messages %}
         {% for m in messages %}
-          <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}success{% endif %}">
-            {{ m }}
-          </div>
+          <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}success{% endif %}">{{ m }}</div>
         {% endfor %}
       {% endif %}
 
@@ -37,6 +42,42 @@
         </div>
       {% endif %}
 
+      <ul class="nav nav-tabs mb-4" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#vista-resumen" type="button" role="tab">
+            <i class="bi bi-speedometer2"></i> Resumen
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="tab" data-bs-target="#vista-dimensionado" type="button" role="tab">
+            <i class="bi bi-calculator"></i> Dimensionado
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="tab" data-bs-target="#vista-economico" type="button" role="tab">
+            <i class="bi bi-cash-coin"></i> Económico
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="tab" data-bs-target="#vista-participantes" type="button" role="tab">
+            <i class="bi bi-people"></i> Participantes
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="tab" data-bs-target="#vista-sorteo" type="button" role="tab">
+            <i class="bi bi-award"></i> Sorteo y notaría
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="tab" data-bs-target="#vista-documentos" type="button" role="tab">
+            <i class="bi bi-file-earmark-text"></i> Documentos
+          </button>
+        </li>
+      </ul>
+
+      <div class="tab-content">
+
+        <div class="tab-pane fade show active" id="vista-resumen" role="tabpanel">
       {# ---------------- Cifras ---------------- #}
       <div class="row g-3 mb-4">
         <div class="col-md-3">
@@ -104,43 +145,6 @@
           cifra el sorteo puede cancelarse con reintegro.
         </div>
       {% endif %}
-
-      {# ---------------- Cierre y notaría ---------------- #}
-      <div class="card border-0 shadow-sm mb-4">
-        <div class="card-body">
-          <h5 class="mb-1">Cierre de venta y notaría</h5>
-          {% if sorteo.cerrado_en %}
-            <p class="text-muted small mb-2">
-              Venta cerrada el {{ sorteo.cerrado_en|date:"d/m/Y H:i" }} con
-              {{ sorteo.participaciones_vendidas_cierre|intcomma }}
-              participaciones. Huella del listado:
-            </p>
-            <p class="font-monospace small text-break mb-3">{{ sorteo.hash_listado }}</p>
-          {% else %}
-            <p class="text-muted small mb-3">
-              Al cerrar la venta se sella el listado de participaciones con una
-              huella SHA-256. Es lo que se entrega al notario, y permite
-              comprobar después que no se ha tocado. <strong>Es irreversible.</strong>
-            </p>
-          {% endif %}
-
-          <a href="{% url 'sorteo_erp:relacion' sorteo.pk %}?pdf=1"
-             class="btn btn-sm btn-inversure">
-            <i class="bi bi-file-earmark-pdf"></i> Relación para el notario (PDF)
-          </a>
-          <a href="{% url 'sorteo_erp:relacion' sorteo.pk %}"
-             class="btn btn-sm btn-outline-secondary" target="_blank">Ver</a>
-          {% if not sorteo.cerrado_en %}
-            <form method="post" action="{% url 'sorteo_erp:cerrar_venta' sorteo.pk %}"
-                  class="d-inline"
-                  onsubmit="return confirm('Se cerrará la venta y se sellará el listado. No se puede deshacer. ¿Continuar?');">
-              {% csrf_token %}
-              <button class="btn btn-sm btn-outline-danger">Cerrar la venta</button>
-            </form>
-          {% endif %}
-        </div>
-      </div>
-
       {# ---------------- Lista de espera ---------------- #}
       {% if demanda.personas or sorteo.estado == "borrador" %}
         <div class="card border-0 shadow-sm mb-4">
@@ -217,7 +221,112 @@
           </div>
         </div>
       {% endif %}
+        </div>
 
+        <div class="tab-pane fade" id="vista-dimensionado" role="tabpanel">
+          <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+              <h5 class="mb-1">Qué pasa en cada escenario</h5>
+              <p class="text-muted small mb-3">
+                Con la tasa del {{ sorteo.tasa_juego_porcentaje|floatformat:"0" }} %
+                y una comisión del {{ sorteo.comision_pago_porcentaje|floatformat:"2" }} %.
+              </p>
+              <div class="table-responsive">
+                <table class="table align-middle">
+                  <thead>
+                    <tr>
+                      <th>Escenario</th>
+                      <th class="text-end">Vendidas</th>
+                      <th class="text-end">Ingresos</th>
+                      <th class="text-end">Resultado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for f in escenarios.filas %}
+                      <tr>
+                        <td>
+                          <span class="badge bg-{{ f.tono }}">&nbsp;</span>
+                          <strong>{{ f.nombre }}</strong>
+                          <div class="text-muted small">{{ f.detalle }}</div>
+                        </td>
+                        <td class="text-end">{{ f.vendidas|intcomma }}<div class="text-muted small">{{ f.porcentaje }} %</div></td>
+                        <td class="text-end">{{ f.ingresos|floatformat:"0g" }} €</td>
+                        <td class="text-end fw-semibold {% if f.resultado < 0 %}text-danger{% else %}text-success{% endif %}">
+                          {{ f.resultado|floatformat:"0g" }} €
+                          {% if f.nota_resultado %}<div class="text-muted small fw-normal">{{ f.nota_resultado }}</div>{% endif %}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="row g-3 mt-2">
+                <div class="col-md-4">
+                  <div class="border rounded p-3 h-100">
+                    <div class="text-muted small text-uppercase">Umbral de rentabilidad</div>
+                    <div class="fs-4 fw-semibold">{{ escenarios.umbral|intcomma }}
+                      <span class="text-muted fs-6">({{ escenarios.umbral_porcentaje }} %)</span></div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="border rounded p-3 h-100">
+                    <div class="text-muted small text-uppercase">Compradores necesarios</div>
+                    <div class="fs-4 fw-semibold">≈ {{ escenarios.compradores|intcomma }}</div>
+                    <div class="text-muted small">a 3 participaciones por persona</div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="border rounded p-3 h-100">
+                    <div class="text-muted small text-uppercase">Suelo estructural</div>
+                    <div class="fs-4 fw-semibold">{{ escenarios.suelo_estructural }} %</div>
+                    <div class="text-muted small">lo impone la propia tasa</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+              <h5 class="mb-1">Otras combinaciones para un margen de 15.000 €</h5>
+              <p class="text-muted small mb-3">
+                Ordenadas por papeletas a vender: entre dos que dan lo mismo, la
+                buena es la que exige convencer a menos gente.
+              </p>
+              <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                  <thead>
+                    <tr>
+                      <th>Precio</th><th class="text-end">Emitir</th>
+                      <th class="text-end">Umbral</th><th class="text-end">Compradores</th>
+                      <th class="text-end">A pleno</th><th>Probabilidad</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for o in opciones %}
+                      <tr {% if forloop.first %}class="table-success"{% endif %}>
+                        <td class="fw-semibold">{{ o.precio|floatformat:"2g" }} €</td>
+                        <td class="text-end">{{ o.emitidas|intcomma }}</td>
+                        <td class="text-end">{{ o.umbral|intcomma }} <span class="text-muted">({{ o.umbral_porcentaje }} %)</span></td>
+                        <td class="text-end">≈ {{ o.compradores|intcomma }}</td>
+                        <td class="text-end">{{ o.resultado_pleno|floatformat:"0g" }} €</td>
+                        <td class="small text-muted">{{ o.probabilidad }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              <p class="mb-0">
+                <a href="{% url 'sorteo_erp:calculadora' sorteo.pk %}" class="btn btn-sm btn-outline-secondary">
+                  Abrir la calculadora con parámetros propios
+                </a>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="vista-economico" role="tabpanel">
       {# ---------------- Datos económicos ---------------- #}
       <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
@@ -339,7 +448,9 @@
           </div>
         </div>
       </div>
+        </div>
 
+        <div class="tab-pane fade" id="vista-participantes" role="tabpanel">
       {# ---------------- Participantes ---------------- #}
       <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
@@ -459,9 +570,112 @@
             </nav>
           {% endif %}
         </div>
+      </div>        </div>
+
+        <div class="tab-pane fade" id="vista-sorteo" role="tabpanel">
+      {# ---------------- Cierre y notaría ---------------- #}
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+          <h5 class="mb-1">Cierre de venta y notaría</h5>
+          {% if sorteo.cerrado_en %}
+            <p class="text-muted small mb-2">
+              Venta cerrada el {{ sorteo.cerrado_en|date:"d/m/Y H:i" }} con
+              {{ sorteo.participaciones_vendidas_cierre|intcomma }}
+              participaciones. Huella del listado:
+            </p>
+            <p class="font-monospace small text-break mb-3">{{ sorteo.hash_listado }}</p>
+          {% else %}
+            <p class="text-muted small mb-3">
+              Al cerrar la venta se sella el listado de participaciones con una
+              huella SHA-256. Es lo que se entrega al notario, y permite
+              comprobar después que no se ha tocado. <strong>Es irreversible.</strong>
+            </p>
+          {% endif %}
+
+          <a href="{% url 'sorteo_erp:relacion' sorteo.pk %}?pdf=1"
+             class="btn btn-sm btn-inversure">
+            <i class="bi bi-file-earmark-pdf"></i> Relación para el notario (PDF)
+          </a>
+          <a href="{% url 'sorteo_erp:relacion' sorteo.pk %}"
+             class="btn btn-sm btn-outline-secondary" target="_blank">Ver</a>
+          {% if not sorteo.cerrado_en %}
+            <form method="post" action="{% url 'sorteo_erp:cerrar_venta' sorteo.pk %}"
+                  class="d-inline"
+                  onsubmit="return confirm('Se cerrará la venta y se sellará el listado. No se puede deshacer. ¿Continuar?');">
+              {% csrf_token %}
+              <button class="btn btn-sm btn-outline-danger">Cerrar la venta</button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+        </div>
+
+        <div class="tab-pane fade" id="vista-documentos" role="tabpanel">
+          <div class="card border-0 shadow-sm">
+            <div class="card-body">
+              <h5 class="mb-3">Documentos e informes</h5>
+              <div class="table-responsive">
+                <table class="table align-middle">
+                  <tbody>
+                    <tr>
+                      <td>
+                        <strong>Relación de participaciones para el notario</strong>
+                        <div class="text-muted small">
+                          Listado sellado con su huella SHA-256. Es lo que se
+                          entrega el día del sorteo.
+                        </div>
+                      </td>
+                      <td class="text-end text-nowrap">
+                        <a class="btn btn-sm btn-inversure" href="{% url 'sorteo_erp:relacion' sorteo.pk %}?pdf=1">PDF</a>
+                        <a class="btn btn-sm btn-outline-secondary" target="_blank" href="{% url 'sorteo_erp:relacion' sorteo.pk %}">Ver</a>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <strong>Participantes en CSV</strong>
+                        <div class="text-muted small">
+                          Con localizador, contacto, números, origen y prueba
+                          del consentimiento.
+                        </div>
+                      </td>
+                      <td class="text-end">
+                        <a class="btn btn-sm btn-outline-secondary" href="{% url 'sorteo_erp:exportar' sorteo.pk %}">Descargar</a>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <strong>Bases del sorteo</strong>
+                        <div class="text-muted small">
+                          Versión {{ sorteo.version_bases }}. Deben seguir
+                          publicadas hasta que caduque el premio.
+                        </div>
+                      </td>
+                      <td class="text-end">
+                        <a class="btn btn-sm btn-outline-secondary" target="_blank" href="/sorteo/bases/">Ver</a>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <strong>Memoria económica del proyecto</strong>
+                        <div class="text-muted small">
+                          La del ERP, con los ingresos del sorteo ya volcados.
+                        </div>
+                      </td>
+                      <td class="text-end text-nowrap">
+                        <a class="btn btn-sm btn-outline-secondary" href="{% url 'core:proyecto_gastos' sorteo.proyecto.id %}">Abrir</a>
+                        <a class="btn btn-sm btn-outline-secondary" href="{% url 'core:pdf_memoria_economica' sorteo.proyecto.id %}">PDF</a>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
-      <p class="text-center">
+      <p class="text-center mt-4">
         <a href="/sorteo/" target="_blank" rel="noreferrer">Ver la página pública</a>
         ·
         <a href="{% url 'sorteo_erp:lista' %}">Volver a sorteos</a>
