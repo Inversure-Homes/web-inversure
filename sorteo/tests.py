@@ -9,6 +9,7 @@ consentimiento, duplicar un pago y publicar un ganador que no compró.
 import datetime
 from decimal import Decimal
 
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from core.models import Proyecto
@@ -461,3 +462,65 @@ class Veredicto(TestCase):
         self.assertGreater(muchos["rifa"]["compradores"], pocos["rifa"]["compradores"])
         self.assertEqual(pocos["decision"]["texto"], "Rifar")
         self.assertEqual(muchos["decision"]["texto"], "Revisar")
+
+
+class BorrarEstudio(TestCase):
+    """
+    Se llama a la vista directamente: el middleware de roles del ERP redirige
+    al alta de 2FA, así que el cliente de pruebas nunca llegaría a ejecutarla.
+    """
+
+    def setUp(self):
+        self.usuario = get_user_model().objects.create_superuser("borrador", "b@e.com", "clave-larga-de-prueba")
+        self.estudio = EstudioRifa.objects.create(nombre="Descartable", precio_compra=Decimal("10000"))
+
+    def _peticion(self, metodo):
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.contrib.sessions.middleware import SessionMiddleware
+        from django.test import RequestFactory
+
+        req = getattr(RequestFactory(), metodo)("/borrar/")
+        SessionMiddleware(lambda r: None).process_request(req)
+        req.session.save()
+        req._messages = FallbackStorage(req)
+        req.user = self.usuario
+        return req
+
+    def test_no_se_borra_con_un_get(self):
+        """Un GET que borra lo dispara cualquier precarga del navegador."""
+        from .views_estudios import borrar
+
+        r = borrar(self._peticion("get"), pk=self.estudio.pk)
+        self.assertEqual(r.status_code, 405)
+        self.assertTrue(EstudioRifa.objects.filter(pk=self.estudio.pk).exists())
+
+    def test_se_borra_con_post(self):
+        from .views_estudios import borrar
+
+        r = borrar(self._peticion("post"), pk=self.estudio.pk)
+        self.assertEqual(r.status_code, 302)
+        self.assertFalse(EstudioRifa.objects.filter(pk=self.estudio.pk).exists())
+
+    def test_borrar_el_estudio_no_se_lleva_el_sorteo(self):
+        """El estudio es el papel de trabajo; el sorteo tiene vida propia."""
+        from .views_estudios import borrar
+
+        proyecto = Proyecto.objects.create(nombre="Con sorteo propio")
+        organizador = Organizador.objects.create(nombre="Org", email="o@e.com")
+        sorteo = Sorteo.objects.create(
+            proyecto=proyecto,
+            organizador=organizador,
+            slug="con-sorteo-propio",
+            titulo="Con sorteo propio",
+            premio_descripcion="Plaza",
+            precio_participacion=Decimal("10"),
+            total_participaciones=100,
+            fecha_inicio_venta=datetime.date(2026, 9, 1),
+            fecha_sorteo=datetime.date(2026, 12, 22),
+        )
+        self.estudio.sorteo = sorteo
+        self.estudio.save(update_fields=["sorteo"])
+
+        borrar(self._peticion("post"), pk=self.estudio.pk)
+        self.assertFalse(EstudioRifa.objects.filter(pk=self.estudio.pk).exists())
+        self.assertTrue(Sorteo.objects.filter(pk=sorteo.pk).exists())

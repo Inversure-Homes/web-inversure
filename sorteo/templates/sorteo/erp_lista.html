@@ -3,9 +3,8 @@
 
 {% comment %}
   La sección de sorteos entera, en una sola página: arriba los estudios —de
-  donde salen— y debajo los sorteos en marcha. Un estudio acaba convertido o
-  archivado, nunca borrado: saber qué se probó y por qué no salió vale para el
-  siguiente.
+  donde salen— y debajo los sorteos en marcha. Un estudio se convierte en
+  sorteo, se archiva si se descarta pero interesa conservarlo, o se borra.
 {% endcomment %}
 {% block content %}
 <div class="inversure-app">
@@ -132,6 +131,12 @@
                         {% if e.estudio.archivado %}Recuperar{% else %}Archivar{% endif %}
                       </a>
                     {% endif %}
+                    <form method="post" action="{% url 'sorteo_erp:estudio_borrar' e.estudio.pk %}"
+                          class="d-inline"
+                          onsubmit="return confirm('Se borrará «{{ e.estudio.nombre|escapejs }}» definitivamente. ¿Continuar?');">
+                      {% csrf_token %}
+                      <button class="btn btn-outline-danger btn-sm">Borrar</button>
+                    </form>
                   </div>
                 </div>
 

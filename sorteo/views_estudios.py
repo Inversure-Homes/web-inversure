@@ -10,6 +10,7 @@ from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from core.models import Proyecto
 
@@ -177,6 +178,28 @@ def archivar(request, pk):
         request,
         "Estudio archivado." if estudio.archivado else "Estudio recuperado.",
     )
+    return redirect("sorteo_erp:lista")
+
+
+@login_required
+@require_POST
+def borrar(request, pk):
+    """
+    Borrado definitivo de un estudio.
+
+    Va por POST y no por enlace: un GET que borra lo dispara cualquier
+    precarga del navegador o un rastreador.
+
+    Si el estudio ya se convirtió en sorteo se borra igual —es solo el papel de
+    trabajo— pero el sorteo se queda, con su economía y sus participaciones.
+    """
+    if not _puede(request.user):
+        return redirect("core:home")
+
+    estudio = get_object_or_404(EstudioRifa, pk=pk)
+    nombre = estudio.nombre
+    estudio.delete()
+    messages.success(request, "Estudio «{}» borrado.".format(nombre))
     return redirect("sorteo_erp:lista")
 
 

@@ -537,8 +537,7 @@ class EstudioRifa(models.Model):
     )
     archivado = models.BooleanField(
         default=False,
-        help_text="Un estudio descartado no se borra: se archiva, porque saber "
-        "qué se probó y por qué no salió vale para el siguiente.",
+        help_text="Descarta el estudio conservándolo. Para deshacerse de él del todo está el borrado.",
     )
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
