@@ -1,0 +1,117 @@
+{% extends "sorteo/base_sorteo.html" %}
+
+{% block title %}Lista de espera · Inversure Homes{% endblock %}
+
+{#
+  Página previa a la autorización. NO es una venta: sin autorización de la DGOJ
+  no se puede comercializar nada, así que aquí no hay precio comprometido, ni
+  números, ni pago. Solo una anotación de interés con consentimiento revocable.
+#}
+{% block content %}
+<section class="sorteo-hero">
+  <div class="container">
+    <span class="sorteo-etiqueta">Próximamente</span>
+    <h1>{{ sorteo.titulo }}</h1>
+    <p class="sorteo-premio">{{ sorteo.premio_descripcion }}</p>
+    <p class="sorteo-premio" style="font-size:16px">
+      Estamos preparando el sorteo. Déjanos tus datos y te avisamos en cuanto
+      se abra la venta.
+    </p>
+  </div>
+</section>
+
+<main class="container sorteo-contenido">
+
+  {% if guardado %}
+    <div class="sorteo-panel">
+      <h2>Anotado, gracias</h2>
+      <p class="sub">
+        Te escribiremos a la dirección que nos has dejado en cuanto se abra la
+        venta. No recibirás nada más.
+      </p>
+      <p class="sorteo-pie">
+        Puedes darte de baja en cualquier momento desde el enlace que incluye
+        ese correo.
+      </p>
+    </div>
+  {% endif %}
+
+  <section class="sorteo-panel">
+    <h2>Avísame cuando se abra</h2>
+    <p class="sub">
+      Apuntarse no cuesta nada, no reserva números ni obliga a comprar después.
+    </p>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <label for="{{ form.nombre.id_for_label }}">{{ form.nombre.label }}</label>
+      {{ form.nombre }}
+      {% for e in form.nombre.errors %}<div class="sorteo-aviso error">{{ e }}</div>{% endfor %}
+
+      <div class="sorteo-fila">
+        <div>
+          <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+          {{ form.email }}
+          {% for e in form.email.errors %}<div class="sorteo-aviso error">{{ e }}</div>{% endfor %}
+        </div>
+        <div>
+          <label for="{{ form.telefono.id_for_label }}">{{ form.telefono.label }}</label>
+          {{ form.telefono }}
+        </div>
+      </div>
+
+      <div class="sorteo-fila">
+        <div>
+          <label for="{{ form.provincia.id_for_label }}">{{ form.provincia.label }}</label>
+          {{ form.provincia }}
+        </div>
+        <div>
+          <label for="{{ form.participaciones_estimadas.id_for_label }}">
+            {{ form.participaciones_estimadas.label }}
+          </label>
+          {{ form.participaciones_estimadas }}
+          {% for e in form.participaciones_estimadas.errors %}
+            <div class="sorteo-aviso error">{{ e }}</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <label for="{{ form.precio_maximo.id_for_label }}">{{ form.precio_maximo.label }}</label>
+      {{ form.precio_maximo }}
+      <p class="sorteo-pie" style="margin:6px 0 18px">
+        Todavía no está fijado. Nos ayuda a decidirlo.
+      </p>
+
+      <label class="sorteo-consentimiento">
+        {{ form.mayor_edad }}
+        <span>{{ form.mayor_edad.label }}. La participación de menores de edad
+        estará prohibida.</span>
+      </label>
+      {% for e in form.mayor_edad.errors %}<div class="sorteo-aviso error">{{ e }}</div>{% endfor %}
+
+      <label class="sorteo-consentimiento">
+        {{ form.acepta_aviso }}
+        <span>
+          {{ form.acepta_aviso.label }}. Trataremos tus datos solo para eso, y
+          podrás darte de baja cuando quieras. Ver la
+          <a href="{% url 'landing:privacidad' %}" target="_blank" rel="noreferrer">política de privacidad</a>.
+        </span>
+      </label>
+      {% for e in form.acepta_aviso.errors %}<div class="sorteo-aviso error">{{ e }}</div>{% endfor %}
+
+      <button type="submit" class="sorteo-primario">Avísame</button>
+    </form>
+  </section>
+
+  <p class="sorteo-pie">
+    <strong>Esto no es una compra.</strong> El sorteo está pendiente de la
+    autorización administrativa que exige la Ley 13/2011, y no se
+    comercializará ninguna participación hasta obtenerla. Apuntarse aquí no
+    genera derecho alguno sobre el premio ni reserva ninguna participación.
+    <br><br>
+    Organiza {{ sorteo.organizador.nombre }}. Cuando el sorteo se autorice se
+    publicarán sus bases completas en esta misma dirección.
+  </p>
+</main>
+{% endblock %}

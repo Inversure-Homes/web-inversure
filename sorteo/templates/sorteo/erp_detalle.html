@@ -105,6 +105,83 @@
         </div>
       {% endif %}
 
+      {# ---------------- Lista de espera ---------------- #}
+      {% if demanda.personas or sorteo.estado == "borrador" %}
+        <div class="card border-0 shadow-sm mb-4">
+          <div class="card-body">
+            <h5 class="mb-1">Lista de espera</h5>
+            <p class="text-muted small mb-3">
+              Altas previas a la autorización. Es la única medida de demanda
+              disponible antes de comprar el inmueble: compárala con el umbral
+              de {{ resumen.equilibrio|intcomma }} participaciones.
+            </p>
+
+            {% if demanda.personas %}
+              <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                  <div class="border rounded p-3">
+                    <div class="text-muted small text-uppercase">Personas apuntadas</div>
+                    <div class="fs-4 fw-semibold">{{ demanda.personas|intcomma }}</div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="border rounded p-3">
+                    <div class="text-muted small text-uppercase">Participaciones estimadas</div>
+                    <div class="fs-4 fw-semibold">{{ demanda.participaciones|intcomma }}</div>
+                    <div class="text-muted small">{{ demanda.media }} de media por persona</div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="border rounded p-3">
+                    <div class="text-muted small text-uppercase">Cobertura del umbral</div>
+                    {% widthratio demanda.participaciones resumen.equilibrio 100 as cobertura %}
+                    <div class="fs-4 fw-semibold">{{ cobertura }} %</div>
+                    <div class="text-muted small">de las que harían falta</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-md-7">
+                  <h6 class="text-uppercase small text-muted">Precio que aceptarían</h6>
+                  <table class="table table-sm">
+                    <tbody>
+                      {% for f in demanda.por_precio %}
+                        <tr>
+                          <td>{{ f.etiqueta }}</td>
+                          <td class="text-end">{{ f.personas }}</td>
+                          <td class="text-end text-muted small">
+                            {{ f.aceptarian }} pagarían este precio ({{ f.porcentaje }} %)
+                          </td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+                <div class="col-md-5">
+                  <h6 class="text-uppercase small text-muted">Procedencia</h6>
+                  <table class="table table-sm">
+                    <tbody>
+                      {% for p in demanda.provincias %}
+                        <tr><td>{{ p.provincia }}</td><td class="text-end">{{ p.n }}</td></tr>
+                      {% empty %}
+                        <tr><td class="text-muted">Sin provincia indicada.</td></tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            {% else %}
+              <div class="alert alert-light border mb-0">
+                Todavía no hay nadie apuntado. El formulario está en
+                <a href="/sorteo/" target="_blank" rel="noreferrer">/sorteo/</a>,
+                sin enlazar desde el menú de la web.
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+
       {# ---------------- Datos económicos ---------------- #}
       <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">

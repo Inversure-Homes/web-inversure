@@ -7,7 +7,14 @@ from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils.html import format_html
 
-from .models import ActaSorteo, Organizador, Papeleta, Pedido, Sorteo
+from .models import (
+    ActaSorteo,
+    Interesado,
+    Organizador,
+    Papeleta,
+    Pedido,
+    Sorteo,
+)
 from .services import ErrorSorteo, registrar_acta
 
 
@@ -259,6 +266,22 @@ class PapeletaAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+
+@admin.register(Interesado)
+class InteresadoAdmin(admin.ModelAdmin):
+    list_display = (
+        "nombre", "email", "provincia", "participaciones_estimadas",
+        "precio_maximo", "activo", "creado_en",
+    )
+    list_filter = ("precio_maximo", "provincia", "sorteo")
+    search_fields = ("nombre", "email", "telefono", "provincia")
+    date_hierarchy = "creado_en"
+    readonly_fields = ("token_baja", "ip", "creado_en")
+
+    @admin.display(boolean=True, description="Activo")
+    def activo(self, obj):
+        return obj.activo
 
 
 @admin.register(ActaSorteo)

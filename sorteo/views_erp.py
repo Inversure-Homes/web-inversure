@@ -24,6 +24,7 @@ from .calculadora import Config, escenarios, recomendar
 from .economia import (
     consolidar_ingresos,
     crear_gastos_previstos,
+    demanda,
     gastos_base,
     resumen_economico,
 )
@@ -122,6 +123,7 @@ def detalle(request, pk):
         {
             "sorteo": sorteo,
             "resumen": resumen_economico(sorteo),
+            "demanda": demanda(sorteo),
             "gastos": sorteo.proyecto.gastos_proyecto.all().order_by("fecha"),
             "ingresos": sorteo.proyecto.ingresos.all().order_by("-fecha")[:12],
             "pagina": pagina,

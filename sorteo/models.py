@@ -349,6 +349,84 @@ class Papeleta(models.Model):
         return "#{} ({})".format(self.numero, self.get_estado_display())
 
 
+class Interesado(models.Model):
+    """
+    Lista de espera previa a la autorización.
+
+    Mientras la DGOJ no autorice el sorteo no se puede vender nada, así que
+    esto NO es una compra ni una reserva: es una anotación de interés. De ahí
+    tres consecuencias de diseño:
+
+    - No se pide DNI ni dirección. No hacen falta para avisar por email, y
+      pedirlos sería exceso de datos además de fricción inútil.
+    - La base jurídica es el **consentimiento**, no la ejecución de un
+      contrato. Debe poder revocarse: de ahí `token_baja`.
+    - Se piden dos datos que no sirven para avisar pero sí para decidir:
+      cuántas participaciones compraría y hasta qué precio. Sin ellos la lista
+      cuenta personas; con ellos estima demanda, que es lo que hace falta para
+      saber si merece la pena comprar el inmueble.
+    """
+
+    class Precio(models.TextChoices):
+        HASTA_10 = "10", "Hasta 10 €"
+        HASTA_20 = "20", "Hasta 20 €"
+        HASTA_25 = "25", "Hasta 25 €"
+        HASTA_50 = "50", "Hasta 50 €"
+        MAS_50 = "51", "Más de 50 €"
+
+    sorteo = models.ForeignKey(
+        Sorteo,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="interesados",
+        help_text="Puede no existir todavía cuando alguien se apunta.",
+    )
+
+    nombre = models.CharField(max_length=120)
+    email = models.EmailField()
+    telefono = models.CharField(max_length=30, blank=True)
+    provincia = models.CharField(
+        max_length=60,
+        blank=True,
+        help_text="Una plaza de garaje interesa sobre todo cerca. Saber de "
+        "dónde viene la demanda cambia dónde se hace la campaña.",
+    )
+
+    participaciones_estimadas = models.PositiveIntegerField(default=1)
+    precio_maximo = models.CharField(
+        max_length=4, choices=Precio.choices, default=Precio.HASTA_10
+    )
+
+    mayor_edad = models.BooleanField(default=False)
+    acepta_aviso = models.BooleanField(
+        default=False, verbose_name="Consiente recibir el aviso de apertura"
+    )
+
+    token_baja = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    baja_en = models.DateTimeField(null=True, blank=True)
+
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "interesado"
+        verbose_name_plural = "interesados"
+        ordering = ["-creado_en"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["sorteo", "email"], name="interesado_unico_por_sorteo"
+            )
+        ]
+
+    def __str__(self):
+        return "{} <{}>".format(self.nombre, self.email)
+
+    @property
+    def activo(self):
+        return self.baja_en is None
+
+
 class ActaSorteo(models.Model):
     """
     Resultado del sorteo celebrado ante notario.

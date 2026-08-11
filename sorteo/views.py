@@ -1,10 +1,13 @@
 import json
 
+from django import forms
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .models import Papeleta, Pedido, Sorteo
+from django.utils import timezone
+
+from .models import Interesado, Papeleta, Pedido, Sorteo
 from .services import (
     ErrorSorteo,
     confirmar_pago,
@@ -18,23 +21,16 @@ def _sorteo_activo():
     """
     El sorteo que se muestra en /sorteo/.
 
-    Solo puede haber uno abierto a la vez: la normativa obliga a que las rifas
-    ocasionales tengan periodicidad mínima anual.
+    Solo puede haber uno a la vez: la normativa obliga a que las rifas
+    ocasionales tengan periodicidad mínima anual. En borrador la página existe
+    igualmente, pero muestra la lista de espera en lugar de la compra.
     """
-    sorteo = (
-        Sorteo.objects.filter(estado=Sorteo.Estado.EN_VENTA)
-        .select_related("organizador")
-        .first()
-    )
-    if sorteo is None:
-        sorteo = (
-            Sorteo.objects.exclude(estado=Sorteo.Estado.BORRADOR)
-            .select_related("organizador")
-            .first()
-        )
-    if sorteo is None:
-        raise Http404("No hay ningún sorteo publicado.")
-    return sorteo
+    for estado in (Sorteo.Estado.EN_VENTA, Sorteo.Estado.SORTEADO, None):
+        qs = Sorteo.objects.select_related("organizador")
+        sorteo = (qs.filter(estado=estado) if estado else qs).first()
+        if sorteo:
+            return sorteo
+    raise Http404("No hay ningún sorteo publicado.")
 
 
 def _ip(request):
@@ -62,8 +58,49 @@ def _ocupadas(sorteo):
     ]
 
 
+class AltaForm(forms.Form):
+    """
+    Lista de espera. No es una compra: no hay precio comprometido, ni números
+    asignados, ni pago.
+
+    Se pide lo mínimo para poder avisar, más dos datos que sirven para decidir
+    el dimensionado. Nada de DNI ni dirección: no hacen falta para un email.
+    """
+
+    nombre = forms.CharField(max_length=120, label="Nombre")
+    email = forms.EmailField(label="Email")
+    telefono = forms.CharField(max_length=30, required=False, label="Teléfono (opcional)")
+    provincia = forms.CharField(max_length=60, required=False, label="Provincia (opcional)")
+    participaciones_estimadas = forms.IntegerField(
+        min_value=1, max_value=500, initial=1,
+        label="¿Cuántas participaciones te interesarían?",
+    )
+    precio_maximo = forms.ChoiceField(
+        choices=Interesado.Precio.choices,
+        label="¿Hasta qué precio por participación?",
+    )
+    mayor_edad = forms.BooleanField(label="Declaro ser mayor de 18 años")
+    acepta_aviso = forms.BooleanField(
+        label="Quiero recibir un aviso por email cuando se abra la venta"
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for nombre, campo in self.fields.items():
+            if isinstance(campo.widget, forms.CheckboxInput):
+                continue
+            css = "sorteo-select" if nombre == "precio_maximo" else ""
+            campo.widget.attrs.setdefault("class", css)
+
+
 def portada(request):
     sorteo = _sorteo_activo()
+
+    # En borrador todavía no hay autorización, así que no se puede vender:
+    # la página recoge interés, no pedidos.
+    if sorteo.estado == Sorteo.Estado.BORRADOR:
+        return _alta(request, sorteo)
+
     liberar_caducadas(sorteo)
     acta = getattr(sorteo, "acta", None)
     return render(
@@ -75,6 +112,47 @@ def portada(request):
             "ocupadas_json": json.dumps(_ocupadas(sorteo)),
         },
     )
+
+
+def _alta(request, sorteo):
+    form = AltaForm(request.POST or None)
+    guardado = False
+
+    if request.method == "POST" and form.is_valid():
+        datos = form.cleaned_data
+        Interesado.objects.update_or_create(
+            sorteo=sorteo,
+            email=datos["email"],
+            defaults={
+                "nombre": datos["nombre"],
+                "telefono": datos["telefono"],
+                "provincia": datos["provincia"],
+                "participaciones_estimadas": datos["participaciones_estimadas"],
+                "precio_maximo": datos["precio_maximo"],
+                "mayor_edad": datos["mayor_edad"],
+                "acepta_aviso": datos["acepta_aviso"],
+                "ip": _ip(request),
+                "baja_en": None,
+            },
+        )
+        guardado = True
+        form = AltaForm()
+
+    return render(
+        request,
+        "sorteo/alta.html",
+        {"sorteo": sorteo, "form": form, "guardado": guardado},
+    )
+
+
+def baja(request, token):
+    """Revocación del consentimiento. Sin login: el enlace va en cada email."""
+    interesado = get_object_or_404(Interesado, token_baja=token)
+    if interesado.activo:
+        interesado.baja_en = timezone.now()
+        interesado.acepta_aviso = False
+        interesado.save(update_fields=["baja_en", "acepta_aviso"])
+    return render(request, "sorteo/baja.html", {"interesado": interesado})
 
 
 def bases(request):

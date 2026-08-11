@@ -9,12 +9,12 @@ memoria.
 
 from decimal import Decimal
 
-from django.db.models import Count, Min
+from django.db.models import Count, Sum
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 
 from core.models import GastoProyecto, IngresoProyecto
-from .models import Papeleta, Pedido
+from .models import Interesado, Papeleta, Pedido
 
 # Prefijo con el que se reconocen los apuntes generados por el sorteo, para
 # poder actualizarlos sin duplicar.
@@ -124,6 +124,49 @@ def crear_gastos_previstos(sorteo):
         )
         creados += int(nuevo)
     return creados
+
+
+def demanda(sorteo):
+    """
+    Qué dice la lista de espera.
+
+    Es la única medida de demanda disponible antes de comprar el inmueble, así
+    que conviene mirarla junto al umbral de rentabilidad: si los interesados no
+    se acercan a esa cifra, el sorteo no se sostiene.
+    """
+    activos = Interesado.objects.filter(sorteo=sorteo, baja_en__isnull=True)
+    total = activos.count()
+    participaciones = (
+        activos.aggregate(n=Sum("participaciones_estimadas"))["n"] or 0
+    )
+
+    por_precio = []
+    acumulado = 0
+    for valor, etiqueta in reversed(Interesado.Precio.choices):
+        n = activos.filter(precio_maximo=valor).count()
+        acumulado += n
+        por_precio.insert(
+            0,
+            {
+                "etiqueta": etiqueta,
+                "personas": n,
+                "aceptarian": acumulado,
+                "porcentaje": round(acumulado * 100 / total) if total else 0,
+            },
+        )
+
+    return {
+        "personas": total,
+        "participaciones": participaciones,
+        "media": round(participaciones / total, 1) if total else 0,
+        "por_precio": por_precio,
+        "provincias": list(
+            activos.exclude(provincia="")
+            .values("provincia")
+            .annotate(n=Count("id"))
+            .order_by("-n")[:6]
+        ),
+    }
 
 
 def gastos_base(sorteo):

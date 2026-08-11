@@ -16,6 +16,10 @@
 
 {% block nav_actions %}
   <div class="landing-nav__actions">
-    <a class="btn-outline" href="{% url 'sorteo:bases' %}">Bases del sorteo</a>
+    {# En borrador las bases aún tienen huecos y el sorteo no está autorizado:
+       no se enlazan hasta que el sorteo se abre. #}
+    {% if sorteo and sorteo.estado != "borrador" %}
+      <a class="btn-outline" href="{% url 'sorteo:bases' %}">Bases del sorteo</a>
+    {% endif %}
   </div>
 {% endblock %}

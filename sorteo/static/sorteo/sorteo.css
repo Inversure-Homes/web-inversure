@@ -376,3 +376,16 @@
 .sorteo-legal li { margin-bottom: 6px; }
 .sorteo-legal .sorteo-tabla th { width: 200px; vertical-align: top; }
 .sorteo-pendiente { color: #b91c1c; font-style: italic; }
+
+/* Selector del formulario de alta */
+.sorteo-panel select.sorteo-select {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  margin-bottom: 15px;
+  cursor: pointer;
+}
