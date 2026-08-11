@@ -552,11 +552,25 @@
             {% if es_conciertos %}Liquidaciones{% else %}Memoria económica{% endif %}
           </h5>
           {% if not es_conciertos %}
-            <a class="btn btn-sm btn-outline-secondary"
-               href="{% url 'core:pdf_memoria_economica' proyecto.id %}"
-               target="_blank" rel="noopener noreferrer">
-              PDF memoria
-            </a>
+            <div class="d-flex gap-2">
+              {% if proyecto.sorteo %}
+                <a class="btn btn-sm btn-outline-warning"
+                   href="{% url 'sorteo_erp:detalle' proyecto.sorteo.pk %}">
+                  Ver el sorteo
+                </a>
+              {% else %}
+                <a class="btn btn-sm btn-outline-secondary"
+                   href="{% url 'sorteo_erp:estudio_nuevo' %}?proyecto={{ proyecto.id }}"
+                   title="Mide qué pasaría si este inmueble se rifara en lugar de venderse">
+                  Estudiar como rifa
+                </a>
+              {% endif %}
+              <a class="btn btn-sm btn-outline-secondary"
+                 href="{% url 'core:pdf_memoria_economica' proyecto.id %}"
+                 target="_blank" rel="noopener noreferrer">
+                PDF memoria
+              </a>
+            </div>
           {% endif %}
         </div>
 

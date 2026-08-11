@@ -27,11 +27,6 @@
         </p>
       </section>
 
-      {% if messages %}
-        {% for m in messages %}
-          <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}success{% endif %}">{{ m }}</div>
-        {% endfor %}
-      {% endif %}
 
       {% if acta %}
         <div class="alert alert-warning">

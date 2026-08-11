@@ -17,11 +17,6 @@
         </p>
       </section>
 
-      {% if messages %}
-        {% for m in messages %}
-          <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}success{% endif %}">{{ m }}</div>
-        {% endfor %}
-      {% endif %}
 
       <div class="text-center mb-4">
         <a href="{% url 'sorteo_erp:estudio_nuevo' %}" class="btn btn-inversure">

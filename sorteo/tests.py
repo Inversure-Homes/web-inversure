@@ -14,7 +14,7 @@ from django.test import TestCase
 from core.models import Proyecto
 
 from .calculadora import Config, escenarios, recomendar, umbral
-from .comparador import comparar
+from .comparador import comparar, desde_proyecto
 from .impuestos import Operacion, calcular
 from .models import (
     ActaSorteo,
@@ -393,3 +393,27 @@ class EstudiosDeRifa(TestCase):
         suelto = EstudioRifa.objects.create(nombre="Sin proyecto", precio_compra=Decimal("10000"))
         self.assertIsNone(suelto.proyecto)
         self.assertIsNone(suelto.sorteo)
+
+
+class PrecargaDesdeProyecto(TestCase):
+    """
+    `desde_proyecto` alimenta el formulario, no al comparador: sus claves son
+    las del formulario. Se comprobó porque el precio de venta se perdía por
+    llamarse distinto en cada sitio.
+    """
+
+    def test_las_claves_son_las_del_formulario(self):
+        from .views_estudios import EstudioForm
+
+        proyecto = Proyecto.objects.create(
+            nombre="Piso a estudiar",
+            precio_compra_inmueble=Decimal("35000"),
+            precio_venta_estimado=Decimal("48000"),
+            notaria=Decimal("700"),
+            meses=8,
+        )
+        datos = desde_proyecto(proyecto)
+        campos = set(EstudioForm().fields)
+        self.assertTrue(set(datos).issubset(campos), set(datos) - campos)
+        self.assertEqual(datos["precio_venta_estimado"], Decimal("48000"))
+        self.assertEqual(datos["otros_gastos"], Decimal("700"))

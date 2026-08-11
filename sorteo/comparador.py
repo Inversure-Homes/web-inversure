@@ -30,6 +30,19 @@ def _eur(v):
     return Decimal(v).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
+def _num(valor, decimales=0):
+    """
+    Importe en formato español: 10.746 €, no 10746.00 €.
+
+    Estas cadenas se componen aquí y no en la plantilla, así que el formato hay
+    que darlo aquí también.
+    """
+    texto = "{:,.{}f}".format(Decimal(valor), decimales)
+    entera, _, decimal = texto.partition(".")
+    entera = entera.replace(",", ".")
+    return "{},{}".format(entera, decimal) if decimal else entera
+
+
 def _pct(parte, sobre):
     if not sobre:
         return Decimal("0")
@@ -107,7 +120,7 @@ def escenario_rifa(datos, entrada):
         "riesgo": "Hay que colocar {} participaciones ({} %) solo para no "
         "perder dinero, porque la tasa se paga sobre lo emitido. Si no se "
         "llega y se cancela, se reintegra todo y el inmueble se conserva.".format(
-            resultado["umbral"], resultado["umbral_porcentaje"]
+            _num(resultado["umbral"]), resultado["umbral_porcentaje"]
         ),
         "tope": "Puede superar el valor de mercado del inmueble.",
         "detalle": resultado,
@@ -133,20 +146,20 @@ def comparar(datos):
         lecturas.append(
             "A pleno, la rifa deja {} € más que la venta. Pero ese resultado "
             "exige colocar el {} % de las participaciones; la venta no tiene "
-            "esa condición.".format(diferencia, rifa["umbral_porcentaje"])
+            "esa condición.".format(_num(diferencia), rifa["umbral_porcentaje"])
         )
     else:
         lecturas.append(
             "Incluso agotando las participaciones, la rifa deja {} € menos "
             "que la venta. Con ese margen no compensa el riesgo de "
-            "colocación.".format(abs(diferencia))
+            "colocación.".format(_num(abs(diferencia)))
         )
 
     if venta["por_mes"] and rifa["por_mes"]:
         mejor = "rifa" if rifa["por_mes"] > venta["por_mes"] else "venta"
         lecturas.append(
             "Por mes de capital inmovilizado: {} €/mes la venta frente a {} €/mes la rifa. Gana la {}.".format(
-                venta["por_mes"], rifa["por_mes"], mejor
+                _num(venta["por_mes"]), _num(rifa["por_mes"]), mejor
             )
         )
 
@@ -169,7 +182,13 @@ def comparar(datos):
 
 
 def desde_proyecto(proyecto):
-    """Precarga los datos del comparador desde un proyecto del ERP."""
+    """
+    Precarga un estudio desde un proyecto del ERP.
+
+    Devuelve las claves del FORMULARIO, no las del comparador: es lo que se usa
+    como `initial`. La distinción importa — `precio_venta_estimado` aquí,
+    `precio_venta` en `comparar()`.
+    """
     otros = Decimal("0")
     for campo in ("notaria", "registro", "otros_gastos_compra", "reforma"):
         otros += getattr(proyecto, campo, None) or Decimal("0")
@@ -178,7 +197,7 @@ def desde_proyecto(proyecto):
         "precio_compra": proyecto.precio_compra_inmueble or Decimal("0"),
         "valor_referencia": proyecto.valor_referencia,
         "otros_gastos": otros,
-        "precio_venta": proyecto.precio_venta_estimado or Decimal("0"),
+        "precio_venta_estimado": proyecto.precio_venta_estimado or Decimal("0"),
         "meses_venta": proyecto.meses or 6,
     }
 
