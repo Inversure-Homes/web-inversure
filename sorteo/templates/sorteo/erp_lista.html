@@ -1,34 +1,178 @@
 {% extends "core/base.html" %}
-{% load humanize %}
+{% load humanize formatting %}
 
+{% comment %}
+  La sección de sorteos entera, en una sola página: arriba los estudios —de
+  donde salen— y debajo los sorteos en marcha. Un estudio acaba convertido o
+  archivado, nunca borrado: saber qué se probó y por qué no salió vale para el
+  siguiente.
+{% endcomment %}
 {% block content %}
 <div class="inversure-app">
   <section class="inversure-section">
     <div class="container">
 
-      <section class="inversure-section-header mb-5 text-center">
-        <div class="inversure-section-icon mb-2">
-          <i class="bi bi-ticket-perforated"></i>
-        </div>
+      <section class="inversure-section-header mb-4 text-center">
+        <div class="inversure-section-icon mb-2"><i class="bi bi-ticket-perforated"></i></div>
         <h1 class="inversure-section-title">Sorteos</h1>
         <div class="inversure-divider mx-auto"></div>
         <p class="inversure-section-subtitle mx-auto">
-          Rifas de inmuebles. Cada sorteo cuelga de un proyecto, que es donde
-          vive su economía.
+          Rifas de inmuebles. Se empieza por un estudio y, si convence, se
+          convierte en sorteo; si no, se archiva.
         </p>
       </section>
 
-      <div class="text-center mb-4">
-        <a href="{% url 'sorteo_erp:estudios' %}" class="btn btn-inversure">
-          <i class="bi bi-clipboard-data"></i> Estudios de rifa
-        </a>
-        <a href="{% url 'sorteo_erp:calculadora_libre' %}" class="btn btn-outline-secondary">
-          <i class="bi bi-calculator"></i> Calculadora rápida
-        </a>
-        <div class="text-muted small mt-2">
-          Estudio previo, sin necesidad de crear proyecto ni sorteo.
+      {# Estudios #}
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">
+          {% if ver_archivados %}Estudios archivados{% else %}Estudios{% endif %}
+        </h5>
+        <div class="d-flex gap-2">
+          {% if ver_archivados %}
+            <a href="{% url 'sorteo_erp:lista' %}" class="btn btn-sm btn-outline-secondary">
+              Ver estudios activos
+            </a>
+          {% else %}
+            <a href="{% url 'sorteo_erp:estudio_nuevo' %}" class="btn btn-sm btn-inversure">
+              <i class="bi bi-plus-lg"></i> Nuevo estudio
+            </a>
+            <a href="{% url 'sorteo_erp:calculadora_libre' %}" class="btn btn-sm btn-outline-secondary">
+              Calculadora rápida
+            </a>
+            {% if archivados %}
+              <a href="?archivados=1" class="btn btn-sm btn-outline-secondary">
+                Archivados ({{ archivados }})
+              </a>
+            {% endif %}
+          {% endif %}
         </div>
       </div>
+
+      {% if estudios %}
+        <div class="row g-4 mb-5">
+          {% for e in estudios %}
+            <div class="col-md-6 col-lg-4">
+              <div class="card h-100 shadow-sm inversure-card{% if e.estudio.archivado %} opacity-75{% endif %}">
+
+                <div class="card-header inversure-card-header text-white d-flex justify-content-between align-items-start"
+                     style="background-color:#122135;">
+                  <div>
+                    <div class="fw-bold">{{ e.estudio.nombre }}</div>
+                    <div class="small opacity-75">
+                      {% if e.estudio.proyecto %}{{ e.estudio.proyecto.nombre }}
+                      {% else %}Inmueble hipotético{% endif %}
+                    </div>
+                    <div class="mt-2">
+                      <span class="badge bg-{{ e.analisis.decision.tono }}">
+                        {{ e.analisis.decision.texto }}
+                      </span>
+                    </div>
+                  </div>
+                  <span class="badge bg-light text-dark small align-self-start">
+                    RIF-{{ e.estudio.id|stringformat:"06d" }}
+                  </span>
+                </div>
+
+                <div class="card-body d-flex flex-column">
+                  <div class="mb-4 text-center inversure-kpis">
+                    <div class="fw-bold inversure-roi">
+                      {% if e.analisis.rifa.roi < 0 %}
+                        <span class="text-danger">{{ e.analisis.rifa.roi|es_number }}%</span>
+                      {% elif e.analisis.rifa.roi < 12 %}
+                        <span class="text-warning">{{ e.analisis.rifa.roi|es_number }}%</span>
+                      {% else %}
+                        <span class="text-success">{{ e.analisis.rifa.roi|es_number }}%</span>
+                      {% endif %}
+                    </div>
+                    <div class="fw-semibold small text-muted">ROI de la rifa</div>
+                  </div>
+
+                  <div class="row text-center mb-3 inversure-kpis">
+                    <div class="col-6">
+                      <div class="fw-semibold small text-muted">Entrada</div>
+                      <div class="fw-bold">{{ e.analisis.entrada.total|es_number }} €</div>
+                    </div>
+                    <div class="col-6">
+                      <div class="fw-semibold small text-muted">Beneficio</div>
+                      <div class="fw-bold {% if e.analisis.rifa.beneficio < 0 %}text-danger{% endif %}">
+                        {{ e.analisis.rifa.beneficio|es_number }} €
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="row text-center mb-3 inversure-kpis">
+                    <div class="col-6">
+                      <div class="fw-semibold small text-muted">Umbral</div>
+                      <div class="fw-bold">{{ e.analisis.rifa.umbral_porcentaje }} %</div>
+                    </div>
+                    <div class="col-6">
+                      <div class="fw-semibold small text-muted"
+                           title="Personas distintas a las que hay que convencer">
+                        Compradores
+                      </div>
+                      <div class="fw-bold">≈ {{ e.analisis.rifa.compradores|intcomma }}</div>
+                    </div>
+                  </div>
+
+                  <div class="text-center small text-muted mb-3">
+                    {{ e.estudio.participaciones|intcomma }} ×
+                    {{ e.estudio.precio_participacion|es_number }} €
+                  </div>
+
+                  <div class="mt-auto d-flex justify-content-center gap-2 flex-wrap">
+                    <a href="{% url 'sorteo_erp:estudio' e.estudio.pk %}"
+                       class="btn btn-primary btn-sm">Abrir</a>
+                    {% if not e.estudio.archivado %}
+                      <a href="{% url 'sorteo_erp:estudio_duplicar' e.estudio.pk %}"
+                         class="btn btn-outline-secondary btn-sm">Duplicar</a>
+                    {% endif %}
+                    {% if not e.estudio.sorteo %}
+                      <a href="{% url 'sorteo_erp:estudio_archivar' e.estudio.pk %}"
+                         class="btn btn-outline-secondary btn-sm">
+                        {% if e.estudio.archivado %}Recuperar{% else %}Archivar{% endif %}
+                      </a>
+                    {% endif %}
+                  </div>
+                </div>
+
+                <div class="card-footer text-center small text-muted py-2">
+                  <div>ID interno: {{ e.estudio.id }} · Creado: {{ e.estudio.creado_en|date:"d/m/Y" }}</div>
+                  <div class="mt-1">
+                    Estado:
+                    {% if e.estudio.archivado %}
+                      <span class="badge bg-secondary">📦 Archivado</span>
+                    {% elif e.estudio.sorteo %}
+                      <span class="badge bg-success">✅ Convertido en sorteo</span>
+                    {% else %}
+                      <span class="badge bg-warning text-dark">📝 Estudio</span>
+                    {% endif %}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        <p class="text-muted small">
+          El badge de la cabecera decide por el número de <strong>compradores
+          distintos</strong> que hay que convencer, no por el porcentaje del
+          umbral: emitir más participaciones baja el porcentaje un punto y
+          multiplica la gente a la que hay que llegar.
+        </p>
+      {% else %}
+        <div class="alert alert-light border text-center mb-5">
+          {% if ver_archivados %}
+            No hay estudios archivados.
+          {% else %}
+            Todavía no hay ningún estudio. Empieza por uno: solo hacen falta el
+            precio de compra del inmueble y la comunidad autónoma.
+          {% endif %}
+        </div>
+      {% endif %}
+
+      {# Sorteos en marcha #}
+      <h5 class="mb-3 mt-5">Sorteos</h5>
 
       {% if sorteos %}
         <div class="row g-4">
@@ -41,18 +185,17 @@
                     <span class="badge bg-secondary">{{ s.get_estado_display }}</span>
                   </div>
                   <p class="text-muted small mb-3">
-                    Proyecto: {{ s.proyecto.nombre }} ·
+                    Proyecto {{ s.proyecto.nombre }} ·
                     Sorteo el {{ s.fecha_sorteo|date:"d/m/Y" }}
                   </p>
 
                   <div class="progress mb-2" style="height: 8px;">
-                    <div class="progress-bar bg-warning"
-                         style="width: {{ s.porcentaje_vendido }}%"></div>
+                    <div class="progress-bar bg-warning" style="width: {{ s.porcentaje_vendido }}%"></div>
                   </div>
                   <p class="small mb-3">
                     <strong>{{ s.vendidas|intcomma }}</strong> de
                     {{ s.total_participaciones|intcomma }} vendidas ·
-                    {{ s.recaudado|floatformat:"0g" }} €
+                    {{ s.recaudado|es_number }} €
                   </p>
 
                   <a href="{% url 'sorteo_erp:detalle' s.pk %}"
@@ -64,9 +207,8 @@
         </div>
       {% else %}
         <div class="alert alert-light border text-center">
-          Todavía no hay ningún sorteo. Se crean desde
-          <a href="/admin/sorteo/sorteo/add/">el administrador</a>, enlazándolos
-          a un proyecto existente.
+          Ningún sorteo en marcha. Los sorteos nacen de un estudio: ábrelo y
+          pulsa «Convertir en sorteo».
         </div>
       {% endif %}
 

@@ -86,14 +86,30 @@ class VentaManualForm(forms.Form):
 
 @login_required
 def lista(request):
+    """
+    La sección de sorteos entera: primero los estudios, que es de donde salen,
+    y debajo los sorteos ya en marcha. Mismo recorrido que estudio → proyecto
+    en el resto del ERP, pero sin partirlo en dos sitios.
+    """
     if not _puede(request.user):
         return redirect("core:home")
 
-    sorteos = Sorteo.objects.select_related("proyecto", "organizador").all()
+    from .comparador import comparar
+    from .models import EstudioRifa
+
+    ver_archivados = request.GET.get("archivados") == "1"
+    estudios = EstudioRifa.objects.select_related("proyecto", "sorteo").filter(archivado=ver_archivados)
+
     return render(
         request,
         "sorteo/erp_lista.html",
-        {"sorteos": sorteos, "titulo": "Sorteos"},
+        {
+            "sorteos": Sorteo.objects.select_related("proyecto", "organizador"),
+            "estudios": [{"estudio": e, "analisis": comparar(e.como_datos())} for e in estudios],
+            "ver_archivados": ver_archivados,
+            "archivados": EstudioRifa.objects.filter(archivado=True).count(),
+            "titulo": "Sorteos",
+        },
     )
 
 

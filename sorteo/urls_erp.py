@@ -12,6 +12,7 @@ urlpatterns = [
     path("estudios/<int:pk>/", views_estudios.detalle, name="estudio"),
     path("estudios/<int:pk>/editar/", views_estudios.editar, name="estudio_editar"),
     path("estudios/<int:pk>/duplicar/", views_estudios.duplicar, name="estudio_duplicar"),
+    path("estudios/<int:pk>/archivar/", views_estudios.archivar, name="estudio_archivar"),
     path("estudios/<int:pk>/convertir/", views_estudios.convertir, name="estudio_convertir"),
     path("<int:pk>/", views_erp.detalle, name="detalle"),
     path("<int:pk>/venta/", views_erp.venta_manual, name="venta_manual"),

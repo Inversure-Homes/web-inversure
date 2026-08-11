@@ -535,6 +535,11 @@ class EstudioRifa(models.Model):
         related_name="estudio_origen",
         help_text="Sorteo en el que se convirtió, si llegó a hacerse.",
     )
+    archivado = models.BooleanField(
+        default=False,
+        help_text="Un estudio descartado no se borra: se archiva, porque saber "
+        "qué se probó y por qué no salió vale para el siguiente.",
+    )
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
 

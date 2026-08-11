@@ -440,11 +440,24 @@ class Veredicto(TestCase):
         d = comparar(dict(self.BASE, precio_venta=Decimal("60000")))["decision"]
         self.assertEqual(d["texto"], "Vender")
 
-    def test_avisa_cuando_el_umbral_es_inasumible(self):
-        # Emitiendo poco, la tasa y los fijos se comen casi toda la emisión.
-        d = comparar(dict(self.BASE, participaciones=3000))["decision"]
+    def test_avisa_cuando_hacen_falta_demasiados_compradores(self):
+        d = comparar(dict(self.BASE, participaciones=8000))["decision"]
         self.assertEqual(d["texto"], "Revisar")
 
-    def test_recomienda_rifar_con_umbral_alcanzable(self):
-        d = comparar(dict(self.BASE, participaciones=8000))["decision"]
+    def test_recomienda_rifar_si_bastan_pocos_compradores(self):
+        # Menos papeletas y más caras: mismo dinero, mucha menos gente.
+        d = comparar(dict(self.BASE, participaciones=1000, precio_participacion=Decimal("50")))["decision"]
         self.assertEqual(d["texto"], "Rifar")
+
+    def test_el_porcentaje_del_umbral_no_decide(self):
+        """
+        El caso que motivó el cambio: emitir más baja el umbral porcentual un
+        punto y multiplica por cinco los compradores. Con el criterio viejo el
+        peor escenario salía mejor valorado.
+        """
+        pocos = comparar(dict(self.BASE, participaciones=1000, precio_participacion=Decimal("50")))
+        muchos = comparar(dict(self.BASE, participaciones=5000))
+        self.assertLessEqual(muchos["rifa"]["umbral_porcentaje"], pocos["rifa"]["umbral_porcentaje"])
+        self.assertGreater(muchos["rifa"]["compradores"], pocos["rifa"]["compradores"])
+        self.assertEqual(pocos["decision"]["texto"], "Rifar")
+        self.assertEqual(muchos["decision"]["texto"], "Revisar")

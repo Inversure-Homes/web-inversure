@@ -25,6 +25,13 @@ from .impuestos import Operacion, calcular
 
 CIEN = Decimal("100")
 
+# Cuántos compradores distintos hay que convencer antes de que la campaña deje
+# de ser realista. Son un juicio, no una ley: una rifa local llega sin esfuerzo
+# a unos cientos de personas; pasar del millar exige campaña seria y
+# presupuesto. Se tocan aquí si la experiencia dice otra cosa.
+COMPRADORES_HOLGADO = 400
+COMPRADORES_LIMITE = 1000
+
 
 def _eur(v):
     return Decimal(v).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
@@ -170,28 +177,39 @@ def comparar(datos):
             )
         )
 
-    # Veredicto para el KPI de decisión, con el mismo criterio que el badge de
-    # la lista: el umbral manda sobre el beneficio.
-    if rifa["umbral_porcentaje"] > 85:
-        decision = {
-            "texto": "Revisar",
-            "tono": "danger",
-            "motivo": "El umbral es demasiado alto para el margen que deja.",
-        }
-    elif diferencia <= 0:
+    # Veredicto para el KPI de decisión.
+    #
+    # Manda el número ABSOLUTO de compradores, no el porcentaje del umbral. El
+    # porcentaje engaña: emitir más participaciones lo baja un punto mientras
+    # multiplica por cinco la gente a la que hay que convencer, y vender es un
+    # problema de personas, no de proporciones.
+    compradores = rifa["compradores"]
+    if diferencia <= 0:
         decision = {
             "texto": "Vender",
             "tono": "secondary",
             "motivo": "La venta ordinaria deja más y sin riesgo de colocación.",
         }
-    elif rifa["umbral_porcentaje"] > 70:
+    elif compradores > COMPRADORES_LIMITE:
+        decision = {
+            "texto": "Revisar",
+            "tono": "danger",
+            "motivo": "Hacen falta {} compradores distintos: exige una campaña seria y con presupuesto.".format(
+                _num(compradores)
+            ),
+        }
+    elif compradores > COMPRADORES_HOLGADO:
         decision = {
             "texto": "Rifar con cautela",
             "tono": "warning",
-            "motivo": "Compensa, pero deja poco margen de error en la campaña.",
+            "motivo": "Compensa, pero hay que convencer a {} personas.".format(_num(compradores)),
         }
     else:
-        decision = {"texto": "Rifar", "tono": "success", "motivo": "Mejor resultado y umbral alcanzable."}
+        decision = {
+            "texto": "Rifar",
+            "tono": "success",
+            "motivo": "Buen resultado y bastan {} compradores.".format(_num(compradores)),
+        }
 
     return {
         "entrada": entrada,

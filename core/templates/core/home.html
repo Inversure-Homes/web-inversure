@@ -93,7 +93,7 @@
                         </div>
                         <h5 class="mb-2">Sorteos</h5>
                         <p class="text-muted mb-4">
-                            Rifas de inmuebles: participantes, ventas y economía.
+                            Estudios, sorteos, participantes y economía.
                         </p>
                         <span class="btn btn-inversure mt-auto">
                             Ver sorteos
@@ -104,28 +104,6 @@
         </div>
         {% endif %}
 
-        {% if can_proyectos %}
-        <div class="col-md-4">
-            <a href="{% url 'sorteo_erp:estudios' %}" class="text-decoration-none text-dark">
-                <div class="card h-100 shadow-sm border-0 hover-card">
-                    <div class="card-body text-center d-flex flex-column">
-                        <div class="card-icon-wrapper mb-3">
-                            <div class="card-icon-circle">
-                                <i class="bi bi-clipboard-data fs-1"></i>
-                            </div>
-                        </div>
-                        <h5 class="mb-2">Estudios de rifa</h5>
-                        <p class="text-muted mb-4">
-                            Banco de pruebas: mide escenarios antes de comprometer nada.
-                        </p>
-                        <span class="btn btn-inversure mt-auto">
-                            Probar un escenario
-                        </span>
-                    </div>
-                </div>
-            </a>
-        </div>
-        {% endif %}
 
         {% if can_clientes %}
         <div class="col-md-4">

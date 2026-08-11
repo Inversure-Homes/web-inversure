@@ -84,19 +84,8 @@ class EstudioForm(forms.ModelForm):
 
 @login_required
 def lista(request):
-    if not _puede(request.user):
-        return redirect("core:home")
-
-    estudios = []
-    for estudio in EstudioRifa.objects.select_related("proyecto", "sorteo"):
-        analisis = comparar(estudio.como_datos())
-        estudios.append({"estudio": estudio, "analisis": analisis})
-
-    return render(
-        request,
-        "sorteo/erp_estudios.html",
-        {"estudios": estudios, "titulo": "Estudios de rifa"},
-    )
+    """Los estudios viven dentro de la sección de sorteos, no aparte."""
+    return redirect("sorteo_erp:lista")
 
 
 @login_required
@@ -168,6 +157,27 @@ def duplicar(request, pk):
     copia.save()
     messages.success(request, "Estudio duplicado: cambia lo que quieras probar.")
     return redirect("sorteo_erp:estudio_editar", pk=copia.pk)
+
+
+@login_required
+def archivar(request, pk):
+    """
+    Descartar un estudio sin borrarlo.
+
+    Saber qué se probó y por qué no salió vale para el siguiente, así que no
+    hay borrado: se archiva y se puede recuperar.
+    """
+    if not _puede(request.user):
+        return redirect("core:home")
+
+    estudio = get_object_or_404(EstudioRifa, pk=pk)
+    estudio.archivado = not estudio.archivado
+    estudio.save(update_fields=["archivado"])
+    messages.success(
+        request,
+        "Estudio archivado." if estudio.archivado else "Estudio recuperado.",
+    )
+    return redirect("sorteo_erp:lista")
 
 
 @login_required
