@@ -417,18 +417,28 @@ def _user_can_edit_estudio(user) -> bool:
 
 
 def _user_can_view_estudio(user) -> bool:
-    if _user_is_admin_or_direccion(user):
-        return True
-    if is_marketing_user(user):
-        return True
-    if is_moderators_user(user):
-        return True
-    if is_comercial_user(user):
-        return True
-    if use_custom_permissions(user):
-        perms = resolve_permissions(user)
-        return bool(perms.get("can_estudios"))
-    return False
+    """
+    Quién puede ver estudios.
+
+    Se delega en `resolve_permissions` en vez de repetir aquí la escalera de
+    roles: es la misma función que usa `home.html` para enseñar u ocultar la
+    tarjeta de Estudios, así que lo que se ve en el menú y lo que deja pasar el
+    servidor no pueden separarse. Escribirlo a mano ya se torció una vez —
+    moderadores tienen `can_proyectos` pero no `can_estudios`, y una copia del
+    helper de proyectos les daba acceso.
+    """
+    return bool(resolve_permissions(user).get("can_estudios"))
+
+
+def _user_can_use_simulador(user) -> bool:
+    """
+    El simulador va por su propio permiso, no por el de estudios.
+
+    No es un matiz nuestro: marketing tiene `can_estudios` y no
+    `can_simulador`, o sea que puede consultar los estudios pero no montar
+    escenarios nuevos.
+    """
+    return bool(resolve_permissions(user).get("can_simulador"))
 
 
 def _user_can_manage_publicacion(user) -> bool:
@@ -4746,6 +4756,9 @@ def simulador(request):
     Si `codigo` es numérico, se interpreta como `id`.
     Si no es numérico y el modelo Estudio tiene campo `codigo`, se busca por ese campo.
     """
+    if not _user_can_use_simulador(request.user):
+        messages.error(request, "No tienes acceso al simulador.")
+        return redirect("core:home")
 
     # 1) Selección explícita desde lista (prioridad sobre sesión)
     estudio_id_param = (request.GET.get("estudio_id") or request.GET.get("id") or "").strip()
@@ -4828,6 +4841,10 @@ def simulador(request):
 
 
 def lista_estudio(request):
+    if not _user_can_view_estudio(request.user):
+        messages.error(request, "No tienes acceso a los estudios.")
+        return redirect("core:home")
+
     # Por defecto, ocultamos estudios ya convertidos a proyecto (bloqueados), para no saturar el listado.
     # Si se desea ver también los convertidos, usar ?mostrar_convertidos=1
     estudios_qs = Estudio.objects.filter(guardado=True)
@@ -4871,7 +4888,14 @@ def lista_estudio(request):
     return render(
         request,
         "core/lista_estudio.html",
-        {"estudios": estudios},
+        {
+            "estudios": estudios,
+            # Marketing entra al listado pero no al simulador, así que «Abrir»
+            # le dejaría en un botón que rebota. Para quien no puede abrirlo,
+            # la lista ofrece el informe, que sí puede ver.
+            "puede_simular": _user_can_use_simulador(request.user),
+            "puede_editar": _user_can_edit_estudio(request.user),
+        },
     )
 
 

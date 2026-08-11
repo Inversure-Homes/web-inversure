@@ -95,16 +95,25 @@
 
               <hr class="my-2">
 
-              <div class="mt-auto d-flex justify-content-center gap-2">
-                <a href="{% url 'core:simulador' %}?estudio_id={{ estudio.id }}"
-                   class="btn btn-primary btn-sm">
-                  Abrir
+              <div class="mt-auto d-flex justify-content-center gap-2 flex-wrap">
+                {% if puede_simular %}
+                  <a href="{% url 'core:simulador' %}?estudio_id={{ estudio.id }}"
+                     class="btn btn-primary btn-sm">
+                    Abrir
+                  </a>
+                {% endif %}
+                <a href="{% url 'core:pdf_estudio_preview' estudio.id %}"
+                   target="_blank" rel="noopener noreferrer"
+                   class="btn btn-outline-secondary btn-sm">
+                  Informe PDF
                 </a>
-                <button type="button"
-                        class="btn btn-outline-danger btn-sm js-borrar-estudio"
-                        data-id="{{ estudio.id }}">
-                  Borrar
-                </button>
+                {% if puede_editar %}
+                  <button type="button"
+                          class="btn btn-outline-danger btn-sm js-borrar-estudio"
+                          data-id="{{ estudio.id }}">
+                    Borrar
+                  </button>
+                {% endif %}
               </div>
             </div>
 
