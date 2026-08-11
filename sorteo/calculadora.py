@@ -51,10 +51,12 @@ class Config:
 
     @classmethod
     def desde_sorteo(cls, sorteo):
+        from .economia import valor_premio
+
         return cls(
             precio=sorteo.precio_participacion,
             emitidas=sorteo.total_participaciones,
-            valor_premio=sorteo.inmueble_valor,
+            valor_premio=valor_premio(sorteo),
             minimo=sorteo.minimo_participaciones,
             asume_ingreso_cuenta=sorteo.organizador_asume_ingreso_cuenta,
             tasa_pct=sorteo.tasa_juego_porcentaje,

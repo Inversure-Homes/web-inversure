@@ -247,7 +247,37 @@
 
           <div class="row">
             <div class="col-md-7">
-              <h6 class="text-uppercase small text-muted">Gastos</h6>
+              <h6 class="text-uppercase small text-muted">
+                Gastos fijos
+                <span class="badge bg-light text-muted border ms-1">
+                  {% if base.origen == "gastos" %}de los gastos registrados
+                  {% else %}de la ficha del proyecto{% endif %}
+                </span>
+              </h6>
+              <table class="table table-sm">
+                <tbody>
+                  {% for f in base.filas %}
+                    <tr>
+                      <td>{{ f.concepto }}</td>
+                      <td class="text-end text-nowrap">{{ f.importe|floatformat:"2g" }} €</td>
+                    </tr>
+                  {% empty %}
+                    <tr><td colspan="2" class="text-muted">Sin gastos. Rellena el precio de compra en el proyecto.</td></tr>
+                  {% endfor %}
+                  {% for f in previstos %}
+                    <tr class="text-muted">
+                      <td>{{ f.concepto }} <em class="small">(calculado)</em></td>
+                      <td class="text-end text-nowrap">{{ f.importe|floatformat:"2g" }} €</td>
+                    </tr>
+                  {% endfor %}
+                  <tr class="fw-semibold border-top">
+                    <td>Total</td>
+                    <td class="text-end">{{ resumen.coste_total|floatformat:"2g" }} €</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <h6 class="text-uppercase small text-muted mt-3">Gastos en el proyecto</h6>
               <table class="table table-sm">
                 <tbody>
                   {% for g in gastos %}

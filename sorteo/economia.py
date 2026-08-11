@@ -73,7 +73,7 @@ def gastos_previstos(sorteo):
     tipo = Decimal(sorteo.tasa_juego_porcentaje) / Decimal("100")
     tasa = (emitido * tipo).quantize(Decimal("0.01"))
 
-    valor = sorteo.inmueble_valor or Decimal("0")
+    valor = valor_premio(sorteo)
     ingreso_cuenta = (valor * Decimal("1.20") * Decimal("0.19")).quantize(Decimal("0.01"))
 
     filas = [
@@ -170,7 +170,77 @@ def gastos_base(sorteo):
         if (g.concepto or "").startswith(MARCA):
             continue
         total += g.importe_real or g.importe or Decimal("0")
+
+    if total:
+        return total
+
+    # Sin gastos registrados, se toman los de la ficha del proyecto. Es el caso
+    # normal al empezar: se rellena el proyecto y no se ha dado de alta ningún
+    # gasto todavía. Sin esto la calculadora vería cero y daría cifras absurdas.
+    return coste_adquisicion(sorteo.proyecto)
+
+
+# Campos de la ficha del proyecto que componen el coste de adquisición. Se
+# listan explícitamente para que se vea qué entra y qué no.
+CAMPOS_ADQUISICION = (
+    "precio_compra_inmueble",
+    "itp",
+    "notaria",
+    "registro",
+    "otros_gastos_compra",
+    "reforma",
+)
+
+
+def coste_adquisicion(proyecto):
+    total = Decimal("0")
+    for campo in CAMPOS_ADQUISICION:
+        total += getattr(proyecto, campo, None) or Decimal("0")
     return total
+
+
+def desglose_gastos_base(sorteo):
+    """De dónde salen los gastos fijos, para poder enseñarlo en el panel."""
+    manuales = [
+        g for g in GastoProyecto.objects.filter(proyecto=sorteo.proyecto) if not (g.concepto or "").startswith(MARCA)
+    ]
+    if manuales:
+        return {
+            "origen": "gastos",
+            "total": sum((g.importe_real or g.importe or Decimal("0")) for g in manuales),
+            "filas": [
+                {
+                    "concepto": g.concepto,
+                    "importe": g.importe_real or g.importe or Decimal("0"),
+                }
+                for g in manuales
+            ],
+        }
+
+    proyecto = sorteo.proyecto
+    filas = [
+        {
+            "concepto": proyecto._meta.get_field(campo).verbose_name or campo,
+            "importe": getattr(proyecto, campo, None) or Decimal("0"),
+        }
+        for campo in CAMPOS_ADQUISICION
+        if getattr(proyecto, campo, None)
+    ]
+    return {
+        "origen": "ficha",
+        "total": coste_adquisicion(proyecto),
+        "filas": filas,
+    }
+
+
+def valor_premio(sorteo):
+    """
+    Valor del premio para el ingreso a cuenta del IRPF.
+
+    Si no se ha indicado en el sorteo se toma el precio de compra del proyecto,
+    que es lo que se quiere el 95 % de las veces.
+    """
+    return sorteo.inmueble_valor or sorteo.proyecto.precio_compra_inmueble or Decimal("0")
 
 
 def resumen_economico(sorteo):
@@ -183,8 +253,10 @@ def resumen_economico(sorteo):
     vendidas = sorteo.vendidas
     recaudado = vendidas * sorteo.precio_participacion
 
-    gastos = GastoProyecto.objects.filter(proyecto=sorteo.proyecto)
-    coste_total = sum((g.importe_real or g.importe or Decimal("0")) for g in gastos)
+    # Base + los gastos que genera la propia rifa. No hay doble conteo porque
+    # `gastos_base` excluye los apuntes marcados, y así el umbral sale correcto
+    # tanto si ya se han volcado al proyecto como si todavía no.
+    coste_total = gastos_base(sorteo) + sum(f["importe"] for f in gastos_previstos(sorteo))
 
     precio = sorteo.precio_participacion or Decimal("1")
     equilibrio = int(-(-coste_total // precio)) if coste_total else 0

@@ -27,7 +27,9 @@ from .economia import (
     consolidar_ingresos,
     crear_gastos_previstos,
     demanda,
+    desglose_gastos_base,
     gastos_base,
+    gastos_previstos,
     resumen_economico,
 )
 from .models import Pedido, Sorteo
@@ -121,6 +123,8 @@ def detalle(request, pk):
             "sorteo": sorteo,
             "resumen": resumen_economico(sorteo),
             "demanda": demanda(sorteo),
+            "base": desglose_gastos_base(sorteo),
+            "previstos": gastos_previstos(sorteo),
             "gastos": sorteo.proyecto.gastos_proyecto.all().order_by("fecha"),
             "ingresos": sorteo.proyecto.ingresos.all().order_by("-fecha")[:12],
             "pagina": pagina,
