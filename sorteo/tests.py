@@ -14,8 +14,17 @@ from django.test import TestCase
 from core.models import Proyecto
 
 from .calculadora import Config, escenarios, recomendar, umbral
+from .comparador import comparar
 from .impuestos import Operacion, calcular
-from .models import ActaSorteo, Interesado, Organizador, Papeleta, Pedido, Sorteo
+from .models import (
+    ActaSorteo,
+    EstudioRifa,
+    Interesado,
+    Organizador,
+    Papeleta,
+    Pedido,
+    Sorteo,
+)
 from .notaria import cerrar_venta, huella, listado_canonico
 from .services import (
     NumeroNoVendido,
@@ -342,3 +351,45 @@ class ComentariosDePlantilla(TestCase):
                     if "\n" in m.group(0):
                         fallos.append(str(ruta.relative_to(raiz)))
         self.assertEqual(fallos, [], "Comentarios multilínea con {{# #}}: {}".format(fallos))
+
+
+class EstudiosDeRifa(TestCase):
+    def setUp(self):
+        self.proyecto = Proyecto.objects.create(nombre="Plaza en estudio")
+        self.estudio = EstudioRifa.objects.create(
+            nombre="Plaza 18k a 10 €",
+            proyecto=self.proyecto,
+            precio_compra=Decimal("18000"),
+            comunidad="andalucia",
+            otros_gastos=Decimal("1300"),
+            precio_participacion=Decimal("10"),
+            participaciones=5000,
+            precio_venta_estimado=Decimal("24000"),
+        )
+
+    def test_mide_las_dos_rutas_sobre_el_mismo_inmueble(self):
+        a = comparar(self.estudio.como_datos())
+        # Entrada = compra + ITP 7 % + otros
+        self.assertEqual(a["entrada"]["total"], Decimal("20560.00"))
+        self.assertEqual(a["venta"]["ingresos"], Decimal("24000.00"))
+        self.assertEqual(a["rifa"]["ingresos"], Decimal("50000.00"))
+        self.assertGreater(a["rifa"]["beneficio"], a["venta"]["beneficio"])
+        self.assertTrue(a["lecturas"])
+
+    def test_subir_el_precio_baja_el_umbral(self):
+        barato = comparar(self.estudio.como_datos())
+        self.estudio.precio_participacion = Decimal("25")
+        self.estudio.participaciones = 2000
+        caro = comparar(self.estudio.como_datos())
+        self.assertLess(caro["rifa"]["umbral"], barato["rifa"]["umbral"])
+
+    def test_el_tipo_reducido_se_traslada_a_la_entrada(self):
+        general = comparar(self.estudio.como_datos())
+        self.estudio.supuesto_reducido = "reventa_profesional"
+        reducido = comparar(self.estudio.como_datos())
+        self.assertLess(reducido["entrada"]["total"], general["entrada"]["total"])
+
+    def test_convertir_exige_proyecto(self):
+        suelto = EstudioRifa.objects.create(nombre="Sin proyecto", precio_compra=Decimal("10000"))
+        self.assertIsNone(suelto.proyecto)
+        self.assertIsNone(suelto.sorteo)

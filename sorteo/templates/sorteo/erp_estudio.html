@@ -1,0 +1,152 @@
+{% extends "core/base.html" %}
+{% load humanize %}
+
+{% block content %}
+<div class="inversure-app">
+  <section class="inversure-section">
+    <div class="container">
+
+      <section class="inversure-section-header mb-4 text-center">
+        <div class="inversure-section-icon mb-2"><i class="bi bi-clipboard-data"></i></div>
+        <h1 class="inversure-section-title">{{ estudio.nombre }}</h1>
+        <div class="inversure-divider mx-auto"></div>
+        <p class="inversure-section-subtitle mx-auto">
+          {% if estudio.proyecto %}
+            Proyecto {{ estudio.proyecto.nombre }} ·
+          {% endif %}
+          Coste de entrada {{ analisis.entrada.total|floatformat:"0g" }} €
+        </p>
+      </section>
+
+      {% if messages %}
+        {% for m in messages %}
+          <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}success{% endif %}">{{ m }}</div>
+        {% endfor %}
+      {% endif %}
+
+      {# ---------- Las dos rutas ---------- #}
+      <div class="row g-3 mb-4">
+        {% for ruta in analisis.rutas %}
+          <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+              <div class="card-body">
+                <h5>{{ ruta.nombre }}</h5>
+                <table class="table table-sm mb-2">
+                  <tbody>
+                    <tr><td>Ingresos</td><td class="text-end">{{ ruta.ingresos|floatformat:"0g" }} €</td></tr>
+                    <tr><td>Costes</td><td class="text-end">{{ ruta.costes|floatformat:"0g" }} €</td></tr>
+                    <tr class="fw-semibold">
+                      <td>Beneficio</td>
+                      <td class="text-end {% if ruta.beneficio < 0 %}text-danger{% else %}text-success{% endif %}">
+                        {{ ruta.beneficio|floatformat:"0g" }} €
+                      </td>
+                    </tr>
+                    <tr><td>ROI sobre la entrada</td><td class="text-end">{{ ruta.roi }} %</td></tr>
+                    {% if ruta.por_mes %}
+                      <tr>
+                        <td>Por mes ({{ ruta.meses }} meses)</td>
+                        <td class="text-end">{{ ruta.por_mes|floatformat:"0g" }} €/mes</td>
+                      </tr>
+                    {% endif %}
+                    {% if ruta.umbral %}
+                      <tr>
+                        <td>Umbral</td>
+                        <td class="text-end">
+                          {{ ruta.umbral|intcomma }} ({{ ruta.umbral_porcentaje }} %)
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>Compradores necesarios</td>
+                        <td class="text-end">≈ {{ ruta.compradores|intcomma }}</td>
+                      </tr>
+                      <tr>
+                        <td>Si se cancela</td>
+                        <td class="text-end text-danger">{{ ruta.cancelacion|floatformat:"0g" }} €</td>
+                      </tr>
+                    {% endif %}
+                  </tbody>
+                </table>
+                <p class="text-muted small mb-1"><strong>Techo:</strong> {{ ruta.tope }}</p>
+                <p class="text-muted small mb-0"><strong>Riesgo:</strong> {{ ruta.riesgo }}</p>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+
+      {# ---------- Lectura ---------- #}
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+          <h5 class="mb-3">Cómo leerlo</h5>
+          <ul class="mb-0">
+            {% for l in analisis.lecturas %}<li>{{ l }}</li>{% endfor %}
+          </ul>
+        </div>
+      </div>
+
+      {# ---------- Coste de entrada ---------- #}
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+          <h5 class="mb-3">Coste de entrada</h5>
+          <table class="table table-sm" style="max-width:520px">
+            <tbody>
+              <tr><td>Precio de compra</td><td class="text-end">{{ analisis.entrada.precio|floatformat:"2g" }} €</td></tr>
+              <tr>
+                <td>
+                  {{ analisis.entrada.impuesto.impuesto }}
+                  {% if analisis.entrada.impuesto.tipo %}al {{ analisis.entrada.impuesto.tipo }} %{% endif %}
+                  {% if analisis.entrada.impuesto.supuesto %}
+                    <div class="text-muted small">{{ analisis.entrada.impuesto.supuesto }}</div>
+                  {% endif %}
+                </td>
+                <td class="text-end">{{ analisis.entrada.impuesto.importe|floatformat:"2g" }} €</td>
+              </tr>
+              <tr><td>Otros gastos</td><td class="text-end">{{ analisis.entrada.otros|floatformat:"2g" }} €</td></tr>
+              <tr class="fw-semibold border-top">
+                <td>Total</td><td class="text-end">{{ analisis.entrada.total|floatformat:"2g" }} €</td>
+              </tr>
+            </tbody>
+          </table>
+
+          {% if analisis.entrada.impuesto.avisos %}
+            <div class="alert alert-light border small mb-0">
+              <ul class="mb-0 ps-3">
+                {% for a in analisis.entrada.impuesto.avisos %}<li>{{ a }}</li>{% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if estudio.notas %}
+        <div class="card border-0 shadow-sm mb-4">
+          <div class="card-body">
+            <h5>Notas</h5>
+            <p class="mb-0" style="white-space: pre-line">{{ estudio.notas }}</p>
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="text-center">
+        <a href="{% url 'sorteo_erp:estudio_editar' estudio.pk %}" class="btn btn-inversure">Editar</a>
+        <a href="{% url 'sorteo_erp:estudio_duplicar' estudio.pk %}" class="btn btn-outline-secondary">
+          Duplicar y probar variante
+        </a>
+        {% if estudio.sorteo %}
+          <a href="{% url 'sorteo_erp:detalle' estudio.sorteo.pk %}" class="btn btn-outline-success">
+            Ver el sorteo
+          </a>
+        {% else %}
+          <a href="{% url 'sorteo_erp:estudio_convertir' estudio.pk %}"
+             class="btn btn-outline-danger"
+             onclick="return confirm('Se creará un sorteo en borrador colgando del proyecto. ¿Continuar?');">
+            Convertir en sorteo
+          </a>
+        {% endif %}
+        <a href="{% url 'sorteo_erp:estudios' %}" class="btn btn-link">Volver</a>
+      </div>
+
+    </div>
+  </section>
+</div>
+{% endblock %}

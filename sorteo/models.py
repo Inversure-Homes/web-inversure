@@ -19,7 +19,7 @@ from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
 
-from .impuestos import COMUNIDADES, Operacion
+from .impuestos import COMUNIDADES, Operacion  # noqa: F401
 
 
 def _sumar_meses(fecha, meses):
@@ -461,3 +461,105 @@ class ActaSorteo(models.Model):
 
     def __str__(self):
         return "Acta {} · nº {}".format(self.protocolo, self.numero_premiado)
+
+
+class EstudioRifa(models.Model):
+    """
+    Escenario de rifa guardado, previo a comprometer nada.
+
+    Es el equivalente del `Estudio` del ERP para el resto de operaciones: aquí
+    se prueban combinaciones de precio, número de participaciones y comunidad
+    sobre un inmueble que a lo mejor ni se ha comprado, se comparan entre sí y
+    solo el que convence se convierte en `Sorteo`.
+
+    No guarda resultados calculados a propósito: se recalculan al abrirlo, para
+    que un cambio en los tipos impositivos o en la tasa se refleje en los
+    estudios viejos en vez de dejarlos mintiendo.
+    """
+
+    nombre = models.CharField(max_length=160)
+    notas = models.TextField(blank=True)
+
+    proyecto = models.ForeignKey(
+        "core.Proyecto",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="estudios_rifa",
+        help_text="Opcional: precarga los datos de un proyecto existente.",
+    )
+
+    # Inmueble
+    precio_compra = models.DecimalField(max_digits=12, decimal_places=2)
+    valor_referencia = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Valor de referencia de Catastro. Si es mayor que el precio, es la base del impuesto.",
+    )
+    comunidad = models.CharField(max_length=30, blank=True, choices=COMUNIDADES)
+    operacion_compra = models.CharField(max_length=10, blank=True, default=Operacion.ITP, choices=Operacion.OPCIONES)
+    supuesto_reducido = models.CharField(max_length=40, blank=True)
+    otros_gastos = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        help_text="Notaría, registro, gestoría, tasa de autorización…",
+    )
+
+    # Rifa
+    precio_participacion = models.DecimalField(max_digits=8, decimal_places=2, default=10)
+    participaciones = models.PositiveIntegerField(default=5000)
+    tasa_juego_porcentaje = models.DecimalField(max_digits=5, decimal_places=2, default=20)
+    comision_pago_porcentaje = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("2.30"))
+    minimo_participaciones = models.PositiveIntegerField(null=True, blank=True)
+
+    # Venta ordinaria, para poder comparar las dos rutas
+    precio_venta_estimado = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    meses_venta = models.PositiveIntegerField(default=6)
+    meses_rifa = models.PositiveIntegerField(default=6)
+
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    sorteo = models.OneToOneField(
+        "Sorteo",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="estudio_origen",
+        help_text="Sorteo en el que se convirtió, si llegó a hacerse.",
+    )
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "estudio de rifa"
+        verbose_name_plural = "estudios de rifa"
+        ordering = ["-actualizado_en"]
+
+    def __str__(self):
+        return self.nombre
+
+    def como_datos(self):
+        """Diccionario que entiende el comparador."""
+        return {
+            "precio_compra": self.precio_compra,
+            "valor_referencia": self.valor_referencia,
+            "comunidad": self.comunidad,
+            "operacion": self.operacion_compra,
+            "supuesto_reducido": self.supuesto_reducido,
+            "otros_gastos": self.otros_gastos,
+            "precio_participacion": self.precio_participacion,
+            "participaciones": self.participaciones,
+            "tasa_pct": self.tasa_juego_porcentaje,
+            "comision_pago_pct": self.comision_pago_porcentaje,
+            "precio_venta": self.precio_venta_estimado or 0,
+            "meses_venta": self.meses_venta,
+            "meses_rifa": self.meses_rifa,
+        }

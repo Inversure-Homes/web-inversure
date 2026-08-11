@@ -1,0 +1,88 @@
+{% extends "core/base.html" %}
+
+{% block content %}
+<div class="inversure-app">
+  <section class="inversure-section">
+    <div class="container" style="max-width: 900px">
+
+      <section class="inversure-section-header mb-4 text-center">
+        <div class="inversure-section-icon mb-2"><i class="bi bi-clipboard-data"></i></div>
+        <h1 class="inversure-section-title">{{ titulo }}</h1>
+        <div class="inversure-divider mx-auto"></div>
+      </section>
+
+      <form method="post" class="card border-0 shadow-sm">
+        {% csrf_token %}
+        <div class="card-body">
+
+          <h6 class="text-uppercase small text-muted">Identificación</h6>
+          <div class="row g-3 mb-4">
+            {% for campo in form %}
+              {% if campo.name in "nombre,proyecto" %}
+                <div class="col-md-6">
+                  <label class="form-label small">{{ campo.label }}</label>
+                  {{ campo }}
+                  {% if campo.help_text %}<div class="form-text small">{{ campo.help_text }}</div>{% endif %}
+                  {% for e in campo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+
+          <h6 class="text-uppercase small text-muted">Inmueble y compra</h6>
+          <div class="row g-3 mb-4">
+            {% for campo in form %}
+              {% if campo.name in "precio_compra,valor_referencia,comunidad,operacion_compra,supuesto_reducido,otros_gastos" %}
+                <div class="col-md-4">
+                  <label class="form-label small">{{ campo.label }}</label>
+                  {{ campo }}
+                  {% if campo.help_text %}<div class="form-text small">{{ campo.help_text }}</div>{% endif %}
+                  {% for e in campo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+
+          <h6 class="text-uppercase small text-muted">Rifa</h6>
+          <div class="row g-3 mb-4">
+            {% for campo in form %}
+              {% if campo.name in "precio_participacion,participaciones,minimo_participaciones,tasa_juego_porcentaje,comision_pago_porcentaje,meses_rifa" %}
+                <div class="col-md-4">
+                  <label class="form-label small">{{ campo.label }}</label>
+                  {{ campo }}
+                  {% if campo.help_text %}<div class="form-text small">{{ campo.help_text }}</div>{% endif %}
+                  {% for e in campo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+
+          <h6 class="text-uppercase small text-muted">
+            Venta ordinaria, para comparar
+          </h6>
+          <div class="row g-3 mb-4">
+            {% for campo in form %}
+              {% if campo.name in "precio_venta_estimado,meses_venta" %}
+                <div class="col-md-4">
+                  <label class="form-label small">{{ campo.label }}</label>
+                  {{ campo }}
+                  {% for e in campo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small">{{ form.notas.label }}</label>
+            {{ form.notas }}
+          </div>
+
+          <button class="btn btn-inversure">Guardar y calcular</button>
+          <a href="{% url 'sorteo_erp:estudios' %}" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
+      </form>
+
+    </div>
+  </section>
+</div>
+{% endblock %}

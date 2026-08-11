@@ -1,0 +1,112 @@
+{% extends "core/base.html" %}
+{% load humanize %}
+
+{% block content %}
+<div class="inversure-app">
+  <section class="inversure-section">
+    <div class="container">
+
+      <section class="inversure-section-header mb-4 text-center">
+        <div class="inversure-section-icon mb-2"><i class="bi bi-clipboard-data"></i></div>
+        <h1 class="inversure-section-title">Estudios de rifa</h1>
+        <div class="inversure-divider mx-auto"></div>
+        <p class="inversure-section-subtitle mx-auto">
+          Banco de pruebas. Guarda escenarios sobre inmuebles que ni siquiera
+          hace falta haber comprado, compáralos, y convierte en sorteo real
+          solo el que convenza.
+        </p>
+      </section>
+
+      {% if messages %}
+        {% for m in messages %}
+          <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}success{% endif %}">{{ m }}</div>
+        {% endfor %}
+      {% endif %}
+
+      <div class="text-center mb-4">
+        <a href="{% url 'sorteo_erp:estudio_nuevo' %}" class="btn btn-inversure">
+          <i class="bi bi-plus-lg"></i> Nuevo estudio
+        </a>
+        <a href="{% url 'sorteo_erp:lista' %}" class="btn btn-outline-secondary">
+          Ver sorteos reales
+        </a>
+      </div>
+
+      {% if estudios %}
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>Estudio</th>
+                <th class="text-end">Inmueble</th>
+                <th class="text-end">Rifa</th>
+                <th class="text-end">Beneficio a pleno</th>
+                <th class="text-end">Umbral</th>
+                <th class="text-end">Compradores</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for e in estudios %}
+                <tr>
+                  <td>
+                    <a href="{% url 'sorteo_erp:estudio' e.estudio.pk %}">
+                      <strong>{{ e.estudio.nombre }}</strong>
+                    </a>
+                    <div class="text-muted small">
+                      {% if e.estudio.proyecto %}{{ e.estudio.proyecto.nombre }}{% else %}sin proyecto{% endif %}
+                      {% if e.estudio.sorteo %}
+                        · <span class="badge bg-success">convertido</span>
+                      {% endif %}
+                    </div>
+                  </td>
+                  <td class="text-end text-nowrap">
+                    {{ e.analisis.entrada.total|floatformat:"0g" }} €
+                    <div class="text-muted small">coste de entrada</div>
+                  </td>
+                  <td class="text-end text-nowrap">
+                    {{ e.estudio.participaciones|intcomma }} ×
+                    {{ e.estudio.precio_participacion|floatformat:"0g" }} €
+                  </td>
+                  <td class="text-end text-nowrap fw-semibold
+                      {% if e.analisis.rifa.beneficio < 0 %}text-danger{% else %}text-success{% endif %}">
+                    {{ e.analisis.rifa.beneficio|floatformat:"0g" }} €
+                    <div class="text-muted small fw-normal">
+                      ROI {{ e.analisis.rifa.roi }} %
+                    </div>
+                  </td>
+                  <td class="text-end">
+                    {{ e.analisis.rifa.umbral_porcentaje }} %
+                    <div class="text-muted small">
+                      {{ e.analisis.rifa.umbral|intcomma }}
+                    </div>
+                  </td>
+                  <td class="text-end">≈ {{ e.analisis.rifa.compradores|intcomma }}</td>
+                  <td class="text-end text-nowrap">
+                    <a class="btn btn-sm btn-outline-secondary"
+                       href="{% url 'sorteo_erp:estudio_editar' e.estudio.pk %}">Editar</a>
+                    <a class="btn btn-sm btn-outline-secondary"
+                       href="{% url 'sorteo_erp:estudio_duplicar' e.estudio.pk %}">Duplicar</a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <p class="text-muted small">
+          El umbral es el porcentaje de participaciones que hay que colocar solo
+          para no perder dinero. Entre dos estudios con parecido beneficio, el
+          bueno es el del umbral más bajo: exige convencer a menos gente.
+        </p>
+      {% else %}
+        <div class="alert alert-light border text-center">
+          Todavía no hay ningún estudio. Empieza por uno: solo hacen falta el
+          precio de compra del inmueble y la comunidad autónoma.
+        </div>
+      {% endif %}
+
+    </div>
+  </section>
+</div>
+{% endblock %}
