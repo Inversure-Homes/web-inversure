@@ -6,6 +6,7 @@ import secrets
 from datetime import timedelta
 
 from django.db import connection, transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from .models import ActaSorteo, Papeleta, Pedido, Sorteo
@@ -32,6 +33,14 @@ class SinPapeletasSuficientes(ErrorSorteo):
             "Solo quedan {} participaciones disponibles.".format(disponibles)
             if disponibles
             else "Se han agotado las participaciones."
+        )
+
+
+class DemasiadasReservas(ErrorSorteo):
+    def __init__(self, minutos):
+        self.minutos = minutos
+        super().__init__(
+            "Has hecho demasiadas reservas seguidas. Espera unos minutos o termina el pago de las que ya tienes."
         )
 
 
@@ -129,6 +138,47 @@ def registrar_venta_manual(sorteo, cantidad, datos, numeros=None, usuario=None):
         registrado_por=usuario,
     )
     return confirmar_pago(pedido.id)
+
+
+# Cuántas reservas admite una misma IP o un mismo correo antes de frenarlas, y
+# en cuántos minutos. Cinco pedidos en diez minutos es holgado para alguien que
+# compra de verdad —incluso si se equivoca y repite— y corta en seco el bucle.
+RESERVAS_POR_VENTANA = 5
+VENTANA_RESERVAS_MINUTOS = 10
+
+
+def comprobar_ritmo(sorteo, ip, email):
+    """
+    Frena a quien reserva en bucle.
+
+    Cada reserva bloquea hasta `max_por_pedido` participaciones durante
+    `reserva_minutos` sin pagar nada: con 5.000 emitidas y un tope de 50 por
+    pedido, cien peticiones dejan la rifa entera sin nada disponible. Un script
+    tarda dos segundos, y repitiéndolo la rifa aparece agotada de forma
+    permanente sin haber vendido una sola papeleta. Tampoco hace falta mala fe:
+    un doble clic con reintentos hace lo mismo.
+
+    Se cuenta contra la tabla de pedidos y no contra la caché porque no hay
+    caché compartida: la de Django es por proceso, y con varios workers cada
+    uno llevaría su propia cuenta. Es una consulta con índice.
+
+    Esto para el caso torpe y el script simple. A quien falsee la cabecera
+    `X-Forwarded-For` para cambiar de IP en cada petición no lo para: eso pide
+    un WAF por delante, no código de aplicación.
+    """
+    desde = timezone.now() - timedelta(minutes=VENTANA_RESERVAS_MINUTOS)
+    recientes = Pedido.objects.filter(sorteo=sorteo, creado_en__gte=desde)
+
+    condicion = Q()
+    if ip:
+        condicion |= Q(ip=ip)
+    if email:
+        condicion |= Q(email__iexact=email)
+    if not condicion:
+        return
+
+    if recientes.filter(condicion).count() >= RESERVAS_POR_VENTANA:
+        raise DemasiadasReservas(VENTANA_RESERVAS_MINUTOS)
 
 
 def liberar_caducadas(sorteo=None):

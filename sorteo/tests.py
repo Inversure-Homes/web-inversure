@@ -7,11 +7,13 @@ consentimiento, duplicar un pago y publicar un ganador que no compró.
 """
 
 import datetime
+import json
 import math
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.utils import timezone
 
 from core.models import Proyecto
 
@@ -29,12 +31,15 @@ from .models import (
 )
 from .notaria import cerrar_venta, huella, listado_canonico
 from .services import (
+    RESERVAS_POR_VENTANA,
+    VENTANA_RESERVAS_MINUTOS,
     NumeroNoVendido,
     PapeletasNoDisponibles,
     SinPapeletasSuficientes,
     confirmar_pago,
     liberar_caducadas,
     registrar_acta,
+    registrar_venta_manual,
     reservar_cantidad,
     reservar_numeros,
 )
@@ -812,3 +817,92 @@ class ReservasCaducadasEnElErp(BaseSorteo):
             Papeleta.objects.get(sorteo=self.sorteo, numero=10).estado,
             Papeleta.Estado.RESERVADA,
         )
+
+
+class RitmoDeReservas(BaseSorteo):
+    """
+    Un tope de reservas por IP y por correo.
+
+    Sin él, cada petición bloquea hasta `max_por_pedido` participaciones diez
+    minutos sin pagar nada: con 5.000 emitidas y un tope de 50, cien peticiones
+    dejan la rifa entera sin nada disponible, y repitiéndolas aparece agotada
+    para siempre sin haber vendido una sola papeleta.
+    """
+
+    def _reservar(self, email="a@e.com", ip="10.0.0.1"):
+        return self.client.post(
+            "/sorteo/reservar/",
+            data=json.dumps(
+                {
+                    "cantidad": 1,
+                    "nombre": "Ana",
+                    "email": email,
+                    "acepta_bases": True,
+                    "mayor_edad": True,
+                }
+            ),
+            content_type="application/json",
+            HTTP_X_FORWARDED_FOR=ip,
+        )
+
+    def test_a_la_sexta_se_corta(self):
+        for _ in range(RESERVAS_POR_VENTANA):
+            self.assertEqual(self._reservar().status_code, 200)
+
+        respuesta = self._reservar()
+        self.assertEqual(respuesta.status_code, 429)
+        self.assertEqual(Pedido.objects.count(), RESERVAS_POR_VENTANA)
+
+    def test_no_basta_con_cambiar_de_correo(self):
+        for i in range(RESERVAS_POR_VENTANA):
+            self._reservar(email="a{}@e.com".format(i))
+        self.assertEqual(self._reservar(email="otro@e.com").status_code, 429)
+
+    def test_no_basta_con_cambiar_de_ip(self):
+        for i in range(RESERVAS_POR_VENTANA):
+            self._reservar(ip="10.0.0.{}".format(i + 1))
+        self.assertEqual(self._reservar(ip="10.0.0.99").status_code, 429)
+
+    def test_otra_persona_distinta_sigue_comprando(self):
+        for _ in range(RESERVAS_POR_VENTANA):
+            self._reservar()
+        self.assertEqual(self._reservar(email="b@e.com", ip="10.0.0.2").status_code, 200)
+
+    def test_la_ventana_se_pasa(self):
+        for _ in range(RESERVAS_POR_VENTANA):
+            self._reservar()
+        antigua = timezone.now() - datetime.timedelta(minutes=VENTANA_RESERVAS_MINUTOS + 1)
+        Pedido.objects.update(creado_en=antigua)
+        self.assertEqual(self._reservar().status_code, 200)
+
+    def test_la_venta_manual_no_se_frena(self):
+        """El tope es para el portal público, no para el mostrador."""
+        for _ in range(RESERVAS_POR_VENTANA + 3):
+            registrar_venta_manual(self.sorteo, 1, dict(DATOS, medio_pago="efectivo"))
+        self.assertEqual(self.sorteo.vendidas, RESERVAS_POR_VENTANA + 3)
+
+
+class PagoSimulado(BaseSorteo):
+    """
+    Un POST al pago simulado da el pedido por pagado sin cobrar ni comprobar
+    ninguna firma. Es un andamio para probar el flujo: fuera de desarrollo tiene
+    que estar cerrado, o cualquiera con un identificador de pedido se lleva
+    participaciones gratis al sorteo ante notario.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.pedido = reservar_cantidad(self.sorteo, 1, DATOS)
+
+    def test_en_produccion_no_existe(self):
+        with self.settings(SORTEO_PAGO_SIMULADO=False):
+            respuesta = self.client.post("/sorteo/pago/{}/".format(self.pedido.id))
+        self.assertEqual(respuesta.status_code, 404)
+        self.pedido.refresh_from_db()
+        self.assertEqual(self.pedido.estado, Pedido.Estado.PENDIENTE)
+
+    def test_en_desarrollo_sigue_sirviendo_para_probar(self):
+        with self.settings(SORTEO_PAGO_SIMULADO=True):
+            self.client.post("/sorteo/pago/{}/".format(self.pedido.id))
+        self.pedido.refresh_from_db()
+        self.assertEqual(self.pedido.estado, Pedido.Estado.PAGADO)

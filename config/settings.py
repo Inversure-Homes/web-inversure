@@ -42,6 +42,12 @@ PDF_MESSAGE_SANITIZE = _env_bool("PDF_MESSAGE_SANITIZE", _IS_RENDER)
 DEBUG_TOOLBAR_ENABLED = DEBUG and _env_bool("DJANGO_DEBUG_TOOLBAR", False)
 DEV_APPS_ENABLED = DEBUG and _env_bool("DJANGO_DEV_APPS", False)
 
+# Pago simulado del sorteo: un POST da el pedido por pagado sin cobrar nada.
+# Es un andamio para recorrer el flujo antes de tener Stripe, así que fuera de
+# desarrollo va apagado. Se puede forzar con SORTEO_PAGO_SIMULADO=1 para probar
+# en un entorno de pruebas, nunca con una rifa abierta al público.
+SORTEO_PAGO_SIMULADO = _env_bool("SORTEO_PAGO_SIMULADO", DEBUG)
+
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 if SENTRY_DSN:
     send_default_pii = str(os.environ.get("SENTRY_SEND_DEFAULT_PII") or "0").strip() == "1"

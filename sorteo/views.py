@@ -1,6 +1,7 @@
 import json
 
 from django import forms
+from django.conf import settings
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -9,7 +10,9 @@ from django.views.decorators.http import require_POST
 from .correo import confirmar_alta, confirmar_pedido
 from .models import Interesado, Papeleta, Pedido, Sorteo
 from .services import (
+    DemasiadasReservas,
     ErrorSorteo,
+    comprobar_ritmo,
     confirmar_pago,
     liberar_caducadas,
     reservar_cantidad,
@@ -228,6 +231,13 @@ def reservar(request):
             status=400,
         )
 
+    # Antes de bloquear nada: quien reserva en bucle deja la rifa sin papeletas
+    # disponibles sin pagar un euro.
+    try:
+        comprobar_ritmo(sorteo, datos["ip"], email)
+    except DemasiadasReservas as exc:
+        return JsonResponse({"error": str(exc)}, status=429)
+
     try:
         if numeros:
             pedido = reservar_numeros(sorteo, numeros, datos)
@@ -242,9 +252,20 @@ def reservar(request):
 
 def pago_pendiente(request, pedido_id):
     """
-    Provisional hasta integrar Stripe (paso 3). Permite recorrer el flujo
-    completo y probar la reserva, el consentimiento y el justificante.
+    Pago simulado, provisional hasta integrar Stripe (paso 3). Permite recorrer
+    el flujo completo y probar la reserva, el consentimiento y el justificante.
+
+    **Solo en desarrollo.** Un POST aquí da un pedido por pagado sin cobrar
+    nada ni comprobar ninguna firma: cualquiera con un identificador de pedido
+    se llevaría participaciones gratis, y entrarían en el sorteo ante notario
+    igual que las de quien pagó. Hoy no hay rifa en venta y no es explotable,
+    pero es justo lo que no puede quedarse olvidado el día que se abra una.
+
+    Cuando llegue Stripe, el pago lo confirma su webhook y esta vista se borra.
     """
+    if not settings.SORTEO_PAGO_SIMULADO:
+        raise Http404("El pago simulado está desactivado.")
+
     pedido = get_object_or_404(Pedido, pk=pedido_id)
     if pedido.estado == Pedido.Estado.PAGADO:
         return redirect("sorteo:pedido", pedido_id=pedido.id)
