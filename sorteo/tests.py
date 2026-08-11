@@ -624,18 +624,50 @@ class ComposicionDelUmbral(TestCase):
 
 class FormularioDelEstudio(TestCase):
     """
-    La plantilla reparte los campos por secciones con `{% if campo.name in
-    "a,b,c" %}`, y ese patrón deja caer en silencio cualquier campo que no esté
-    en ninguna lista. Si se añade uno al modelo y se olvida la plantilla, no
-    falla nada: simplemente no se puede rellenar. Esto lo detecta.
+    El reparto de campos por secciones es la clase de cosa que falla en
+    silencio: un campo que no está en ninguna sección desaparece de la pantalla
+    sin dar error, y con el `{% if campo.name in "a,b,c" %}` de Django —que
+    compara subcadenas— `gastos_notaria` salía además duplicado dentro de
+    `gastos_notaria_sorteo`. Aquí se comprueban las dos cosas.
     """
+
+    def _form_y_secciones(self):
+        from .views_estudios import EstudioForm, secciones
+
+        form = EstudioForm()
+        return form, secciones(form)
+
+    def test_cada_campo_sale_una_vez_y_solo_una(self):
+        form, repartidos = self._form_y_secciones()
+        nombres = [campo.name for seccion in repartidos for grupo in seccion["grupos"] for campo in grupo["campos"]]
+
+        repetidos = sorted({n for n in nombres if nombres.count(n) > 1})
+        self.assertEqual(repetidos, [], "campos duplicados en el formulario: {}".format(repetidos))
+
+        faltan = sorted(set(form.fields) - set(nombres))
+        self.assertEqual(faltan, [], "campos que no se pintan: {}".format(faltan))
+
+    def test_un_campo_sin_seccion_no_desaparece(self):
+        from django import forms
+
+        from .views_estudios import EstudioForm, secciones
+
+        form = EstudioForm()
+        form.fields["inventado"] = forms.CharField(required=False)
+        nombres = [
+            campo.name for seccion in secciones(form) for grupo in seccion["grupos"] for campo in grupo["campos"]
+        ]
+        self.assertIn("inventado", nombres)
 
     def test_la_plantilla_pinta_todos_los_campos(self):
         from django.template.loader import render_to_string
 
-        from .views_estudios import EstudioForm
-
-        form = EstudioForm()
-        html = render_to_string("sorteo/erp_estudio_form.html", {"form": form, "titulo": "Nuevo estudio"})
-        faltan = [nombre for nombre in form.fields if 'name="{}"'.format(nombre) not in html]
-        self.assertEqual(faltan, [], "campos que la plantilla no pinta: {}".format(faltan))
+        form, repartidos = self._form_y_secciones()
+        html = render_to_string(
+            "sorteo/erp_estudio_form.html",
+            {"form": form, "secciones": repartidos, "titulo": "Nuevo estudio"},
+        )
+        for nombre in form.fields:
+            self.assertEqual(
+                html.count('name="{}"'.format(nombre)), 1, "«{}» no sale exactamente una vez".format(nombre)
+            )

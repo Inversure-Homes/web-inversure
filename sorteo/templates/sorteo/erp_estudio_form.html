@@ -4,16 +4,15 @@
   El formulario con el mismo lenguaje visual que la ficha: card de cabecera y
   secciones con cabecera oscura, igual que `core/simulador.html`.
 
-  Cada sección lleva una línea que dice para qué sirve lo que se rellena ahí.
-  En un formulario de veinte campos, saber por qué te preguntan algo vale más
-  que la etiqueta del campo.
+  El reparto de campos por secciones se declara en `views_estudios.SECCIONES`,
+  no aquí. La plantilla solo lo pinta, así que ningún campo puede salir dos
+  veces ni quedarse fuera sin que se vea.
 {% endcomment %}
 {% block content %}
 <div class="inversure-app">
   <section class="inversure-section">
     <div class="container" style="max-width: 980px">
 
-      {# Cabecera #}
       <div class="card card-inversure shadow-sm border-0 mb-4">
         <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
           <div>
@@ -24,10 +23,10 @@
               El resto trae valores por defecto o se calcula solo.
             </p>
           </div>
-          {% if form.instance.pk %}
+          {% if estudio %}
             <div class="action-panel mt-3 mt-md-0">
               <span class="badge bg-light text-dark fw-semibold">
-                RIF-{{ form.instance.pk|stringformat:"06d" }}
+                RIF-{{ estudio.id|stringformat:"06d" }}
               </span>
             </div>
           {% endif %}
@@ -43,211 +42,50 @@
       <form method="post">
         {% csrf_token %}
 
-        {# Identificación #}
-        <div class="card shadow-sm border-0 mb-3">
-          <div class="card-header bg-inversure-dark text-inversure fw-semibold border-0 d-flex align-items-center gap-2">
-            <i class="bi bi-tag"></i> Identificación
-          </div>
-          <div class="card-body">
-            <p class="text-muted small">
-              Ponle un nombre que distinga la variante: lo normal es acabar con
-              varios estudios del mismo inmueble a precios distintos.
-            </p>
-            <div class="row g-3">
-              {% for campo in form %}
-                {% if campo.name in "nombre,proyecto" %}
-                  <div class="col-md-6">
-                    <label class="form-label small fw-semibold">{{ campo.label }}</label>
-                    {{ campo }}
-                    {% if campo.help_text %}<div class="form-text small">{{ campo.help_text }}</div>{% endif %}
-                    {% for e in campo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
-                  </div>
-                {% endif %}
-              {% endfor %}
+        {% for seccion in secciones %}
+          <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-inversure-dark text-inversure fw-semibold border-0 d-flex justify-content-between align-items-center">
+              <span class="d-flex align-items-center gap-2">
+                <i class="bi {{ seccion.icono }}"></i> {{ seccion.titulo }}
+              </span>
+              {% if seccion.insignia %}
+                <span class="badge bg-light text-dark fw-normal">{{ seccion.insignia }}</span>
+              {% endif %}
             </div>
-          </div>
-        </div>
+            <div class="card-body">
+              {% if seccion.descripcion %}
+                <p class="text-muted small">{{ seccion.descripcion }}</p>
+              {% endif %}
 
-        {# Inmueble y compra #}
-        <div class="card shadow-sm border-0 mb-3">
-          <div class="card-header bg-inversure-dark text-inversure fw-semibold border-0 d-flex align-items-center gap-2">
-            <i class="bi bi-house"></i> Inmueble y compra
-          </div>
-          <div class="card-body">
-            <p class="text-muted small">
-              De aquí sale el impuesto de la compra. La comunidad fija el tipo
-              del ITP y, desde 2022, la base es el mayor entre el precio y el
-              valor de referencia de Catastro.
-            </p>
-            <div class="row g-3">
-              {% for campo in form %}
-                {% if campo.name in "precio_compra,valor_referencia,comunidad" %}
-                  <div class="col-md-4">
-                    <label class="form-label small fw-semibold">{{ campo.label }}</label>
-                    {{ campo }}
-                    {% if campo.help_text %}<div class="form-text small">{{ campo.help_text }}</div>{% endif %}
-                    {% for e in campo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
-                  </div>
+              {% for grupo in seccion.grupos %}
+                {% if grupo.separador %}<hr class="my-4">{% endif %}
+                {% if grupo.titulo %}
+                  <h6 class="text-uppercase small text-muted mb-2">{{ grupo.titulo }}</h6>
                 {% endif %}
+                <div class="row g-3{% if not forloop.last %} mb-3{% endif %}">
+                  {% for campo in grupo.campos %}
+                    <div class="col-md-{{ grupo.columnas }}">
+                      {% if not grupo.sin_etiqueta %}
+                        <label class="form-label small fw-semibold" for="{{ campo.id_for_label }}">
+                          {{ campo.label }}
+                        </label>
+                      {% endif %}
+                      {{ campo }}
+                      {% if campo.help_text %}
+                        <div class="form-text small">{{ campo.help_text }}</div>
+                      {% endif %}
+                      {% for e in campo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                    </div>
+                  {% endfor %}
+                </div>
               {% endfor %}
-              {% for campo in form %}
-                {% if campo.name in "operacion_compra,supuesto_reducido" %}
-                  <div class="col-md-6">
-                    <label class="form-label small fw-semibold">{{ campo.label }}</label>
-                    {{ campo }}
-                    {% if campo.help_text %}<div class="form-text small">{{ campo.help_text }}</div>{% endif %}
-                    {% for e in campo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
-                  </div>
-                {% endif %}
-              {% endfor %}
-            </div>
-            <div class="alert alert-light border small mt-3 mb-0">
-              Un tipo reducido no se aplica solo: hay que elegirlo y cumplir sus
-              requisitos. Si no lo tienes claro, déjalo en el general.
-            </div>
-          </div>
-        </div>
 
-        {# Gastos #}
-        <div class="card shadow-sm border-0 mb-3">
-          <div class="card-header bg-inversure-dark text-inversure fw-semibold border-0 d-flex justify-content-between align-items-center">
-            <span class="d-flex align-items-center gap-2">
-              <i class="bi bi-receipt"></i> Gastos
-            </span>
-            <span class="badge bg-light text-dark fw-normal">vacío = se calcula</span>
-          </div>
-          <div class="card-body">
-            <p class="text-muted small">
-              Estos gastos, con el precio y el impuesto, son exactamente lo que
-              hay que cubrir vendiendo participaciones: de ellos sale el umbral.
-              Déjalos vacíos mientras sean estimaciones y ponles importe cuando
-              llegue la factura.
-            </p>
-
-            <h6 class="text-uppercase small text-muted mt-3 mb-2">De la adquisición</h6>
-            <div class="row g-3 mb-4">
-              {% for campo in form %}
-                {% if campo.name in "gastos_notaria,gastos_registro,gastos_gestoria" %}
-                  <div class="col-md-4">
-                    <label class="form-label small fw-semibold">{{ campo.label }}</label>
-                    {{ campo }}
-                    {% if campo.help_text %}<div class="form-text small">{{ campo.help_text }}</div>{% endif %}
-                    {% for e in campo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
-                  </div>
-                {% endif %}
-              {% endfor %}
-            </div>
-
-            <h6 class="text-uppercase small text-muted mb-2">Del proceso del sorteo</h6>
-            <div class="row g-3 mb-4">
-              {% for campo in form %}
-                {% if campo.name in "tasa_dgoj,gastos_notaria_sorteo,gastos_asesoria" %}
-                  <div class="col-md-4">
-                    <label class="form-label small fw-semibold">{{ campo.label }}</label>
-                    {{ campo }}
-                    {% if campo.help_text %}<div class="form-text small">{{ campo.help_text }}</div>{% endif %}
-                    {% for e in campo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
-                  </div>
-                {% endif %}
-              {% endfor %}
-            </div>
-
-            <h6 class="text-uppercase small text-muted mb-2">De la campaña</h6>
-            <div class="row g-3">
-              {% for campo in form %}
-                {% if campo.name in "presupuesto_marketing,otros_gastos" %}
-                  <div class="col-md-6">
-                    <label class="form-label small fw-semibold">{{ campo.label }}</label>
-                    {{ campo }}
-                    {% if campo.help_text %}<div class="form-text small">{{ campo.help_text }}</div>{% endif %}
-                    {% for e in campo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
-                  </div>
-                {% endif %}
-              {% endfor %}
-            </div>
-
-            <div class="alert alert-light border small mt-3 mb-0">
-              La <strong>tasa sobre el juego</strong> y el <strong>ingreso a
-              cuenta del IRPF</strong> no se piden aquí: salen solos del precio,
-              de las participaciones emitidas y del valor del premio.
+              {% if seccion.aviso %}
+                <div class="alert alert-light border small mt-3 mb-0">{{ seccion.aviso }}</div>
+              {% endif %}
             </div>
           </div>
-        </div>
-
-        {# La rifa #}
-        <div class="card shadow-sm border-0 mb-3">
-          <div class="card-header bg-inversure-dark text-inversure fw-semibold border-0 d-flex align-items-center gap-2">
-            <i class="bi bi-ticket-perforated"></i> La rifa
-          </div>
-          <div class="card-body">
-            <p class="text-muted small">
-              Precio y número de participaciones son la decisión de fondo:
-              cambian a cuánta gente hay que convencer sin cambiar lo que se
-              recauda. Subir el precio y emitir menos papeletas baja el número
-              de compradores necesarios.
-            </p>
-            <div class="row g-3">
-              {% for campo in form %}
-                {% if campo.name in "precio_participacion,participaciones,minimo_participaciones" %}
-                  <div class="col-md-4">
-                    <label class="form-label small fw-semibold">{{ campo.label }}</label>
-                    {{ campo }}
-                    {% if campo.help_text %}<div class="form-text small">{{ campo.help_text }}</div>{% endif %}
-                    {% for e in campo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
-                  </div>
-                {% endif %}
-              {% endfor %}
-            </div>
-            <hr class="my-4">
-            <div class="row g-3">
-              {% for campo in form %}
-                {% if campo.name in "tasa_juego_porcentaje,comision_pago_porcentaje,meses_rifa" %}
-                  <div class="col-md-4">
-                    <label class="form-label small fw-semibold">{{ campo.label }}</label>
-                    {{ campo }}
-                    {% if campo.help_text %}<div class="form-text small">{{ campo.help_text }}</div>{% endif %}
-                    {% for e in campo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
-                  </div>
-                {% endif %}
-              {% endfor %}
-            </div>
-          </div>
-        </div>
-
-        {# Venta ordinaria #}
-        <div class="card shadow-sm border-0 mb-3">
-          <div class="card-header bg-inversure-dark text-inversure fw-semibold border-0 d-flex align-items-center gap-2">
-            <i class="bi bi-arrow-left-right"></i> Para comparar con la venta
-          </div>
-          <div class="card-body">
-            <p class="text-muted small">
-              Sin esto el estudio mide la rifa, pero no dice si compensa frente
-              a vender el inmueble por el canal de siempre.
-            </p>
-            <div class="row g-3">
-              {% for campo in form %}
-                {% if campo.name in "precio_venta_estimado,meses_venta" %}
-                  <div class="col-md-4">
-                    <label class="form-label small fw-semibold">{{ campo.label }}</label>
-                    {{ campo }}
-                    {% if campo.help_text %}<div class="form-text small">{{ campo.help_text }}</div>{% endif %}
-                    {% for e in campo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
-                  </div>
-                {% endif %}
-              {% endfor %}
-            </div>
-          </div>
-        </div>
-
-        {# Notas #}
-        <div class="card shadow-sm border-0 mb-4">
-          <div class="card-header bg-inversure-dark text-inversure fw-semibold border-0 d-flex align-items-center gap-2">
-            <i class="bi bi-journal-text"></i> Notas
-          </div>
-          <div class="card-body">
-            {{ form.notas }}
-          </div>
-        </div>
+        {% endfor %}
 
         <div class="text-center mb-5">
           <button class="btn btn-inversure">Guardar y calcular</button>

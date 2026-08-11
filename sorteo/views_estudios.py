@@ -89,6 +89,119 @@ class EstudioForm(forms.ModelForm):
             campo.widget.attrs.setdefault("class", "{} {}-sm w-100".format(css, css))
 
 
+# Cómo se reparte el formulario en pantalla.
+#
+# Se declara aquí y no en la plantilla porque el `{% if campo.name in "a,b,c" %}`
+# de Django compara **subcadenas**: `gastos_notaria` casa con
+# `gastos_notaria_sorteo` y el campo salía dos veces, en dos secciones
+# distintas. Con la estructura explícita eso no puede pasar, y de paso cada
+# sección puede explicar qué decide lo que se rellena en ella.
+SECCIONES = [
+    {
+        "titulo": "Identificación",
+        "icono": "bi-tag",
+        "descripcion": "Ponle un nombre que distinga la variante: lo normal es acabar con varios "
+        "estudios del mismo inmueble a precios distintos.",
+        "grupos": [{"columnas": 6, "campos": ["nombre", "proyecto"]}],
+    },
+    {
+        "titulo": "Inmueble y compra",
+        "icono": "bi-house",
+        "descripcion": "De aquí sale el impuesto de la compra. La comunidad fija el tipo del ITP y, "
+        "desde 2022, la base es el mayor entre el precio y el valor de referencia de Catastro.",
+        "grupos": [
+            {"columnas": 4, "campos": ["precio_compra", "valor_referencia", "comunidad"]},
+            {"columnas": 6, "campos": ["operacion_compra", "supuesto_reducido"]},
+        ],
+        "aviso": "Un tipo reducido no se aplica solo: hay que elegirlo y cumplir sus requisitos. "
+        "Si no lo tienes claro, déjalo en el general.",
+    },
+    {
+        "titulo": "Gastos",
+        "icono": "bi-receipt",
+        "insignia": "vacío = se calcula",
+        "descripcion": "Estos gastos, con el precio y el impuesto, son exactamente lo que hay que "
+        "cubrir vendiendo participaciones: de ellos sale el umbral. Déjalos vacíos mientras sean "
+        "estimaciones y ponles importe cuando llegue la factura.",
+        "grupos": [
+            {
+                "titulo": "De la adquisición",
+                "columnas": 4,
+                "campos": ["gastos_notaria", "gastos_registro", "gastos_gestoria"],
+            },
+            {
+                "titulo": "Del proceso del sorteo",
+                "columnas": 4,
+                "campos": ["tasa_dgoj", "gastos_notaria_sorteo", "gastos_asesoria"],
+            },
+            {"titulo": "De la campaña", "columnas": 6, "campos": ["presupuesto_marketing", "otros_gastos"]},
+        ],
+        "aviso": "La tasa sobre el juego y el ingreso a cuenta del IRPF no se piden aquí: salen "
+        "solos del precio, de las participaciones emitidas y del valor del premio.",
+    },
+    {
+        "titulo": "La rifa",
+        "icono": "bi-ticket-perforated",
+        "descripcion": "Precio y número de participaciones son la decisión de fondo: cambian a "
+        "cuánta gente hay que convencer sin cambiar lo que se recauda. Subir el precio y emitir "
+        "menos papeletas baja el número de compradores necesarios.",
+        "grupos": [
+            {"columnas": 4, "campos": ["precio_participacion", "participaciones", "minimo_participaciones"]},
+            {
+                "columnas": 4,
+                "separador": True,
+                "campos": ["tasa_juego_porcentaje", "comision_pago_porcentaje", "meses_rifa"],
+            },
+        ],
+    },
+    {
+        "titulo": "Para comparar con la venta",
+        "icono": "bi-arrow-left-right",
+        "descripcion": "Sin esto el estudio mide la rifa, pero no dice si compensa frente a vender "
+        "el inmueble por el canal de siempre.",
+        "grupos": [{"columnas": 4, "campos": ["precio_venta_estimado", "meses_venta"]}],
+    },
+    {
+        "titulo": "Notas",
+        "icono": "bi-journal-text",
+        "grupos": [{"columnas": 12, "sin_etiqueta": True, "campos": ["notas"]}],
+    },
+]
+
+
+def secciones(form):
+    """
+    El formulario repartido en secciones, con los campos ya resueltos.
+
+    Cualquier campo que no esté en `SECCIONES` acaba en un bloque final en vez
+    de desaparecer: añadir uno al modelo y olvidarse de la plantilla tiene que
+    notarse, no dejar una casilla que no se puede rellenar.
+    """
+    salida = []
+    vistos = set()
+    for seccion in SECCIONES:
+        grupos = []
+        for grupo in seccion["grupos"]:
+            campos = [form[nombre] for nombre in grupo["campos"] if nombre in form.fields]
+            vistos.update(campo.name for campo in campos)
+            if campos:
+                grupos.append({**grupo, "campos": campos})
+        if grupos:
+            salida.append({**seccion, "grupos": grupos})
+
+    sobran = [form[nombre] for nombre in form.fields if nombre not in vistos]
+    if sobran:
+        salida.append(
+            {
+                "titulo": "Sin clasificar",
+                "icono": "bi-question-circle",
+                "descripcion": "Campos que todavía no tienen sitio asignado en el formulario.",
+                "grupos": [{"columnas": 4, "campos": sobran}],
+            }
+        )
+    return salida
+
+
 @login_required
 def lista(request):
     """Los estudios viven dentro de la sección de sorteos, no aparte."""
@@ -126,6 +239,7 @@ def editar(request, pk=None):
         "sorteo/erp_estudio_form.html",
         {
             "form": form,
+            "secciones": secciones(form),
             "estudio": estudio,
             "titulo": estudio.nombre if estudio else "Nuevo estudio de rifa",
         },
