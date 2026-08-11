@@ -216,10 +216,18 @@
                 </td>
                 <td class="text-end">{{ analisis.entrada.impuesto.importe|es_number }} €</td>
               </tr>
-              <tr>
-                <td>Otros gastos</td>
-                <td class="text-end">{{ analisis.entrada.otros|es_number }} €</td>
-              </tr>
+              {% for g in analisis.entrada.desglose %}
+                {% if g.importe %}
+                  <tr>
+                    <td>
+                      {{ g.concepto }}
+                      {% if g.calculado %}<span class="badge bg-light text-muted border ms-1">calculado</span>{% endif %}
+                      {% if g.nota %}<div class="text-muted small">{{ g.nota }}</div>{% endif %}
+                    </td>
+                    <td class="text-end">{{ g.importe|es_number }} €</td>
+                  </tr>
+                {% endif %}
+              {% endfor %}
               <tr class="fw-semibold border-top">
                 <td>Total</td>
                 <td class="text-end">{{ analisis.entrada.total|es_number }} €</td>

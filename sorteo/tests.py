@@ -362,7 +362,7 @@ class EstudiosDeRifa(TestCase):
             proyecto=self.proyecto,
             precio_compra=Decimal("18000"),
             comunidad="andalucia",
-            otros_gastos=Decimal("1300"),
+            otros_gastos=Decimal("0"),
             precio_participacion=Decimal("10"),
             participaciones=5000,
             precio_venta_estimado=Decimal("24000"),
@@ -370,8 +370,11 @@ class EstudiosDeRifa(TestCase):
 
     def test_mide_las_dos_rutas_sobre_el_mismo_inmueble(self):
         a = comparar(self.estudio.como_datos())
-        # Entrada = compra + ITP 7 % + otros
-        self.assertEqual(a["entrada"]["total"], Decimal("20560.00"))
+        # Entrada = compra + ITP 7 % + el desglose de gastos calculados
+        self.assertEqual(
+            a["entrada"]["total"],
+            Decimal("18000") + Decimal("1260.00") + self.estudio.gastos_totales,
+        )
         self.assertEqual(a["venta"]["ingresos"], Decimal("24000.00"))
         self.assertEqual(a["rifa"]["ingresos"], Decimal("50000.00"))
         self.assertGreater(a["rifa"]["beneficio"], a["venta"]["beneficio"])
@@ -524,3 +527,53 @@ class BorrarEstudio(TestCase):
         borrar(self._peticion("post"), pk=self.estudio.pk)
         self.assertFalse(EstudioRifa.objects.filter(pk=self.estudio.pk).exists())
         self.assertTrue(Sorteo.objects.filter(pk=sorteo.pk).exists())
+
+
+class GastosDetallados(TestCase):
+    """
+    Los gastos de compra dejan de ser una casilla a ojo: notaría y registro
+    salen del arancel, y el resto de valores por defecto conocidos. Todo
+    editable, porque cuando llega la factura manda la factura.
+    """
+
+    def setUp(self):
+        self.estudio = EstudioRifa.objects.create(
+            nombre="Con gastos", precio_compra=Decimal("18000"), comunidad="andalucia"
+        )
+
+    def test_el_arancel_crece_por_tramos(self):
+        from . import aranceles
+
+        self.assertLess(aranceles.notaria(18000), aranceles.notaria(350000))
+        self.assertLess(aranceles.registro(18000), aranceles.registro(350000))
+        # Por debajo del primer tramo se aplica el importe fijo.
+        self.assertEqual(aranceles.notaria(1000), aranceles.notaria(5000))
+
+    def test_sin_valor_no_hay_arancel(self):
+        from . import aranceles
+
+        self.assertEqual(aranceles.notaria(0), Decimal("0"))
+        self.assertEqual(aranceles.registro(None), Decimal("0"))
+
+    def test_se_calculan_solos_y_se_marcan_como_calculados(self):
+        desglose = {f["concepto"]: f for f in self.estudio.desglose_gastos()}
+        self.assertTrue(desglose["Notaría de la compra"]["calculado"])
+        self.assertGreater(desglose["Notaría de la compra"]["importe"], 0)
+        self.assertEqual(desglose["Tasa de autorización DGOJ"]["importe"], Decimal("100"))
+
+    def test_un_importe_a_mano_manda_sobre_el_calculo(self):
+        calculado = self.estudio.desglose_gastos()[0]["importe"]
+        self.estudio.gastos_notaria = Decimal("612.34")
+        self.estudio.save(update_fields=["gastos_notaria"])
+
+        fila = self.estudio.desglose_gastos()[0]
+        self.assertEqual(fila["importe"], Decimal("612.34"))
+        self.assertFalse(fila["calculado"])
+        self.assertNotEqual(fila["importe"], calculado)
+
+    def test_el_marketing_entra_en_el_coste(self):
+        antes = comparar(self.estudio.como_datos())["entrada"]["total"]
+        self.estudio.presupuesto_marketing = Decimal("3000")
+        self.estudio.save(update_fields=["presupuesto_marketing"])
+        despues = comparar(self.estudio.como_datos())["entrada"]["total"]
+        self.assertEqual(despues - antes, Decimal("3000"))

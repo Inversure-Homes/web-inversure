@@ -72,6 +72,7 @@ def coste_entrada(datos):
         "precio": precio,
         "impuesto": impuesto,
         "otros": otros,
+        "desglose": datos.get("desglose") or [],
         "total": _eur(precio + impuesto["importe"] + otros),
     }
 

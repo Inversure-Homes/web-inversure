@@ -501,11 +501,74 @@ class EstudioRifa(models.Model):
     comunidad = models.CharField(max_length=30, blank=True, choices=COMUNIDADES)
     operacion_compra = models.CharField(max_length=10, blank=True, default=Operacion.ITP, choices=Operacion.OPCIONES)
     supuesto_reducido = models.CharField(max_length=40, blank=True)
+    # Gastos de compra. Cada uno se calcula solo si se deja vacío; poner un
+    # importe manda sobre el cálculo, que es lo que hará falta cuando lleguen
+    # las facturas de verdad.
+    gastos_notaria = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Notaría de la compra (€)",
+        help_text="Vacío: se calcula por el arancel del RD 1426/1989.",
+    )
+    gastos_registro = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Registro de la propiedad (€)",
+        help_text="Vacío: se calcula por el arancel del RD 1427/1989.",
+    )
+    gastos_gestoria = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Gestoría de la compra (€)",
+        help_text="Vacío: se estiman 400 €.",
+    )
+
+    # Gastos propios del sorteo, más allá de los impuestos.
+    tasa_dgoj = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Tasa de autorización DGOJ (€)",
+        help_text="Vacío: 100 €, que es la tasa vigente.",
+    )
+    gastos_notaria_sorteo = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Notaría del sorteo (€)",
+        help_text="Vacío: se estiman 400 €.",
+    )
+    gastos_asesoria = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Asesoría jurídica y fiscal (€)",
+        help_text="Vacío: se estiman 800 €.",
+    )
+
+    # La campaña no es un extra: en una rifa es lo que decide si se coloca.
+    presupuesto_marketing = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        verbose_name="Presupuesto de marketing (€)",
+        help_text="Campaña, creatividades, anuncios. Es lo que separa vender 300 papeletas de vender 3.000.",
+    )
     otros_gastos = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         default=0,
-        help_text="Notaría, registro, gestoría, tasa de autorización…",
+        verbose_name="Otros gastos (€)",
+        help_text="Lo que no encaje en los anteriores.",
     )
 
     # Rifa
@@ -550,6 +613,50 @@ class EstudioRifa(models.Model):
     def __str__(self):
         return self.nombre
 
+    def desglose_gastos(self):
+        """
+        Cada gasto con su importe y de dónde sale: calculado o puesto a mano.
+
+        Se devuelve la procedencia además del número porque no es lo mismo un
+        arancel estimado que una factura real, y quien lea el estudio tiene
+        que poder distinguirlo.
+        """
+        from . import aranceles
+
+        def fila(concepto, valor, calculado, nota=""):
+            return {
+                "concepto": concepto,
+                "importe": valor if valor is not None else calculado,
+                "calculado": valor is None,
+                "nota": nota,
+            }
+
+        base = self.precio_compra or Decimal("0")
+        return [
+            fila(
+                "Notaría de la compra",
+                self.gastos_notaria,
+                aranceles.notaria(base),
+                "Arancel RD 1426/1989 aproximado a factura.",
+            ),
+            fila(
+                "Registro de la propiedad",
+                self.gastos_registro,
+                aranceles.registro(base),
+                "Arancel RD 1427/1989 aproximado a factura.",
+            ),
+            fila("Gestoría de la compra", self.gastos_gestoria, Decimal("400")),
+            fila("Tasa de autorización DGOJ", self.tasa_dgoj, Decimal("100"), "Tasa vigente para rifas ocasionales."),
+            fila("Notaría del sorteo", self.gastos_notaria_sorteo, Decimal("400")),
+            fila("Asesoría jurídica y fiscal", self.gastos_asesoria, Decimal("800")),
+            fila("Marketing y campaña", self.presupuesto_marketing, Decimal("0")),
+            fila("Otros gastos", self.otros_gastos, Decimal("0")),
+        ]
+
+    @property
+    def gastos_totales(self):
+        return sum(f["importe"] for f in self.desglose_gastos())
+
     def como_datos(self):
         """Diccionario que entiende el comparador."""
         return {
@@ -558,7 +665,8 @@ class EstudioRifa(models.Model):
             "comunidad": self.comunidad,
             "operacion": self.operacion_compra,
             "supuesto_reducido": self.supuesto_reducido,
-            "otros_gastos": self.otros_gastos,
+            "otros_gastos": self.gastos_totales,
+            "desglose": self.desglose_gastos(),
             "precio_participacion": self.precio_participacion,
             "participaciones": self.participaciones,
             "tasa_pct": self.tasa_juego_porcentaje,
