@@ -54,8 +54,11 @@
           <a href="{% url 'landing:cookies' %}">Cookies</a>
           <a href="{% url 'landing:terminos' %}">Términos</a>
           {# Acceso discreto al sorteo. Mientras no esté autorizado no debe
-             subir al menú: es publicidad de juego. #}
-          <a href="{% url 'sorteo:portada' %}" rel="nofollow">Sorteo</a>
+             subir al menú: es publicidad de juego. Y no se enseña si no hay
+             ningún sorteo creado, o sería un 404. #}
+          {% if hay_sorteo %}
+            <a href="{% url 'sorteo:portada' %}" rel="nofollow">Sorteo</a>
+          {% endif %}
         </div>
       </div>
     </footer>
