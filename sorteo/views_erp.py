@@ -34,7 +34,7 @@ from .economia import (
 )
 from .models import Pedido, Sorteo
 from .notaria import cerrar_venta, datos_relacion
-from .services import ErrorSorteo, registrar_venta_manual
+from .services import ErrorSorteo, liberar_caducadas, registrar_venta_manual
 
 
 def _puede(user):
@@ -119,6 +119,14 @@ def detalle(request, pk):
         return redirect("core:home")
 
     sorteo = get_object_or_404(Sorteo.objects.select_related("proyecto", "organizador"), pk=pk)
+
+    # Antes de contar, se devuelven a la venta las reservas caducadas.
+    #
+    # La portada pública ya lo hace, así que sin esto el ERP enseñaba menos
+    # participaciones disponibles de las que había en realidad: la web decía
+    # una cosa y nuestra propia ficha otra, siempre a peor. Es barato —una
+    # UPDATE con índice— y deja de hacer falta un cron para esto.
+    liberar_caducadas(sorteo)
 
     pedidos = Pedido.objects.filter(sorteo=sorteo).exclude(estado=Pedido.Estado.CADUCADO).prefetch_related("papeletas")
     busqueda = (request.GET.get("q") or "").strip()

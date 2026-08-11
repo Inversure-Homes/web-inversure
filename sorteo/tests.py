@@ -770,3 +770,45 @@ class InformeDeRentabilidad(TestCase):
         req.user = get_user_model().objects.create_user("mirón", "m@e.com", "clave-larga-de-prueba")
         r = informe(req, pk=self.estudio.pk)
         self.assertEqual(r.status_code, 302)
+
+
+class ReservasCaducadasEnElErp(BaseSorteo):
+    """
+    La ficha interna cuenta lo mismo que la web pública.
+
+    La portada libera las reservas caducadas antes de contar; el ERP no lo
+    hacía, así que enseñaba menos participaciones disponibles de las que había
+    —siempre a peor— hasta que alguien visitaba la web. Con esto no hace falta
+    un proceso programado solo para esto.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.usuario = get_user_model().objects.create_superuser("erp", "e@e.com", "clave-larga-de-prueba")
+        pedido = reservar_numeros(self.sorteo, [1, 2, 3], DATOS)
+        Papeleta.objects.filter(pedido=pedido).update(
+            reserva_expira=datetime.datetime(2020, 1, 1, tzinfo=datetime.timezone.utc)
+        )
+
+    def _abrir_ficha(self):
+        from django.test import RequestFactory
+
+        from .views_erp import detalle
+
+        peticion = RequestFactory().get("/ficha/")
+        peticion.user = self.usuario
+        return detalle(peticion, pk=self.sorteo.pk)
+
+    def test_abrir_la_ficha_devuelve_las_caducadas_a_la_venta(self):
+        self.assertEqual(self.sorteo.disponibles, 47)
+        self.assertEqual(self._abrir_ficha().status_code, 200)
+        self.assertEqual(self.sorteo.disponibles, 50)
+        self.assertEqual(self.sorteo.reservadas, 0)
+
+    def test_no_toca_las_reservas_vivas(self):
+        reservar_numeros(self.sorteo, [10], dict(DATOS, email="b@e.com"))
+        self._abrir_ficha()
+        self.assertEqual(
+            Papeleta.objects.get(sorteo=self.sorteo, numero=10).estado,
+            Papeleta.Estado.RESERVADA,
+        )
