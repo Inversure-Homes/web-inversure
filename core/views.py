@@ -416,6 +416,21 @@ def _user_can_edit_estudio(user) -> bool:
     return False
 
 
+def _user_can_view_estudio(user) -> bool:
+    if _user_is_admin_or_direccion(user):
+        return True
+    if is_marketing_user(user):
+        return True
+    if is_moderators_user(user):
+        return True
+    if is_comercial_user(user):
+        return True
+    if use_custom_permissions(user):
+        perms = resolve_permissions(user)
+        return bool(perms.get("can_estudios"))
+    return False
+
+
 def _user_can_manage_publicacion(user) -> bool:
     if _user_is_admin_or_direccion(user):
         return True
@@ -2098,6 +2113,42 @@ def _can_preview_facturas(user) -> bool:
         perms = resolve_permissions(user)
         return bool(perms.get("can_facturas_preview"))
     return False
+
+
+def _respuesta_pdf(request, respuesta, nombre_fichero: str):
+    """
+    Convierte en PDF una respuesta ya renderizada por `render()`.
+
+    El HTML se produce con `render()` y no con `render_to_string()` a
+    propósito. La auditoría de métricas (`inversure_metric_audit`) y varias
+    pruebas interceptan `core.views.render` para capturar el contexto del
+    informe, y el `response.context` del cliente de pruebas depende de que la
+    plantilla pase por ahí. Generar el HTML por otra vía habría dejado ciegas
+    esas comprobaciones sin que fallara nada: el informe seguiría saliendo y la
+    auditoría dejaría de mirarlo.
+
+    Con `?html=1` devuelve el HTML tal cual, que es lo que había hasta ahora.
+    Si WeasyPrint no arranca —necesita pango y cairo— también, y se deja
+    constancia en el log: en una pantalla de uso diario vale más el informe en
+    HTML que un error 500.
+    """
+    if request.GET.get("html"):
+        return respuesta
+
+    try:
+        from weasyprint import HTML  # defer import
+
+        pdf = HTML(
+            string=respuesta.content.decode("utf-8"),
+            base_url=request.build_absolute_uri("/"),
+        ).write_pdf()
+    except Exception:
+        logging.getLogger(__name__).exception("Fallo al generar el PDF de %s; se devuelve el HTML", nombre_fichero)
+        return respuesta
+
+    salida = HttpResponse(pdf, content_type="application/pdf")
+    salida["Content-Disposition"] = 'inline; filename="{}.pdf"'.format(nombre_fichero)
+    return salida
 
 
 def _build_presentacion_html(request, context: dict) -> str:
@@ -7303,6 +7354,9 @@ def convertir_a_proyecto(request, estudio_id: int):
 
 def pdf_estudio_preview(request, estudio_id: int):
     estudio = get_object_or_404(Estudio, id=estudio_id)
+    if not _user_can_view_estudio(request.user):
+        messages.error(request, "No tienes acceso a los estudios.")
+        return redirect("core:home")
 
     # Recalcular SIEMPRE desde backend
     kpis = _metricas_desde_estudio(estudio)
@@ -7379,13 +7433,21 @@ def pdf_estudio_preview(request, estudio_id: int):
         "texto": _safe_template_obj(kpis.get("texto", {})),
         "comite": _safe_template_obj(comite),
         "snapshot": _safe_template_obj(snapshot),
+        "logo_data_uri": _logo_data_uri("core/logo_inversure_blanco.png"),
     }
 
-    return render(request, "core/pdf_estudio_rentabilidad.html", ctx)
+    return _respuesta_pdf(
+        request,
+        render(request, "core/pdf_estudio_rentabilidad.html", ctx),
+        "informe-rentabilidad-{}".format(slugify(getattr(estudio, "nombre", "")) or estudio.id),
+    )
 
 
 def pdf_memoria_economica(request, proyecto_id: int):
     proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+    if not _user_can_view_project(request.user, proyecto):
+        messages.error(request, "No tienes acceso a este proyecto.")
+        return redirect("core:lista_proyectos")
     gastos = list(GastoProyecto.objects.filter(proyecto=proyecto).order_by("fecha", "id"))
     ingresos = list(IngresoProyecto.objects.filter(proyecto=proyecto).order_by("fecha", "id"))
 
@@ -7531,8 +7593,13 @@ def pdf_memoria_economica(request, proyecto_id: int):
         "ingresos": ingresos,
         "resumen": resumen,
         "fecha_informe": timezone.now(),
+        "logo_data_uri": _logo_data_uri("core/logo_inversure_blanco.png"),
     }
-    return render(request, "core/pdf_memoria_economica.html", ctx)
+    return _respuesta_pdf(
+        request,
+        render(request, "core/pdf_memoria_economica.html", ctx),
+        "memoria-economica-{}".format(slugify(proyecto.nombre or "") or proyecto.id),
+    )
 
 
 def proyecto_gastos(request, proyecto_id: int):

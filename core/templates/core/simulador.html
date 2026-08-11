@@ -770,7 +770,9 @@
   btn.addEventListener('click', function () {
     const url = btn.dataset.pdfUrl;
     if (url) {
-      window.location.href = url;
+      // En otra pestaña: ahora sale un PDF, y llevarse al usuario fuera del
+      // simulador para enseñárselo le hacía perder lo que tenía en pantalla.
+      window.open(url, '_blank', 'noopener');
     }
   });
 })();

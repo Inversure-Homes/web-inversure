@@ -415,6 +415,7 @@ class SecurityHardeningTests(TestCase):
             imputable_inversores=True,
         )
         req = self.factory.get(f"/app/proyectos/{proyecto.id}/memoria/pdf/")
+        req.user = User.objects.create_superuser("memoria", "m@e.com", "clave-larga-de-prueba")
         with mock.patch("core.views.render") as mocked_render:
             mocked_render.return_value = mock.Mock(status_code=200)
             core_views.pdf_memoria_economica(req, proyecto.id)

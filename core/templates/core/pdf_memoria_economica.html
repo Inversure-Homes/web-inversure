@@ -78,6 +78,52 @@
     .section-title { font-size:13px; font-weight:800; margin: 8px 0; }
     .kpi .sub { font-size:11px; color: var(--muted); margin-top:4px; }
     .table-total { font-weight:700; background: var(--soft); }
+
+    /*
+      Página del PDF. La misma plantilla se ve en el navegador con `?html=1`,
+      así que todo lo del papel va aquí: el navegador solo lo aplica al
+      imprimir y la vista en pantalla se queda como estaba.
+    */
+    @page {
+      size: A4 portrait;
+      margin: 12mm 10mm 14mm 10mm;
+      @bottom-center {
+        content: "Inversure · Memoria económica · página " counter(page) " de " counter(pages);
+        font-family: system-ui, sans-serif;
+        font-size: 8pt;
+        color: #64748b;
+      }
+    }
+
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 11px; }
+      .page { padding: 0; }
+
+      /*
+        La tabla de asientos tiene seis columnas y se salía por la derecha: se
+        perdía «Observaciones» entera. La culpa era del `nowrap`, que impedía
+        encoger las celdas; quitándolo la tabla cabe y cada columna se queda
+        con el ancho que necesita.
+      */
+      table { word-wrap: break-word; font-size: 10px; }
+      th, td { padding: 5px 6px; }
+      .nowrap { white-space: normal; }
+
+      /*
+        Las tarjetas no se parten... salvo la de asientos, que es larga: si se
+        le prohíbe, salta entera a la página siguiente y deja media página en
+        blanco. Ahí lo que no se parte son las filas.
+      */
+      .card { break-inside: avoid; }
+      .card--asientos { break-inside: auto; }
+      .card__head { break-after: avoid; }
+      /* Un «Ingresos» solo al pie de una página y su tabla en la siguiente. */
+      .section-title, thead { break-after: avoid; }
+      tr { break-inside: avoid; }
+
+      .brand img { height: 30px; }
+      h1 { font-size: 16px; }
+    }
   </style>
 </head>
 <body>
@@ -85,7 +131,7 @@
     <div class="header">
       <div class="brand">
         <a href="{% url 'core:proyecto' proyecto.id %}" style="display:inline-flex;">
-          <img src="{% static 'core/logo_inversure_blanco.png' %}" alt="Inversure">
+          <img src="{% if logo_data_uri %}{{ logo_data_uri }}{% else %}{% static 'core/logo_inversure_blanco.png' %}{% endif %}" alt="Inversure">
         </a>
         <div>
           <h1>Memoria económica</h1>
@@ -179,7 +225,7 @@
       </div>
     </div>
 
-    <div class="card" style="margin-top:12px;">
+    <div class="card card--asientos" style="margin-top:12px;">
       <div class="card__head">Asientos (gastos e ingresos)</div>
       <div class="card__body">
         <div class="section-title">Gastos</div>

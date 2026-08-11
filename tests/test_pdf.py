@@ -4,12 +4,14 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+from django.contrib.messages.storage.fallback import FallbackStorage
+from django.contrib.sessions.middleware import SessionMiddleware
 from django.http import HttpResponse
 from django.test import RequestFactory
 
 from core import views as core_views
 
-from .factories import EstudioFactory
+from .factories import EstudioFactory, UserFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -69,6 +71,7 @@ def test_pdf_estudio_preview_rebuilds_metrics_from_study_payload():
         },
     )
     request = RequestFactory().get("/")
+    request.user = UserFactory(is_superuser=True, is_staff=True)
     captured = {}
 
     def _fake_render(request, template_name, context=None, *args, **kwargs):
@@ -122,9 +125,123 @@ def test_pdf_estudio_preview_renders_real_template():
             "economico": {"beneficio_estimado": 77777},
         },
     )
-    request = RequestFactory().get("/")
+    request = RequestFactory().get("/", {"html": "1"})
+    request.user = UserFactory(is_superuser=True, is_staff=True)
 
     response = core_views.pdf_estudio_preview(request, estudio.id)
 
     assert response.status_code == 200
     assert "Informe de rentabilidad" in response.content.decode("utf-8")
+
+
+def test_pdf_estudio_preview_devuelve_un_pdf_de_verdad():
+    """Sin `?html=1` sale un PDF, no HTML que el navegador tenga que imprimir."""
+    estudio = EstudioFactory(datos={"valor_adquisicion": 100000, "precio_transmision": 140000})
+    request = RequestFactory().get("/")
+    request.user = UserFactory(is_superuser=True, is_staff=True)
+
+    response = core_views.pdf_estudio_preview(request, estudio.id)
+
+    assert response["Content-Type"] == "application/pdf"
+    assert response.content[:5] == b"%PDF-"
+
+
+def test_pdf_estudio_preview_exige_permiso():
+    estudio = EstudioFactory(datos={"valor_adquisicion": 100000})
+    request = RequestFactory().get("/")
+    request.user = UserFactory()
+    SessionMiddleware(lambda r: None).process_request(request)
+    request._messages = FallbackStorage(request)
+
+    response = core_views.pdf_estudio_preview(request, estudio.id)
+
+    assert response.status_code == 302
+
+
+def test_pdf_memoria_economica_devuelve_un_pdf_de_verdad(db):
+    from core.models import Proyecto
+
+    proyecto = Proyecto.objects.create(nombre="COIN")
+    request = RequestFactory().get("/")
+    request.user = UserFactory(is_superuser=True, is_staff=True)
+
+    response = core_views.pdf_memoria_economica(request, proyecto.id)
+
+    assert response["Content-Type"] == "application/pdf"
+    assert response.content[:5] == b"%PDF-"
+    assert "memoria-economica-coin.pdf" in response["Content-Disposition"]
+
+
+def test_pdf_memoria_economica_sigue_exponiendo_el_contexto():
+    """
+    La auditoría de métricas y varias pruebas capturan el contexto
+    interceptando `core.views.render`. Si el informe dejara de pasar por ahí,
+    esas comprobaciones se quedarían ciegas sin que fallara nada.
+    """
+    from core.models import Proyecto
+
+    proyecto = Proyecto.objects.create(nombre="COIN")
+    request = RequestFactory().get("/")
+    request.user = UserFactory(is_superuser=True, is_staff=True)
+    captured = {}
+
+    def _fake_render(request, template_name, context=None, *args, **kwargs):
+        captured["template_name"] = template_name
+        captured["context"] = context or {}
+        return HttpResponse("captured")
+
+    with patch.object(core_views, "render", side_effect=_fake_render):
+        core_views.pdf_memoria_economica(request, proyecto.id)
+
+    assert captured["template_name"] == "core/pdf_memoria_economica.html"
+    assert "resumen" in captured["context"]
+
+
+def test_pdf_memoria_economica_exige_permiso():
+    from core.models import Proyecto
+
+    proyecto = Proyecto.objects.create(nombre="COIN")
+    request = RequestFactory().get("/")
+    request.user = UserFactory()
+    SessionMiddleware(lambda r: None).process_request(request)
+    request._messages = FallbackStorage(request)
+
+    response = core_views.pdf_memoria_economica(request, proyecto.id)
+
+    assert response.status_code == 302
+
+
+def test_los_informes_de_core_no_piden_el_logo_por_url():
+    """
+    WeasyPrint no es un navegador: un logo por URL le obliga a salir a la red y
+    lo deja en blanco si no llega. Va incrustado como data URI.
+    """
+    from core.models import Proyecto
+
+    proyecto = Proyecto.objects.create(nombre="COIN")
+    request = RequestFactory().get("/", {"html": "1"})
+    request.user = UserFactory(is_superuser=True, is_staff=True)
+
+    html = core_views.pdf_memoria_economica(request, proyecto.id).content.decode("utf-8")
+
+    assert "data:image/png;base64," in html
+    assert 'src="/static' not in html
+
+
+def test_si_weasyprint_falla_el_informe_sigue_saliendo_en_html():
+    """En una pantalla de uso diario vale más el HTML que un error 500."""
+    from core.models import Proyecto
+
+    proyecto = Proyecto.objects.create(nombre="COIN")
+    request = RequestFactory().get("/")
+    request.user = UserFactory(is_superuser=True, is_staff=True)
+
+    class _HTMLQueRevienta:
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("falta pango")
+
+    with patch.dict(sys.modules, {"weasyprint": SimpleNamespace(HTML=_HTMLQueRevienta)}):
+        response = core_views.pdf_memoria_economica(request, proyecto.id)
+
+    assert response.status_code == 200
+    assert "text/html" in response["Content-Type"]
