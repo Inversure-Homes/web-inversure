@@ -310,3 +310,25 @@ class CoberturaDelCatalogo(TestCase):
         for comunidad in ("murcia", "madrid"):
             r = calcular(200000, comunidad, supuesto="reventa_profesional", perfil=self.PERFIL)
             self.assertEqual(r["tipo"], Decimal("2"), comunidad)
+
+
+class ComentariosDePlantilla(TestCase):
+    """
+    Los comentarios {# #} de Django son de UNA sola línea: si abarcan varias se
+    imprimen tal cual en el HTML. Pasó en el pie de la landing y se vio en
+    producción, así que queda comprobado.
+    """
+
+    def test_ninguna_plantilla_imprime_comentarios(self):
+        import re
+        from pathlib import Path
+
+        raiz = Path(__file__).resolve().parent.parent
+        fallos = []
+        for carpeta in ("sorteo/templates", "landing/templates"):
+            for ruta in (raiz / carpeta).rglob("*.html"):
+                texto = ruta.read_text()
+                for m in re.finditer(r"\{#.*?#\}", texto, re.S):
+                    if "\n" in m.group(0):
+                        fallos.append(str(ruta.relative_to(raiz)))
+        self.assertEqual(fallos, [], "Comentarios multilínea con {{# #}}: {}".format(fallos))
