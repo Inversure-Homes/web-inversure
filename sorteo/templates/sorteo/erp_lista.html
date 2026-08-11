@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load humanize formatting %}
+{% load formatting %}
 
 {% comment %}
   La sección de sorteos entera, en una sola página: arriba los estudios —de
@@ -109,12 +109,12 @@
                            title="Personas distintas a las que hay que convencer">
                         Compradores
                       </div>
-                      <div class="fw-bold">≈ {{ e.analisis.rifa.compradores|intcomma }}</div>
+                      <div class="fw-bold">≈ {{ e.analisis.rifa.compradores|es_number:0 }}</div>
                     </div>
                   </div>
 
                   <div class="text-center small text-muted mb-3">
-                    {{ e.estudio.participaciones|intcomma }} ×
+                    {{ e.estudio.participaciones|es_number:0 }} ×
                     {{ e.estudio.precio_participacion|es_number }} €
                   </div>
 
@@ -198,8 +198,8 @@
                     <div class="progress-bar bg-warning" style="width: {{ s.porcentaje_vendido }}%"></div>
                   </div>
                   <p class="small mb-3">
-                    <strong>{{ s.vendidas|intcomma }}</strong> de
-                    {{ s.total_participaciones|intcomma }} vendidas ·
+                    <strong>{{ s.vendidas|es_number:0 }}</strong> de
+                    {{ s.total_participaciones|es_number:0 }} vendidas ·
                     {{ s.recaudado|es_number }} €
                   </p>
 

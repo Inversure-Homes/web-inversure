@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load humanize formatting %}
+{% load formatting %}
 
 {% comment %}
   Mismo formato que `core/simulador.html`: card de cabecera con badge y panel
@@ -96,8 +96,8 @@
               <h6 class="text-muted">Umbral de rentabilidad</h6>
               <p class="fs-3 fw-bold mb-0">{{ analisis.rifa.umbral_porcentaje }} %</p>
               <div class="small text-muted">
-                {{ analisis.rifa.umbral|intcomma }} papeletas ·
-                ≈ {{ analisis.rifa.compradores|intcomma }} compradores
+                {{ analisis.rifa.umbral|es_number:0 }} papeletas ·
+                ≈ {{ analisis.rifa.compradores|es_number:0 }} compradores
               </div>
             </div>
           </div>
@@ -227,10 +227,10 @@
               <tr class="fw-semibold border-top">
                 <td>Participaciones mínimas</td>
                 <td class="text-end">
-                  {{ analisis.rifa.umbral|intcomma }}
+                  {{ analisis.rifa.umbral|es_number:0 }}
                   <div class="small text-muted fw-normal">
                     {{ analisis.rifa.umbral_porcentaje }} % de lo emitido ·
-                    ≈ {{ analisis.rifa.compradores|intcomma }} compradores
+                    ≈ {{ analisis.rifa.compradores|es_number:0 }} compradores
                   </div>
                 </td>
               </tr>
