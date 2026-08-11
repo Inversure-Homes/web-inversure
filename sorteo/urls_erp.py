@@ -11,6 +11,7 @@ urlpatterns = [
     path("estudios/nuevo/", views_estudios.editar, name="estudio_nuevo"),
     path("estudios/<int:pk>/", views_estudios.detalle, name="estudio"),
     path("estudios/<int:pk>/editar/", views_estudios.editar, name="estudio_editar"),
+    path("estudios/<int:pk>/informe/", views_estudios.informe, name="estudio_informe"),
     path("estudios/<int:pk>/duplicar/", views_estudios.duplicar, name="estudio_duplicar"),
     path("estudios/<int:pk>/archivar/", views_estudios.archivar, name="estudio_archivar"),
     path("estudios/<int:pk>/borrar/", views_estudios.borrar, name="estudio_borrar"),

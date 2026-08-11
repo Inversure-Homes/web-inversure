@@ -679,3 +679,94 @@ class FormularioDelEstudio(TestCase):
             self.assertEqual(
                 html.count('name="{}"'.format(nombre)), 1, "«{}» no sale exactamente una vez".format(nombre)
             )
+
+
+class InformeDeRentabilidad(TestCase):
+    """
+    El informe en PDF del estudio.
+
+    Se comprueba sobre el HTML —que es lo que WeasyPrint recibe— porque la
+    biblioteca no arranca en el entorno de pruebas: le faltan pango y cairo.
+    Lo que importa aquí es que el documento lleve las cifras y que no dependa
+    de nada externo, no que WeasyPrint sepa dibujar un PDF.
+    """
+
+    def setUp(self):
+        self.usuario = get_user_model().objects.create_superuser("informe", "i@e.com", "clave-larga-de-prueba")
+        self.estudio = EstudioRifa.objects.create(
+            nombre="Plaza 18k",
+            precio_compra=Decimal("18000"),
+            comunidad="andalucia",
+            precio_participacion=Decimal("10"),
+            participaciones=5000,
+        )
+
+    def _peticion(self, ruta="/informe/"):
+        from django.test import RequestFactory
+
+        req = RequestFactory().get(ruta)
+        req.user = self.usuario
+        return req
+
+    def _html(self):
+        from .views_estudios import informe
+
+        return informe(self._peticion("/informe/?html=1"), pk=self.estudio.pk).content.decode()
+
+    def test_lleva_el_umbral_y_su_desglose(self):
+        html = self._html()
+        analisis = comparar(self.estudio.como_datos())
+        self.assertIn("Participaciones mínimas a vender", html)
+        self.assertIn("Costes de adquisición", html)
+        self.assertIn("Costes del proceso del activo", html)
+        self.assertIn(analisis["rifa"]["umbral_detalle"]["formula"], html)
+
+    def test_compara_las_dos_rutas(self):
+        html = self._html()
+        self.assertIn("Venta ordinaria", html)
+        self.assertIn("Vender o rifar", html)
+        self.assertIn(self.estudio.nombre, html)
+
+    def test_no_pide_nada_a_la_red(self):
+        """
+        Un informe que se archiva tiene que verse igual dentro de diez años.
+        Ni hojas de estilo externas, ni fuentes, ni el logo por URL: WeasyPrint
+        se quedaría esperando o lo pintaría en blanco.
+        """
+        html = self._html()
+        self.assertNotIn("<link", html)
+        self.assertNotIn("<script", html)
+        for marca in ('src="http', "src='http", 'src="/static', "@import"):
+            self.assertNotIn(marca, html)
+
+    def test_advierte_de_que_las_cifras_se_recalculan(self):
+        self.assertIn("se recalculan en cada emisión", self._html())
+
+    def test_genera_el_pdf_y_lo_nombra(self):
+        import sys
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from .views_estudios import informe
+
+        class _FalsoHTML:
+            def __init__(self, string, base_url=None):
+                self.string = string
+
+            def write_pdf(self):
+                return b"%PDF-falso"
+
+        with patch.dict(sys.modules, {"weasyprint": SimpleNamespace(HTML=_FalsoHTML)}):
+            r = informe(self._peticion(), pk=self.estudio.pk)
+
+        self.assertEqual(r["Content-Type"], "application/pdf")
+        self.assertEqual(r.content, b"%PDF-falso")
+        self.assertIn("informe-rifa-plaza-18k.pdf", r["Content-Disposition"])
+
+    def test_sin_permisos_no_se_descarga(self):
+        from .views_estudios import informe
+
+        req = self._peticion()
+        req.user = get_user_model().objects.create_user("mirón", "m@e.com", "clave-larga-de-prueba")
+        r = informe(req, pk=self.estudio.pk)
+        self.assertEqual(r.status_code, 302)

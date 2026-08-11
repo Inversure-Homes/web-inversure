@@ -9,10 +9,15 @@ Mismo patrón que el `Estudio` del ERP para el resto de operaciones.
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
+from django.utils import timezone
+from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 
 from core.models import Proyecto
+from core.views import _logo_data_uri
 
 from .comparador import comparar, desde_proyecto
 from .impuestos import opciones_reducidas
@@ -261,6 +266,51 @@ def detalle(request, pk):
             "titulo": estudio.nombre,
         },
     )
+
+
+@login_required
+def informe(request, pk):
+    """
+    Informe de rentabilidad del estudio, en PDF.
+
+    PDF de verdad, no la impresión del navegador: un informe que se archiva con
+    la operación o se le pasa a un socio no puede depender de que quien lo abre
+    acierte con los márgenes del diálogo de impresión.
+
+    No guarda nada. Se recalcula entero en cada descarga, igual que la ficha,
+    para que un cambio en los tipos impositivos o en el arancel se refleje en
+    vez de dejar el informe mintiendo. A cambio, dos copias emitidas en fechas
+    distintas pueden no coincidir; el propio documento lo advierte.
+
+    Con `?html=1` devuelve el HTML sin pasar por WeasyPrint. Sirve para ver el
+    maquetado en local, donde WeasyPrint no arranca por faltarle pango y cairo.
+    """
+    if not _puede(request.user):
+        return redirect("core:home")
+
+    estudio = get_object_or_404(EstudioRifa.objects.select_related("proyecto"), pk=pk)
+    html = render_to_string(
+        "sorteo/pdf_estudio_rentabilidad.html",
+        {
+            "estudio": estudio,
+            "analisis": comparar(estudio.como_datos()),
+            "fecha": timezone.now().date(),
+            "logo": _logo_data_uri("core/logo_inversure_blanco.png"),
+        },
+        request,
+    )
+
+    if request.GET.get("html"):
+        return HttpResponse(html)
+
+    from weasyprint import HTML  # defer import: necesita pango y cairo
+
+    pdf = HTML(string=html, base_url=request.build_absolute_uri("/")).write_pdf()
+    respuesta = HttpResponse(pdf, content_type="application/pdf")
+    respuesta["Content-Disposition"] = 'inline; filename="informe-rifa-{}.pdf"'.format(
+        slugify(estudio.nombre) or estudio.pk
+    )
+    return respuesta
 
 
 @login_required

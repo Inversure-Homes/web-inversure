@@ -1,0 +1,389 @@
+{% load formatting %}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Informe de rentabilidad · {{ estudio.nombre }}</title>
+
+  {% comment %}
+    Plantilla suelta a propósito: no extiende `core/base.html` porque este HTML
+    lo consume WeasyPrint, no un navegador. Nada de Bootstrap, nada de JS y
+    ninguna referencia a ficheros externos —el logo va como data URI—, para que
+    el PDF salga igual con o sin red.
+
+    El informe no guarda nada: lo recalcula todo la vista en cada descarga. Un
+    informe que reprodujera cifras guardadas mentiría en cuanto cambiara un tipo
+    impositivo o el arancel.
+  {% endcomment %}
+  <style>
+    @page {
+      size: A4;
+      margin: 14mm 13mm 16mm 13mm;
+      @bottom-center {
+        content: "Inversure Homes · Informe interno de rentabilidad · página " counter(page) " de " counter(pages);
+        font-family: Helvetica, Arial, sans-serif;
+        font-size: 8pt;
+        color: #6b7280;
+      }
+    }
+
+    :root {
+      --azul: #122135;
+      --oro: #d7b04c;
+      --texto: #111827;
+      --suave: #6b7280;
+      --borde: #e5e7eb;
+      --fondo: #f8fafc;
+      --bien: #16a34a;
+      --ojo: #f59e0b;
+      --mal: #dc2626;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 9.5pt;
+      line-height: 1.45;
+      color: var(--texto);
+    }
+
+    h1, h2, h3 { margin: 0; font-weight: 700; }
+
+    .cabecera {
+      background: var(--azul);
+      color: #fff;
+      padding: 12px 14px;
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .cabecera img { height: 26px; }
+    .cabecera h1 { font-size: 15pt; margin-top: 8px; }
+    .cabecera .sub { color: #cbd5e1; font-size: 9pt; margin-top: 2px; }
+    .cabecera .meta { text-align: right; font-size: 8.5pt; color: #cbd5e1; }
+    .cabecera .ref {
+      display: inline-block;
+      background: var(--oro);
+      color: var(--azul);
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 8.5pt;
+    }
+
+    .kpis { display: flex; gap: 8px; margin: 12px 0; }
+    .kpi {
+      flex: 1;
+      border: 1px solid var(--borde);
+      border-top: 3px solid var(--azul);
+      border-radius: 5px;
+      padding: 8px 10px;
+      background: #fff;
+    }
+    .kpi .et { font-size: 7.5pt; text-transform: uppercase; letter-spacing: .04em; color: var(--suave); }
+    .kpi .valor { font-size: 15pt; font-weight: 700; margin-top: 2px; }
+    .kpi .pie { font-size: 7.5pt; color: var(--suave); }
+    .kpi.decision { border-top-color: var(--oro); }
+
+    .bien { color: var(--bien); }
+    .ojo  { color: var(--ojo); }
+    .mal  { color: var(--mal); }
+
+    .bloque { margin-top: 12px; break-inside: avoid; }
+    .bloque > h2 {
+      background: var(--azul);
+      color: #fff;
+      font-size: 9.5pt;
+      padding: 5px 10px;
+      border-radius: 4px 4px 0 0;
+    }
+    .bloque > .cuerpo {
+      border: 1px solid var(--borde);
+      border-top: 0;
+      border-radius: 0 0 4px 4px;
+      padding: 10px;
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+    th, td { padding: 4px 6px; text-align: left; vertical-align: top; }
+    thead th { border-bottom: 1.5px solid var(--azul); font-size: 8pt; text-transform: uppercase; color: var(--suave); }
+    tbody tr + tr td { border-top: 1px solid var(--borde); }
+    .num { text-align: right; white-space: nowrap; }
+    .total td { border-top: 1.5px solid var(--azul); font-weight: 700; }
+    .nota { color: var(--suave); font-size: 8pt; }
+    .etiqueta {
+      display: inline-block;
+      border: 1px solid var(--borde);
+      border-radius: 3px;
+      padding: 0 4px;
+      font-size: 7pt;
+      color: var(--suave);
+    }
+
+    .formula {
+      background: var(--fondo);
+      border-left: 3px solid var(--oro);
+      padding: 6px 10px;
+      margin-top: 8px;
+      font-size: 9pt;
+    }
+
+    ul { margin: 0; padding-left: 16px; }
+    li { margin-bottom: 3px; }
+
+    .aviso {
+      margin-top: 12px;
+      border: 1px solid var(--borde);
+      background: var(--fondo);
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-size: 8pt;
+      color: var(--suave);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="cabecera">
+    <div>
+      {% if logo %}<img src="{{ logo }}" alt="Inversure" />{% endif %}
+      <h1>{{ estudio.nombre }}</h1>
+      <div class="sub">
+        {% if estudio.proyecto %}Proyecto {{ estudio.proyecto.nombre }}{% else %}Inmueble hipotético{% endif %}
+        {% if estudio.get_comunidad_display %} · {{ estudio.get_comunidad_display }}{% endif %}
+      </div>
+    </div>
+    <div class="meta">
+      <span class="ref">RIF-{{ estudio.id|stringformat:"06d" }}</span>
+      <div style="margin-top:6px">Emitido el {{ fecha|date:"d/m/Y" }}</div>
+      <div>Estudio creado el {{ estudio.creado_en|date:"d/m/Y" }}</div>
+    </div>
+  </div>
+
+  {# KPIs #}
+  <div class="kpis">
+    <div class="kpi">
+      <div class="et">ROI de la rifa</div>
+      <div class="valor {% if analisis.rifa.roi < 0 %}mal{% elif analisis.rifa.roi < 12 %}ojo{% else %}bien{% endif %}">
+        {{ analisis.rifa.roi|es_number }} %
+      </div>
+      <div class="pie">sobre el coste de entrada</div>
+    </div>
+    <div class="kpi">
+      <div class="et">Beneficio a pleno</div>
+      <div class="valor {% if analisis.rifa.beneficio < 0 %}mal{% endif %}">
+        {{ analisis.rifa.beneficio|es_number }} €
+      </div>
+      <div class="pie">venta ordinaria: {{ analisis.venta.beneficio|es_number }} €</div>
+    </div>
+    <div class="kpi">
+      <div class="et">Umbral de rentabilidad</div>
+      <div class="valor">{{ analisis.rifa.umbral_porcentaje }} %</div>
+      <div class="pie">
+        {{ analisis.rifa.umbral|es_number:0 }} papeletas ·
+        ≈ {{ analisis.rifa.compradores|es_number:0 }} compradores
+      </div>
+    </div>
+    <div class="kpi decision">
+      <div class="et">Decisión</div>
+      <div class="valor">{{ analisis.decision.texto }}</div>
+      <div class="pie">{{ analisis.decision.motivo }}</div>
+    </div>
+  </div>
+
+  {# Participaciones mínimas #}
+  <div class="bloque">
+    <h2>Participaciones mínimas a vender</h2>
+    <div class="cuerpo">
+      <p style="margin:0 0 8px">
+        Lo que hay que cubrir son los costes de adquisición más los del proceso
+        del activo. Cada papeleta aporta su precio menos la comisión de la
+        pasarela.
+      </p>
+      <table>
+        <tbody>
+          {% for c in analisis.rifa.umbral_detalle.conceptos %}
+            <tr>
+              <td>
+                {{ c.concepto }}
+                {% if c.nota %}<div class="nota">{{ c.nota }}</div>{% endif %}
+              </td>
+              <td class="num">{{ c.importe|es_number }} €</td>
+            </tr>
+          {% endfor %}
+          <tr class="total">
+            <td>A cubrir</td>
+            <td class="num">{{ analisis.rifa.umbral_detalle.a_cubrir|es_number }} €</td>
+          </tr>
+          <tr>
+            <td>Neto por participación vendida</td>
+            <td class="num">{{ analisis.rifa.umbral_detalle.neto_papeleta|es_number }} €</td>
+          </tr>
+          <tr class="total">
+            <td>
+              Participaciones mínimas
+              <div class="nota">
+                {{ analisis.rifa.umbral_porcentaje }} % de las
+                {{ estudio.participaciones|es_number:0 }} emitidas ·
+                ≈ {{ analisis.rifa.compradores|es_number:0 }} compradores distintos
+              </div>
+            </td>
+            <td class="num">{{ analisis.rifa.umbral|es_number:0 }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="formula">{{ analisis.rifa.umbral_detalle.formula }}</div>
+    </div>
+  </div>
+
+  {# Vender o rifar #}
+  <div class="bloque">
+    <h2>Vender o rifar</h2>
+    <div class="cuerpo">
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            {% for r in analisis.rutas %}<th class="num">{{ r.nombre }}</th>{% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Ingresos</td>
+            {% for r in analisis.rutas %}<td class="num">{{ r.ingresos|es_number }} €</td>{% endfor %}
+          </tr>
+          <tr>
+            <td>Costes</td>
+            {% for r in analisis.rutas %}<td class="num">{{ r.costes|es_number }} €</td>{% endfor %}
+          </tr>
+          <tr class="total">
+            <td>Beneficio</td>
+            {% for r in analisis.rutas %}
+              <td class="num {% if r.beneficio < 0 %}mal{% else %}bien{% endif %}">{{ r.beneficio|es_number }} €</td>
+            {% endfor %}
+          </tr>
+          <tr>
+            <td>ROI sobre la entrada</td>
+            {% for r in analisis.rutas %}<td class="num">{{ r.roi|es_number }} %</td>{% endfor %}
+          </tr>
+          <tr>
+            <td>Por mes inmovilizado</td>
+            {% for r in analisis.rutas %}
+              <td class="num">
+                {% if r.por_mes %}{{ r.por_mes|es_number }} €/mes<div class="nota">{{ r.meses }} meses</div>
+                {% else %}—{% endif %}
+              </td>
+            {% endfor %}
+          </tr>
+          {% if analisis.rifa.cancelacion %}
+            <tr>
+              <td>
+                Si el sorteo se cancela
+                <div class="nota">
+                  Se reintegra todo. El inmueble no se entrega y sigue en balance:
+                  la pérdida son los gastos ya incurridos, no el coste total.
+                </div>
+              </td>
+              <td class="num">—</td>
+              <td class="num mal">{{ analisis.rifa.cancelacion|es_number }} €</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# Riesgos #}
+  <div class="bloque">
+    <h2>Riesgo de cada ruta</h2>
+    <div class="cuerpo">
+      <table>
+        <tbody>
+          {% for r in analisis.rutas %}
+            <tr>
+              <td style="width:22%"><strong>{{ r.nombre }}</strong><div class="nota">{{ r.tope }}</div></td>
+              <td>{{ r.riesgo }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# Lectura #}
+  {% if analisis.lecturas %}
+    <div class="bloque">
+      <h2>Cómo leerlo</h2>
+      <div class="cuerpo">
+        <ul>{% for l in analisis.lecturas %}<li>{{ l }}</li>{% endfor %}</ul>
+      </div>
+    </div>
+  {% endif %}
+
+  {# Coste de entrada #}
+  <div class="bloque">
+    <h2>Coste de entrada</h2>
+    <div class="cuerpo">
+      <table>
+        <tbody>
+          <tr>
+            <td>Precio de compra</td>
+            <td class="num">{{ analisis.entrada.precio|es_number }} €</td>
+          </tr>
+          <tr>
+            <td>
+              {{ analisis.entrada.impuesto.impuesto }}
+              {% if analisis.entrada.impuesto.tipo %}al {{ analisis.entrada.impuesto.tipo }} %{% endif %}
+              {% if analisis.entrada.impuesto.supuesto %}
+                <div class="nota">{{ analisis.entrada.impuesto.supuesto }}</div>
+              {% endif %}
+            </td>
+            <td class="num">{{ analisis.entrada.impuesto.importe|es_number }} €</td>
+          </tr>
+          {% for g in analisis.entrada.desglose %}
+            {% if g.importe %}
+              <tr>
+                <td>
+                  {{ g.concepto }}
+                  {% if g.calculado %}<span class="etiqueta">calculado</span>{% endif %}
+                  {% if g.nota %}<div class="nota">{{ g.nota }}</div>{% endif %}
+                </td>
+                <td class="num">{{ g.importe|es_number }} €</td>
+              </tr>
+            {% endif %}
+          {% endfor %}
+          <tr class="total">
+            <td>Total</td>
+            <td class="num">{{ analisis.entrada.total|es_number }} €</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {% if analisis.entrada.impuesto.avisos %}
+        <div class="aviso">
+          <ul>{% for a in analisis.entrada.impuesto.avisos %}<li>{{ a }}</li>{% endfor %}</ul>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if estudio.notas %}
+    <div class="bloque">
+      <h2>Notas</h2>
+      <div class="cuerpo"><p style="margin:0; white-space: pre-line">{{ estudio.notas }}</p></div>
+    </div>
+  {% endif %}
+
+  <div class="aviso">
+    Documento interno de trabajo. Las cifras se recalculan en cada emisión con
+    los tipos y aranceles vigentes a la fecha del informe, así que dos copias
+    emitidas en fechas distintas pueden no coincidir. Los gastos marcados como
+    «calculado» son estimaciones, no facturas. No es una oferta ni publicidad
+    de la rifa: la comercialización de un sorteo requiere autorización previa
+    de la DGOJ.
+  </div>
+
+</body>
+</html>

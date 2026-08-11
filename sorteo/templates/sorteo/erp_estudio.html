@@ -43,6 +43,11 @@
                  class="btn btn-inversure-secondary btn-sm">Editar</a>
               <a href="{% url 'sorteo_erp:estudio_duplicar' estudio.pk %}"
                  class="btn btn-outline-secondary btn-sm">Duplicar</a>
+              <a href="{% url 'sorteo_erp:estudio_informe' estudio.pk %}"
+                 target="_blank" rel="noopener noreferrer"
+                 class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-file-earmark-pdf"></i> Informe PDF
+              </a>
               {% if estudio.sorteo %}
                 <a href="{% url 'sorteo_erp:detalle' estudio.sorteo.pk %}"
                    class="btn btn-outline-warning btn-sm">Ver el sorteo</a>
