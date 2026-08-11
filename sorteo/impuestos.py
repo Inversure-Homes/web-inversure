@@ -115,26 +115,42 @@ SUPUESTOS_REDUCIDOS = {
             "tipo": Decimal("2"),
             "perfil": {"empresa_inmobiliaria": True, "reventa": True},
             "requisitos": [
+                "Solo sociedades: no lo pueden aplicar los empresarios individuales.",
                 "Actividad principal de construcción, promoción o compraventa de inmuebles.",
-                "Incorporación al activo circulante y declaración en escritura.",
-                "Reventa dentro del plazo que fije la normativa vigente.",
+                "Debe constar en escritura que el inmueble entra en existencias para su reventa.",
+                "Plazo de reventa: 2 años.",
             ],
-            "aviso": "Confirmar el plazo de reventa aplicable en el ejercicio.",
+            "aviso": "Si no se revende dentro del plazo hay que ingresar la "
+            "diferencia con el tipo general más intereses de demora.",
         }
     ],
-    "cataluna": [
+    "murcia": [
         {
             "clave": "reventa_profesional",
-            "nombre": "Bonificación del 70 % por reventa profesional",
-            "tipo": Decimal("3"),
+            "nombre": "Adquisición por profesional inmobiliario para reventa",
+            "tipo": Decimal("2"),
             "perfil": {"empresa_inmobiliaria": True, "reventa": True},
             "requisitos": [
-                "Se articula como bonificación del 70 % de la cuota, no como "
-                "tipo reducido: el 3 % es el efectivo aproximado sobre el 10 %.",
-                "Reventa en un máximo de 3 años.",
+                "Aplicable tanto a sociedades como a empresarios individuales.",
+                "Sujeción al Plan General de Contabilidad del sector inmobiliario, con el inmueble en existencias.",
+                "Confirmar el plazo de reventa vigente.",
             ],
-            "aviso": "Verificar el importe exacto con la gestoría: la "
-            "bonificación se calcula sobre la cuota, no sobre la base.",
+            "aviso": "Si no se revende dentro del plazo hay que ingresar la "
+            "diferencia con el tipo general más intereses de demora.",
+        }
+    ],
+    "aragon": [
+        {
+            "clave": "reventa_profesional",
+            "nombre": "Adquisición por profesional inmobiliario para reventa",
+            "tipo": Decimal("2"),
+            "perfil": {"empresa_inmobiliaria": True, "reventa": True},
+            "revisar": True,
+            "requisitos": [
+                "Dato sin contrastar del todo: confirmar tipo, plazo y requisitos con la gestoría antes de aplicarlo.",
+            ],
+            "aviso": "Si no se revende dentro del plazo hay que ingresar la "
+            "diferencia con el tipo general más intereses de demora.",
         }
     ],
     "valencia": [
@@ -172,6 +188,21 @@ SUPUESTOS_REDUCIDOS = {
             "requisitos": [],
         },
     ],
+}
+
+
+# Comunidades donde SÍ se ha contrastado el supuesto de reventa profesional.
+# Fuera de esta lista el sistema no promete nada.
+CON_REVENTA_PROFESIONAL = {"andalucia", "madrid", "murcia", "aragon"}
+
+# Avisos informativos por comunidad, para lo que conviene saber aunque no se
+# traduzca en un tipo aplicable.
+NOTAS_COMUNIDAD = {
+    "cataluna": "La bonificación del 70 % de la cuota por reventa profesional "
+    "quedó suprimida el 27 de marzo de 2025: las adquisiciones posteriores no "
+    "la tienen.",
+    "valencia": "Las bonificaciones de la cuota van ligadas a eficiencia "
+    "energética, accesibilidad o destino al alquiler, no a la simple reventa.",
 }
 
 
@@ -260,6 +291,22 @@ def calcular(
             "avisos": ["Indica la comunidad autónoma para calcular el ITP."],
         }
 
+    if comunidad in NOTAS_COMUNIDAD:
+        avisos.append(NOTAS_COMUNIDAD[comunidad])
+
+    perfil = perfil or {}
+    if (
+        perfil.get("empresa_inmobiliaria")
+        and perfil.get("reventa")
+        and comunidad not in CON_REVENTA_PROFESIONAL
+        and comunidad not in NOTAS_COMUNIDAD
+    ):
+        avisos.append(
+            "No consta un tipo reducido por reventa profesional en {}. "
+            "Muchas comunidades lo tienen: conviene preguntarlo antes de "
+            "escriturar, porque después no se puede rectificar.".format(datos["nombre"])
+        )
+
     candidatos = supuestos_aplicables(comunidad, perfil)
     elegido = None
     if supuesto:
@@ -278,6 +325,9 @@ def calcular(
                 "El valor supera el límite de {:.0f} € del tipo reducido: se aplica el general.".format(limite)
             )
             elegido = None
+
+    if elegido and elegido.get("revisar"):
+        avisos.append("Este supuesto está en el catálogo sin contrastar del todo. No lo des por bueno sin confirmarlo.")
 
     if elegido:
         avisos.extend(elegido.get("requisitos", []))

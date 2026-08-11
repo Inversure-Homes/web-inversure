@@ -286,3 +286,27 @@ class TiposReducidos(TestCase):
         r = calcular(200000, "madrid", supuesto="joven", perfil=self.PERFIL)
         self.assertEqual(r["tipo"], Decimal("6"))
         self.assertTrue(any("no consta como aplicable" in a for a in r["avisos"]))
+
+
+class CoberturaDelCatalogo(TestCase):
+    PERFIL = {"empresa_inmobiliaria": True, "reventa": True}
+
+    def test_avisa_donde_no_consta_el_supuesto(self):
+        r = calcular(200000, "galicia", perfil=self.PERFIL)
+        self.assertEqual(r["candidatos"], [])
+        self.assertTrue(any("No consta un tipo reducido" in a for a in r["avisos"]))
+
+    def test_avisa_de_la_bonificacion_catalana_suprimida(self):
+        r = calcular(200000, "cataluna", perfil=self.PERFIL)
+        self.assertEqual(r["tipo"], Decimal("10"))
+        self.assertTrue(any("suprimida" in a for a in r["avisos"]))
+
+    def test_los_supuestos_sin_contrastar_lo_dicen(self):
+        r = calcular(200000, "aragon", supuesto="reventa_profesional", perfil=self.PERFIL)
+        self.assertEqual(r["tipo"], Decimal("2"))
+        self.assertTrue(any("sin contrastar" in a for a in r["avisos"]))
+
+    def test_murcia_y_madrid_tienen_el_2_por_ciento(self):
+        for comunidad in ("murcia", "madrid"):
+            r = calcular(200000, comunidad, supuesto="reventa_profesional", perfil=self.PERFIL)
+            self.assertEqual(r["tipo"], Decimal("2"), comunidad)
