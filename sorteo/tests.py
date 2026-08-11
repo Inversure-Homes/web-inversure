@@ -9,10 +9,10 @@ consentimiento, duplicar un pago y publicar un ganador que no compró.
 import datetime
 from decimal import Decimal
 
-from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from core.models import Proyecto
+
 from .calculadora import Config, escenarios, recomendar, umbral
 from .models import ActaSorteo, Interesado, Organizador, Papeleta, Pedido, Sorteo
 from .notaria import cerrar_venta, huella, listado_canonico
@@ -33,9 +33,7 @@ DATOS = {"nombre": "Ana Ruiz", "email": "ana@ejemplo.com"}
 class BaseSorteo(TestCase):
     def setUp(self):
         proyecto = Proyecto.objects.create(nombre="Proyecto de prueba")
-        organizador = Organizador.objects.create(
-            nombre="Organizador", email="o@ejemplo.com"
-        )
+        organizador = Organizador.objects.create(nombre="Organizador", email="o@ejemplo.com")
         self.sorteo = Sorteo.objects.create(
             proyecto=proyecto,
             organizador=organizador,
@@ -126,8 +124,7 @@ class PortalPublico(BaseSorteo):
     def test_con_consentimiento_se_reserva(self):
         r = self.client.post(
             "/sorteo/reservar/",
-            data='{"cantidad": 2, "nombre": "Ana", "email": "a@e.com",'
-            ' "acepta_bases": true, "mayor_edad": true}',
+            data='{"cantidad": 2, "nombre": "Ana", "email": "a@e.com", "acepta_bases": true, "mayor_edad": true}',
             content_type="application/json",
         )
         self.assertEqual(r.status_code, 200)
@@ -136,8 +133,7 @@ class PortalPublico(BaseSorteo):
     def test_no_se_puede_pedir_mas_del_maximo(self):
         r = self.client.post(
             "/sorteo/reservar/",
-            data='{"cantidad": 999, "nombre": "Ana", "email": "a@e.com",'
-            ' "acepta_bases": true, "mayor_edad": true}',
+            data='{"cantidad": 999, "nombre": "Ana", "email": "a@e.com", "acepta_bases": true, "mayor_edad": true}',
             content_type="application/json",
         )
         self.assertEqual(r.status_code, 400)
@@ -153,9 +149,7 @@ class Acta(BaseSorteo):
     def test_acepta_un_numero_vendido_y_publica(self):
         pedido = reservar_numeros(self.sorteo, [5], DATOS)
         confirmar_pago(pedido.id)
-        acta = registrar_acta(
-            self.sorteo, 5, "2026/1487", datetime.date(2026, 12, 22)
-        )
+        acta = registrar_acta(self.sorteo, 5, "2026/1487", datetime.date(2026, 12, 22))
         self.assertEqual(acta.numero_premiado, 5)
         self.assertEqual(acta.pedido, pedido)
         self.sorteo.refresh_from_db()
@@ -180,9 +174,7 @@ class ListadoNotarial(BaseSorteo):
         self.assertEqual(huella(texto), self.sorteo.hash_listado)
 
         # Una venta posterior cambia el listado, y la huella deja de cuadrar.
-        confirmar_pago(
-            reservar_numeros(self.sorteo, [3], dict(DATOS, email="b@e.com")).id
-        )
+        confirmar_pago(reservar_numeros(self.sorteo, [3], dict(DATOS, email="b@e.com")).id)
         texto2, _ = listado_canonico(self.sorteo)
         self.assertNotEqual(huella(texto2), self.sorteo.hash_listado)
 

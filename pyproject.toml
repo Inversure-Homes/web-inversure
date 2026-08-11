@@ -79,7 +79,7 @@ strict_settings = false
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings"
 python_files = ["tests.py", "test_*.py", "*_test.py"]
-testpaths = ["tests", "accounts", "cms", "core", "landing"]
+testpaths = ["tests", "accounts", "cms", "core", "landing", "sorteo"]
 addopts = "-ra --reuse-db --strict-markers --tb=short"
 norecursedirs = [".git", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".venv", "media", "staticfiles", "tmp"]
 markers = [

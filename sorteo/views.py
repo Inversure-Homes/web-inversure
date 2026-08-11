@@ -3,9 +3,8 @@ import json
 from django import forms
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
-
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from .correo import confirmar_alta, confirmar_pedido
 from .models import Interesado, Papeleta, Pedido, Sorteo
@@ -51,9 +50,7 @@ def _ocupadas(sorteo):
     """
     return [
         {"n": numero, "e": estado}
-        for numero, estado in sorteo.papeletas.exclude(
-            estado=Papeleta.Estado.LIBRE
-        )
+        for numero, estado in sorteo.papeletas.exclude(estado=Papeleta.Estado.LIBRE)
         .order_by("numero")
         .values_list("numero", "estado")
     ]
@@ -73,7 +70,9 @@ class AltaForm(forms.Form):
     telefono = forms.CharField(max_length=30, required=False, label="Teléfono (opcional)")
     provincia = forms.CharField(max_length=60, required=False, label="Provincia (opcional)")
     participaciones_estimadas = forms.IntegerField(
-        min_value=1, max_value=500, initial=1,
+        min_value=1,
+        max_value=500,
+        initial=1,
         label="¿Cuántas participaciones te interesarían?",
     )
     precio_maximo = forms.ChoiceField(
@@ -81,9 +80,7 @@ class AltaForm(forms.Form):
         label="¿Hasta qué precio por participación?",
     )
     mayor_edad = forms.BooleanField(label="Declaro ser mayor de 18 años")
-    acepta_aviso = forms.BooleanField(
-        label="Quiero recibir un aviso por email cuando se abra la venta"
-    )
+    acepta_aviso = forms.BooleanField(label="Quiero recibir un aviso por email cuando se abra la venta")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -202,10 +199,7 @@ def reservar(request):
     # se guarda con el pedido.
     if cuerpo.get("acepta_bases") is not True or cuerpo.get("mayor_edad") is not True:
         return JsonResponse(
-            {
-                "error": "Debes declarar que eres mayor de edad y aceptar las "
-                "bases del sorteo."
-            },
+            {"error": "Debes declarar que eres mayor de edad y aceptar las bases del sorteo."},
             status=400,
         )
 
@@ -216,13 +210,7 @@ def reservar(request):
     numeros = cuerpo.get("numeros") or []
     if numeros:
         try:
-            numeros = sorted(
-                {
-                    int(n)
-                    for n in numeros
-                    if 1 <= int(n) <= sorteo.total_participaciones
-                }
-            )
+            numeros = sorted({int(n) for n in numeros if 1 <= int(n) <= sorteo.total_participaciones})
         except (TypeError, ValueError):
             return JsonResponse({"error": "Números inválidos."}, status=400)
         cantidad = len(numeros)
@@ -233,16 +221,10 @@ def reservar(request):
             cantidad = 0
 
     if cantidad < 1:
-        return JsonResponse(
-            {"error": "Indica cuántas participaciones quieres."}, status=400
-        )
+        return JsonResponse({"error": "Indica cuántas participaciones quieres."}, status=400)
     if cantidad > sorteo.max_por_pedido:
         return JsonResponse(
-            {
-                "error": "Máximo {} participaciones por pedido.".format(
-                    sorteo.max_por_pedido
-                )
-            },
+            {"error": "Máximo {} participaciones por pedido.".format(sorteo.max_por_pedido)},
             status=400,
         )
 
@@ -252,9 +234,7 @@ def reservar(request):
         else:
             pedido = reservar_cantidad(sorteo, cantidad, datos)
     except ErrorSorteo as exc:
-        return JsonResponse(
-            {"error": str(exc), "ocupadas": _ocupadas(sorteo)}, status=409
-        )
+        return JsonResponse({"error": str(exc), "ocupadas": _ocupadas(sorteo)}, status=409)
 
     # TODO(paso 3): crear aquí la sesión de Stripe Checkout y devolver su URL.
     return JsonResponse({"url": "/sorteo/pago/{}/".format(pedido.id)})
@@ -279,7 +259,5 @@ def pago_pendiente(request, pedido_id):
 
 
 def pedido(request, pedido_id):
-    pedido = get_object_or_404(
-        Pedido.objects.select_related("sorteo", "sorteo__organizador"), pk=pedido_id
-    )
+    pedido = get_object_or_404(Pedido.objects.select_related("sorteo", "sorteo__organizador"), pk=pedido_id)
     return render(request, "sorteo/pedido.html", {"pedido": pedido})

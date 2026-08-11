@@ -42,15 +42,12 @@ def _enviar(asunto, plantilla, contexto, destinatario):
 def confirmar_alta(interesado):
     """Acuse de la lista de espera, con el enlace de baja obligatorio."""
     return _enviar(
-        "Te avisaremos · {}".format(
-            interesado.sorteo.titulo if interesado.sorteo else "Sorteo"
-        ),
+        "Te avisaremos · {}".format(interesado.sorteo.titulo if interesado.sorteo else "Sorteo"),
         "sorteo/email/alta.txt",
         {
             "interesado": interesado,
             "sorteo": interesado.sorteo,
-            "url_baja": base_url()
-            + reverse("sorteo:baja", args=[interesado.token_baja]),
+            "url_baja": base_url() + reverse("sorteo:baja", args=[interesado.token_baja]),
         },
         interesado.email,
     )
@@ -69,8 +66,7 @@ def confirmar_pedido(pedido):
         {
             "pedido": pedido,
             "sorteo": pedido.sorteo,
-            "url_pedido": base_url()
-            + reverse("sorteo:pedido", args=[pedido.id]),
+            "url_pedido": base_url() + reverse("sorteo:pedido", args=[pedido.id]),
             "url_bases": base_url() + reverse("sorteo:bases"),
         },
         pedido.email,

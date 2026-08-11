@@ -22,6 +22,7 @@ from django.template.loader import render_to_string
 from accounts.utils import resolve_permissions
 
 from .calculadora import Config, escenarios, recomendar
+from .correo import confirmar_pedido
 from .economia import (
     consolidar_ingresos,
     crear_gastos_previstos,
@@ -30,7 +31,6 @@ from .economia import (
     resumen_economico,
 )
 from .models import Pedido, Sorteo
-from .correo import avisar_ganador, confirmar_pedido
 from .notaria import cerrar_venta, datos_relacion
 from .services import ErrorSorteo, registrar_venta_manual
 
@@ -47,16 +47,16 @@ class VentaManualForm(forms.Form):
     nombre = forms.CharField(max_length=120, label="Nombre y apellidos")
     email = forms.EmailField(label="Email")
     telefono = forms.CharField(max_length=30, required=False, label="Teléfono")
-    cantidad = forms.IntegerField(
-        min_value=1, initial=1, label="Nº de participaciones"
-    )
+    cantidad = forms.IntegerField(min_value=1, initial=1, label="Nº de participaciones")
     numeros = forms.CharField(
         required=False,
         label="Números concretos (opcional)",
         help_text="Separados por comas. Si se deja vacío, se asignan al azar.",
     )
     medio_pago = forms.CharField(
-        max_length=60, required=False, label="Medio de pago",
+        max_length=60,
+        required=False,
+        label="Medio de pago",
         help_text="Efectivo, transferencia, Bizum…",
     )
 
@@ -71,8 +71,8 @@ class VentaManualForm(forms.Form):
             return []
         try:
             return sorted({int(n) for n in crudo.replace(" ", "").split(",") if n})
-        except ValueError:
-            raise forms.ValidationError("Usa números separados por comas.")
+        except ValueError as exc:
+            raise forms.ValidationError("Usa números separados por comas.") from exc
 
     def clean(self):
         datos = super().clean()
@@ -100,15 +100,9 @@ def detalle(request, pk):
     if not _puede(request.user):
         return redirect("core:home")
 
-    sorteo = get_object_or_404(
-        Sorteo.objects.select_related("proyecto", "organizador"), pk=pk
-    )
+    sorteo = get_object_or_404(Sorteo.objects.select_related("proyecto", "organizador"), pk=pk)
 
-    pedidos = (
-        Pedido.objects.filter(sorteo=sorteo)
-        .exclude(estado=Pedido.Estado.CADUCADO)
-        .prefetch_related("papeletas")
-    )
+    pedidos = Pedido.objects.filter(sorteo=sorteo).exclude(estado=Pedido.Estado.CADUCADO).prefetch_related("papeletas")
     busqueda = (request.GET.get("q") or "").strip()
     if busqueda:
         pedidos = pedidos.filter(
@@ -166,9 +160,7 @@ def venta_manual(request, pk):
             confirmar_pedido(pedido)
             messages.success(
                 request,
-                "Participación registrada: {} · números {}".format(
-                    pedido.codigo, pedido.numeros_texto
-                ),
+                "Participación registrada: {} · números {}".format(pedido.codigo, pedido.numeros_texto),
             )
             return redirect("sorteo_erp:detalle", pk=sorteo.pk)
     elif request.method == "POST":
@@ -190,8 +182,9 @@ def sincronizar(request, pk):
     gastos = crear_gastos_previstos(sorteo)
     messages.success(
         request,
-        "Economía actualizada: {} día(s) de ventas consolidados y {} gasto(s) "
-        "creados en el proyecto.".format(dias, gastos),
+        "Economía actualizada: {} día(s) de ventas consolidados y {} gasto(s) creados en el proyecto.".format(
+            dias, gastos
+        ),
     )
     return redirect("sorteo_erp:detalle", pk=sorteo.pk)
 
@@ -206,33 +199,33 @@ class DimensionadoForm(forms.Form):
     """
 
     valor_premio = forms.DecimalField(
-        label="Valor del inmueble (€)", min_value=0,
+        label="Valor del inmueble (€)",
+        min_value=0,
         help_text="Precio de compra previsto. Determina el ingreso a cuenta.",
     )
     gastos_base = forms.DecimalField(
-        label="Gastos fijos totales (€)", min_value=0,
+        label="Gastos fijos totales (€)",
+        min_value=0,
         help_text="Inmueble, ITP, notaría, gestoría, tasa DGOJ… Sin la tasa de "
         "juego ni el ingreso a cuenta, que se calculan solos.",
     )
-    margen_objetivo = forms.DecimalField(
-        label="Margen objetivo (€)", min_value=0, initial=15000
-    )
-    emitidas = forms.IntegerField(
-        label="Participaciones a emitir", min_value=1, initial=5000
-    )
+    margen_objetivo = forms.DecimalField(label="Margen objetivo (€)", min_value=0, initial=15000)
+    emitidas = forms.IntegerField(label="Participaciones a emitir", min_value=1, initial=5000)
     precio = forms.DecimalField(
-        label="Precio por participación (€)", min_value=Decimal("0.01"),
+        label="Precio por participación (€)",
+        min_value=Decimal("0.01"),
         initial=10,
     )
     tasa_pct = forms.DecimalField(
-        label="Tasa de juego (%)", min_value=0, initial=20,
+        label="Tasa de juego (%)",
+        min_value=0,
+        initial=20,
         help_text="20 % general; 7 % si se declara benéfica o de utilidad pública.",
     )
-    comision_pct = forms.DecimalField(
-        label="Comisión de pago (%)", min_value=0, initial=Decimal("2.30")
-    )
+    comision_pct = forms.DecimalField(label="Comisión de pago (%)", min_value=0, initial=Decimal("2.30"))
     precios = forms.CharField(
-        label="Precios a comparar (€)", initial="5, 10, 15, 20, 25, 50",
+        label="Precios a comparar (€)",
+        initial="5, 10, 15, 20, 25, 50",
         help_text="Separados por comas.",
     )
 
@@ -245,8 +238,8 @@ class DimensionadoForm(forms.Form):
         crudo = self.cleaned_data["precios"]
         try:
             valores = [Decimal(x.strip()) for x in crudo.split(",") if x.strip()]
-        except (InvalidOperation, ValueError):
-            raise forms.ValidationError("Usa importes separados por comas.")
+        except (InvalidOperation, ValueError) as exc:
+            raise forms.ValidationError("Usa importes separados por comas.") from exc
         if not valores:
             raise forms.ValidationError("Indica al menos un precio.")
         return valores
@@ -279,9 +272,7 @@ def _dimensionar(request, sorteo=None):
             emitidas=d["emitidas"],
             valor_premio=d["valor_premio"],
             minimo=sorteo.minimo_participaciones if sorteo else None,
-            asume_ingreso_cuenta=(
-                sorteo.organizador_asume_ingreso_cuenta if sorteo else True
-            ),
+            asume_ingreso_cuenta=(sorteo.organizador_asume_ingreso_cuenta if sorteo else True),
             tasa_pct=d["tasa_pct"],
             comision_pct=d["comision_pct"],
         )
@@ -307,8 +298,7 @@ def _dimensionar(request, sorteo=None):
             "opciones": opciones,
             "recomendada": opciones[0] if opciones else None,
             "margen": margen,
-            "titulo": "Dimensionado"
-            + (" · {}".format(sorteo.titulo) if sorteo else " de una rifa"),
+            "titulo": "Dimensionado" + (" · {}".format(sorteo.titulo) if sorteo else " de una rifa"),
         },
     )
 
@@ -353,9 +343,7 @@ def cerrar_venta_vista(request, pk):
             cerrar_venta(sorteo)
             messages.success(
                 request,
-                "Venta cerrada. Listado sellado con huella {}…".format(
-                    sorteo.hash_listado[:16]
-                ),
+                "Venta cerrada. Listado sellado con huella {}…".format(sorteo.hash_listado[:16]),
             )
     return redirect("sorteo_erp:detalle", pk=sorteo.pk)
 
@@ -366,24 +354,16 @@ def relacion(request, pk):
     if not _puede(request.user):
         return redirect("core:home")
 
-    sorteo = get_object_or_404(
-        Sorteo.objects.select_related("organizador"), pk=pk
-    )
+    sorteo = get_object_or_404(Sorteo.objects.select_related("organizador"), pk=pk)
     contexto = datos_relacion(sorteo)
     html = render_to_string("sorteo/relacion_notarial.html", contexto, request)
 
     if request.GET.get("pdf"):
         from weasyprint import HTML  # defer import
 
-        pdf = HTML(
-            string=html, base_url=request.build_absolute_uri("/")
-        ).write_pdf()
+        pdf = HTML(string=html, base_url=request.build_absolute_uri("/")).write_pdf()
         respuesta = HttpResponse(pdf, content_type="application/pdf")
-        respuesta["Content-Disposition"] = (
-            'attachment; filename="relacion-participaciones-{}.pdf"'.format(
-                sorteo.slug
-            )
-        )
+        respuesta["Content-Disposition"] = 'attachment; filename="relacion-participaciones-{}.pdf"'.format(sorteo.slug)
         return respuesta
 
     return HttpResponse(html)
@@ -402,21 +382,36 @@ def exportar(request, pk):
     escritor = csv.writer(respuesta)
     escritor.writerow(
         [
-            "localizador", "nombre", "email", "telefono", "numeros",
-            "importe", "estado", "origen", "medio_pago", "version_bases",
-            "acepta_bases_en", "ip", "creado_en",
+            "localizador",
+            "nombre",
+            "email",
+            "telefono",
+            "numeros",
+            "importe",
+            "estado",
+            "origen",
+            "medio_pago",
+            "version_bases",
+            "acepta_bases_en",
+            "ip",
+            "creado_en",
         ]
     )
-    for p in (
-        Pedido.objects.filter(sorteo=sorteo)
-        .exclude(estado=Pedido.Estado.CADUCADO)
-        .prefetch_related("papeletas")
-    ):
+    for p in Pedido.objects.filter(sorteo=sorteo).exclude(estado=Pedido.Estado.CADUCADO).prefetch_related("papeletas"):
         escritor.writerow(
             [
-                p.codigo, p.nombre, p.email, p.telefono, p.numeros_texto,
-                p.importe, p.estado, p.origen, p.medio_pago, p.version_bases,
-                p.acepta_bases_en.isoformat(), p.ip or "",
+                p.codigo,
+                p.nombre,
+                p.email,
+                p.telefono,
+                p.numeros_texto,
+                p.importe,
+                p.estado,
+                p.origen,
+                p.medio_pago,
+                p.version_bases,
+                p.acepta_bases_en.isoformat(),
+                p.ip or "",
                 p.creado_en.isoformat(),
             ]
         )

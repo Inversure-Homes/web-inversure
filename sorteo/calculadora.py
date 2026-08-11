@@ -18,7 +18,7 @@ De ahí salen las dos conclusiones que este módulo calcula:
    conversión, pero es estructuralmente más seguro.
 """
 
-from decimal import Decimal, ROUND_CEILING, ROUND_HALF_UP
+from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal
 
 CIEN = Decimal("100")
 DOS = Decimal("0.01")
@@ -147,8 +147,7 @@ def escenarios(cfg, gastos_base):
         },
         {
             "nombre": "Se celebra vendiendo solo el mínimo",
-            "detalle": "El peor escenario en el que el sorteo sí se celebra y "
-            "hay que entregar el inmueble.",
+            "detalle": "El peor escenario en el que el sorteo sí se celebra y hay que entregar el inmueble.",
             "tono": "warning",
             **evaluar(cfg, minimo, gastos_base),
         },
@@ -162,9 +161,7 @@ def escenarios(cfg, gastos_base):
 
     # En la cancelación no se entrega el inmueble: su coste no es una pérdida.
     cancelacion = filas[0]
-    cancelacion["resultado"] = _eur(
-        -(gastos_base - cfg.valor_premio) - cancelacion["tasa"]
-    )
+    cancelacion["resultado"] = _eur(-(gastos_base - cfg.valor_premio) - cancelacion["tasa"])
     cancelacion["nota_resultado"] = (
         "Sin contar el inmueble, que se conserva. Pendiente de confirmar con "
         "la gestoría si la tasa ya anticipada es recuperable."
@@ -173,13 +170,9 @@ def escenarios(cfg, gastos_base):
     return {
         "filas": filas,
         "umbral": n,
-        "umbral_porcentaje": (
-            int(Decimal(n * 100) / cfg.emitidas) if cfg.emitidas else 0
-        ),
+        "umbral_porcentaje": (int(Decimal(n * 100) / cfg.emitidas) if cfg.emitidas else 0),
         "compradores": _techo(Decimal(n) / PARTICIPACIONES_POR_COMPRADOR),
-        "suelo_estructural": int(
-            (cfg.tasa / (Decimal("1") - cfg.comision)) * CIEN
-        ),
+        "suelo_estructural": int((cfg.tasa / (Decimal("1") - cfg.comision)) * CIEN),
         "minimo": minimo,
     }
 
@@ -218,9 +211,7 @@ def recomendar(cfg, gastos_base, margen_objetivo, precios=None):
                 "umbral": n,
                 "umbral_porcentaje": int(Decimal(n * 100) / emitidas),
                 "compradores": _techo(Decimal(n) / PARTICIPACIONES_POR_COMPRADOR),
-                "resultado_pleno": evaluar(
-                    cfg, emitidas, gastos_base, emitidas=emitidas, precio=precio
-                )["resultado"],
+                "resultado_pleno": evaluar(cfg, emitidas, gastos_base, emitidas=emitidas, precio=precio)["resultado"],
                 "probabilidad": "1 entre {}".format(emitidas),
             }
         )

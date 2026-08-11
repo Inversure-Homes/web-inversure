@@ -50,8 +50,7 @@ class Organizador(models.Model):
         "Nº de autorización DGOJ",
         max_length=120,
         blank=True,
-        help_text="Resolución de la Dirección General de Ordenación del Juego. "
-        "Sin ella no se puede abrir la venta.",
+        help_text="Resolución de la Dirección General de Ordenación del Juego. Sin ella no se puede abrir la venta.",
     )
 
     class Meta:
@@ -76,9 +75,7 @@ class Sorteo(models.Model):
         related_name="sorteo",
         help_text="Proyecto del ERP que soporta la economía de este sorteo.",
     )
-    organizador = models.ForeignKey(
-        Organizador, on_delete=models.PROTECT, related_name="sorteos"
-    )
+    organizador = models.ForeignKey(Organizador, on_delete=models.PROTECT, related_name="sorteos")
 
     slug = models.SlugField(unique=True)
     titulo = models.CharField(max_length=200)
@@ -94,12 +91,8 @@ class Sorteo(models.Model):
     reserva_minutos = models.PositiveIntegerField(default=10)
 
     fecha_inicio_venta = models.DateField()
-    fecha_fin_venta = models.DateField(
-        null=True, blank=True, help_text="Último día de venta de participaciones."
-    )
-    fecha_sorteo = models.DateField(
-        help_text="No puede distar más de un año del inicio de la venta."
-    )
+    fecha_fin_venta = models.DateField(null=True, blank=True, help_text="Último día de venta de participaciones.")
+    fecha_sorteo = models.DateField(help_text="No puede distar más de un año del inicio de la venta.")
     hora_sorteo = models.TimeField(null=True, blank=True)
 
     # Condición de celebración: sin un mínimo, el organizador queda obligado a
@@ -111,22 +104,23 @@ class Sorteo(models.Model):
         help_text="Mínimo de participaciones vendidas para celebrar el sorteo. "
         "Si se deja vacío, el sorteo se celebra incondicionalmente.",
     )
-    dias_reintegro = models.PositiveIntegerField(
-        default=30, help_text="Plazo de reintegro si el sorteo se cancela."
-    )
+    dias_reintegro = models.PositiveIntegerField(default=30, help_text="Plazo de reintegro si el sorteo se cancela.")
 
     # Tipo de la tasa sobre actividades de juego. El 7 % aplica a rifas
     # declaradas de beneficencia o de utilidad pública; en otro caso, el 20 %.
     # Es la palanca que más mueve el resultado de toda la operación.
     tasa_juego_porcentaje = models.DecimalField(
-        max_digits=5, decimal_places=2, default=20,
+        max_digits=5,
+        decimal_places=2,
+        default=20,
         verbose_name="Tasa sobre actividades de juego (%)",
     )
     comision_pago_porcentaje = models.DecimalField(
-        max_digits=5, decimal_places=2, default=Decimal("2.30"),
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("2.30"),
         verbose_name="Comisión media de la pasarela (%)",
-        help_text="Depende del tamaño medio del pedido. Con Stripe y pedidos "
-        "de 3 participaciones ronda el 2,3 %.",
+        help_text="Depende del tamaño medio del pedido. Con Stripe y pedidos de 3 participaciones ronda el 2,3 %.",
     )
 
     # El ingreso a cuenta del IRPF sobre un premio en especie: quién lo asume
@@ -145,8 +139,7 @@ class Sorteo(models.Model):
     caducidad_premio_meses = models.PositiveIntegerField(
         default=12,
         validators=[MinValueValidator(12)],
-        help_text="Plazo para reclamar el premio. La normativa exige un mínimo "
-        "de doce meses.",
+        help_text="Plazo para reclamar el premio. La normativa exige un mínimo de doce meses.",
     )
 
     territorio = models.CharField(max_length=200, default="Todo el territorio español")
@@ -163,27 +156,20 @@ class Sorteo(models.Model):
     inmueble_superficie = models.CharField(max_length=80, blank=True)
     inmueble_referencia_catastral = models.CharField(max_length=40, blank=True)
     inmueble_datos_registrales = models.CharField(max_length=255, blank=True)
-    inmueble_valor = models.DecimalField(
-        max_digits=12, decimal_places=2, null=True, blank=True
-    )
+    inmueble_valor = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     inmueble_cargas = models.TextField(default="Libre de cargas y gravámenes.")
     inmueble_gastos = models.TextField(
-        default="Los gastos de notaría, registro e impuestos derivados de la "
-        "transmisión corren por cuenta del ganador."
+        default="Los gastos de notaría, registro e impuestos derivados de la transmisión corren por cuenta del ganador."
     )
 
-    estado = models.CharField(
-        max_length=20, choices=Estado.choices, default=Estado.BORRADOR
-    )
+    estado = models.CharField(max_length=20, choices=Estado.choices, default=Estado.BORRADOR)
 
     # Sello del listado que se entrega al notario. Se calcula al cerrar la
     # venta y se publica antes del sorteo: cualquiera puede recalcularlo sobre
     # el listado recibido y comprobar que no se ha tocado después.
     cerrado_en = models.DateTimeField(null=True, blank=True)
     hash_listado = models.CharField(max_length=64, blank=True)
-    participaciones_vendidas_cierre = models.PositiveIntegerField(
-        null=True, blank=True
-    )
+    participaciones_vendidas_cierre = models.PositiveIntegerField(null=True, blank=True)
 
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
@@ -234,13 +220,9 @@ class Sorteo(models.Model):
 
     def generar_papeletas(self):
         """Crea las papeletas que falten. Idempotente."""
-        existentes = set(
-            self.papeletas.values_list("numero", flat=True)
-        )
+        existentes = set(self.papeletas.values_list("numero", flat=True))
         nuevas = [
-            Papeleta(sorteo=self, numero=n)
-            for n in range(1, self.total_participaciones + 1)
-            if n not in existentes
+            Papeleta(sorteo=self, numero=n) for n in range(1, self.total_participaciones + 1) if n not in existentes
         ]
         if nuevas:
             Papeleta.objects.bulk_create(nuevas, batch_size=1000)
@@ -266,9 +248,7 @@ class Pedido(models.Model):
 
     importe = models.DecimalField(max_digits=10, decimal_places=2)
     codigo = models.CharField("localizador", max_length=12, db_index=True)
-    estado = models.CharField(
-        max_length=20, choices=Estado.choices, default=Estado.PENDIENTE
-    )
+    estado = models.CharField(max_length=20, choices=Estado.choices, default=Estado.PENDIENTE)
 
     # Prueba de que se aceptaron las bases y se declaró la mayoría de edad. La
     # normativa prohíbe la participación de menores, así que hay que poder
@@ -280,9 +260,7 @@ class Pedido(models.Model):
     # Las ventas presenciales (efectivo, transferencia) se registran a mano
     # desde el ERP: entran en el sorteo igual que las de la web y deben poder
     # distinguirse a efectos de conciliación.
-    origen = models.CharField(
-        max_length=20, choices=Origen.choices, default=Origen.WEB
-    )
+    origen = models.CharField(max_length=20, choices=Origen.choices, default=Origen.WEB)
     medio_pago = models.CharField(max_length=60, blank=True)
     registrado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -310,9 +288,7 @@ class Pedido(models.Model):
 
     @property
     def numeros(self):
-        return list(
-            self.papeletas.order_by("numero").values_list("numero", flat=True)
-        )
+        return list(self.papeletas.order_by("numero").values_list("numero", flat=True))
 
     @property
     def numeros_texto(self):
@@ -325,13 +301,9 @@ class Papeleta(models.Model):
         RESERVADA = "reservada", "Reservada"
         PAGADA = "pagada", "Pagada"
 
-    sorteo = models.ForeignKey(
-        Sorteo, on_delete=models.CASCADE, related_name="papeletas"
-    )
+    sorteo = models.ForeignKey(Sorteo, on_delete=models.CASCADE, related_name="papeletas")
     numero = models.PositiveIntegerField()
-    estado = models.CharField(
-        max_length=20, choices=Estado.choices, default=Estado.LIBRE
-    )
+    estado = models.CharField(max_length=20, choices=Estado.choices, default=Estado.LIBRE)
     reserva_expira = models.DateTimeField(null=True, blank=True)
     pedido = models.ForeignKey(
         Pedido,
@@ -345,11 +317,7 @@ class Papeleta(models.Model):
         verbose_name = "papeleta"
         verbose_name_plural = "papeletas"
         ordering = ["numero"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["sorteo", "numero"], name="papeleta_unica_por_sorteo"
-            )
-        ]
+        constraints = [models.UniqueConstraint(fields=["sorteo", "numero"], name="papeleta_unica_por_sorteo")]
         indexes = [
             models.Index(fields=["sorteo", "estado"]),
             models.Index(fields=["estado", "reserva_expira"]),
@@ -404,14 +372,10 @@ class Interesado(models.Model):
     )
 
     participaciones_estimadas = models.PositiveIntegerField(default=1)
-    precio_maximo = models.CharField(
-        max_length=4, choices=Precio.choices, default=Precio.HASTA_10
-    )
+    precio_maximo = models.CharField(max_length=4, choices=Precio.choices, default=Precio.HASTA_10)
 
     mayor_edad = models.BooleanField(default=False)
-    acepta_aviso = models.BooleanField(
-        default=False, verbose_name="Consiente recibir el aviso de apertura"
-    )
+    acepta_aviso = models.BooleanField(default=False, verbose_name="Consiente recibir el aviso de apertura")
 
     token_baja = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     baja_en = models.DateTimeField(null=True, blank=True)
@@ -423,11 +387,7 @@ class Interesado(models.Model):
         verbose_name = "interesado"
         verbose_name_plural = "interesados"
         ordering = ["-creado_en"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["sorteo", "email"], name="interesado_unico_por_sorteo"
-            )
-        ]
+        constraints = [models.UniqueConstraint(fields=["sorteo", "email"], name="interesado_unico_por_sorteo")]
 
     def __str__(self):
         return "{} <{}>".format(self.nombre, self.email)
@@ -446,13 +406,9 @@ class ActaSorteo(models.Model):
     una de ellas — se valida en el servicio antes de guardar.
     """
 
-    sorteo = models.OneToOneField(
-        Sorteo, on_delete=models.PROTECT, related_name="acta"
-    )
+    sorteo = models.OneToOneField(Sorteo, on_delete=models.PROTECT, related_name="acta")
     numero_premiado = models.PositiveIntegerField()
-    pedido = models.ForeignKey(
-        Pedido, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
-    )
+    pedido = models.ForeignKey(Pedido, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
 
     protocolo = models.CharField("nº de protocolo", max_length=120)
     notario = models.CharField(max_length=200, blank=True)

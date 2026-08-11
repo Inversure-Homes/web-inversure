@@ -19,8 +19,9 @@ class PapeletasNoDisponibles(ErrorSorteo):
     def __init__(self, numeros):
         self.numeros = numeros
         super().__init__(
-            "Los números {} acaban de ser comprados por otra persona. "
-            "Elige otros.".format(", ".join(str(n) for n in numeros))
+            "Los números {} acaban de ser comprados por otra persona. Elige otros.".format(
+                ", ".join(str(n) for n in numeros)
+            )
         )
 
 
@@ -86,11 +87,7 @@ def reservar_cantidad(sorteo, cantidad, datos):
     liberar_caducadas(sorteo)
     ahora = timezone.now()
 
-    libres = list(
-        _bloqueadas(
-            sorteo.papeletas.filter(estado=Papeleta.Estado.LIBRE).order_by("?")
-        )[:cantidad]
-    )
+    libres = list(_bloqueadas(sorteo.papeletas.filter(estado=Papeleta.Estado.LIBRE).order_by("?"))[:cantidad])
     if len(libres) < cantidad:
         raise SinPapeletasSuficientes(len(libres))
 
@@ -103,13 +100,7 @@ def reservar_numeros(sorteo, numeros, datos):
     liberar_caducadas(sorteo)
     ahora = timezone.now()
 
-    disponibles = list(
-        _bloqueadas(
-            sorteo.papeletas.filter(
-                numero__in=numeros, estado=Papeleta.Estado.LIBRE
-            )
-        )
-    )
+    disponibles = list(_bloqueadas(sorteo.papeletas.filter(numero__in=numeros, estado=Papeleta.Estado.LIBRE)))
     encontrados = {p.numero for p in disponibles}
     faltan = sorted(set(numeros) - encontrados)
     if faltan:
@@ -149,17 +140,13 @@ def liberar_caducadas(sorteo=None):
     """
     ahora = timezone.now()
 
-    papeletas = Papeleta.objects.filter(
-        estado=Papeleta.Estado.RESERVADA, reserva_expira__lt=ahora
-    )
+    papeletas = Papeleta.objects.filter(estado=Papeleta.Estado.RESERVADA, reserva_expira__lt=ahora)
     pedidos = Pedido.objects.filter(estado=Pedido.Estado.PENDIENTE)
     if sorteo is not None:
         papeletas = papeletas.filter(sorteo=sorteo)
         pedidos = pedidos.filter(sorteo=sorteo)
 
-    liberadas = papeletas.update(
-        estado=Papeleta.Estado.LIBRE, reserva_expira=None, pedido=None
-    )
+    liberadas = papeletas.update(estado=Papeleta.Estado.LIBRE, reserva_expira=None, pedido=None)
     # Un pedido pendiente que se ha quedado sin papeletas ya no puede pagarse.
     # Los recién creados no corren peligro: hasta que la transacción que los
     # crea no confirma, ninguna otra conexión los ve.
@@ -187,9 +174,7 @@ def confirmar_pago(pedido_id):
 
     # Se marcan por pedido, no por número: si la reserva caducó y otra persona
     # compró la papeleta, esta consulta no se la quita.
-    pedido.papeletas.filter(estado=Papeleta.Estado.RESERVADA).update(
-        estado=Papeleta.Estado.PAGADA, reserva_expira=None
-    )
+    pedido.papeletas.filter(estado=Papeleta.Estado.RESERVADA).update(estado=Papeleta.Estado.PAGADA, reserva_expira=None)
     return pedido
 
 
@@ -205,11 +190,7 @@ def registrar_acta(sorteo, numero_premiado, protocolo, fecha, usuario=None):
         return sorteo.acta
 
     papeleta = (
-        sorteo.papeletas.filter(
-            numero=numero_premiado, estado=Papeleta.Estado.PAGADA
-        )
-        .select_related("pedido")
-        .first()
+        sorteo.papeletas.filter(numero=numero_premiado, estado=Papeleta.Estado.PAGADA).select_related("pedido").first()
     )
     if papeleta is None:
         raise NumeroNoVendido(numero_premiado)

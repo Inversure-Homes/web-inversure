@@ -11,10 +11,10 @@ from decimal import Decimal
 
 from django.db.models import Count, Sum
 from django.db.models.functions import TruncDate
-from django.utils import timezone
 
 from core.models import GastoProyecto, IngresoProyecto
-from .models import Interesado, Papeleta, Pedido
+
+from .models import Interesado, Pedido
 
 # Prefijo con el que se reconocen los apuntes generados por el sorteo, para
 # poder actualizarlos sin duplicar.
@@ -41,9 +41,7 @@ def consolidar_ingresos(sorteo):
         if not fila["dia"]:
             continue
         importe = Decimal(fila["papeletas"]) * sorteo.precio_participacion
-        concepto = "{} Venta de participaciones · {}".format(
-            MARCA, fila["dia"].isoformat()
-        )
+        concepto = "{} Venta de participaciones · {}".format(MARCA, fila["dia"].isoformat())
         IngresoProyecto.objects.update_or_create(
             proyecto=sorteo.proyecto,
             concepto=concepto,
@@ -55,9 +53,7 @@ def consolidar_ingresos(sorteo):
                 "estado": "confirmado",
                 "pagado": True,
                 "observaciones": "{} participaciones en {} pedidos. Apunte "
-                "generado automáticamente por la app de sorteos.".format(
-                    fila["papeletas"], fila["pedidos"]
-                ),
+                "generado automáticamente por la app de sorteos.".format(fila["papeletas"], fila["pedidos"]),
             },
         )
         tocados += 1
@@ -78,19 +74,16 @@ def gastos_previstos(sorteo):
     tasa = (emitido * tipo).quantize(Decimal("0.01"))
 
     valor = sorteo.inmueble_valor or Decimal("0")
-    ingreso_cuenta = (valor * Decimal("1.20") * Decimal("0.19")).quantize(
-        Decimal("0.01")
-    )
+    ingreso_cuenta = (valor * Decimal("1.20") * Decimal("0.19")).quantize(Decimal("0.01"))
 
     filas = [
         {
-            "concepto": "Tasa sobre actividades de juego ({:.10g} % de los "
-            "ingresos brutos)".format(sorteo.tasa_juego_porcentaje),
+            "concepto": "Tasa sobre actividades de juego ({:.10g} % de los ingresos brutos)".format(
+                sorteo.tasa_juego_porcentaje
+            ),
             "categoria": "legales",
             "importe": tasa,
-            "nota": "Se anticipa sobre las {} participaciones emitidas.".format(
-                sorteo.total_participaciones
-            ),
+            "nota": "Se anticipa sobre las {} participaciones emitidas.".format(sorteo.total_participaciones),
         }
     ]
     if sorteo.organizador_asume_ingreso_cuenta and valor:
@@ -136,9 +129,7 @@ def demanda(sorteo):
     """
     activos = Interesado.objects.filter(sorteo=sorteo, baja_en__isnull=True)
     total = activos.count()
-    participaciones = (
-        activos.aggregate(n=Sum("participaciones_estimadas"))["n"] or 0
-    )
+    participaciones = activos.aggregate(n=Sum("participaciones_estimadas"))["n"] or 0
 
     por_precio = []
     acumulado = 0
@@ -161,10 +152,7 @@ def demanda(sorteo):
         "media": round(participaciones / total, 1) if total else 0,
         "por_precio": por_precio,
         "provincias": list(
-            activos.exclude(provincia="")
-            .values("provincia")
-            .annotate(n=Count("id"))
-            .order_by("-n")[:6]
+            activos.exclude(provincia="").values("provincia").annotate(n=Count("id")).order_by("-n")[:6]
         ),
     }
 
@@ -196,9 +184,7 @@ def resumen_economico(sorteo):
     recaudado = vendidas * sorteo.precio_participacion
 
     gastos = GastoProyecto.objects.filter(proyecto=sorteo.proyecto)
-    coste_total = sum(
-        (g.importe_real or g.importe or Decimal("0")) for g in gastos
-    )
+    coste_total = sum((g.importe_real or g.importe or Decimal("0")) for g in gastos)
 
     precio = sorteo.precio_participacion or Decimal("1")
     equilibrio = int(-(-coste_total // precio)) if coste_total else 0
@@ -216,14 +202,8 @@ def resumen_economico(sorteo):
         "equilibrio": equilibrio,
         "faltan_equilibrio": faltan,
         "porcentaje_equilibrio": (
-            round(equilibrio * 100 / sorteo.total_participaciones)
-            if sorteo.total_participaciones
-            else 0
+            round(equilibrio * 100 / sorteo.total_participaciones) if sorteo.total_participaciones else 0
         ),
         "minimo": sorteo.minimo_participaciones,
-        "faltan_minimo": (
-            max(0, sorteo.minimo_participaciones - vendidas)
-            if sorteo.minimo_participaciones
-            else None
-        ),
+        "faltan_minimo": (max(0, sorteo.minimo_participaciones - vendidas) if sorteo.minimo_participaciones else None),
     }

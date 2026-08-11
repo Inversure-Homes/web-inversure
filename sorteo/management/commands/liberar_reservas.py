@@ -12,6 +12,4 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         liberadas = liberar_caducadas()
-        self.stdout.write(
-            self.style.SUCCESS("Participaciones liberadas: {}".format(liberadas))
-        )
+        self.stdout.write(self.style.SUCCESS("Participaciones liberadas: {}".format(liberadas)))

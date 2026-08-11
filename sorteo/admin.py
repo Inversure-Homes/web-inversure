@@ -7,6 +7,7 @@ from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils.html import format_html
 
+from .correo import avisar_ganador
 from .models import (
     ActaSorteo,
     Interesado,
@@ -15,7 +16,6 @@ from .models import (
     Pedido,
     Sorteo,
 )
-from .correo import avisar_ganador
 from .services import ErrorSorteo, registrar_acta
 
 
@@ -26,13 +26,9 @@ class OrganizadorAdmin(admin.ModelAdmin):
 
 
 class ActaForm(forms.Form):
-    numero_premiado = forms.IntegerField(
-        min_value=1, label="Participación premiada según el acta"
-    )
+    numero_premiado = forms.IntegerField(min_value=1, label="Participación premiada según el acta")
     protocolo = forms.CharField(max_length=120, label="Nº de protocolo del acta")
-    fecha = forms.DateField(
-        label="Fecha del acta", widget=forms.DateInput(attrs={"type": "date"})
-    )
+    fecha = forms.DateField(label="Fecha del acta", widget=forms.DateInput(attrs={"type": "date"}))
 
 
 @admin.register(Sorteo)
@@ -141,9 +137,7 @@ class SorteoAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
         creadas = obj.generar_papeletas()
         if creadas:
-            self.message_user(
-                request, "Se han generado {} papeletas.".format(creadas)
-            )
+            self.message_user(request, "Se han generado {} papeletas.".format(creadas))
 
     def vista_acta(self, request, pk):
         """
@@ -157,9 +151,7 @@ class SorteoAdmin(admin.ModelAdmin):
             return redirect("admin:sorteo_sorteo_changelist")
 
         if hasattr(sorteo, "acta"):
-            self.message_user(
-                request, "Este sorteo ya tiene acta registrada.", messages.WARNING
-            )
+            self.message_user(request, "Este sorteo ya tiene acta registrada.", messages.WARNING)
             return redirect("admin:sorteo_sorteo_changelist")
 
         form = ActaForm(request.POST or None)
@@ -178,8 +170,7 @@ class SorteoAdmin(admin.ModelAdmin):
                 avisar_ganador(sorteo.acta)
                 self.message_user(
                     request,
-                    "Acta registrada, resultado publicado y aviso enviado a la "
-                    "persona premiada.",
+                    "Acta registrada, resultado publicado y aviso enviado a la persona premiada.",
                 )
                 return redirect("admin:sorteo_sorteo_changelist")
 
@@ -277,8 +268,13 @@ class PapeletaAdmin(admin.ModelAdmin):
 @admin.register(Interesado)
 class InteresadoAdmin(admin.ModelAdmin):
     list_display = (
-        "nombre", "email", "provincia", "participaciones_estimadas",
-        "precio_maximo", "activo", "creado_en",
+        "nombre",
+        "email",
+        "provincia",
+        "participaciones_estimadas",
+        "precio_maximo",
+        "activo",
+        "creado_en",
     )
     list_filter = ("precio_maximo", "provincia", "sorteo")
     search_fields = ("nombre", "email", "telefono", "provincia")
