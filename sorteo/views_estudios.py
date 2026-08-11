@@ -14,6 +14,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from core.models import Proyecto
 
 from .comparador import comparar, desde_proyecto
+from .impuestos import opciones_reducidas
 from .models import EstudioRifa, Organizador, Sorteo
 from .views_erp import _puede
 
@@ -41,14 +42,44 @@ class EstudioForm(forms.ModelForm):
             "notas",
         ]
         widgets = {"notas": forms.Textarea(attrs={"rows": 3})}
+        labels = {
+            "precio_compra": "Precio de compra (€)",
+            "valor_referencia": "Valor de referencia de Catastro (€)",
+            "comunidad": "Comunidad autónoma",
+            "operacion_compra": "Impuesto de la compra",
+            "supuesto_reducido": "Tipo reducido",
+            "otros_gastos": "Otros gastos de compra (€)",
+            "precio_participacion": "Precio por participación (€)",
+            "participaciones": "Participaciones a emitir",
+            "minimo_participaciones": "Mínimo para celebrar el sorteo",
+            "tasa_juego_porcentaje": "Tasa de juego (%)",
+            "comision_pago_porcentaje": "Comisión de la pasarela (%)",
+            "precio_venta_estimado": "Precio de venta estimado (€)",
+            "meses_venta": "Meses hasta vender",
+            "meses_rifa": "Meses hasta sortear",
+        }
+        help_texts = {
+            "tasa_juego_porcentaje": "20 % general; 7 % si se declara benéfica o de utilidad pública.",
+            "minimo_participaciones": "Por debajo de esta cifra el sorteo se "
+            "puede cancelar con reintegro. Apartado 9 de las bases.",
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["proyecto"].required = False
+        # Texto libre no: el tipo reducido se elige de los que existen.
+        self.fields["supuesto_reducido"] = forms.ChoiceField(
+            choices=opciones_reducidas(),
+            required=False,
+            label="Tipo reducido",
+            help_text="Solo se aplica si lo eliges a sabiendas: los requisitos no los puede comprobar el sistema.",
+        )
         self.fields["proyecto"].empty_label = "Sin proyecto (inmueble hipotético)"
         for campo in self.fields.values():
+            # `form-select` da el ancho completo a los desplegables, que con
+            # `form-control` se quedaban cortando el texto.
             css = "form-select" if hasattr(campo, "choices") else "form-control"
-            campo.widget.attrs.setdefault("class", css + " form-control-sm")
+            campo.widget.attrs.setdefault("class", "{} {}-sm w-100".format(css, css))
 
 
 @login_required

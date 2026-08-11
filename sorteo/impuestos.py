@@ -206,6 +206,25 @@ NOTAS_COMUNIDAD = {
 }
 
 
+def opciones_reducidas():
+    """
+    Supuestos únicos del catálogo, para poder ofrecerlos en un desplegable.
+
+    La misma clave aparece en varias comunidades (el 2 % de reventa, por
+    ejemplo), así que se agrupan por clave y se indica dónde consta.
+    """
+    vistos = {}
+    for comunidad, lista in SUPUESTOS_REDUCIDOS.items():
+        for supuesto in lista:
+            entrada = vistos.setdefault(supuesto["clave"], {"nombre": supuesto["nombre"], "donde": []})
+            entrada["donde"].append(TIPOS_ITP[comunidad]["nombre"])
+
+    opciones = [("", "Ninguno — se calcula al tipo general")]
+    for clave, datos in vistos.items():
+        opciones.append((clave, "{} · {}".format(datos["nombre"], ", ".join(datos["donde"]))))
+    return opciones
+
+
 def supuestos_aplicables(comunidad, perfil=None):
     """
     Tipos reducidos que **podrían** aplicar, dado el perfil de la operación.
