@@ -615,6 +615,14 @@ class ComposicionDelUmbral(TestCase):
         detalle = self.analisis["rifa"]["umbral_detalle"]
         self.assertEqual(sum(c["importe"] for c in detalle["conceptos"]), detalle["a_cubrir"])
 
+    def test_la_ficha_pinta_el_desglose(self):
+        from django.template.loader import render_to_string
+
+        html = render_to_string("sorteo/erp_estudio.html", {"estudio": self.estudio, "analisis": self.analisis})
+        self.assertIn("Participaciones mínimas a vender", html)
+        self.assertIn("Costes de adquisición", html)
+        self.assertIn("Costes del proceso del activo", html)
+
     def test_el_umbral_es_lo_a_cubrir_entre_el_neto_por_papeleta(self):
         detalle = self.analisis["rifa"]["umbral_detalle"]
         esperado = math.ceil(detalle["a_cubrir"] / detalle["neto_papeleta"])
