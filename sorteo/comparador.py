@@ -170,10 +170,34 @@ def comparar(datos):
             )
         )
 
+    # Veredicto para el KPI de decisión, con el mismo criterio que el badge de
+    # la lista: el umbral manda sobre el beneficio.
+    if rifa["umbral_porcentaje"] > 85:
+        decision = {
+            "texto": "Revisar",
+            "tono": "danger",
+            "motivo": "El umbral es demasiado alto para el margen que deja.",
+        }
+    elif diferencia <= 0:
+        decision = {
+            "texto": "Vender",
+            "tono": "secondary",
+            "motivo": "La venta ordinaria deja más y sin riesgo de colocación.",
+        }
+    elif rifa["umbral_porcentaje"] > 70:
+        decision = {
+            "texto": "Rifar con cautela",
+            "tono": "warning",
+            "motivo": "Compensa, pero deja poco margen de error en la campaña.",
+        }
+    else:
+        decision = {"texto": "Rifar", "tono": "success", "motivo": "Mejor resultado y umbral alcanzable."}
+
     return {
         "entrada": entrada,
         "venta": venta,
         "rifa": rifa,
+        "decision": decision,
         # Las plantillas no pueden construir listas: se les da hecha.
         "rutas": [venta, rifa],
         "diferencia": diferencia,

@@ -417,3 +417,34 @@ class PrecargaDesdeProyecto(TestCase):
         self.assertTrue(set(datos).issubset(campos), set(datos) - campos)
         self.assertEqual(datos["precio_venta_estimado"], Decimal("48000"))
         self.assertEqual(datos["otros_gastos"], Decimal("700"))
+
+
+class Veredicto(TestCase):
+    """
+    El KPI de decisión mira el umbral, no el beneficio: un margen estupendo que
+    exige colocar casi todas las papeletas no es una buena operación.
+    """
+
+    BASE = {
+        "precio_compra": Decimal("18000"),
+        "comunidad": "andalucia",
+        "otros_gastos": Decimal("1300"),
+        "precio_participacion": Decimal("10"),
+        "participaciones": 5000,
+        "precio_venta": Decimal("24000"),
+        "meses_venta": 6,
+        "meses_rifa": 6,
+    }
+
+    def test_recomienda_vender_si_la_rifa_no_supera_a_la_venta(self):
+        d = comparar(dict(self.BASE, precio_venta=Decimal("60000")))["decision"]
+        self.assertEqual(d["texto"], "Vender")
+
+    def test_avisa_cuando_el_umbral_es_inasumible(self):
+        # Emitiendo poco, la tasa y los fijos se comen casi toda la emisión.
+        d = comparar(dict(self.BASE, participaciones=3000))["decision"]
+        self.assertEqual(d["texto"], "Revisar")
+
+    def test_recomienda_rifar_con_umbral_alcanzable(self):
+        d = comparar(dict(self.BASE, participaciones=8000))["decision"]
+        self.assertEqual(d["texto"], "Rifar")

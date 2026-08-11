@@ -1,91 +1,205 @@
 {% extends "core/base.html" %}
-{% load humanize %}
+{% load humanize formatting %}
 
+{% comment %}
+  Mismo formato que `core/simulador.html`: card de cabecera con badge y panel
+  de acciones, fila de KPIs y secciones con cabecera oscura.
+
+  El KPI de decisión usa el umbral, no el beneficio: en una rifa, un margen
+  estupendo que exige colocar el 90 % de las papeletas no es una operación
+  buena, y con el criterio de ROI saldría en verde.
+{% endcomment %}
 {% block content %}
 <div class="inversure-app">
   <section class="inversure-section">
     <div class="container">
 
-      <section class="inversure-section-header mb-4 text-center">
-        <div class="inversure-section-icon mb-2"><i class="bi bi-clipboard-data"></i></div>
-        <h1 class="inversure-section-title">{{ estudio.nombre }}</h1>
-        <div class="inversure-divider mx-auto"></div>
-        <p class="inversure-section-subtitle mx-auto">
-          {% if estudio.proyecto %}
-            Proyecto {{ estudio.proyecto.nombre }} ·
-          {% endif %}
-          Coste de entrada {{ analisis.entrada.total|floatformat:"0g" }} €
-        </p>
-      </section>
+      {# Cabecera #}
+      <div class="card card-inversure shadow-sm border-0 mb-4">
+        <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+          <div>
+            <h1 class="mb-1">{{ estudio.nombre }}</h1>
+            <div class="mt-2">
+              <span class="badge bg-light text-dark fw-semibold">
+                ESTUDIO DE RIFA · RIF-{{ estudio.id|stringformat:"06d" }}
+              </span>
+              {% if estudio.sorteo %}
+                <span class="badge bg-success">Convertido en sorteo</span>
+              {% endif %}
+            </div>
+            <p class="text-muted mb-0 mt-2">
+              {% if estudio.proyecto %}
+                Proyecto
+                <a href="{% url 'core:proyecto' estudio.proyecto.id %}">{{ estudio.proyecto.nombre }}</a> ·
+              {% else %}
+                Inmueble hipotético ·
+              {% endif %}
+              Coste de entrada {{ analisis.entrada.total|es_number }} €
+            </p>
+          </div>
+          <div class="action-panel mt-3 mt-md-0">
+            <div class="action-group primary-actions d-flex flex-wrap gap-2">
+              <a href="{% url 'sorteo_erp:estudio_editar' estudio.pk %}"
+                 class="btn btn-inversure-secondary btn-sm">Editar</a>
+              <a href="{% url 'sorteo_erp:estudio_duplicar' estudio.pk %}"
+                 class="btn btn-outline-secondary btn-sm">Duplicar</a>
+              {% if estudio.sorteo %}
+                <a href="{% url 'sorteo_erp:detalle' estudio.sorteo.pk %}"
+                   class="btn btn-outline-warning btn-sm">Ver el sorteo</a>
+              {% else %}
+                <a href="{% url 'sorteo_erp:estudio_convertir' estudio.pk %}"
+                   class="btn btn-outline-danger btn-sm"
+                   onclick="return confirm('Se creará un sorteo en borrador colgando del proyecto. ¿Continuar?');">
+                  Convertir en sorteo
+                </a>
+              {% endif %}
+              <a href="{% url 'sorteo_erp:estudios' %}"
+                 class="btn btn-outline-secondary btn-sm">Volver</a>
+            </div>
+          </div>
+        </div>
+      </div>
 
-
-      {# ---------- Las dos rutas ---------- #}
+      {# KPIs #}
       <div class="row g-3 mb-4">
-        {% for ruta in analisis.rutas %}
-          <div class="col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-              <div class="card-body">
-                <h5>{{ ruta.nombre }}</h5>
-                <table class="table table-sm mb-2">
-                  <tbody>
-                    <tr><td>Ingresos</td><td class="text-end">{{ ruta.ingresos|floatformat:"0g" }} €</td></tr>
-                    <tr><td>Costes</td><td class="text-end">{{ ruta.costes|floatformat:"0g" }} €</td></tr>
-                    <tr class="fw-semibold">
-                      <td>Beneficio</td>
-                      <td class="text-end {% if ruta.beneficio < 0 %}text-danger{% else %}text-success{% endif %}">
-                        {{ ruta.beneficio|floatformat:"0g" }} €
-                      </td>
-                    </tr>
-                    <tr><td>ROI sobre la entrada</td><td class="text-end">{{ ruta.roi }} %</td></tr>
-                    {% if ruta.por_mes %}
-                      <tr>
-                        <td>Por mes ({{ ruta.meses }} meses)</td>
-                        <td class="text-end">{{ ruta.por_mes|floatformat:"0g" }} €/mes</td>
-                      </tr>
-                    {% endif %}
-                    {% if ruta.umbral %}
-                      <tr>
-                        <td>Umbral</td>
-                        <td class="text-end">
-                          {{ ruta.umbral|intcomma }} ({{ ruta.umbral_porcentaje }} %)
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>Compradores necesarios</td>
-                        <td class="text-end">≈ {{ ruta.compradores|intcomma }}</td>
-                      </tr>
-                      <tr>
-                        <td>Si se cancela</td>
-                        <td class="text-end text-danger">{{ ruta.cancelacion|floatformat:"0g" }} €</td>
-                      </tr>
-                    {% endif %}
-                  </tbody>
-                </table>
-                <p class="text-muted small mb-1"><strong>Techo:</strong> {{ ruta.tope }}</p>
-                <p class="text-muted small mb-0"><strong>Riesgo:</strong> {{ ruta.riesgo }}</p>
+        <div class="col-md-3">
+          <div class="card kpi-card kpi-roi text-center shadow-sm h-100">
+            <div class="card-body">
+              <h6 class="text-muted">ROI de la rifa</h6>
+              <p class="fs-3 fw-bold mb-0">{{ analisis.rifa.roi|es_number }} %</p>
+              <div class="small text-muted">sobre el coste de entrada</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card kpi-card kpi-beneficio text-center shadow-sm h-100">
+            <div class="card-body">
+              <h6 class="text-muted">Beneficio a pleno</h6>
+              <p class="fs-3 fw-bold mb-0 {% if analisis.rifa.beneficio < 0 %}text-danger{% endif %}">
+                {{ analisis.rifa.beneficio|es_number }} €
+              </p>
+              <div class="small text-muted">
+                venta ordinaria: {{ analisis.venta.beneficio|es_number }} €
               </div>
             </div>
           </div>
-        {% endfor %}
+        </div>
+        <div class="col-md-3">
+          <div class="card kpi-card kpi-riesgo text-center shadow-sm h-100">
+            <div class="card-body">
+              <h6 class="text-muted">Umbral de rentabilidad</h6>
+              <p class="fs-3 fw-bold mb-0">{{ analisis.rifa.umbral_porcentaje }} %</p>
+              <div class="small text-muted">
+                {{ analisis.rifa.umbral|intcomma }} papeletas ·
+                ≈ {{ analisis.rifa.compradores|intcomma }} compradores
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card kpi-card kpi-decision text-center shadow-sm h-100">
+            <div class="card-body">
+              <h6 class="text-muted">Decisión</h6>
+              <p class="fs-3 fw-bold mb-0 text-{{ analisis.decision.tono }}">
+                {{ analisis.decision.texto }}
+              </p>
+              <div class="small text-muted">{{ analisis.decision.motivo }}</div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {# ---------- Lectura ---------- #}
-      <div class="card border-0 shadow-sm mb-4">
+      {# Comparativa #}
+      <div class="card shadow-sm border-0 mb-3">
+        <div class="card-header bg-inversure-dark text-inversure fw-semibold border-0 d-flex align-items-center gap-2">
+          <i class="bi bi-arrow-left-right"></i> Vender o rifar
+        </div>
         <div class="card-body">
-          <h5 class="mb-3">Cómo leerlo</h5>
+          <div class="table-responsive">
+            <table class="table align-middle mb-0">
+              <thead>
+                <tr>
+                  <th></th>
+                  {% for ruta in analisis.rutas %}<th class="text-end">{{ ruta.nombre }}</th>{% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="text-muted">Ingresos</td>
+                  {% for r in analisis.rutas %}<td class="text-end">{{ r.ingresos|es_number }} €</td>{% endfor %}
+                </tr>
+                <tr>
+                  <td class="text-muted">Costes</td>
+                  {% for r in analisis.rutas %}<td class="text-end">{{ r.costes|es_number }} €</td>{% endfor %}
+                </tr>
+                <tr class="fw-semibold">
+                  <td>Beneficio</td>
+                  {% for r in analisis.rutas %}
+                    <td class="text-end {% if r.beneficio < 0 %}text-danger{% else %}text-success{% endif %}">
+                      {{ r.beneficio|es_number }} €
+                    </td>
+                  {% endfor %}
+                </tr>
+                <tr>
+                  <td class="text-muted">ROI sobre la entrada</td>
+                  {% for r in analisis.rutas %}<td class="text-end">{{ r.roi|es_number }} %</td>{% endfor %}
+                </tr>
+                <tr>
+                  <td class="text-muted">Por mes inmovilizado</td>
+                  {% for r in analisis.rutas %}
+                    <td class="text-end">
+                      {% if r.por_mes %}
+                        {{ r.por_mes|es_number }} €/mes
+                        <div class="small text-muted">{{ r.meses }} meses</div>
+                      {% else %}—{% endif %}
+                    </td>
+                  {% endfor %}
+                </tr>
+                <tr>
+                  <td class="text-muted">Techo</td>
+                  {% for r in analisis.rutas %}<td class="text-end small">{{ r.tope }}</td>{% endfor %}
+                </tr>
+                <tr>
+                  <td class="text-muted">Riesgo</td>
+                  {% for r in analisis.rutas %}<td class="text-end small">{{ r.riesgo }}</td>{% endfor %}
+                </tr>
+                {% if analisis.rifa.cancelacion %}
+                  <tr>
+                    <td class="text-muted">Si se cancela</td>
+                    <td class="text-end">—</td>
+                    <td class="text-end text-danger">{{ analisis.rifa.cancelacion|es_number }} €</td>
+                  </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {# Lectura #}
+      <div class="card shadow-sm border-0 mb-3">
+        <div class="card-header bg-inversure-dark text-inversure fw-semibold border-0 d-flex align-items-center gap-2">
+          <i class="bi bi-lightbulb"></i> Cómo leerlo
+        </div>
+        <div class="card-body">
           <ul class="mb-0">
             {% for l in analisis.lecturas %}<li>{{ l }}</li>{% endfor %}
           </ul>
         </div>
       </div>
 
-      {# ---------- Coste de entrada ---------- #}
-      <div class="card border-0 shadow-sm mb-4">
+      {# Coste de entrada #}
+      <div class="card shadow-sm border-0 mb-3">
+        <div class="card-header bg-inversure-dark text-inversure fw-semibold border-0 d-flex align-items-center gap-2">
+          <i class="bi bi-cash-stack"></i> Coste de entrada
+        </div>
         <div class="card-body">
-          <h5 class="mb-3">Coste de entrada</h5>
-          <table class="table table-sm" style="max-width:520px">
+          <table class="table table-sm" style="max-width:560px">
             <tbody>
-              <tr><td>Precio de compra</td><td class="text-end">{{ analisis.entrada.precio|floatformat:"2g" }} €</td></tr>
+              <tr>
+                <td>Precio de compra</td>
+                <td class="text-end">{{ analisis.entrada.precio|es_number }} €</td>
+              </tr>
               <tr>
                 <td>
                   {{ analisis.entrada.impuesto.impuesto }}
@@ -94,11 +208,15 @@
                     <div class="text-muted small">{{ analisis.entrada.impuesto.supuesto }}</div>
                   {% endif %}
                 </td>
-                <td class="text-end">{{ analisis.entrada.impuesto.importe|floatformat:"2g" }} €</td>
+                <td class="text-end">{{ analisis.entrada.impuesto.importe|es_number }} €</td>
               </tr>
-              <tr><td>Otros gastos</td><td class="text-end">{{ analisis.entrada.otros|floatformat:"2g" }} €</td></tr>
+              <tr>
+                <td>Otros gastos</td>
+                <td class="text-end">{{ analisis.entrada.otros|es_number }} €</td>
+              </tr>
               <tr class="fw-semibold border-top">
-                <td>Total</td><td class="text-end">{{ analisis.entrada.total|floatformat:"2g" }} €</td>
+                <td>Total</td>
+                <td class="text-end">{{ analisis.entrada.total|es_number }} €</td>
               </tr>
             </tbody>
           </table>
@@ -114,32 +232,15 @@
       </div>
 
       {% if estudio.notas %}
-        <div class="card border-0 shadow-sm mb-4">
+        <div class="card shadow-sm border-0 mb-3">
+          <div class="card-header bg-inversure-dark text-inversure fw-semibold border-0 d-flex align-items-center gap-2">
+            <i class="bi bi-journal-text"></i> Notas
+          </div>
           <div class="card-body">
-            <h5>Notas</h5>
             <p class="mb-0" style="white-space: pre-line">{{ estudio.notas }}</p>
           </div>
         </div>
       {% endif %}
-
-      <div class="text-center">
-        <a href="{% url 'sorteo_erp:estudio_editar' estudio.pk %}" class="btn btn-inversure">Editar</a>
-        <a href="{% url 'sorteo_erp:estudio_duplicar' estudio.pk %}" class="btn btn-outline-secondary">
-          Duplicar y probar variante
-        </a>
-        {% if estudio.sorteo %}
-          <a href="{% url 'sorteo_erp:detalle' estudio.sorteo.pk %}" class="btn btn-outline-success">
-            Ver el sorteo
-          </a>
-        {% else %}
-          <a href="{% url 'sorteo_erp:estudio_convertir' estudio.pk %}"
-             class="btn btn-outline-danger"
-             onclick="return confirm('Se creará un sorteo en borrador colgando del proyecto. ¿Continuar?');">
-            Convertir en sorteo
-          </a>
-        {% endif %}
-        <a href="{% url 'sorteo_erp:estudios' %}" class="btn btn-link">Volver</a>
-      </div>
 
     </div>
   </section>
