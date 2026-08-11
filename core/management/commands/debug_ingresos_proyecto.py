@@ -32,4 +32,3 @@ class Command(BaseCommand):
                 f"{row.get('id')};{row.get('fecha')};{row.get('tipo')};{row.get('estado')};"
                 f"{row.get('importe')};{row.get('importe_real')};{1 if row.get('imputable_inversores') else 0}"
             )
-

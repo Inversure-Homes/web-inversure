@@ -22,4 +22,3 @@ Este documento resume cómo volver atrás si un deploy rompe producción.
 - 502/503 tras deploy: suele ser `gunicorn` no arranca o error de import.
 - 500 en rutas específicas: revisar logs de aplicación y migraciones.
 - Fallos en PDF/imagenes: revisar dependencias del sistema (ej. `poppler-utils` para `pdf2image`).
-

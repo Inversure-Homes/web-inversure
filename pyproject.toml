@@ -1,0 +1,91 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+exclude = [
+  ".git",
+  ".mypy_cache",
+  ".pytest_cache",
+  ".ruff_cache",
+  ".venv",
+  "build",
+  "dist",
+  "media",
+  "staticfiles",
+  "tmp",
+  "**/migrations/**",
+]
+force-exclude = true
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B"]
+ignore = []
+
+[tool.ruff.lint.isort]
+known-first-party = ["accounts", "cms", "config", "core", "landing", "tests"]
+
+[tool.ruff.lint.per-file-ignores]
+"accounts/**/*.py" = ["I001"]
+"cms/**/*.py" = ["I001"]
+"core/**/*.py" = ["I001", "F401"]
+"landing/**/*.py" = ["I001", "F401", "F841"]
+
+[tool.ruff.format]
+exclude = [
+  ".git",
+  ".mypy_cache",
+  ".pytest_cache",
+  ".ruff_cache",
+  ".venv",
+  "accounts/**",
+  "build",
+  "cms/**",
+  "core/**",
+  "dist",
+  "landing/**",
+  "media/**",
+  "staticfiles/**",
+  "tmp/**",
+  "**/migrations/**",
+]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.11"
+plugins = ["mypy_django_plugin.main"]
+mypy_path = "."
+pretty = true
+show_error_codes = true
+warn_unused_configs = true
+ignore_missing_imports = true
+check_untyped_defs = false
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+no_implicit_optional = true
+strict_optional = true
+namespace_packages = true
+explicit_package_bases = true
+exclude = '''(?x)(
+  ^.*?/migrations/|
+  ^\.venv/|
+  ^staticfiles/|
+  ^media/
+)'''
+
+[tool.django-stubs]
+django_settings_module = "config.settings"
+strict_settings = false
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["tests.py", "test_*.py", "*_test.py"]
+testpaths = ["tests", "accounts", "cms", "core", "landing"]
+addopts = "-ra --reuse-db --strict-markers --tb=short"
+norecursedirs = [".git", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".venv", "media", "staticfiles", "tmp"]
+markers = [
+  "integration: tests that exercise multiple apps or the database",
+  "pdf: tests that cover PDF generation or rendering helpers",
+  "security: security-focused checks and guards",
+  "slow: tests that are longer or more expensive to run",
+  "unit: pure logic tests without external services",
+]

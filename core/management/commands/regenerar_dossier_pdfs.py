@@ -357,4 +357,3 @@ class Command(BaseCommand):
                 self.stdout.write(f"{r.proyecto_id};ERROR;{r.error}")
             else:
                 self.stdout.write(f"{r.proyecto_id};{'CREATED' if r.created else 'OK'};")
-

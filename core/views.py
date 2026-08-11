@@ -28,6 +28,7 @@ from django.contrib.auth.models import User
 
 from copy import deepcopy
 from types import SimpleNamespace
+from typing import Any, Iterable
 
 import json
 import os
@@ -50,6 +51,7 @@ from .models import EstudioSnapshot, ProyectoSnapshot
 from .models import GastoProyecto, IngresoProyecto, ChecklistItem
 from .models import Cliente, Participacion, InversorPerfil, InversorPushSubscription, SolicitudParticipacion, ComunicacionInversor, DocumentoProyecto, DocumentoInversor, FacturaGasto, JustificanteIngreso
 from .finance import limit_loss_to_capital_enabled
+from .services.financial_dashboard import FinancialDashboardFilters, FinancialDashboardService
 from accounts.utils import (
     is_admin_user,
     is_comercial_user,
@@ -278,7 +280,7 @@ def inversor_manifest(request, token: str):
 def inversor_push_public_key(request, token: str):
     get_object_or_404(InversorPerfil, token=token, activo=True)
     if not settings.VAPID_PUBLIC_KEY:
-        return JsonResponse({"ok": False, "error": "VAPID public key missing"}, status=500)
+        return JsonResponse({"ok": False, "error": "VAPID public key missing", "publicKey": ""})
     return JsonResponse({"ok": True, "publicKey": settings.VAPID_PUBLIC_KEY})
 
 
@@ -350,7 +352,7 @@ def _user_matches_responsable(user, proyecto: Proyecto) -> bool:
     responsable_raw = (getattr(proyecto, "responsable", "") or "").strip().lower()
     if not responsable_raw:
         return False
-    username = (getattr(user, "username", "") or "").strip().lower()
+    username = _build_username_key(user)
     full_name = f"{getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')}".strip().lower()
     return responsable_raw in {username, full_name}
 
@@ -619,11 +621,21 @@ def _admin_notify_users():
     users = []
     try:
         for u in User.objects.filter(is_active=True):
-            if is_admin_user(u) or is_direccion_user(u) or (getattr(u, "username", "").strip().lower() == "mperez"):
+            if is_admin_user(u) or is_direccion_user(u):
                 users.append(u)
     except Exception:
         users = []
     return users
+
+
+def _build_admin_notification_body(mensaje: str, actor: str = "", project_label: str = "") -> str:
+    """Componer el cuerpo de una notificación administrativa sin mutar entradas."""
+    body = mensaje
+    if project_label:
+        body = f"{body}\n\n{project_label}"
+    if actor:
+        body = f"{body}\nUsuario: {actor}"
+    return body
 
 
 def _admin_notify(request, proyecto: Proyecto | None, titulo: str, mensaje: str):
@@ -636,7 +648,7 @@ def _admin_notify(request, proyecto: Proyecto | None, titulo: str, mensaje: str)
     actor = ""
     try:
         if request and getattr(request, "user", None) and request.user.is_authenticated:
-            actor = request.user.get_full_name() or request.user.username or ""
+            actor = _build_user_display_name(request.user)
     except Exception:
         actor = ""
     project_label = ""
@@ -645,11 +657,7 @@ def _admin_notify(request, proyecto: Proyecto | None, titulo: str, mensaje: str)
             project_label = f"Proyecto: {proyecto.nombre} (ID {proyecto.id})"
     except Exception:
         project_label = ""
-    body = mensaje
-    if project_label:
-        body = f"{body}\n\n{project_label}"
-    if actor:
-        body = f"{body}\nUsuario: {actor}"
+    body = _build_admin_notification_body(mensaje, actor, project_label)
 
     emails = []
     for u in users:
@@ -1334,7 +1342,6 @@ def _build_comunicacion_context(
         estado_lower, ("Avance de proyecto", "Seguimiento de hitos")
     )
 
-    usuarios_responsables = User.objects.filter(is_active=True).order_by("first_name", "last_name", "username")
     ctx = {
         "inversor_nombre": getattr(part.cliente, "nombre", "") or "",
         "cliente_dni_cif": getattr(part.cliente, "dni_cif", "") or "",
@@ -1665,7 +1672,7 @@ def _build_carta_pdf_with_error(
             pass
         if getattr(settings, "PDF_MESSAGE_SANITIZE", False):
             raw = _sanitize_pdf_message_html(raw)
-        mensaje_html = mark_safe(raw)
+        mensaje_html = mark_safe(raw)  # nosec
         template_name = "core/pdf_certificado_retenciones.html" if is_retenciones else "core/pdf_carta_inversor.html"
         html = render_to_string(
             template_name,
@@ -1792,19 +1799,13 @@ def _logo_data_uri(logo_name: str = "core/logo_inversure.png") -> str:
 
 
 def _documento_url(request, documento: DocumentoProyecto) -> str:
-    key = getattr(documento.archivo, "name", "") or ""
-    signed = _s3_presigned_url(key)
-    if signed:
-        return signed
-    try:
-        if request:
-            return request.build_absolute_uri(documento.archivo.url)
-    except Exception:
-        pass
-    try:
-        return documento.archivo.url
-    except Exception:
-        return ""
+    return _build_project_file_url(
+        documento,
+        request,
+        use_presigned_url=True,
+        use_request_absolute_uri=True,
+        empty_on_error=True,
+    )
 
 
 def _documento_image_url(request, documento: DocumentoProyecto) -> str:
@@ -2434,6 +2435,17 @@ def _parse_date(value):
     raise ValueError("fecha_invalida")
 
 
+def _parse_date_maybe(value):
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    try:
+        return _parse_date(value)
+    except Exception:
+        return None
+
+
 def _deep_merge_dict(base: dict, overlay: dict) -> dict:
     """Merge recursivo: overlay pisa base; diccionarios se fusionan."""
     if not isinstance(base, dict):
@@ -2633,6 +2645,32 @@ def _resultado_desde_memoria(
     if only_imputable_inversores:
         gastos = [g for g in gastos if bool(getattr(g, "imputable_inversores", True))]
         ingresos = [i for i in ingresos if bool(getattr(i, "imputable_inversores", True))]
+    estado_proyecto = (getattr(proyecto, "estado", "") or "").strip().lower()
+    seleccion = _resultado_desde_memoria_seleccion(
+        estado_proyecto=estado_proyecto,
+        precio_compra_inmueble=getattr(proyecto, "precio_compra_inmueble", None),
+        precio_propiedad=getattr(proyecto, "precio_propiedad", None),
+        snapshot=snapshot if isinstance(snapshot, dict) else {},
+        gastos=gastos,
+        ingresos=ingresos,
+        memoria_beneficio_neto_desde_transmision=bool(
+            getattr(settings, "MEMORIA_BENEFICIO_NETO_DESDE_TRANSMISION", False)
+        ),
+    )
+    return _resultado_desde_memoria_calculo(**seleccion)
+
+
+def _resultado_desde_memoria_seleccion(
+    *,
+    estado_proyecto: str,
+    precio_compra_inmueble: Decimal | None,
+    precio_propiedad: Decimal | None,
+    snapshot: dict,
+    gastos: list[Any],
+    ingresos: list[Any],
+    memoria_beneficio_neto_desde_transmision: bool = False,
+) -> dict:
+    """Seleccionar los importes vivos o de snapshot sin tocar ORM ni construir el resultado final."""
 
     def _sum_importes(items):
         total = Decimal("0")
@@ -2660,7 +2698,6 @@ def _resultado_desde_memoria(
 
     ingresos_est = _sum_importes([_importe_estimado(i) for i in ingresos])
     ingresos_real = _sum_importes([_importe_real(i) for i in ingresos])
-    estado_proyecto = (getattr(proyecto, "estado", "") or "").strip().lower()
     tipos_venta = {"venta"}
     # En operaciones cerradas/vendidas, a veces la venta llega repartida como señal/anticipo (o incluso mal tipada).
     # Para evitar valor_transmision=0 en proyectos cerrados, consideramos también señal/anticipo como venta.
@@ -2734,8 +2771,8 @@ def _resultado_desde_memoria(
             return False
 
     base_precio = (
-        proyecto.precio_compra_inmueble
-        or proyecto.precio_propiedad
+        precio_compra_inmueble
+        or precio_propiedad
         or _parse_decimal(snap_econ.get("precio_propiedad") or snap_econ.get("precio_escritura") or "")
         or _parse_decimal(snap_met.get("precio_propiedad") or snap_met.get("precio_escritura") or "")
         or Decimal("0")
@@ -2843,13 +2880,35 @@ def _resultado_desde_memoria(
     # Opcional: forzar consistencia entre componentes y "beneficio_neto".
     # Útil cuando hay gastos de venta estimados y el beneficio calculado por movimientos
     # no los incluye (porque prioriza "real" vs "estimado" por bloque).
-    try:
-        if getattr(settings, "MEMORIA_BENEFICIO_NETO_DESDE_TRANSMISION", False) and valor_transmision > 0:
-            beneficio = valor_transmision - valor_adquisicion
-    except Exception:
-        pass
+    if memoria_beneficio_neto_desde_transmision and valor_transmision > 0:
+        beneficio = valor_transmision - valor_adquisicion
 
-    impuesto_sociedades_pct = snap_impuesto_sociedades_pct
+    return {
+        "beneficio": beneficio,
+        "gastos_base": gastos_base,
+        "valor_adquisicion": valor_adquisicion,
+        "valor_transmision": valor_transmision,
+        "gastos_real": gastos_real,
+        "gastos_est": gastos_est,
+        "gastos_venta_base": gastos_venta_base,
+        "impuesto_sociedades_pct": snap_impuesto_sociedades_pct,
+        "has_real": has_real,
+    }
+
+
+def _resultado_desde_memoria_calculo(
+    *,
+    beneficio: Decimal,
+    gastos_base: Decimal,
+    valor_adquisicion: Decimal,
+    valor_transmision: Decimal,
+    gastos_real: Decimal,
+    gastos_est: Decimal,
+    gastos_venta_base: Decimal,
+    impuesto_sociedades_pct: Decimal,
+    has_real: bool,
+) -> dict:
+    """Calcular el resultado público de memoria sin tocar ORM ni snapshot."""
     if impuesto_sociedades_pct < Decimal("0"):
         impuesto_sociedades_pct = Decimal("0")
     if impuesto_sociedades_pct > Decimal("100"):
@@ -2906,6 +2965,676 @@ def _resultado_desde_memoria(
         "origen_memoria": True,
         "base_memoria_real": bool(has_real),
     }
+
+
+def _build_resultado_context(
+    resultado_calc: dict[str, Any],
+    resultado_memoria: dict[str, Any] | None = None,
+    snap_result: dict[str, Any] | None = None,
+    *,
+    snapshot_fill_only: bool = False,
+) -> dict[str, Any]:
+    """Construir el resultado público de proyecto sin tocar ORM ni mutar entradas."""
+    resultado = dict(resultado_calc or {})
+
+    if isinstance(resultado_memoria, dict):
+        for key, value in resultado_memoria.items():
+            if value not in (None, ""):
+                resultado[key] = value
+
+    if isinstance(snap_result, dict):
+        for key, value in snap_result.items():
+            if value in (None, "", []):
+                continue
+            if snapshot_fill_only and resultado.get(key) not in (None, "", []):
+                continue
+            resultado[key] = value
+
+    return resultado
+
+
+def _project_result_source_version(
+    proyecto: Any,
+    snapshot: dict[str, Any] | None = None,
+) -> int:
+    """Resolver la versión de precedencia de resultado sin tocar ORM ni mutar entradas."""
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+
+    try:
+        extra = getattr(proyecto, "extra", None)
+        if isinstance(extra, dict):
+            raw = extra.get("resultado_source_version")
+            if raw not in (None, ""):
+                return int(raw)
+    except Exception:
+        pass
+
+    proyecto_sec = snapshot.get("proyecto") if isinstance(snapshot.get("proyecto"), dict) else {}
+    for raw in (
+        snapshot.get("resultado_source_version"),
+        proyecto_sec.get("resultado_source_version"),
+    ):
+        if raw not in (None, ""):
+            try:
+                return int(raw)
+            except Exception:
+                return 1
+    return 1
+
+
+def _project_uses_live_result_precedence(
+    proyecto: Any,
+    snapshot: dict[str, Any] | None = None,
+) -> bool:
+    """Indicar si el proyecto usa la precedencia nueva de resultado."""
+    return _project_result_source_version(proyecto, snapshot) >= 2
+
+
+def _default_new_project_extra(extra: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Construir el bloque extra por defecto para proyectos nuevos."""
+    base = dict(extra) if isinstance(extra, dict) else {}
+    base.setdefault("resultado_source_version", 2)
+    return base
+
+
+def _build_project_result_context(
+    proyecto: Any,
+    snapshot: dict[str, Any],
+    resultado_calc: dict[str, Any],
+    resultado_memoria: dict[str, Any] | None = None,
+    snap_result: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Construir `resultado` respetando la compatibilidad legacy o la precedencia nueva."""
+    return _build_resultado_context(
+        resultado_calc,
+        resultado_memoria,
+        snap_result,
+        snapshot_fill_only=_project_uses_live_result_precedence(proyecto, snapshot),
+    )
+
+
+def _build_inversor_context(
+    inv_calc: dict[str, Any],
+    inv_snap: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Construir el contexto público de inversor sin tocar ORM ni mutar entradas."""
+    inv = dict(inv_calc or {})
+
+    if isinstance(inv_snap, dict):
+        for key, value in inv_snap.items():
+            if key not in inv or inv.get(key) in (None, ""):
+                inv[key] = value
+
+    return inv
+
+
+def _build_captacion_context(capital_objetivo: float, capital_captado: float) -> SafeAccessDict:
+    """Construir el contexto de captación sin tocar ORM ni mutar entradas."""
+    if capital_objetivo < 0:
+        capital_objetivo = 0.0
+    if capital_captado < 0:
+        capital_captado = 0.0
+
+    if capital_objetivo > 0:
+        pct_captado = (capital_captado / capital_objetivo) * 100.0
+    else:
+        pct_captado = 0.0
+
+    if pct_captado < 0:
+        pct_captado = 0.0
+    if pct_captado > 100:
+        pct_captado = 100.0
+
+    restante = max(capital_objetivo - capital_captado, 0.0)
+    pct_restante = max(0.0, 100.0 - pct_captado)
+
+    return SafeAccessDict({
+        "capital_objetivo": capital_objetivo,
+        "capital_captado": capital_captado,
+        "pct_captado": pct_captado,
+        "restante": restante,
+        "pct_restante": pct_restante,
+        "capital_objetivo_fmt": _fmt_eur(capital_objetivo),
+        "capital_captado_fmt": _fmt_eur(capital_captado),
+        "restante_fmt": _fmt_eur(restante),
+        "pct_captado_fmt": _fmt_pct(pct_captado),
+        "pct_restante_fmt": _fmt_pct(pct_restante),
+    })
+
+
+def _build_project_snapshot_context(
+    snapshot: dict[str, Any],
+    inv_calc: dict[str, Any],
+    resultado: dict[str, Any],
+    metricas_raw: dict[str, Any],
+) -> dict[str, Any]:
+    """Construir el bloque seguro del contexto del proyecto sin tocar ORM ni mutar entradas."""
+    return {
+        "snapshot": _safe_template_obj(snapshot),
+        "inmueble": _safe_template_obj(snapshot.get("inmueble", {})) if isinstance(snapshot.get("inmueble"), dict) else SafeAccessDict(),
+        "economico": _safe_template_obj(snapshot.get("economico", {})) if isinstance(snapshot.get("economico"), dict) else SafeAccessDict(),
+        "inversor": _safe_template_obj(inv_calc) if isinstance(inv_calc, dict) else SafeAccessDict(),
+        "inv": _safe_template_obj(inv_calc) if isinstance(inv_calc, dict) else SafeAccessDict(),
+        "comite": _safe_template_obj(snapshot.get("comite", {})) if isinstance(snapshot.get("comite"), dict) else SafeAccessDict(),
+        "kpis": _safe_template_obj(snapshot.get("kpis", {})) if isinstance(snapshot.get("kpis"), dict) else SafeAccessDict(),
+        "metricas": _safe_template_obj(metricas_raw) if isinstance(metricas_raw, dict) else SafeAccessDict(),
+        "resultado": _safe_template_obj(resultado) if isinstance(resultado, dict) else SafeAccessDict(),
+    }
+
+
+def _ensure_project_template_fields(proyecto_obj: Any) -> None:
+    """Añadir atributos dummy para compatibilidad de plantilla sin tocar ORM ni mutar otros estados."""
+    for field in (
+        "venta_estimada",
+        "precio_propiedad",
+        "precio_compra_inmueble",
+        "precio_venta_estimado",
+        "notaria",
+        "registro",
+        "itp",
+        "direccion",
+        "ref_catastral",
+        "valor_referencia",
+        "meses",
+        "financiacion_pct",
+        "responsable",
+    ):
+        if not hasattr(proyecto_obj, field):
+            proyecto_obj.__dict__.setdefault(field, "")
+
+
+def _build_conciertos_context(conciertos_raw: dict[str, Any] | None = None) -> SafeAccessDict:
+    """Construir el contexto de conciertos sin tocar ORM ni mutar entradas."""
+    conciertos_raw = conciertos_raw if isinstance(conciertos_raw, dict) else {}
+    return SafeAccessDict({
+        "plazo_acuerdo": conciertos_raw.get("plazo_acuerdo", "") or conciertos_raw.get("plazo", "") or "",
+        "interes_acordado": conciertos_raw.get("interes_acordado", "") or conciertos_raw.get("interes", "") or "",
+        "empresa": conciertos_raw.get("empresa", "") or conciertos_raw.get("empresa_acuerdo", "") or "",
+        "empresa_acuerdo": conciertos_raw.get("empresa_acuerdo", "") or conciertos_raw.get("empresa", "") or "",
+        "gasto_solicitado": conciertos_raw.get("gasto_solicitado", "") or conciertos_raw.get("gasto", "") or "",
+        "fecha_liquidacion": conciertos_raw.get("fecha_liquidacion", "") or conciertos_raw.get("liquidacion_fecha", "") or "",
+    })
+
+
+def _build_estado_inicial_context(
+    source: Any | None,
+    *,
+    nested_snapshot_only_if_dict: bool = False,
+) -> dict[str, Any]:
+    """Construir el estado inicial sin tocar ORM ni mutar entradas."""
+    if not isinstance(source, dict):
+        return {}
+
+    if nested_snapshot_only_if_dict:
+        if not source:
+            return {}
+        nested_snapshot = source.get("snapshot")
+        return nested_snapshot if isinstance(nested_snapshot, dict) else source
+
+    nested_snapshot = source.get("snapshot")
+    return nested_snapshot or source
+
+
+def _build_project_notify_flag(
+    extra: dict[str, Any] | None,
+    snapshot: dict[str, Any] | None,
+) -> bool:
+    """Resolver `notificar_inversores` sin tocar ORM ni mutar entradas."""
+    try:
+        if isinstance(extra, dict) and "notificar_inversores" in extra:
+            return bool(extra.get("notificar_inversores"))
+        if isinstance(snapshot, dict):
+            sec = snapshot.get("proyecto") if isinstance(snapshot.get("proyecto"), dict) else {}
+            if "notificar_inversores" in sec:
+                return bool(sec.get("notificar_inversores"))
+        return True
+    except Exception:
+        return True
+
+
+def _build_landing_beneficio_neto_pct_auto(
+    landing_config: dict[str, Any] | None,
+    roi_auto: float | None,
+) -> str | None:
+    """Construir el valor automático del beneficio neto pct de landing sin tocar ORM."""
+    if isinstance(landing_config, dict) and landing_config.get("beneficio_neto_pct"):
+        return None
+    if roi_auto is None:
+        return None
+    return _fmt_es_number(float(roi_auto), 2)
+
+
+def _build_project_documents_context(
+    documentos: Iterable[Any],
+    principal: Any | None = None,
+    landing_config: dict[str, Any] | None = None,
+    publicaciones_config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Construir el bloque de medios del proyecto sin tocar ORM ni mutar entradas."""
+    documentos = documentos if isinstance(documentos, list) else list(documentos)
+    landing_config = landing_config if isinstance(landing_config, dict) else {}
+    publicaciones_config = publicaciones_config if isinstance(publicaciones_config, dict) else {}
+
+    ctx: dict[str, Any] = {
+        "fotos_docs": [],
+        "landing_preview_url": None,
+        "facturas_docs": [],
+    }
+
+    try:
+        fotos_docs = []
+        for doc in documentos:
+            if doc.categoria != "fotografias":
+                continue
+            archivo_url = None
+            try:
+                archivo_url = _build_project_media_url(doc)
+            except Exception:
+                archivo_url = None
+            fotos_docs.append({
+                "id": doc.id,
+                "titulo": doc.titulo,
+                "archivo_url": archivo_url,
+            })
+        ctx["fotos_docs"] = fotos_docs
+    except Exception:
+        ctx["fotos_docs"] = []
+
+    try:
+        landing_img_id = landing_config.get("imagen_id")
+        landing_preview_url = None
+        if landing_img_id:
+            landing_doc = next(
+                (d for d in documentos if str(d.id) == str(landing_img_id) and d.categoria == "fotografias"),
+                None,
+            )
+            if landing_doc:
+                landing_preview_url = _build_project_media_url(landing_doc)
+        if not landing_preview_url and principal:
+            landing_preview_url = _build_project_media_url(principal)
+        ctx["landing_preview_url"] = landing_preview_url
+    except Exception:
+        ctx["landing_preview_url"] = None
+
+    try:
+        if principal:
+            ctx["foto_principal_url"] = _build_project_media_url(principal)
+            ctx["foto_principal_titulo"] = principal.titulo
+    except Exception:
+        pass
+
+    try:
+        cabecera_id = publicaciones_config.get("cabecera_imagen_id")
+        if cabecera_id:
+            cabecera_doc = next(
+                (d for d in documentos if str(d.id) == str(cabecera_id) and d.categoria == "fotografias"),
+                None,
+            )
+            if cabecera_doc:
+                ctx["foto_principal_url"] = _build_project_media_url(cabecera_doc)
+                ctx["foto_principal_titulo"] = cabecera_doc.titulo
+    except Exception:
+        pass
+
+    try:
+        facturas_docs = []
+        for doc in documentos:
+            if doc.categoria != "facturas":
+                continue
+            archivo_url = None
+            try:
+                archivo_url = _build_project_media_url(doc)
+            except Exception:
+                archivo_url = None
+            facturas_docs.append({
+                "id": doc.id,
+                "titulo": doc.titulo,
+                "fecha": doc.fecha_factura.isoformat() if doc.fecha_factura else None,
+                "importe": float(doc.importe_factura) if doc.importe_factura is not None else None,
+                "archivo_url": archivo_url,
+            })
+        ctx["facturas_docs"] = facturas_docs
+    except Exception:
+        ctx["facturas_docs"] = []
+
+    return ctx
+
+
+def _build_project_media_url(media: Any) -> str | None:
+    """Seleccionar la URL visible de un medio sin tocar ORM ni mutar la entrada."""
+    return _build_project_file_url(media, signed_url_attr="signed_url")
+
+
+def _build_project_storage_url(media: Any) -> str | None:
+    """Seleccionar la URL visible de un archivo almacenado sin tocar ORM ni mutar la entrada."""
+    return _build_project_file_url(media, use_presigned_url=True)
+
+
+def _build_project_file_url(
+    media: Any,
+    request: Any | None = None,
+    *,
+    signed_url_attr: str | None = None,
+    use_presigned_url: bool = False,
+    use_request_absolute_uri: bool = False,
+    empty_on_error: bool = False,
+) -> str | None:
+    """Seleccionar la URL visible de un archivo o medio sin tocar ORM ni mutar la entrada."""
+    if signed_url_attr:
+        signed_url = getattr(media, signed_url_attr, None)
+        if signed_url:
+            return signed_url
+
+    archivo = media.archivo
+    if use_presigned_url:
+        key = getattr(archivo, "name", "") or ""
+        signed = _s3_presigned_url(key)
+        if signed:
+            return signed
+    if use_request_absolute_uri and request:
+        try:
+            return request.build_absolute_uri(archivo.url)
+        except Exception:
+            pass
+    if empty_on_error:
+        try:
+            return archivo.url
+        except Exception:
+            return ""
+    return archivo.url
+
+
+def _apply_project_signed_url(media: Any) -> str:
+    """Calcular y fijar signed_url en un medio sin tocar ORM ni mutar propiedades externas."""
+    media.signed_url = _build_project_signed_url(media)
+    return media.signed_url
+
+
+def _build_project_signed_url(media: Any) -> str:
+    """Obtener la signed_url visible de un medio sin tocar ORM ni mutar la entrada."""
+    key = getattr(getattr(media, "archivo", None), "name", "") or ""
+    signed = _s3_presigned_url(key)
+    return signed or ""
+
+
+def _build_project_documents_collection_context(
+    documentos: Iterable[Any],
+    use_signed: bool = False,
+) -> dict[str, Any]:
+    """Preparar la colección de documentos del proyecto sin tocar ORM ni mutar entradas externas."""
+    documentos = documentos if isinstance(documentos, list) else list(documentos)
+    if use_signed:
+        for doc in documentos:
+            try:
+                _apply_project_signed_url(doc)
+            except Exception:
+                pass
+    return {
+        "documentos_por_categoria": _build_project_documents_by_category(documentos),
+        "documentos": documentos,
+    }
+
+
+def _select_project_document_principal(documentos: Iterable[Any]) -> Any | None:
+    """Seleccionar la foto principal del proyecto sin tocar ORM ni mutar entradas."""
+    documentos = documentos if isinstance(documentos, list) else list(documentos)
+    principal = next((d for d in documentos if d.categoria == "fotografias" and d.es_principal), None)
+    if principal is None:
+        principal = next((d for d in documentos if d.categoria == "fotografias"), None)
+    return principal
+
+
+def _build_project_documents_by_category(documentos: Iterable[Any]) -> dict[str, list[Any]]:
+    """Agrupar documentos por categoría sin tocar ORM ni mutar entradas."""
+    categorias_map: dict[str, list[Any]] = {}
+    for doc in documentos:
+        cat = getattr(doc, "categoria", "otros") or "otros"
+        categorias_map.setdefault(cat, []).append(doc)
+    return categorias_map
+
+
+def _build_project_facturas_gasto_context(facturas: Iterable[Any]) -> list[dict[str, Any]]:
+    """Serializar facturas de gasto sin tocar ORM ni mutar entradas."""
+    facturas_ctx: list[dict[str, Any]] = []
+    for factura in facturas:
+        factura_url = None
+        try:
+            factura_url = _build_project_storage_url(factura)
+        except Exception:
+            factura_url = None
+        facturas_ctx.append({
+            "id": factura.id,
+            "gasto_id": factura.gasto_id,
+            "concepto": factura.gasto.concepto if factura.gasto else "—",
+            "fecha": factura.gasto.fecha if factura.gasto else None,
+            "importe": factura.gasto.importe if factura.gasto else None,
+            "archivo_url": factura_url,
+            "nombre": factura.nombre_original or (os.path.basename(factura.archivo.name) if factura.archivo else "Factura"),
+        })
+    return facturas_ctx
+
+
+def _build_project_facturas_docs_lookup(documentos: Iterable[Any]) -> dict[tuple[Any, Any], Any]:
+    """Indexar documentos de factura por fecha e importe sin tocar ORM ni mutar entradas."""
+    facturas_docs: dict[tuple[Any, Any], Any] = {}
+    for doc in documentos:
+        key = (doc.fecha_factura, doc.importe_factura)
+        if key not in facturas_docs:
+            facturas_docs[key] = doc
+    return facturas_docs
+
+
+def _build_project_gasto_factura_url(
+    gasto: Any,
+    can_preview: bool,
+    facturas_docs: dict[tuple[Any, Any], Any],
+) -> str | None:
+    """Resolver la URL de factura de un gasto sin tocar ORM ni mutar entradas."""
+    if not can_preview:
+        return None
+
+    factura_url = None
+    if hasattr(gasto, "factura") and gasto.factura:
+        try:
+            factura_url = _build_project_storage_url(gasto.factura)
+        except Exception:
+            factura_url = None
+    if not factura_url and facturas_docs:
+        doc = facturas_docs.get((gasto.fecha, gasto.importe))
+        if doc and doc.archivo:
+            try:
+                factura_url = _build_project_storage_url(doc)
+            except Exception:
+                factura_url = None
+    return factura_url
+
+
+def _build_project_gasto_payload(gasto: Any, factura_url: str | None) -> dict[str, Any]:
+    """Serializar un gasto sin tocar ORM ni mutar la entrada."""
+    return {
+        "id": gasto.id,
+        "fecha": gasto.fecha.isoformat(),
+        "categoria": gasto.categoria,
+        "concepto": gasto.concepto,
+        "proveedor": gasto.proveedor,
+        "importe": float(gasto.importe),
+        "imputable_inversores": gasto.imputable_inversores,
+        "estado": gasto.estado or "estimado",
+        "observaciones": gasto.observaciones,
+        "pagado": bool(getattr(gasto, "pagado", False)),
+        "factura_url": factura_url,
+        "has_factura": bool(factura_url),
+    }
+
+
+def _build_project_ingreso_justificante_url(ingreso_justificante: Any) -> str | None:
+    """Resolver la URL visible de un justificante sin tocar ORM ni mutar la entrada."""
+    if not getattr(ingreso_justificante, "archivo", None):
+        return None
+    try:
+        return _build_project_storage_url(ingreso_justificante)
+    except Exception:
+        return None
+
+
+def _build_project_ingreso_payload(ingreso: Any, justificante_url: str | None) -> dict[str, Any]:
+    """Serializar un ingreso sin tocar ORM ni mutar la entrada."""
+    return {
+        "id": ingreso.id,
+        "fecha": ingreso.fecha.isoformat(),
+        "tipo": ingreso.tipo,
+        "concepto": ingreso.concepto,
+        "importe": float(ingreso.importe),
+        "estado": ingreso.estado or "estimado",
+        "imputable_inversores": ingreso.imputable_inversores,
+        "observaciones": ingreso.observaciones,
+        "pagado": bool(getattr(ingreso, "pagado", False)),
+        "justificante_url": justificante_url,
+        "has_justificante": bool(justificante_url),
+    }
+
+
+def _build_project_participaciones_context(
+    participaciones: list[Any],
+    capital_objetivo: Decimal,
+    total_confirmadas: Decimal,
+) -> list[Any]:
+    """Normalizar porcentajes de participaciones sin tocar ORM ni mutar la lista."""
+    for participacion in participaciones:
+        if participacion.porcentaje_participacion is not None:
+            continue
+        pct = None
+        if capital_objetivo > 0:
+            pct = (participacion.importe_invertido / capital_objetivo) * Decimal("100")
+        elif total_confirmadas > 0:
+            pct = (participacion.importe_invertido / total_confirmadas) * Decimal("100")
+        if pct is not None:
+            participacion.porcentaje_participacion = pct
+    return participaciones
+
+
+def _build_project_editability_flags(editable_base: bool, estado: str) -> tuple[bool, bool]:
+    """Aplicar la regla de cierre del proyecto sin tocar ORM ni mutar entradas."""
+    editable = editable_base
+    editable_estado = editable_base
+    estados_cierre = {"cerrado", "cerrado_positivo", "cerrado_negativo", "finalizado", "descartado"}
+    if estado in estados_cierre:
+        editable = False
+    return editable, editable_estado
+
+
+def _build_project_plazo_context(
+    fecha_compra_calc: date | None,
+    fecha_reserva_calc: date | None,
+    estado_lower: str,
+    *,
+    hoy: date,
+) -> dict[str, Any]:
+    """Construir el KPI de plazo sin tocar ORM ni mutar entradas."""
+    ctx: dict[str, Any] = {}
+    if isinstance(fecha_compra_calc, date):
+        usa_reserva = estado_lower in {"reservado", "vendido", "cerrado"} and isinstance(fecha_reserva_calc, date)
+        fin = fecha_reserva_calc if usa_reserva else hoy
+        if fin >= fecha_compra_calc:
+            dias = (fin - fecha_compra_calc).days
+            ctx["plazo_compra_reserva_dias"] = dias
+            ctx["plazo_compra_reserva_desde"] = fecha_compra_calc.isoformat()
+            ctx["plazo_compra_reserva_hasta"] = fin.isoformat()
+            ctx["plazo_compra_reserva_modo"] = "compra_a_reserva" if usa_reserva else "dias_desde_compra"
+    return ctx
+
+
+def _build_project_aux_context(
+    checklist_items: Iterable[Any],
+    clientes: Iterable[Any],
+    difusion_clientes_ids: Iterable[Any],
+    solicitudes_pendientes_count: int,
+) -> dict[str, Any]:
+    """Construir el contexto auxiliar del proyecto sin tocar ORM ni mutar entradas."""
+    return {
+        "checklist_items": checklist_items,
+        "clientes": clientes,
+        "difusion_clientes_ids": list(difusion_clientes_ids),
+        "solicitudes_pendientes_count": solicitudes_pendientes_count,
+        "documento_categorias": DocumentoProyecto.CATEGORIAS,
+    }
+
+
+def _build_project_overlay_context(
+    extra: dict[str, Any] | None,
+    overlay: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Construir el bloque de configuración del proyecto sin tocar ORM ni mutar entradas."""
+    extra = extra if isinstance(extra, dict) else {}
+    overlay = overlay if isinstance(overlay, dict) else {}
+
+    landing_config = extra.get("landing", {})
+    if not landing_config and isinstance(overlay, dict):
+        landing_config = overlay.get("landing", {}) or {}
+    landing_config = landing_config if isinstance(landing_config, dict) else {}
+
+    publicaciones_config = extra.get("publicaciones", {})
+    if not publicaciones_config and isinstance(overlay, dict):
+        publicaciones_config = overlay.get("publicaciones", {}) or {}
+    publicaciones_config = publicaciones_config if isinstance(publicaciones_config, dict) else {}
+
+    difusion_config = extra.get("difusion", {})
+    if not difusion_config and isinstance(overlay, dict):
+        difusion_config = overlay.get("difusion", {}) or {}
+    difusion_config = difusion_config if isinstance(difusion_config, dict) else {}
+
+    pending_estado_notif = extra.get("pending_estado_notif")
+    anexos_map = difusion_config.get("anexos") if isinstance(difusion_config, dict) else {}
+    if isinstance(anexos_map, dict):
+        difusion_anexos_ids = {str(k) for k, v in anexos_map.items() if v}
+    else:
+        difusion_anexos_ids = set()
+
+    return {
+        "landing_config": landing_config,
+        "publicaciones_config": publicaciones_config,
+        "difusion_config": difusion_config,
+        "pending_estado_notif": pending_estado_notif,
+        "difusion_anexos_ids": difusion_anexos_ids,
+    }
+
+
+def _build_user_display_name(
+    user: Any,
+    *,
+    strip: bool = False,
+    prefer_get_username: bool = False,
+) -> str:
+    """Normalizar un nombre visible sin mutar la entrada."""
+    if prefer_get_username:
+        label = user.get_full_name() or user.get_username() or ""
+    else:
+        label = user.get_full_name() or user.username or ""
+    return label.strip() if strip else label
+
+
+def _build_responsable_label(responsable_user: Any) -> str:
+    """Normalizar el nombre visible de un responsable sin tocar la entrada."""
+    return _build_user_display_name(responsable_user, strip=True)
+
+
+def _build_username_key(user: Any) -> str:
+    """Normalizar un username para comparaciones sin mutar la entrada."""
+    return (getattr(user, "username", "") or "").strip().lower()
+
+
+def _build_checklist_users_context(usuarios_responsables: Iterable[Any]) -> list[dict[str, Any]]:
+    """Construir el payload de usuarios para checklist sin tocar ORM ni mutar entradas."""
+    try:
+        return [
+            {
+                "id": u.id,
+                "label": _build_responsable_label(u),
+            }
+            for u in usuarios_responsables
+        ]
+    except Exception:
+        return []
 
 
 def _capital_objetivo_desde_memoria(proyecto: Proyecto, snapshot: dict | None = None) -> float:
@@ -3552,238 +4281,159 @@ def _datos_inmueble_desde_estudio(estudio: Estudio) -> dict:
     }
 
 
-def _build_dashboard_context(user):
-    perms = resolve_permissions(user)
-    estados_cerrados = {"cerrado", "descartado"}
-    proyectos = Proyecto.objects.all()
-    proyectos_activos = proyectos.exclude(estado__in=estados_cerrados)
-    activos_ids = list(proyectos_activos.values_list("id", flat=True))
-    capital_acumulado = (
-        Participacion.objects.filter(estado="confirmada")
-        .aggregate(total=Sum("importe_invertido"))
-        .get("total")
-        or Decimal("0")
-    )
-    inversores_con_cuota = (
-        Cliente.objects.filter(participaciones__estado="confirmada", cuota_abonada=True)
-        .distinct()
-        .count()
-    )
-    capital_actual = (
-        Participacion.objects.filter(estado="confirmada", proyecto_id__in=activos_ids)
-        .aggregate(total=Sum("importe_invertido"))
-        .get("total")
-        or Decimal("0")
-    )
-    inversores_activos = (
-        Participacion.objects.filter(estado="confirmada", proyecto_id__in=activos_ids)
-        .values_list("cliente_id", flat=True)
-        .distinct()
-        .count()
-    )
-    total_operaciones = proyectos.count()
-
-    perfiles = {
-        p.cliente_id: p
-        for p in InversorPerfil.objects.filter(cliente_id__in=Participacion.objects.filter(estado="confirmada").values_list("cliente_id", flat=True))
-    }
-    aportacion_por_cliente = {}
-    for part in (
-        Participacion.objects.filter(estado="confirmada")
-        .order_by("cliente_id", "creado", "id")
-    ):
-        if part.cliente_id in aportacion_por_cliente:
-            continue
-        perfil = perfiles.get(part.cliente_id)
-        override = getattr(perfil, "aportacion_inicial_override", None) if perfil else None
-        if override not in (None, ""):
-            aportacion_por_cliente[part.cliente_id] = Decimal(override)
-        else:
-            aportacion_por_cliente[part.cliente_id] = Decimal(part.importe_invertido or 0)
-    capital_en_vigor = sum(aportacion_por_cliente.values(), Decimal("0"))
-
-    estado_colores = {
-        "captacion": "#f59e0b",
-        "comprado": "#0ea5e9",
-        "comercializacion": "#6366f1",
-        "reservado": "#22c55e",
-        "vendido": "#10b981",
-        "cerrado": "#14b8a6",
-        "descartado": "#94a3b8",
-    }
-    beneficios = []
-    total_beneficio = 0.0
-    for proyecto in proyectos:
-        snap = _get_snapshot_comunicacion(proyecto)
-        resultado = _resultado_desde_memoria(proyecto, snap)
-        beneficio = float(resultado.get("beneficio_neto") or 0.0)
-        valor_adq = float(resultado.get("valor_adquisicion") or 0.0)
-        pct_beneficio = (beneficio / valor_adq * 100.0) if valor_adq else 0.0
-        total_beneficio += beneficio
-        estado = proyecto.estado or ""
-        estado_label = proyecto.get_estado_display() if hasattr(proyecto, "get_estado_display") else estado
-        beneficios.append(
-            {
-                "nombre": proyecto.nombre or f"Proyecto {proyecto.id}",
-                "valor": beneficio,
-                "pct_beneficio": pct_beneficio,
-                "estado": estado,
-                "estado_label": estado_label,
+def _empty_dashboard_payload() -> dict[str, Any]:
+    empty_filters = FinancialDashboardFilters().to_dict()
+    return {
+        "meta": {
+            "generated_at": "",
+            "cache_key": "",
+            "cache_ready": False,
+            "scope": "",
+        },
+        "filters": empty_filters,
+        "permissions": {},
+        "scope": {
+            "project_count": 0,
+            "active_project_count": 0,
+            "finalized_project_count": 0,
+            "has_filters": False,
+        },
+        "kpis": {
+            "inversores_activos": 0,
+            "inversores_cuota": 0,
+            "capital_en_vigor": Decimal("0"),
+            "capital_actual": Decimal("0"),
+            "capital_acumulado": Decimal("0"),
+            "capital_total_invertido": Decimal("0"),
+            "capital_total_invertido_activo": Decimal("0"),
+            "capital_pendiente": Decimal("0"),
+            "capital_pendiente_total": Decimal("0"),
+            "operaciones": 0,
+            "proyectos_activos": 0,
+            "proyectos_finalizados": 0,
+            "beneficio_total": 0.0,
+            "beneficio_medio": 0.0,
+            "beneficio_estimado_total": 0.0,
+            "beneficio_real_total": 0.0,
+            "roi_medio": 0.0,
+            "roi_medio_ponderado": 0.0,
+            "beneficio_cerrado_bruto": 0.0,
+            "beneficio_cerrado_neto": 0.0,
+            "beneficio_cerrado_bruto_medio": 0.0,
+            "beneficio_cerrado_neto_medio": 0.0,
+            "beneficio_abierto_bruto": 0.0,
+            "beneficio_abierto_neto": 0.0,
+            "beneficio_cerrado_roi_bruto_total": 0.0,
+            "beneficio_cerrado_roi_neto_total": 0.0,
+            "beneficio_cerrado_roi_bruto_medio": 0.0,
+            "beneficio_cerrado_roi_neto_medio": 0.0,
+            "beneficio_inversure": 0.0,
+        },
+        "period": {
+            "applied": False,
+            "fecha_desde": None,
+            "fecha_hasta": None,
+            "proyecto_id": None,
+            "estado": None,
+            "project_count": 0,
+            "range_days": None,
+        },
+        "series": {
+            "monthly": {
+                "investment": [],
+                "income": [],
+                "expense": [],
+                "performance": [],
             }
-        )
+        },
+        "charts": {
+            "state_distribution": [],
+            "benefit_bars": [],
+            "deviation": [],
+        },
+        "rankings": {
+            "best_roi": [],
+            "worst_roi": [],
+            "best_benefit": [],
+            "worst_benefit": [],
+            "investment_return": [],
+        },
+        "alerts": {
+            "operational": {"pendientes": 0, "vencidas": 0, "items": []},
+            "financial": {
+                "pending_solicitudes": 0,
+                "negative_roi_projects": [],
+                "over_budget_projects": [],
+                "missing_facturas": [],
+                "missing_justificantes": [],
+                "items": [],
+            },
+            "summary": {"total": 0, "critical": 0, "warning": 0, "info": 0},
+        },
+        "projects": [],
+    }
 
-    beneficios_validos = [b for b in beneficios if b["valor"] is not None]
-    avg_beneficio = (
-        (total_beneficio / len(beneficios_validos)) if beneficios_validos else 0.0
-    )
-    max_beneficio = max([b["valor"] for b in beneficios_validos], default=0.0)
-    beneficios_chart = []
-    for b in sorted(beneficios_validos, key=lambda x: x["valor"], reverse=True):
-        pct = (b["valor"] / max_beneficio * 100.0) if max_beneficio else 0.0
-        beneficios_chart.append(
-            {
-                "nombre": b["nombre"],
-                "valor": b["valor"],
-                "valor_fmt": _fmt_eur(b["valor"]),
-                "pct_fmt": _fmt_pct(b.get("pct_beneficio") or 0.0),
-                "estado": b.get("estado") or "",
-                "estado_label": b.get("estado_label") or "",
-                "color": estado_colores.get(b.get("estado"), "#f2b53b"),
-                "pct": pct,
-            }
-        )
 
-    def _fmt_money(value):
+def _dashboard_context_from_payload(user, dashboard: dict[str, Any]) -> dict[str, Any]:
+    perms = dashboard.get("permissions", {}) if isinstance(dashboard, dict) else {}
+    summary = dashboard.get("kpis", {}) if isinstance(dashboard, dict) else {}
+    charts = dashboard.get("charts", {}) if isinstance(dashboard, dict) else {}
+    alerts = dashboard.get("alerts", {}) if isinstance(dashboard, dict) else {}
+    project_metrics = dashboard.get("projects", []) if isinstance(dashboard, dict) else []
+
+    def _money_fmt(value):
         return _fmt_eur(float(value or 0.0))
 
-    def _calc_beneficios_operacion(proyecto: Proyecto, snapshot: dict) -> dict:
-        resultado = _resultado_desde_memoria(proyecto, snapshot)
-        beneficio_bruto = float(resultado.get("beneficio_neto") or 0.0)
-        valor_adquisicion = float(resultado.get("valor_adquisicion") or 0.0)
-        inversion_total = float(resultado.get("inversion_total") or 0.0)
-        inv_sec = snapshot.get("inversor") if isinstance(snapshot.get("inversor"), dict) else {}
-        comision_pct = _safe_float(
-            inv_sec.get("comision_inversure_pct")
-            or inv_sec.get("inversure_comision_pct")
-            or inv_sec.get("comision_pct")
-            or snapshot.get("comision_inversure_pct")
-            or snapshot.get("inversure_comision_pct")
-            or snapshot.get("comision_pct")
-            or 0.0,
-            0.0,
-        )
-        comision_pct = max(0.0, min(100.0, comision_pct))
-        comision_eur = beneficio_bruto * (comision_pct / 100.0) if beneficio_bruto else 0.0
-        beneficio_neto = beneficio_bruto - comision_eur
+    dashboard_stats = {
+        "inversores_activos": summary.get("inversores_activos", 0),
+        "inversores_cuota": summary.get("inversores_cuota", 0),
+        "capital_en_vigor": summary.get("capital_en_vigor", Decimal("0")),
+        "capital_actual": summary.get("capital_actual", Decimal("0")),
+        "capital_acumulado": summary.get("capital_acumulado", Decimal("0")),
+        "operaciones": summary.get("operaciones", 0),
+        "beneficio_total": summary.get("beneficio_total", 0.0),
+        "beneficio_medio": summary.get("beneficio_medio", 0.0),
+        "beneficio_cerrado_bruto": summary.get("beneficio_cerrado_bruto", 0.0),
+        "beneficio_cerrado_neto": summary.get("beneficio_cerrado_neto", 0.0),
+        "beneficio_cerrado_bruto_medio": summary.get("beneficio_cerrado_bruto_medio", 0.0),
+        "beneficio_cerrado_neto_medio": summary.get("beneficio_cerrado_neto_medio", 0.0),
+        "beneficio_abierto_bruto": summary.get("beneficio_abierto_bruto", 0.0),
+        "beneficio_abierto_neto": summary.get("beneficio_abierto_neto", 0.0),
+        "beneficio_cerrado_roi_bruto_total": summary.get("beneficio_cerrado_roi_bruto_total", 0.0),
+        "beneficio_cerrado_roi_neto_total": summary.get("beneficio_cerrado_roi_neto_total", 0.0),
+        "beneficio_cerrado_roi_bruto_medio": summary.get("beneficio_cerrado_roi_bruto_medio", 0.0),
+        "beneficio_cerrado_roi_neto_medio": summary.get("beneficio_cerrado_roi_neto_medio", 0.0),
+        "beneficio_inversure": summary.get("beneficio_inversure", 0.0),
+    }
 
-        proj_extra = proyecto.extra if isinstance(proyecto.extra, dict) else {}
-        proj_override = proj_extra.get("beneficio_operacion_override")
-        if isinstance(proj_override, dict):
-            override_bruto = proj_override.get("beneficio_bruto")
-            override_comision = proj_override.get("comision_eur")
-            override_neto = proj_override.get("beneficio_neto_total")
-            if override_bruto not in (None, ""):
-                beneficio_bruto = _safe_float(override_bruto, beneficio_bruto)
-            if override_comision not in (None, ""):
-                comision_eur = _safe_float(override_comision, comision_eur)
-            if override_neto not in (None, ""):
-                beneficio_neto = _safe_float(override_neto, beneficio_neto)
-            elif override_bruto not in (None, "") or override_comision not in (None, ""):
-                beneficio_neto = beneficio_bruto - comision_eur
-        return {
-            "beneficio_bruto": beneficio_bruto,
-            "beneficio_neto": beneficio_neto,
-            "comision_eur": comision_eur,
-            "valor_adquisicion": valor_adquisicion,
-            "inversion_total": inversion_total,
+    dashboard_stats_fmt = {
+        "capital_en_vigor": _money_fmt(dashboard_stats["capital_en_vigor"]),
+        "capital_actual": _money_fmt(dashboard_stats["capital_actual"]),
+        "capital_acumulado": _money_fmt(dashboard_stats["capital_acumulado"]),
+        "beneficio_total": _money_fmt(dashboard_stats["beneficio_total"]),
+        "beneficio_medio": _money_fmt(dashboard_stats["beneficio_medio"]),
+        "beneficio_cerrado_bruto": _money_fmt(dashboard_stats["beneficio_cerrado_bruto"]),
+        "beneficio_cerrado_neto": _money_fmt(dashboard_stats["beneficio_cerrado_neto"]),
+        "beneficio_cerrado_bruto_medio": _money_fmt(dashboard_stats["beneficio_cerrado_bruto_medio"]),
+        "beneficio_cerrado_neto_medio": _money_fmt(dashboard_stats["beneficio_cerrado_neto_medio"]),
+        "beneficio_abierto_bruto": _money_fmt(dashboard_stats["beneficio_abierto_bruto"]),
+        "beneficio_abierto_neto": _money_fmt(dashboard_stats["beneficio_abierto_neto"]),
+        "beneficio_cerrado_roi_bruto_total": _fmt_pct(float(dashboard_stats["beneficio_cerrado_roi_bruto_total"] or 0.0)),
+        "beneficio_cerrado_roi_neto_total": _fmt_pct(float(dashboard_stats["beneficio_cerrado_roi_neto_total"] or 0.0)),
+        "beneficio_cerrado_roi_bruto_medio": _fmt_pct(float(dashboard_stats["beneficio_cerrado_roi_bruto_medio"] or 0.0)),
+        "beneficio_cerrado_roi_neto_medio": _fmt_pct(float(dashboard_stats["beneficio_cerrado_roi_neto_medio"] or 0.0)),
+        "beneficio_inversure": _money_fmt(dashboard_stats["beneficio_inversure"]),
+    }
+
+    proyectos_estado = [
+        {
+            "id": metric["project_id"],
+            "nombre": metric["nombre"],
+            "estado": metric["estado"],
+            "estado_label": metric["estado_label"],
         }
-
-    proyectos_estado = []
-    cerrado_estados = {"cerrado"}
-    abierto_estados = {"captacion", "comprado", "comercializacion", "reservado", "vendido"}
-    cerrado_bruto = cerrado_neto = 0.0
-    cerrado_inversion_total = 0.0
-    cerrado_roi_bruto = []
-    cerrado_roi_neto = []
-    abierto_bruto = abierto_neto = 0.0
-    total_comision_inversure = 0.0
-    beneficio_deviation = []
-    for proyecto in proyectos:
-        snap = _get_snapshot_comunicacion(proyecto)
-        benef = _calc_beneficios_operacion(proyecto, snap)
-        beneficio_bruto = benef["beneficio_bruto"]
-        beneficio_neto = benef["beneficio_neto"]
-        valor_adquisicion = benef["valor_adquisicion"]
-        total_comision_inversure += benef.get("comision_eur") or 0.0
-        estado = proyecto.estado or ""
-        estado_label = proyecto.get_estado_display() if hasattr(proyecto, "get_estado_display") else estado
-        proyectos_estado.append(
-            {
-                "id": proyecto.id,
-                "nombre": proyecto.nombre or f"Proyecto {proyecto.id}",
-                "estado": estado,
-                "estado_label": estado_label,
-            }
-        )
-        if estado in cerrado_estados:
-            cerrado_bruto += beneficio_bruto
-            cerrado_neto += beneficio_neto
-            inversion_total = float(benef.get("inversion_total") or 0.0)
-            cerrado_inversion_total += inversion_total
-            if inversion_total:
-                cerrado_roi_bruto.append(beneficio_bruto / inversion_total * 100.0)
-                cerrado_roi_neto.append(beneficio_neto / inversion_total * 100.0)
-        elif estado in abierto_estados:
-            abierto_bruto += beneficio_bruto
-            abierto_neto += beneficio_neto
-
-        memoria_benef = _beneficio_estimado_real_memoria(proyecto)
-        beneficio_estimado = memoria_benef.get("beneficio_estimado", 0.0)
-        beneficio_real = memoria_benef.get("beneficio_real", 0.0)
-        if memoria_benef.get("has_movimientos"):
-            beneficio_deviation.append(
-                {
-                    "nombre": proyecto.nombre or f"Proyecto {proyecto.id}",
-                    "estimado": float(beneficio_estimado or 0.0),
-                    "real": float(beneficio_real or 0.0),
-                }
-            )
-
-    cerrado_roi_bruto_total = (
-        (cerrado_bruto / cerrado_inversion_total * 100.0) if cerrado_inversion_total else 0.0
-    )
-    cerrado_roi_neto_total = (
-        (cerrado_neto / cerrado_inversion_total * 100.0) if cerrado_inversion_total else 0.0
-    )
-    cerrado_roi_bruto_medio = (
-        sum(cerrado_roi_bruto) / len(cerrado_roi_bruto) if cerrado_roi_bruto else 0.0
-    )
-    cerrado_roi_neto_medio = (
-        sum(cerrado_roi_neto) / len(cerrado_roi_neto) if cerrado_roi_neto else 0.0
-    )
-    cerrado_bruto_medio = (cerrado_bruto / len(cerrado_roi_bruto)) if cerrado_roi_bruto else 0.0
-    cerrado_neto_medio = (cerrado_neto / len(cerrado_roi_neto)) if cerrado_roi_neto else 0.0
-
-    today = timezone.now().date()
-    checklist_qs = ChecklistItem.objects.select_related("proyecto").exclude(estado="hecho")
-    if is_comercial_user(user) and not _user_is_admin_or_direccion(user):
-        checklist_qs = checklist_qs.filter(responsable_user=user)
-    checklist_overdue_qs = checklist_qs.filter(fecha_objetivo__lt=today)
-    checklist_items = []
-    for it in checklist_qs.order_by("fecha_objetivo", "id")[:6]:
-        overdue = bool(it.fecha_objetivo and it.fecha_objetivo < today)
-        dias_retraso = (today - it.fecha_objetivo).days if overdue else 0
-        checklist_items.append(
-            {
-                "proyecto": it.proyecto.nombre if it.proyecto else "",
-                "fase": it.get_fase_display(),
-                "titulo": it.titulo,
-                "responsable": it.responsable or "",
-                "fecha_objetivo": it.fecha_objetivo,
-                "overdue": overdue,
-                "dias_retraso": dias_retraso,
-            }
-        )
+        for metric in project_metrics
+    ]
 
     return {
         "is_admin": is_admin_user(user),
@@ -3794,54 +4444,43 @@ def _build_dashboard_context(user):
         "can_inversores": perms.get("can_inversores"),
         "can_usuarios": perms.get("can_usuarios"),
         "can_cms": perms.get("can_cms"),
-        "dashboard_stats": {
-            "inversores_activos": inversores_activos,
-            "inversores_cuota": inversores_con_cuota,
-            "capital_en_vigor": capital_en_vigor,
-            "capital_actual": capital_actual,
-            "capital_acumulado": capital_acumulado,
-            "operaciones": total_operaciones,
-            "beneficio_total": total_beneficio,
-            "beneficio_medio": avg_beneficio,
-            "beneficio_cerrado_bruto": cerrado_bruto,
-            "beneficio_cerrado_neto": cerrado_neto,
-            "beneficio_cerrado_bruto_medio": cerrado_bruto_medio,
-            "beneficio_cerrado_neto_medio": cerrado_neto_medio,
-            "beneficio_abierto_bruto": abierto_bruto,
-            "beneficio_abierto_neto": abierto_neto,
-            "beneficio_cerrado_roi_bruto_total": cerrado_roi_bruto_total,
-            "beneficio_cerrado_roi_neto_total": cerrado_roi_neto_total,
-            "beneficio_cerrado_roi_bruto_medio": cerrado_roi_bruto_medio,
-            "beneficio_cerrado_roi_neto_medio": cerrado_roi_neto_medio,
-            "beneficio_inversure": total_comision_inversure,
-        },
-        "dashboard_stats_fmt": {
-            "capital_en_vigor": _fmt_money(capital_en_vigor),
-            "capital_actual": _fmt_money(capital_actual),
-            "capital_acumulado": _fmt_money(capital_acumulado),
-            "beneficio_total": _fmt_money(total_beneficio),
-            "beneficio_medio": _fmt_money(avg_beneficio),
-            "beneficio_cerrado_bruto": _fmt_money(cerrado_bruto),
-            "beneficio_cerrado_neto": _fmt_money(cerrado_neto),
-            "beneficio_cerrado_bruto_medio": _fmt_money(cerrado_bruto_medio),
-            "beneficio_cerrado_neto_medio": _fmt_money(cerrado_neto_medio),
-            "beneficio_abierto_bruto": _fmt_money(abierto_bruto),
-            "beneficio_abierto_neto": _fmt_money(abierto_neto),
-            "beneficio_cerrado_roi_bruto_total": _fmt_pct(cerrado_roi_bruto_total),
-            "beneficio_cerrado_roi_neto_total": _fmt_pct(cerrado_roi_neto_total),
-            "beneficio_cerrado_roi_bruto_medio": _fmt_pct(cerrado_roi_bruto_medio),
-            "beneficio_cerrado_roi_neto_medio": _fmt_pct(cerrado_roi_neto_medio),
-            "beneficio_inversure": _fmt_money(total_comision_inversure),
-        },
-        "beneficios_chart": beneficios_chart,
-        "beneficio_deviation_chart": beneficio_deviation,
+        "dashboard_stats": dashboard_stats,
+        "dashboard_stats_fmt": dashboard_stats_fmt,
+        "beneficios_chart": list(charts.get("benefit_bars", [])),
+        "beneficio_deviation_chart": [
+            {
+                "nombre": item.get("nombre", ""),
+                "estimado": item.get("estimado", 0.0),
+                "real": item.get("real", 0.0),
+            }
+            for item in charts.get("deviation", [])
+        ],
         "proyectos_estado": proyectos_estado,
-        "checklist_alerts": {
-            "pendientes": checklist_qs.count(),
-            "vencidas": checklist_overdue_qs.count(),
-            "items": checklist_items,
-        },
+        "checklist_alerts": alerts.get("operational", {"pendientes": 0, "vencidas": 0, "items": []}),
+        "dashboard_operational_alert_items": alerts.get("operational", {}).get("items", []),
+        "dashboard_financial_alert_items": alerts.get("financial", {}).get("items", []),
+        "dashboard_alert_summary": alerts.get("summary", {"total": 0, "critical": 0, "warning": 0, "info": 0}),
+        "dashboard_state_distribution": charts.get("state_distribution", []),
+        "dashboard_benefit_bars": charts.get("benefit_bars", []),
+        "dashboard_deviation_rows": dashboard.get("charts", {}).get("deviation", []) if isinstance(dashboard, dict) else [],
+        "dashboard_best_roi": dashboard.get("rankings", {}).get("best_roi", []) if isinstance(dashboard, dict) else [],
+        "dashboard_worst_roi": dashboard.get("rankings", {}).get("worst_roi", []) if isinstance(dashboard, dict) else [],
+        "dashboard_investment_return": dashboard.get("rankings", {}).get("investment_return", []) if isinstance(dashboard, dict) else [],
+        "dashboard_monthly_series": dashboard.get("series", {}).get("monthly", {}) if isinstance(dashboard, dict) else {},
+        "dashboard_payload": dashboard,
+        "dashboard_filters": dashboard.get("filters", {}) if isinstance(dashboard, dict) else {},
+        "dashboard_projects": project_metrics,
+        "dashboard_rankings": dashboard.get("rankings", {}) if isinstance(dashboard, dict) else {},
+        "dashboard_series": dashboard.get("series", {}) if isinstance(dashboard, dict) else {},
+        "dashboard_charts": charts,
+        "dashboard_alerts": alerts,
+        "dashboard_state_options": list(Proyecto.ESTADO_CHOICES),
     }
+
+
+def _build_dashboard_context(user, filters: FinancialDashboardFilters | None = None):
+    dashboard = FinancialDashboardService(user, filters=filters).build()
+    return _dashboard_context_from_payload(user, dashboard)
 
 
 def home(request):
@@ -3959,7 +4598,8 @@ def otros_proyectos(request):
 
 def dashboard(request):
     try:
-        ctx = _build_dashboard_context(request.user)
+        filters = FinancialDashboardFilters.from_mapping(request.GET)
+        ctx = _build_dashboard_context(request.user, filters=filters)
     except Exception as exc:
         try:
             import traceback
@@ -3968,11 +4608,21 @@ def dashboard(request):
             traceback.print_exc()
         except Exception:
             pass
-        ctx = {
-            "is_admin": is_admin_user(request.user),
-            "dashboard_error": f"{type(exc).__name__}: {exc}",
-        }
+        ctx = _dashboard_context_from_payload(request.user, _empty_dashboard_payload())
+        ctx.update(
+            {
+                "is_admin": is_admin_user(request.user),
+                "dashboard_error": f"{type(exc).__name__}: {exc}",
+            }
+        )
     return render(request, "core/dashboard.html", ctx)
+
+
+@require_GET
+def dashboard_data(request):
+    filters = FinancialDashboardFilters.from_mapping(request.GET)
+    payload = FinancialDashboardService(request.user, filters=filters).build()
+    return JsonResponse(payload)
 
 
 def checklist_pendientes(request):
@@ -4111,9 +4761,7 @@ def simulador(request):
     try:
         if estudio_obj is not None:
             datos0 = getattr(estudio_obj, "datos", None) or {}
-            if isinstance(datos0, dict):
-                # Preferimos snapshot si existe; si no, el JSON completo
-                estado_inicial = datos0.get("snapshot") or datos0
+            estado_inicial = _build_estado_inicial_context(datos0)
     except Exception:
         estado_inicial = {}
 
@@ -4234,26 +4882,46 @@ def lista_proyectos(request):
         ):
             captado_map[row["proyecto_id"]] = _as_float(row.get("total"), 0.0)
 
+    def _capital_objetivo_desde_resultado(resultado: dict, proyecto: Proyecto) -> float:
+        capital_objetivo = _as_float(resultado.get("gastos_real_total"), 0.0)
+        if capital_objetivo > 0:
+            return capital_objetivo
+        capital_objetivo = _as_float(resultado.get("gastos_est_total"), 0.0)
+        if capital_objetivo > 0:
+            return capital_objetivo
+        capital_objetivo = _as_float(resultado.get("valor_adquisicion"), 0.0)
+        if capital_objetivo <= 0:
+            capital_objetivo = _as_float(
+                getattr(proyecto, "precio_compra_inmueble", None)
+                or getattr(proyecto, "precio_propiedad", None)
+                or 0.0,
+                0.0,
+            )
+        return capital_objetivo
+
     # Enriquecer cada proyecto con métricas heredadas (sin exigir cambios en el template)
     for p in proyectos:
         try:
             snap = _get_snapshot(p)
+            resultado = None
 
-            # Capital objetivo: total de gastos (real/estimado) desde memoria
             try:
-                capital_objetivo = _as_float(_capital_objetivo_desde_memoria(p, snap), 0.0)
+                resultado = _resultado_desde_memoria(p, snap)
+            except Exception:
+                pass
+
+            try:
+                capital_objetivo = _capital_objetivo_desde_resultado(resultado, p) if resultado is not None else 0.0
             except Exception:
                 capital_objetivo = 0.0
 
-            # Capital captado: suma de participaciones confirmadas del proyecto
-            capital_captado = _as_float(captado_map.get(p.id), 0.0)
-
-            # ROI dinámico (fuente de verdad: movimientos reales/estimados del proyecto).
             try:
-                resultado = _resultado_desde_memoria(p, snap)
-                roi = _as_float(resultado.get("roi"), 0.0)
+                roi = _as_float(resultado.get("roi"), 0.0) if resultado is not None else 0.0
             except Exception:
                 roi = 0.0
+
+            # Capital captado: suma de participaciones confirmadas del proyecto
+            capital_captado = _as_float(captado_map.get(p.id), 0.0)
 
             # Adjuntar atributos para plantilla
             p.capital_objetivo = capital_objetivo
@@ -4449,7 +5117,7 @@ def _validar_dni_cif(value: str) -> bool:
     value = _normalizar_dni_cif(value)
     if not value:
         return False
-    letras = "TRWAGMYFPDXBNJZSQVHLCKE"
+    letras = "TRWAGMYFPDXBNJZSQVHLCKE"  # pragma: allowlist secret
     # DNI: 8 dígitos + letra
     if len(value) == 9 and value[:-1].isdigit():
         num = int(value[:-1])
@@ -4644,8 +5312,7 @@ def inversores_list(request):
     docs_por_inversor = {}
     if perfiles_ids:
         for d in DocumentoInversor.objects.filter(inversor_id__in=perfiles_ids).order_by("-creado"):
-            signed = _s3_presigned_url(d.archivo.name)
-            setattr(d, "signed_url", signed or "")
+            _apply_project_signed_url(d)
             docs_por_inversor.setdefault(d.inversor_id, []).append(d)
 
     inversores = []
@@ -5059,22 +5726,20 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
         )
 
     documentos_por_proyecto = []
+    docs = []
+    docs_map = {}
     if proyectos_ids:
         docs = DocumentoProyecto.objects.filter(proyecto_id__in=proyectos_ids).exclude(categoria="fotografias")
         docs = docs.select_related("proyecto").order_by("-creado")
         docs_map = {}
-        for d in docs:
-            key = getattr(getattr(d, "archivo", None), "name", "") or ""
-            signed = _s3_presigned_url(key)
-            setattr(d, "signed_url", signed or "")
-            docs_map.setdefault(d.proyecto_id, {"proyecto": d.proyecto, "docs": []})["docs"].append(d)
-        documentos_por_proyecto = list(docs_map.values())
+    for d in docs:
+        _apply_project_signed_url(d)
+        docs_map.setdefault(d.proyecto_id, {"proyecto": d.proyecto, "docs": []})["docs"].append(d)
+    documentos_por_proyecto = list(docs_map.values())
 
     documentos_personales = []
     for d in DocumentoInversor.objects.filter(inversor=perfil).order_by("-creado"):
-        key = getattr(getattr(d, "archivo", None), "name", "") or ""
-        signed = _s3_presigned_url(key)
-        setattr(d, "signed_url", signed or "")
+        _apply_project_signed_url(d)
         documentos_personales.append(d)
 
     # --- Proyectos visibles en portal ---
@@ -5457,32 +6122,11 @@ def proyecto(request, proyecto_id: int):
     # --- Compatibilidad de plantilla: algunos campos pueden no existir en el modelo Proyecto ---
     # Django templates fallan con VariableDoesNotExist si se accede a un atributo inexistente.
     # Definimos atributos "dummy" para que la plantilla no rompa (los valores reales vendrán del snapshot).
-    _tpl_expected_fields = [
-        "venta_estimada",
-        "precio_propiedad",
-        "precio_compra_inmueble",
-        "precio_venta_estimado",
-        "notaria",
-        "registro",
-        "itp",
-        "direccion",
-        "ref_catastral",
-        "valor_referencia",
-        "meses",
-        "financiacion_pct",
-        "responsable",
-    ]
-    for _f in _tpl_expected_fields:
-        if not hasattr(proyecto_obj, _f):
-            setattr(proyecto_obj, _f, "")
+    _ensure_project_template_fields(proyecto_obj)
     try:
         if getattr(proyecto_obj, "responsable_user", None) and not getattr(proyecto_obj, "responsable", ""):
             responsable_user = proyecto_obj.responsable_user
-            setattr(
-                proyecto_obj,
-                "responsable",
-                (responsable_user.get_full_name() or responsable_user.username or "").strip(),
-            )
+            proyecto_obj.responsable = _build_responsable_label(responsable_user)
     except Exception:
         pass
 
@@ -5550,7 +6194,7 @@ def proyecto(request, proyecto_id: int):
         snapshot = merged_snapshot
         try:
             if not getattr(proyecto_obj, "responsable", "") and overlay.get("responsable"):
-                setattr(proyecto_obj, "responsable", overlay.get("responsable"))
+                proyecto_obj.responsable = overlay.get("responsable")
         except Exception:
             pass
         try:
@@ -5559,7 +6203,7 @@ def proyecto(request, proyecto_id: int):
             if overlay.get("proyecto", {}).get("fecha") and not getattr(proyecto_obj, "fecha", None):
                 proyecto_obj.fecha = _parse_date(overlay["proyecto"]["fecha"])
             if overlay.get("proyecto", {}).get("responsable") and not getattr(proyecto_obj, "responsable", ""):
-                setattr(proyecto_obj, "responsable", overlay["proyecto"]["responsable"])
+                proyecto_obj.responsable = overlay["proyecto"]["responsable"]
         except Exception:
             pass
     # --- Forzar nombre persistido del PROYECTO en el snapshot renderizado ---
@@ -5588,14 +6232,7 @@ def proyecto(request, proyecto_id: int):
     conciertos_raw = snapshot.get("conciertos") if isinstance(snapshot.get("conciertos"), dict) else {}
     if not isinstance(conciertos_raw, dict):
         conciertos_raw = {}
-    conciertos_ctx = SafeAccessDict({
-        "plazo_acuerdo": conciertos_raw.get("plazo_acuerdo", "") or conciertos_raw.get("plazo", "") or "",
-        "interes_acordado": conciertos_raw.get("interes_acordado", "") or conciertos_raw.get("interes", "") or "",
-        "empresa": conciertos_raw.get("empresa", "") or conciertos_raw.get("empresa_acuerdo", "") or "",
-        "empresa_acuerdo": conciertos_raw.get("empresa_acuerdo", "") or conciertos_raw.get("empresa", "") or "",
-        "gasto_solicitado": conciertos_raw.get("gasto_solicitado", "") or conciertos_raw.get("gasto", "") or "",
-        "fecha_liquidacion": conciertos_raw.get("fecha_liquidacion", "") or conciertos_raw.get("liquidacion_fecha", "") or "",
-    })
+    conciertos_ctx = _build_conciertos_context(conciertos_raw)
     kpis_raw = snapshot.get("kpis")
     if not isinstance(kpis_raw, dict):
         kpis_raw = {}
@@ -5650,14 +6287,14 @@ def proyecto(request, proyecto_id: int):
                 if isinstance(fecha_reserva_calc, datetime):
                     fecha_reserva_calc = fecha_reserva_calc.date()
 
-        if isinstance(fecha_compra_calc, date):
-            fin = fecha_reserva_calc if isinstance(fecha_reserva_calc, date) else timezone.now().date()
-            if fin >= fecha_compra_calc:
-                dias = (fin - fecha_compra_calc).days
-                metricas_raw["plazo_compra_reserva_dias"] = dias
-                metricas_raw["plazo_compra_reserva_desde"] = fecha_compra_calc.isoformat()
-                metricas_raw["plazo_compra_reserva_hasta"] = fin.isoformat()
-                metricas_raw["plazo_compra_reserva_modo"] = "compra_a_reserva" if isinstance(fecha_reserva_calc, date) else "dias_desde_compra"
+        metricas_raw.update(
+            _build_project_plazo_context(
+                fecha_compra_calc,
+                fecha_reserva_calc,
+                estado_lower,
+                hoy=timezone.now().date(),
+            )
+        )
     except Exception:
         pass
 
@@ -5668,18 +6305,18 @@ def proyecto(request, proyecto_id: int):
         calc = _metricas_desde_estudio(Estudio(datos=snapshot))
         metricas_calc = calc.get("metricas", {}) if isinstance(calc.get("metricas"), dict) else {}
         resultado_calc = _resultado_desde_metricas(metricas_calc)
-        resultado = dict(resultado_calc)
+        resultado_memoria = {}
         try:
             resultado_memoria = _resultado_desde_memoria(proyecto_obj, snapshot)
-            for k, v in resultado_memoria.items():
-                if v not in (None, ""):
-                    resultado[k] = v
         except Exception:
             pass
-        if isinstance(snap_result, dict):
-            for k, v in snap_result.items():
-                if v not in (None, "", []):
-                    resultado[k] = v
+        resultado = _build_project_result_context(
+            proyecto_obj,
+            snapshot,
+            resultado_calc,
+            resultado_memoria,
+            snap_result,
+        )
     except Exception:
         resultado = snapshot.get("resultado") if isinstance(snapshot.get("resultado"), dict) else {}
 
@@ -5692,17 +6329,12 @@ def proyecto(request, proyecto_id: int):
         inv_snap = snapshot.get("inversor") if isinstance(snapshot.get("inversor"), dict) else {}
     except Exception:
         inv_snap = {}
-    if isinstance(inv_snap, dict) and isinstance(inv_calc, dict):
-        for k, v in inv_snap.items():
-            if k not in inv_calc or inv_calc.get(k) in (None, ""):
-                inv_calc[k] = v
+    inv_calc = _build_inversor_context(inv_calc, inv_snap)
 
     # --- Estado inicial para hidratar el simulador en modo proyecto ---
     estado_inicial = {}
     try:
-        if isinstance(snapshot, dict) and snapshot:
-            # Si el snapshot ya incluye un bloque snapshot (overlay completo), lo preferimos
-            estado_inicial = snapshot.get("snapshot") if isinstance(snapshot.get("snapshot"), dict) else snapshot
+        estado_inicial = _build_estado_inicial_context(snapshot, nested_snapshot_only_if_dict=True)
     except Exception:
         estado_inicial = {}
 
@@ -5711,15 +6343,8 @@ def proyecto(request, proyecto_id: int):
     editable = _user_can_edit_project(request.user, proyecto_obj)
     editable_estado = editable
     try:
-        username = (getattr(request.user, "username", "") or "").strip().lower()
-        if username == "mperez":
-            editable = True
-            editable_estado = True
-        else:
-            estado = (getattr(proyecto_obj, "estado", "") or "").strip().lower()
-            # Estados típicos de cierre (ajústalos si tu modelo usa otros nombres)
-            if estado in {"cerrado", "cerrado_positivo", "cerrado_negativo", "finalizado", "descartado"}:
-                editable = False
+        estado = (getattr(proyecto_obj, "estado", "") or "").strip().lower()
+        editable, editable_estado = _build_project_editability_flags(editable, estado)
     except Exception:
         editable = True
         editable_estado = True
@@ -5760,56 +6385,14 @@ def proyecto(request, proyecto_id: int):
         if capital_captado < 0:
             capital_captado = 0.0
 
-        # % captado
-        if capital_objetivo > 0:
-            pct_captado = (capital_captado / capital_objetivo) * 100.0
-        else:
-            pct_captado = 0.0
-
-        # clamp 0..100
-        if pct_captado < 0:
-            pct_captado = 0.0
-        if pct_captado > 100:
-            pct_captado = 100.0
-
-        restante = max(capital_objetivo - capital_captado, 0.0)
-        pct_restante = max(0.0, 100.0 - pct_captado)
-
-        captacion_ctx = SafeAccessDict({
-            "capital_objetivo": capital_objetivo,
-            "capital_captado": capital_captado,
-            "pct_captado": pct_captado,
-            "restante": restante,
-            "pct_restante": pct_restante,
-            "capital_objetivo_fmt": _fmt_eur(capital_objetivo),
-            "capital_captado_fmt": _fmt_eur(capital_captado),
-            "restante_fmt": _fmt_eur(restante),
-            "pct_captado_fmt": _fmt_pct(pct_captado),
-            "pct_restante_fmt": _fmt_pct(pct_restante),
-        })
+        captacion_ctx = _build_captacion_context(capital_objetivo, capital_captado)
     except Exception:
-        captacion_ctx = SafeAccessDict({
-            "capital_objetivo": 0.0,
-            "capital_captado": 0.0,
-            "pct_captado": 0.0,
-            "restante": 0.0,
-            "pct_restante": 0.0,
-            "capital_objetivo_fmt": _fmt_eur(0.0),
-            "capital_captado_fmt": _fmt_eur(0.0),
-            "restante_fmt": _fmt_eur(0.0),
-            "pct_captado_fmt": _fmt_pct(0.0),
-            "pct_restante_fmt": _fmt_pct(0.0),
-        })
+        captacion_ctx = _build_captacion_context(0.0, 0.0)
 
     notify_flag = True
     try:
         extra = getattr(proyecto_obj, "extra", None)
-        if isinstance(extra, dict) and "notificar_inversores" in extra:
-            notify_flag = bool(extra.get("notificar_inversores"))
-        elif isinstance(snapshot, dict):
-            sec = snapshot.get("proyecto") if isinstance(snapshot.get("proyecto"), dict) else {}
-            if "notificar_inversores" in sec:
-                notify_flag = bool(sec.get("notificar_inversores"))
+        notify_flag = _build_project_notify_flag(extra, snapshot if isinstance(snapshot, dict) else None)
     except Exception:
         notify_flag = True
 
@@ -5829,54 +6412,27 @@ def proyecto(request, proyecto_id: int):
         "usuarios_responsables": usuarios_responsables,
         "proyecto": proyecto_obj,
         "notificar_inversores": notify_flag,
-        "snapshot": _safe_template_obj(snapshot),
+        **_build_project_snapshot_context(snapshot, inv_calc, resultado, metricas_raw),
         # Atajos por si `proyecto.html` los usa como en el PDF/estudio
-        "inmueble": _safe_template_obj(snapshot.get("inmueble", {})) if isinstance(snapshot.get("inmueble"), dict) else SafeAccessDict(),
-        "economico": _safe_template_obj(snapshot.get("economico", {})) if isinstance(snapshot.get("economico"), dict) else SafeAccessDict(),
-        "inversor": _safe_template_obj(inv_calc) if isinstance(inv_calc, dict) else SafeAccessDict(),
-        "inv": _safe_template_obj(inv_calc) if isinstance(inv_calc, dict) else SafeAccessDict(),
-        "comite": _safe_template_obj(snapshot.get("comite", {})) if isinstance(snapshot.get("comite"), dict) else SafeAccessDict(),
-        "kpis": _safe_template_obj(snapshot.get("kpis", {})) if isinstance(snapshot.get("kpis"), dict) else SafeAccessDict(),
-        "metricas": _safe_template_obj(metricas_raw) if isinstance(metricas_raw, dict) else SafeAccessDict(),
-        "resultado": _safe_template_obj(resultado) if isinstance(resultado, dict) else SafeAccessDict(),
         "captacion": captacion_ctx,
         "capital_objetivo": captacion_ctx.get("capital_objetivo"),
         "capital_captado": captacion_ctx.get("capital_captado"),
         "pct_captado": captacion_ctx.get("pct_captado"),
         "es_conciertos": es_conciertos,
         "conciertos": conciertos_ctx,
-        "landing_beneficio_neto_pct_auto": None,
     }
     try:
-        ctx["checklist_users"] = [
-            {
-                "id": u.id,
-                "label": (u.get_full_name() or u.username or "").strip(),
-            }
-            for u in usuarios_responsables
-        ]
+        ctx["checklist_users"] = _build_checklist_users_context(usuarios_responsables)
     except Exception:
         ctx["checklist_users"] = []
     try:
         extra = getattr(proyecto_obj, "extra", None)
-        landing_config = extra.get("landing", {}) if isinstance(extra, dict) else {}
-        if not landing_config and isinstance(overlay, dict):
-            landing_config = overlay.get("landing", {}) or {}
-        ctx["landing_config"] = landing_config if isinstance(landing_config, dict) else {}
-        publicaciones_config = extra.get("publicaciones", {}) if isinstance(extra, dict) else {}
-        if not publicaciones_config and isinstance(overlay, dict):
-            publicaciones_config = overlay.get("publicaciones", {}) or {}
-        ctx["publicaciones_config"] = publicaciones_config if isinstance(publicaciones_config, dict) else {}
-        difusion_config = extra.get("difusion", {}) if isinstance(extra, dict) else {}
-        if not difusion_config and isinstance(overlay, dict):
-            difusion_config = overlay.get("difusion", {}) or {}
-        ctx["difusion_config"] = difusion_config if isinstance(difusion_config, dict) else {}
-        ctx["pending_estado_notif"] = extra.get("pending_estado_notif") if isinstance(extra, dict) else None
-        anexos_map = difusion_config.get("anexos") if isinstance(difusion_config, dict) else {}
-        if isinstance(anexos_map, dict):
-            ctx["difusion_anexos_ids"] = {str(k) for k, v in anexos_map.items() if v}
-        else:
-            ctx["difusion_anexos_ids"] = set()
+        project_overlay_ctx = _build_project_overlay_context(extra if isinstance(extra, dict) else {}, overlay if isinstance(overlay, dict) else {})
+        ctx["landing_config"] = project_overlay_ctx["landing_config"]
+        ctx["publicaciones_config"] = project_overlay_ctx["publicaciones_config"]
+        ctx["difusion_config"] = project_overlay_ctx["difusion_config"]
+        ctx["pending_estado_notif"] = project_overlay_ctx["pending_estado_notif"]
+        ctx["difusion_anexos_ids"] = project_overlay_ctx["difusion_anexos_ids"]
     except Exception:
         ctx["landing_config"] = {}
         ctx["publicaciones_config"] = {}
@@ -5885,28 +6441,29 @@ def proyecto(request, proyecto_id: int):
 
     try:
         landing_config = ctx.get("landing_config") if isinstance(ctx.get("landing_config"), dict) else {}
+        roi_auto = None
         if not landing_config.get("beneficio_neto_pct"):
             roi_auto = _roi_memoria_proyecto(proyecto_obj)
-            if roi_auto is not None:
-                ctx["landing_beneficio_neto_pct_auto"] = _fmt_es_number(float(roi_auto), 2)
+        landing_beneficio_neto_pct_auto = _build_landing_beneficio_neto_pct_auto(landing_config, roi_auto)
+        ctx["landing_beneficio_neto_pct_auto"] = landing_beneficio_neto_pct_auto
     except Exception:
-        ctx["landing_beneficio_neto_pct_auto"] = None
+        pass
 
     try:
         _ensure_checklist_defaults(proyecto_obj)
-        ctx["checklist_items"] = ChecklistItem.objects.filter(proyecto=proyecto_obj).order_by("fase", "fecha_objetivo", "id")
+        checklist_items = ChecklistItem.objects.filter(proyecto=proyecto_obj).order_by("fase", "fecha_objetivo", "id")
     except Exception:
-        ctx["checklist_items"] = []
+        checklist_items = []
     try:
-        ctx["clientes"] = Cliente.objects.all().order_by("nombre")
+        clientes = Cliente.objects.all().order_by("nombre")
     except Exception:
-        ctx["clientes"] = []
+        clientes = []
     try:
-        ctx["difusion_clientes_ids"] = list(
+        difusion_clientes_ids = list(
             proyecto_obj.difusion_clientes.values_list("id", flat=True)
         )
     except Exception:
-        ctx["difusion_clientes_ids"] = []
+        difusion_clientes_ids = []
     try:
         participaciones = list(
             Participacion.objects.filter(proyecto=proyecto_obj)
@@ -5921,29 +6478,21 @@ def proyecto(request, proyecto_id: int):
             or Decimal("0")
         )
         total_confirmadas = _parse_decimal(total_confirmadas) or Decimal("0")
-        for p in participaciones:
-            # % participación sobre el gasto total/capital objetivo del proyecto.
-            # Si ya hay un valor guardado (p.ej. ajuste manual), respetarlo.
-            if p.porcentaje_participacion is not None:
-                continue
-            pct = None
-            if capital_objetivo > 0:
-                pct = (p.importe_invertido / capital_objetivo) * Decimal("100")
-            elif total_confirmadas > 0:
-                # fallback si no se puede inferir capital objetivo
-                pct = (p.importe_invertido / total_confirmadas) * Decimal("100")
-            if pct is not None:
-                p.porcentaje_participacion = pct
+        participaciones = _build_project_participaciones_context(
+            participaciones,
+            capital_objetivo,
+            total_confirmadas,
+        )
         ctx["participaciones"] = participaciones
     except Exception:
         ctx["participaciones"] = []
     try:
-        ctx["solicitudes_pendientes_count"] = SolicitudParticipacion.objects.filter(
+        solicitudes_pendientes_count = SolicitudParticipacion.objects.filter(
             proyecto=proyecto_obj,
             estado="pendiente",
         ).count()
     except Exception:
-        ctx["solicitudes_pendientes_count"] = 0
+        solicitudes_pendientes_count = 0
     try:
         documentos = list(DocumentoProyecto.objects.filter(proyecto=proyecto_obj).order_by("-creado", "-id"))
         use_signed = False
@@ -5951,124 +6500,31 @@ def proyecto(request, proyecto_id: int):
             use_signed = bool(getattr(settings, "AWS_STORAGE_BUCKET_NAME", None))
         except Exception:
             use_signed = False
-        if use_signed:
-            for doc in documentos:
-                try:
-                    key = getattr(doc.archivo, "name", "") or ""
-                    signed = _s3_presigned_url(key)
-                    if signed:
-                        doc.signed_url = signed
-                except Exception:
-                    pass
-        categorias_map = {}
-        for doc in documentos:
-            cat = getattr(doc, "categoria", "otros") or "otros"
-            categorias_map.setdefault(cat, []).append(doc)
-        ctx["documentos_por_categoria"] = categorias_map
-        ctx["documentos"] = documentos
-        principal = next((d for d in documentos if d.categoria == "fotografias" and d.es_principal), None)
-        if principal is None:
-            principal = next((d for d in documentos if d.categoria == "fotografias"), None)
-        if principal:
-            try:
-                ctx["foto_principal_url"] = principal.signed_url if hasattr(principal, "signed_url") and principal.signed_url else principal.archivo.url
-                ctx["foto_principal_titulo"] = principal.titulo
-            except Exception:
-                pass
-        try:
-            publicaciones_config = ctx.get("publicaciones_config") if isinstance(ctx.get("publicaciones_config"), dict) else {}
-            cabecera_id = publicaciones_config.get("cabecera_imagen_id")
-            if cabecera_id:
-                cabecera_doc = next(
-                    (d for d in documentos if str(d.id) == str(cabecera_id) and d.categoria == "fotografias"),
-                    None,
-                )
-                if cabecera_doc:
-                    ctx["foto_principal_url"] = cabecera_doc.signed_url if hasattr(cabecera_doc, "signed_url") and cabecera_doc.signed_url else cabecera_doc.archivo.url
-                    ctx["foto_principal_titulo"] = cabecera_doc.titulo
-        except Exception:
-            pass
-        try:
-            fotos_docs = []
-            for doc in documentos:
-                if doc.categoria != "fotografias":
-                    continue
-                archivo_url = None
-                try:
-                    archivo_url = doc.signed_url if hasattr(doc, "signed_url") and doc.signed_url else doc.archivo.url
-                except Exception:
-                    archivo_url = None
-                fotos_docs.append({
-                    "id": doc.id,
-                    "titulo": doc.titulo,
-                    "archivo_url": archivo_url,
-                })
-            ctx["fotos_docs"] = fotos_docs
-        except Exception:
-            ctx["fotos_docs"] = []
+        ctx.update(_build_project_documents_collection_context(documentos, use_signed))
 
-        try:
-            landing_config = ctx.get("landing_config") if isinstance(ctx.get("landing_config"), dict) else {}
-            landing_img_id = landing_config.get("imagen_id")
-            landing_preview_url = None
-            if landing_img_id:
-                landing_doc = next(
-                    (d for d in documentos if str(d.id) == str(landing_img_id) and d.categoria == "fotografias"),
-                    None,
-                )
-                if landing_doc:
-                    landing_preview_url = landing_doc.signed_url if hasattr(landing_doc, "signed_url") and landing_doc.signed_url else landing_doc.archivo.url
-            if not landing_preview_url and principal:
-                landing_preview_url = principal.signed_url if hasattr(principal, "signed_url") and principal.signed_url else principal.archivo.url
-            ctx["landing_preview_url"] = landing_preview_url
-        except Exception:
-            ctx["landing_preview_url"] = None
-        try:
-            facturas_docs = []
-            for doc in documentos:
-                if doc.categoria != "facturas":
-                    continue
-                archivo_url = None
-                try:
-                    archivo_url = doc.signed_url if hasattr(doc, "signed_url") and doc.signed_url else doc.archivo.url
-                except Exception:
-                    archivo_url = None
-                facturas_docs.append({
-                    "id": doc.id,
-                    "titulo": doc.titulo,
-                    "fecha": doc.fecha_factura.isoformat() if doc.fecha_factura else None,
-                    "importe": float(doc.importe_factura) if doc.importe_factura is not None else None,
-                    "archivo_url": archivo_url,
-                })
-            ctx["facturas_docs"] = facturas_docs
-        except Exception:
-            ctx["facturas_docs"] = []
+        ctx.update(
+            _build_project_aux_context(
+                checklist_items,
+                clientes,
+                difusion_clientes_ids,
+                solicitudes_pendientes_count,
+            )
+        )
+
+        project_documents_ctx = _build_project_documents_context(
+            documentos,
+            _select_project_document_principal(documentos),
+            ctx.get("landing_config"),
+            ctx.get("publicaciones_config"),
+        )
+        ctx.update(project_documents_ctx)
     except Exception:
         ctx["documentos"] = []
     try:
-        facturas = []
-        for factura in FacturaGasto.objects.select_related("gasto").filter(gasto__proyecto=proyecto_obj).order_by("-fecha_subida", "-id"):
-            factura_url = None
-            try:
-                key = getattr(factura.archivo, "name", "") or ""
-                signed = _s3_presigned_url(key)
-                factura_url = signed if signed else factura.archivo.url
-            except Exception:
-                factura_url = None
-            facturas.append({
-                "id": factura.id,
-                "gasto_id": factura.gasto_id,
-                "concepto": factura.gasto.concepto if factura.gasto else "—",
-                "fecha": factura.gasto.fecha if factura.gasto else None,
-                "importe": factura.gasto.importe if factura.gasto else None,
-                "archivo_url": factura_url,
-                "nombre": factura.nombre_original or (os.path.basename(factura.archivo.name) if factura.archivo else "Factura"),
-            })
-        ctx["facturas_gasto"] = facturas
+        facturas = FacturaGasto.objects.select_related("gasto").filter(gasto__proyecto=proyecto_obj).order_by("-fecha_subida", "-id")
+        ctx["facturas_gasto"] = _build_project_facturas_gasto_context(facturas)
     except Exception:
         ctx["facturas_gasto"] = []
-
-    ctx["documento_categorias"] = DocumentoProyecto.CATEGORIAS
 
     return render(request, "core/proyecto.html", ctx)
 
@@ -6415,8 +6871,7 @@ def guardar_proyecto(request, proyecto_id: int):
         if proyecto_payload:
             nested_ok = all(k in allowed_keys for k in proyecto_payload.keys())
         only_estado_changes = (top_keys == set(payload.keys())) and nested_ok
-        username = (getattr(request.user, "username", "") or "").strip().lower()
-        if not only_estado_changes or (not is_admin_user(request.user) and not is_direccion_user(request.user) and username != "mperez"):
+        if not only_estado_changes or (not is_admin_user(request.user) and not is_direccion_user(request.user)):
             _admin_notify(
                 request,
                 proyecto_obj,
@@ -6482,14 +6937,14 @@ def guardar_proyecto(request, proyecto_id: int):
             responsable_user = User.objects.get(id=responsable_user_id, is_active=True)
             proyecto_obj.responsable_user = responsable_user
             if not responsable and responsable_user:
-                proyecto_obj.responsable = (responsable_user.get_full_name() or responsable_user.username or "").strip()
+                proyecto_obj.responsable = _build_responsable_label(responsable_user)
                 update_fields.append("responsable")
             update_fields.append("responsable_user")
         except Exception:
             pass
     elif not proyecto_obj.responsable_user_id and is_comercial_user(request.user) and not _user_is_admin_or_direccion(request.user):
         proyecto_obj.responsable_user = request.user
-        proyecto_obj.responsable = (request.user.get_full_name() or request.user.username or "").strip()
+        proyecto_obj.responsable = _build_responsable_label(request.user)
         update_fields.extend(["responsable_user", "responsable"])
 
     # Nota: no bloqueamos guardados automáticos por falta de responsable.
@@ -6746,7 +7201,6 @@ def convertir_a_proyecto(request, estudio_id: int):
         estudio_snapshot = EstudioSnapshot.objects.create(**snap_kwargs)
 
         # 2) Crear proyecto heredando
-        metricas_estudio = _metricas_desde_estudio(estudio)
         proyecto_kwargs = {}
         nombre_estudio = (
             estudio.nombre
@@ -6796,9 +7250,11 @@ def convertir_a_proyecto(request, estudio_id: int):
         if _has_field(Proyecto, "responsable_user"):
             proyecto_kwargs["responsable_user"] = request.user
         if _has_field(Proyecto, "responsable"):
-            proyecto_kwargs["responsable"] = (request.user.get_full_name() or request.user.username or "").strip()
+            proyecto_kwargs["responsable"] = _build_responsable_label(request.user)
         if _has_field(Proyecto, "convertido_desde_estudio"):
             proyecto_kwargs["convertido_desde_estudio"] = True
+        if _has_field(Proyecto, "extra"):
+            proyecto_kwargs["extra"] = _default_new_project_extra()
         proyecto = None
         last_exc = None
         for _attempt in range(4):
@@ -7100,47 +7556,13 @@ def proyecto_gastos(request, proyecto_id: int):
                 )
                 .order_by("-creado", "-id")
             )
-            for doc in docs:
-                key = (doc.fecha_factura, doc.importe_factura)
-                if key not in facturas_docs:
-                    facturas_docs[key] = doc
+            facturas_docs = _build_project_facturas_docs_lookup(docs)
         except Exception:
             facturas_docs = {}
         gastos = []
         for g in GastoProyecto.objects.filter(proyecto=proyecto).order_by("fecha", "id"):
-            estado = g.estado or "estimado"
-            factura_url = None
-            if can_preview:
-                if hasattr(g, "factura") and g.factura:
-                    try:
-                        key = getattr(g.factura.archivo, "name", "") or ""
-                        signed = _s3_presigned_url(key)
-                        factura_url = signed if signed else g.factura.archivo.url
-                    except Exception:
-                        factura_url = None
-                if not factura_url and facturas_docs:
-                    doc = facturas_docs.get((g.fecha, g.importe))
-                    if doc and doc.archivo:
-                        try:
-                            key = getattr(doc.archivo, "name", "") or ""
-                            signed = _s3_presigned_url(key)
-                            factura_url = signed if signed else doc.archivo.url
-                        except Exception:
-                            factura_url = None
-            gastos.append({
-                "id": g.id,
-                "fecha": g.fecha.isoformat(),
-                "categoria": g.categoria,
-                "concepto": g.concepto,
-                "proveedor": g.proveedor,
-                "importe": float(g.importe),
-                "imputable_inversores": g.imputable_inversores,
-                "estado": estado,
-                "observaciones": g.observaciones,
-                "pagado": bool(getattr(g, "pagado", False)),
-                "factura_url": factura_url,
-                "has_factura": bool(factura_url),
-            })
+            factura_url = _build_project_gasto_factura_url(g, can_preview, facturas_docs)
+            gastos.append(_build_project_gasto_payload(g, factura_url))
         return JsonResponse({"ok": True, "gastos": gastos})
 
     if request.method != "POST":
@@ -7210,27 +7632,12 @@ def proyecto_gasto_detalle(request, proyecto_id: int, gasto_id: int):
         factura_url = None
         if _can_preview_facturas(request.user) and hasattr(gasto, "factura") and gasto.factura:
             try:
-                key = getattr(gasto.factura.archivo, "name", "") or ""
-                signed = _s3_presigned_url(key)
-                factura_url = signed if signed else gasto.factura.archivo.url
+                factura_url = _build_project_storage_url(gasto.factura)
             except Exception:
                 factura_url = None
         return JsonResponse({
             "ok": True,
-            "gasto": {
-                "id": gasto.id,
-                "fecha": gasto.fecha.isoformat(),
-                "categoria": gasto.categoria,
-                "concepto": gasto.concepto,
-                "proveedor": gasto.proveedor,
-                "importe": float(gasto.importe),
-                "imputable_inversores": gasto.imputable_inversores,
-                "estado": gasto.estado or "estimado",
-                "observaciones": gasto.observaciones,
-                "pagado": bool(getattr(gasto, "pagado", False)),
-                "factura_url": factura_url,
-                "has_factura": bool(factura_url),
-            },
+            "gasto": _build_project_gasto_payload(gasto, factura_url),
         })
 
     if req_method == "DELETE":
@@ -7343,9 +7750,7 @@ def proyecto_gasto_factura(request, proyecto_id: int, gasto_id: int):
 
     factura_url = None
     try:
-        key = getattr(factura_obj.archivo, "name", "") or ""
-        signed = _s3_presigned_url(key)
-        factura_url = signed if signed else factura_obj.archivo.url
+        factura_url = _build_project_storage_url(factura_obj)
     except Exception:
         factura_url = None
 
@@ -7367,9 +7772,7 @@ def proyecto_ingresos(request, proyecto_id: int):
             justificante_url = None
             if hasattr(i, "justificante") and getattr(i.justificante, "archivo", None):
                 try:
-                    key = getattr(i.justificante.archivo, "name", "") or ""
-                    signed = _s3_presigned_url(key)
-                    justificante_url = signed if signed else i.justificante.archivo.url
+                    justificante_url = _build_project_storage_url(i.justificante)
                 except Exception:
                     justificante_url = None
             ingresos.append({
@@ -7452,27 +7855,10 @@ def proyecto_ingreso_detalle(request, proyecto_id: int, ingreso_id: int):
             return JsonResponse({"ok": False, "error": "No tienes permisos para ver este proyecto."}, status=403)
         justificante_url = None
         if hasattr(ingreso, "justificante") and getattr(ingreso.justificante, "archivo", None):
-            try:
-                key = getattr(ingreso.justificante.archivo, "name", "") or ""
-                signed = _s3_presigned_url(key)
-                justificante_url = signed if signed else ingreso.justificante.archivo.url
-            except Exception:
-                justificante_url = None
+            justificante_url = _build_project_ingreso_justificante_url(ingreso.justificante)
         return JsonResponse({
             "ok": True,
-            "ingreso": {
-                "id": ingreso.id,
-                "fecha": ingreso.fecha.isoformat(),
-                "tipo": ingreso.tipo,
-                "concepto": ingreso.concepto,
-                "importe": float(ingreso.importe),
-                "estado": ingreso.estado or "estimado",
-                "imputable_inversores": ingreso.imputable_inversores,
-                "observaciones": ingreso.observaciones,
-                "pagado": bool(getattr(ingreso, "pagado", False)),
-                "justificante_url": justificante_url,
-                "has_justificante": bool(justificante_url),
-            },
+            "ingreso": _build_project_ingreso_payload(ingreso, justificante_url),
         })
 
     if req_method == "DELETE":
@@ -7577,13 +7963,7 @@ def proyecto_ingreso_justificante(request, proyecto_id: int, ingreso_id: int):
     just_obj.nombre_original = getattr(archivo, "name", "") or just_obj.nombre_original
     just_obj.save()
 
-    justificante_url = None
-    try:
-        key = getattr(just_obj.archivo, "name", "") or ""
-        signed = _s3_presigned_url(key)
-        justificante_url = signed if signed else just_obj.archivo.url
-    except Exception:
-        justificante_url = None
+    justificante_url = _build_project_ingreso_justificante_url(just_obj)
 
     return JsonResponse({"ok": True, "justificante_url": justificante_url})
 
@@ -7643,6 +8023,8 @@ def proyecto_documento_borrar(request, proyecto_id: int, documento_id: int):
         id=documento_id,
         proyecto_id=proyecto_id,
     )
+    if not _user_can_edit_project(request.user, documento.proyecto):
+        return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
     documento.delete()
     return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-documentacion")
 
@@ -7655,6 +8037,8 @@ def proyecto_documento_principal(request, proyecto_id: int, documento_id: int):
         id=documento_id,
         proyecto_id=proyecto_id,
     )
+    if not _user_can_edit_project(request.user, documento.proyecto):
+        return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
     if documento.categoria != "fotografias":
         return JsonResponse({"ok": False, "error": "Solo válido para fotografías"}, status=400)
     DocumentoProyecto.objects.filter(
@@ -7675,13 +8059,22 @@ def proyecto_documento_flag(request, proyecto_id: int, documento_id: int):
         proyecto_id=proyecto_id,
         categoria="fotografias",
     )
+    if not _user_can_edit_project(request.user, documento.proyecto):
+        return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
     field = (request.POST.get("field") or "").strip()
     allowed = {"usar_pdf", "usar_story", "usar_instagram", "usar_dossier"}
     if field not in allowed:
         return JsonResponse({"ok": False, "error": "Campo no permitido"}, status=400)
     value_raw = (request.POST.get("value") or "").strip().lower()
     value = value_raw in {"1", "true", "si", "sí", "on"}
-    setattr(documento, field, value)
+    if field == "usar_pdf":
+        documento.usar_pdf = value
+    elif field == "usar_story":
+        documento.usar_story = value
+    elif field == "usar_instagram":
+        documento.usar_instagram = value
+    else:
+        documento.usar_dossier = value
     documento.save(update_fields=[field])
     return JsonResponse({"ok": True, "field": field, "value": value})
 
@@ -7839,7 +8232,7 @@ def proyecto_checklist(request, proyecto_id: int):
             responsable_label = it.responsable
             if not responsable_label and getattr(it, "responsable_user", None):
                 responsable_user = it.responsable_user
-                responsable_label = (responsable_user.get_full_name() or responsable_user.username or "").strip()
+                responsable_label = _build_responsable_label(responsable_user)
             items.append({
                 "id": it.id,
                 "fase": it.fase,
@@ -7857,7 +8250,7 @@ def proyecto_checklist(request, proyecto_id: int):
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
 
     try:
-        data = json.loads(request.body or "{}")
+        json.loads(request.body or "{}")
         return JsonResponse({"ok": False, "error": "Las tareas son predefinidas"}, status=405)
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
@@ -7900,7 +8293,7 @@ def proyecto_checklist_detalle(request, proyecto_id: int, item_id: int):
                     responsable_user = None
                 item.responsable_user = responsable_user
                 if responsable_user:
-                    item.responsable = (responsable_user.get_full_name() or responsable_user.username or "").strip()
+                    item.responsable = _build_responsable_label(responsable_user)
         if "responsable" in data and "responsable_user_id" not in data:
             item.responsable = (data.get("responsable") or "").strip() or None
         if "fecha_objetivo" in data:
@@ -8266,7 +8659,7 @@ def proyecto_solicitudes(request, proyecto_id: int):
             decision_by = None
             try:
                 if s.decision_by:
-                    decision_by = s.decision_by.get_full_name() or s.decision_by.get_username()
+                    decision_by = _build_user_display_name(s.decision_by, prefer_get_username=True)
             except Exception:
                 decision_by = None
             solicitudes.append({

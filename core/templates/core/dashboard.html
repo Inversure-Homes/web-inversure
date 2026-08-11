@@ -1,4 +1,5 @@
 {% extends "core/base.html" %}
+{% load static %}
 
 {% block page_header %}
   <h1 class="mb-2">Dashboard</h1>
@@ -6,17 +7,76 @@
 {% endblock %}
 
 {% block content %}
-  <div class="card shadow-sm border-0 dashboard-wrap">
+  <div class="card shadow-sm border-0 dashboard-wrap"
+       data-dashboard-root
+       data-dashboard-endpoint="{% url 'core:dashboard_data' %}">
     <div class="card-body">
       <div class="dashboard-header">
         <div>
           <h2 class="dashboard-title">Resumen ejecutivo</h2>
           <p class="dashboard-subtitle">KPIs actualizados de inversión y rendimiento.</p>
         </div>
-        <div class="dashboard-meta">
-          <span class="badge text-bg-light">Actualizado</span>
+        <div class="dashboard-meta text-end">
+          <span class="badge text-bg-light" data-dashboard-last-update>Actualizado</span>
+          <div id="dashboardStatus"
+               class="small text-muted mt-1"
+               role="status"
+               aria-live="polite"
+               aria-atomic="true"></div>
         </div>
       </div>
+
+      <form class="row g-2 align-items-end mt-3"
+            method="get"
+            action="{% url 'core:dashboard' %}"
+            data-dashboard-filters-form>
+        <div class="col-12 col-md-6 col-xl-3">
+          <label for="dashboardFechaDesde" class="form-label form-label-sm mb-1">Fecha desde</label>
+          <input id="dashboardFechaDesde"
+                 type="date"
+                 name="fecha_desde"
+                 class="form-control form-control-sm"
+                 value="{{ dashboard_filters.fecha_desde|default:'' }}">
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+          <label for="dashboardFechaHasta" class="form-label form-label-sm mb-1">Fecha hasta</label>
+          <input id="dashboardFechaHasta"
+                 type="date"
+                 name="fecha_hasta"
+                 class="form-control form-control-sm"
+                 value="{{ dashboard_filters.fecha_hasta|default:'' }}">
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+          <label for="dashboardProyecto" class="form-label form-label-sm mb-1">Proyecto</label>
+          <select id="dashboardProyecto" name="proyecto_id" class="form-select form-select-sm">
+            <option value="">Todos los proyectos</option>
+            {% for proyecto in dashboard_projects %}
+              <option value="{{ proyecto.project_id }}" {% if dashboard_filters.proyecto_id == proyecto.project_id %}selected{% endif %}>
+                {{ proyecto.nombre }}{% if proyecto.estado_label %} · {{ proyecto.estado_label }}{% endif %}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12 col-md-6 col-xl-2">
+          <label for="dashboardEstado" class="form-label form-label-sm mb-1">Estado</label>
+          <select id="dashboardEstado" name="estado" class="form-select form-select-sm">
+            <option value="">Todos los estados</option>
+            {% for estado, label in dashboard_state_options %}
+              <option value="{{ estado }}" {% if dashboard_filters.estado == estado %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12 col-xl-1 d-grid gap-2">
+          <button type="submit" class="btn btn-primary btn-sm">Aplicar</button>
+          <a class="btn btn-outline-secondary btn-sm" href="{% url 'core:dashboard' %}" data-dashboard-reset>Limpiar</a>
+        </div>
+      </form>
+
+      <div id="dashboardError"
+           class="alert alert-danger mt-3 mb-0{% if not dashboard_error %} d-none{% endif %}"
+           role="alert"
+           aria-live="assertive"
+           tabindex="-1">{% if dashboard_error %}{{ dashboard_error }}{% endif %}</div>
 
       {% if pending_solicitudes_count %}
       <div class="alert alert-warning d-flex align-items-center justify-content-between mt-3 mb-0" role="alert">
@@ -32,42 +92,42 @@
           <div class="kpi-icon"><i class="bi bi-people"></i></div>
           <div>
             <span>Inversores activos</span>
-            <strong>{{ dashboard_stats.inversores_activos }}</strong>
+            <strong data-dashboard-kpi="inversores_activos" data-dashboard-format="integer">{{ dashboard_stats.inversores_activos }}</strong>
           </div>
         </div>
         <div class="kpi-card">
           <div class="kpi-icon"><i class="bi bi-person-check"></i></div>
           <div>
             <span>Con cuota pagada</span>
-            <strong>{{ dashboard_stats.inversores_cuota }}</strong>
+            <strong data-dashboard-kpi="inversores_cuota" data-dashboard-format="integer">{{ dashboard_stats.inversores_cuota }}</strong>
           </div>
         </div>
         <div class="kpi-card">
           <div class="kpi-icon"><i class="bi bi-cash-coin"></i></div>
           <div>
             <span>Capital en vigor</span>
-            <strong>{{ dashboard_stats_fmt.capital_en_vigor }}</strong>
+            <strong data-dashboard-kpi="capital_en_vigor" data-dashboard-format="currency">{{ dashboard_stats_fmt.capital_en_vigor }}</strong>
           </div>
         </div>
         <div class="kpi-card">
           <div class="kpi-icon"><i class="bi bi-piggy-bank"></i></div>
           <div>
             <span>Capital acumulado</span>
-            <strong>{{ dashboard_stats_fmt.capital_acumulado }}</strong>
+            <strong data-dashboard-kpi="capital_acumulado" data-dashboard-format="currency">{{ dashboard_stats_fmt.capital_acumulado }}</strong>
           </div>
         </div>
         <div class="kpi-card">
           <div class="kpi-icon"><i class="bi bi-layers"></i></div>
           <div>
             <span>Operaciones</span>
-            <strong>{{ dashboard_stats.operaciones }}</strong>
+            <strong data-dashboard-kpi="operaciones" data-dashboard-format="integer">{{ dashboard_stats.operaciones }}</strong>
           </div>
         </div>
         <div class="kpi-card">
           <div class="kpi-icon"><i class="bi bi-award"></i></div>
           <div>
             <span>Beneficio Inversure</span>
-            <strong>{{ dashboard_stats_fmt.beneficio_inversure }}</strong>
+            <strong data-dashboard-kpi="beneficio_inversure" data-dashboard-format="currency">{{ dashboard_stats_fmt.beneficio_inversure }}</strong>
           </div>
         </div>
       </div>
@@ -140,6 +200,10 @@
       </div>
 
       <div class="dashboard-chart mt-3">
+        <div class="block-header mb-3">
+          <h6 class="text-uppercase text-muted mb-0">Distribución por estado</h6>
+          <span class="chip chip--info">Estados</span>
+        </div>
         <div class="chart-legend">
           <span class="legend-item"><span class="legend-dot legend-captacion"></span>Captación</span>
           <span class="legend-item"><span class="legend-dot legend-comprado"></span>Comprado</span>
@@ -149,23 +213,68 @@
           <span class="legend-item"><span class="legend-dot legend-cerrado"></span>Cerrado</span>
           <span class="legend-item"><span class="legend-dot legend-descartado"></span>Descartado</span>
         </div>
-        {% for item in beneficios_chart %}
-          <div class="chart-row">
-            <span class="chart-label">
-              {{ item.nombre }}
-              {% if item.estado_label %}
-                <span class="chart-state">· {{ item.estado_label }}</span>
-              {% endif %}
-            </span>
-            <div class="chart-bar">
-              <span style="width: {{ item.pct|floatformat:0 }}%; background-color: {{ item.color }};"></span>
+        <div data-dashboard-state-distribution>
+          {% for item in dashboard_state_distribution %}
+            <div class="chart-row" data-state="{{ item.estado }}">
+              <span class="chart-label">
+                {{ item.estado_label }}
+                <span class="chart-state">· {{ item.estado }}</span>
+              </span>
+              <div class="chart-bar">
+                <span style="width: {{ item.pct|floatformat:0 }}%;"></span>
+              </div>
+              <span class="chart-value">{{ item.total }}</span>
+              <span class="chart-pct">{{ item.pct|floatformat:1 }} %</span>
             </div>
-            <span class="chart-value">{{ item.valor_fmt }}</span>
-            <span class="chart-pct">{{ item.pct_fmt }}</span>
-          </div>
-        {% empty %}
-          <div class="text-muted">Sin datos de beneficios todavía.</div>
-        {% endfor %}
+          {% empty %}
+            <div class="text-muted">Sin distribución por estado todavía.</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="dashboard-chart mt-4">
+        <div class="block-header mb-3">
+          <h6 class="text-uppercase text-muted mb-0">Rentabilidad por proyecto</h6>
+          <span class="chip chip--success">Comparativa</span>
+        </div>
+        <div class="chart-legend">
+          <span class="legend-item"><span class="legend-dot legend-captacion"></span>Captación</span>
+          <span class="legend-item"><span class="legend-dot legend-comprado"></span>Comprado</span>
+          <span class="legend-item"><span class="legend-dot legend-comercializacion"></span>Comercialización</span>
+          <span class="legend-item"><span class="legend-dot legend-reservado"></span>Reservado</span>
+          <span class="legend-item"><span class="legend-dot legend-vendido"></span>Vendido</span>
+          <span class="legend-item"><span class="legend-dot legend-cerrado"></span>Cerrado</span>
+          <span class="legend-item"><span class="legend-dot legend-descartado"></span>Descartado</span>
+        </div>
+        <div data-dashboard-benefit-bars>
+          {% for item in dashboard_benefit_bars %}
+            <div class="chart-row">
+              <span class="chart-label">
+                {{ item.nombre }}
+                {% if item.estado_label %}
+                  <span class="chart-state">· {{ item.estado_label }}</span>
+                {% endif %}
+              </span>
+              <div class="chart-bar">
+                <span style="width: {{ item.pct|floatformat:0 }}%; background-color: {{ item.color }};"></span>
+              </div>
+              <span class="chart-value">{{ item.valor_fmt }}</span>
+              <span class="chart-pct">{{ item.pct_fmt }}</span>
+            </div>
+          {% empty %}
+            <div class="text-muted">Sin datos de beneficios todavía.</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="dashboard-chart mt-4">
+        <div class="block-header mb-3">
+          <h6 class="text-uppercase text-muted mb-0">Evolución mensual</h6>
+          <span class="chip chip--info">Series</span>
+        </div>
+        <div class="deviation-chart-wrap">
+          <canvas id="monthlyEvolutionChart" height="160"></canvas>
+        </div>
       </div>
 
       <div class="dashboard-chart mt-4">
@@ -177,18 +286,89 @@
           <canvas id="benefitDeviationChart" height="140"></canvas>
         </div>
         <div class="row g-2 mt-3" id="benefitDeviationList"></div>
-        {{ beneficio_deviation_chart|json_script:"beneficioDeviationData" }}
       </div>
 
-      <div class="dashboard-alerts mt-4">
+      <div class="row g-3 mt-4" data-dashboard-rankings>
+        <div class="col-lg-4">
+          <div class="border rounded-3 p-3 h-100 dashboard-block">
+            <div class="block-header">
+              <h6 class="text-uppercase text-muted mb-0">Mejor rentabilidad</h6>
+              <span class="chip chip--success">ROI</span>
+            </div>
+            <div data-dashboard-ranking="best_roi">
+              {% for item in dashboard_best_roi|slice:":5" %}
+                <div class="metric-line">
+                  <span>
+                    {{ item.nombre }}
+                    <small class="d-block text-muted">
+                      {{ item.estado_label }} · Capital {{ item.capital_captado|floatformat:2 }} €
+                    </small>
+                  </span>
+                  <strong>{{ item.roi|floatformat:2 }} %</strong>
+                </div>
+              {% empty %}
+                <div class="text-muted">Sin datos de rentabilidad.</div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="border rounded-3 p-3 h-100 dashboard-block">
+            <div class="block-header">
+              <h6 class="text-uppercase text-muted mb-0">Peor rentabilidad</h6>
+              <span class="chip chip--warn">ROI</span>
+            </div>
+            <div data-dashboard-ranking="worst_roi">
+              {% for item in dashboard_worst_roi|slice:":5" %}
+                <div class="metric-line">
+                  <span>
+                    {{ item.nombre }}
+                    <small class="d-block text-muted">
+                      {{ item.estado_label }} · Capital {{ item.capital_captado|floatformat:2 }} €
+                    </small>
+                  </span>
+                  <strong>{{ item.roi|floatformat:2 }} %</strong>
+                </div>
+              {% empty %}
+                <div class="text-muted">Sin datos de rentabilidad.</div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="border rounded-3 p-3 h-100 dashboard-block">
+            <div class="block-header">
+              <h6 class="text-uppercase text-muted mb-0">Inversión vs retorno</h6>
+              <span class="chip chip--info">Comparativa</span>
+            </div>
+            <div data-dashboard-ranking="investment_return">
+              {% for item in dashboard_investment_return|slice:":5" %}
+                <div class="metric-line">
+                  <span>
+                    {{ item.nombre }}
+                    <small class="d-block text-muted">
+                      {{ item.estado_label }} · Invertido {{ item.capital_invertido|floatformat:2 }} €
+                    </small>
+                  </span>
+                  <strong>{{ item.retorno_total|floatformat:2 }} €</strong>
+                </div>
+              {% empty %}
+                <div class="text-muted">Sin datos comparables.</div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-alerts mt-4" data-dashboard-alerts-wrap>
         <div class="alerts-header">
           <div>
             <h6 class="text-uppercase text-muted mb-0">Alertas operativas</h6>
             <p class="text-muted mb-0">Tareas pendientes del checklist operativo.</p>
           </div>
           <div class="alerts-badges">
-            <span class="chip chip--info">Pendientes {{ checklist_alerts.pendientes }}</span>
-            <span class="chip chip--warn">Vencidas {{ checklist_alerts.vencidas }}</span>
+            <span class="chip chip--info" data-dashboard-checklist-pending>Pendientes {{ checklist_alerts.pendientes }}</span>
+            <span class="chip chip--warn" data-dashboard-checklist-overdue>Vencidas {{ checklist_alerts.vencidas }}</span>
             <button class="btn btn-sm btn-outline-secondary"
                     type="button"
                     data-bs-toggle="collapse"
@@ -202,8 +382,8 @@
         </div>
 
         <div class="collapse mt-3" id="alertsCollapse">
-          <div class="alerts-list">
-            {% for it in checklist_alerts.items %}
+          <div class="alerts-list" data-dashboard-alerts="operational">
+            {% for it in dashboard_operational_alert_items %}
               <div class="alert-item {% if it.overdue %}alert-overdue{% endif %}">
                 <div>
                   <div class="alert-title">{{ it.titulo }}</div>
@@ -229,6 +409,38 @@
             {% endfor %}
           </div>
         </div>
+
+        <div class="mt-4">
+          <div class="block-header mb-3">
+            <div>
+              <h6 class="text-uppercase text-muted mb-0">Alertas financieras</h6>
+              <p class="text-muted mb-0">Riesgos de rentabilidad, costes y conciliación.</p>
+            </div>
+            <span class="chip chip--warn" data-dashboard-financial-alert-count>{{ dashboard_financial_alert_items|length }}</span>
+          </div>
+          <div class="alerts-list" data-dashboard-alerts="financial">
+            {% for alert in dashboard_financial_alert_items %}
+              <div class="alert-item">
+                <div>
+                  <div class="alert-title">{{ alert.title }}</div>
+                  <div class="alert-meta">
+                    {% if alert.detail %}<span>{{ alert.detail }}</span>{% endif %}
+                    {% if alert.project_id %}
+                      <span>· Proyecto {{ alert.project_id }}</span>
+                    {% endif %}
+                  </div>
+                </div>
+                <div class="alert-date">
+                  <span class="badge {% if alert.severity == 'critical' %}text-bg-danger{% elif alert.severity == 'warning' %}text-bg-warning{% else %}text-bg-info{% endif %}">
+                    {{ alert.category }}
+                  </span>
+                </div>
+              </div>
+            {% empty %}
+              <div class="text-muted">Sin alertas financieras relevantes.</div>
+            {% endfor %}
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -236,190 +448,6 @@
 
 {% block extra_scripts %}
   {{ block.super }}
-  <script>
-    (function () {
-      const wrap = document.querySelector(".open-chart-wrap");
-      const canvas = document.getElementById("openBenefitsChart");
-      if (!wrap || !canvas || !window.Chart) {
-        return;
-      }
-      const bruto = parseFloat(wrap.dataset.bruto || "0") || 0;
-      const neto = parseFloat(wrap.dataset.neto || "0") || 0;
-      const centerLabel = wrap.dataset.centerLabel || "";
-      const centerValue = wrap.dataset.centerValue || "";
-      const rootStyle = getComputedStyle(document.documentElement);
-      const brandGold = rootStyle.getPropertyValue("--inversure-gold").trim() || "#d7b04c";
-      const brandBlue = rootStyle.getPropertyValue("--inversure-blue").trim() || "#122135";
-      const ctx = canvas.getContext("2d");
-      new Chart(ctx, {
-        type: "doughnut",
-        data: {
-          labels: ["Beneficio bruto", "Beneficio neto"],
-          datasets: [{
-            data: [bruto, neto],
-            backgroundColor: [brandBlue, brandGold],
-            borderWidth: 0
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          cutout: "62%",
-          plugins: {
-            legend: {
-              position: "bottom",
-              labels: {
-                boxWidth: 10,
-                color: "#64748b",
-                font: { size: 11 }
-              }
-            },
-            tooltip: {
-              callbacks: {
-                label: (ctx) => {
-                  const val = ctx.parsed || 0;
-                  const formatted = new Intl.NumberFormat("es-ES", {
-                    style: "currency",
-                    currency: "EUR",
-                    minimumFractionDigits: 2
-                  }).format(val);
-                  return `${ctx.label}: ${formatted}`;
-                }
-              }
-            }
-          }
-        },
-        plugins: [{
-          id: "centerText",
-          beforeDraw(chart) {
-            if (!centerValue) {
-              return;
-            }
-            const { ctx } = chart;
-            const { left, right, top, bottom } = chart.chartArea;
-            const centerX = (left + right) / 2;
-            const centerY = (top + bottom) / 2;
-            ctx.save();
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillStyle = "#64748b";
-            ctx.font = "11px Inter, sans-serif";
-            if (centerLabel) {
-              ctx.fillText(centerLabel, centerX, centerY - 8);
-            }
-            ctx.fillStyle = "#0f172a";
-            ctx.font = "600 14px Inter, sans-serif";
-            ctx.fillText(centerValue, centerX, centerY + 10);
-            ctx.restore();
-          }
-        }]
-      });
-
-    })();
-
-    (function () {
-      const raw = document.getElementById("beneficioDeviationData");
-      const canvas = document.getElementById("benefitDeviationChart");
-      if (!raw || !canvas || !window.Chart) {
-        return;
-      }
-      let data = [];
-      try {
-        data = JSON.parse(raw.textContent || "[]");
-      } catch (err) {
-        data = [];
-      }
-      if (!Array.isArray(data) || !data.length) {
-        return;
-      }
-      const labels = data.map((row) => row.nombre);
-      const estimado = data.map((row) => row.estimado || 0);
-      const real = data.map((row) => row.real || 0);
-      const rootStyle = getComputedStyle(document.documentElement);
-      const brandGold = rootStyle.getPropertyValue("--inversure-gold").trim() || "#d7b04c";
-      const brandBlue = rootStyle.getPropertyValue("--inversure-blue").trim() || "#122135";
-      const ctx = canvas.getContext("2d");
-      new Chart(ctx, {
-        type: "bar",
-        data: {
-          labels,
-          datasets: [
-            {
-              label: "Estimado base",
-              data: estimado,
-              backgroundColor: brandGold,
-              borderRadius: 8,
-              maxBarThickness: 24
-            },
-            {
-              label: "Real",
-              data: real,
-              backgroundColor: brandBlue,
-              borderRadius: 8,
-              maxBarThickness: 24
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: "bottom",
-              labels: { boxWidth: 10, color: "#64748b", font: { size: 11 } }
-            },
-            tooltip: {
-              callbacks: {
-                label: (ctx) => {
-                  const value = ctx.parsed.y || 0;
-                  return `${ctx.dataset.label}: ${value.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
-                }
-              }
-            }
-          },
-          scales: {
-            x: {
-              ticks: { color: "#64748b", font: { size: 11 } },
-              grid: { display: false }
-            },
-            y: {
-              ticks: {
-                color: "#94a3b8",
-                callback: (value) => `${value.toLocaleString("es-ES")} €`
-              },
-              grid: { color: "rgba(148,163,184,0.15)" }
-            }
-          }
-        }
-      });
-
-      const list = document.getElementById("benefitDeviationList");
-      if (!list) {
-        return;
-      }
-      list.innerHTML = "";
-      data.forEach((row) => {
-        const estimadoValue = Number(row.estimado || 0);
-        const realValue = Number(row.real || 0);
-        const diff = realValue - estimadoValue;
-        const pct = estimadoValue ? (diff / estimadoValue) * 100 : null;
-        const diffLabel = `${diff >= 0 ? "+" : ""}${diff.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
-        const pctLabel = pct === null ? "—" : `${pct >= 0 ? "+" : ""}${pct.toFixed(1).replace(".", ",")} %`;
-        const badgeClass = diff > 0 ? "text-bg-success" : diff < 0 ? "text-bg-danger" : "text-bg-secondary";
-
-        const col = document.createElement("div");
-        col.className = "col-12 col-md-6";
-        col.innerHTML = `
-          <div class="border rounded-3 p-2 d-flex align-items-center justify-content-between">
-            <div>
-              <div class="fw-semibold">${row.nombre || "Proyecto"}</div>
-              <div class="text-muted small">Δ ${diffLabel} · ${pctLabel}</div>
-            </div>
-            <span class="badge ${badgeClass}">Desviación</span>
-          </div>
-        `;
-        list.appendChild(col);
-      });
-    })();
-  </script>
+  {{ dashboard_payload|json_script:"financialDashboardData" }}
+  <script src="{% static 'core/dashboard.js' %}?v={% now 'U' %}"></script>
 {% endblock %}

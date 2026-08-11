@@ -63,4 +63,3 @@ class Command(BaseCommand):
 
         mode = "DRY-RUN" if dry_run else "OK"
         self.stdout.write(f"{mode}: proyectos={total} actualizados={updated}")
-

@@ -1,12 +1,12 @@
 asgiref==3.11.0
-Django==4.2.27
+Django==4.2.30
 gunicorn==23.0.0
 packaging==25.0
 sqlparse==0.5.4
 typing_extensions==4.15.0
 whitenoise==6.11.0
-requests==2.32.3
-weasyprint==66.0
+requests==2.33.0
+weasyprint==69.0
 qrcode==7.4.2
 matplotlib==3.8.4
 dj-database-url==2.1.0
@@ -15,10 +15,10 @@ pandas==2.2.2
 openpyxl==3.1.5
 django-storages==1.14.4
 boto3==1.34.162
-wagtail==5.2.8
-pypdf==4.2.0
+wagtail==7.3.3
+pypdf==6.13.3
 pdf2image==1.17.0
-Pillow==10.4.0
+Pillow==12.3.0
 PyMuPDF==1.24.10
 django-axes==6.5.2
 sentry-sdk==2.21.0
@@ -26,6 +26,6 @@ django-otp==1.5.0
 django-two-factor-auth==1.15.2
 phonenumbers==8.13.29
 django-auditlog==2.3.0
-cryptography==43.0.3
+cryptography==48.0.1
 
 pywebpush==1.14.0
