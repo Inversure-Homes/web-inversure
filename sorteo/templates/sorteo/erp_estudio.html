@@ -194,6 +194,54 @@
         </div>
       </div>
 
+      {# Umbral, partida a partida #}
+      <div class="card shadow-sm border-0 mb-3">
+        <div class="card-header bg-inversure-dark text-inversure fw-semibold border-0 d-flex align-items-center gap-2">
+          <i class="bi bi-calculator"></i> Participaciones mínimas a vender
+        </div>
+        <div class="card-body">
+          <p class="text-muted small">
+            Lo que hay que cubrir son los <strong>costes de adquisición</strong>
+            más los del <strong>proceso del activo</strong>. Cada papeleta
+            aporta su precio menos la comisión de la pasarela.
+          </p>
+          <table class="table table-sm" style="max-width:640px">
+            <tbody>
+              {% for c in analisis.rifa.umbral_detalle.conceptos %}
+                <tr>
+                  <td>
+                    {{ c.concepto }}
+                    {% if c.nota %}<div class="text-muted small">{{ c.nota }}</div>{% endif %}
+                  </td>
+                  <td class="text-end">{{ c.importe|es_number }} €</td>
+                </tr>
+              {% endfor %}
+              <tr class="fw-semibold border-top">
+                <td>A cubrir</td>
+                <td class="text-end">{{ analisis.rifa.umbral_detalle.a_cubrir|es_number }} €</td>
+              </tr>
+              <tr>
+                <td class="text-muted">Neto por participación vendida</td>
+                <td class="text-end">{{ analisis.rifa.umbral_detalle.neto_papeleta|es_number }} €</td>
+              </tr>
+              <tr class="fw-semibold border-top">
+                <td>Participaciones mínimas</td>
+                <td class="text-end">
+                  {{ analisis.rifa.umbral|intcomma }}
+                  <div class="small text-muted fw-normal">
+                    {{ analisis.rifa.umbral_porcentaje }} % de lo emitido ·
+                    ≈ {{ analisis.rifa.compradores|intcomma }} compradores
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="small text-muted mb-0">
+            {{ analisis.rifa.umbral_detalle.formula }}
+          </p>
+        </div>
+      </div>
+
       {# Coste de entrada #}
       <div class="card shadow-sm border-0 mb-3">
         <div class="card-header bg-inversure-dark text-inversure fw-semibold border-0 d-flex align-items-center gap-2">

@@ -68,12 +68,23 @@ def coste_entrada(datos):
         perfil={"empresa_inmobiliaria": True, "reventa": True},
     )
     otros = Decimal(datos.get("otros_gastos") or 0)
+    desglose = datos.get("desglose") or []
+    total = _eur(precio + impuesto["importe"] + otros)
+
+    # Los gastos se agrupan en los dos bloques que decide la operación: lo que
+    # cuesta poner el inmueble a nuestro nombre y lo que cuesta el proceso de
+    # rifarlo. Es la partición que hay que cubrir vendiendo participaciones.
+    adquisicion = _eur(
+        precio + impuesto["importe"] + sum(Decimal(g["importe"]) for g in desglose if g.get("grupo") == "adquisicion")
+    )
     return {
         "precio": precio,
         "impuesto": impuesto,
         "otros": otros,
-        "desglose": datos.get("desglose") or [],
-        "total": _eur(precio + impuesto["importe"] + otros),
+        "desglose": desglose,
+        "adquisicion": adquisicion,
+        "proceso": _eur(total - adquisicion),
+        "total": total,
     }
 
 
@@ -113,7 +124,47 @@ def escenario_rifa(datos, entrada):
     pleno = resultado["filas"][2]
     meses = int(datos.get("meses_rifa") or 0)
 
+    # De qué se compone el umbral, partida a partida.
+    #
+    # Es la cifra que decide la operación, así que tiene que poder auditarse
+    # sin abrir el código: lo que hay que cubrir son los costes de adquisición
+    # más los del proceso del activo, y cada papeleta aporta su precio menos la
+    # comisión de la pasarela.
+    neto_papeleta = _eur(cfg.precio * (Decimal("1") - cfg.comision))
+    a_cubrir = _eur(entrada["total"] + pleno["ingreso_cuenta"] + pleno["tasa"])
+    umbral_detalle = {
+        "conceptos": [
+            {
+                "concepto": "Costes de adquisición",
+                "importe": entrada["adquisicion"],
+                "nota": "Precio del inmueble, impuesto de la compra, notaría, registro y gestoría.",
+            },
+            {
+                "concepto": "Costes del proceso del activo",
+                "importe": entrada["proceso"],
+                "nota": "Tasa DGOJ, notaría del sorteo, asesoría, marketing y otros.",
+            },
+            {
+                "concepto": "Ingreso a cuenta del IRPF",
+                "importe": pleno["ingreso_cuenta"],
+                "nota": "19 % sobre el valor del premio incrementado en un 20 %.",
+            },
+            {
+                "concepto": "Tasa sobre el juego",
+                "importe": pleno["tasa"],
+                "nota": "Se paga sobre las participaciones emitidas, no sobre las vendidas.",
+            },
+        ],
+        "a_cubrir": a_cubrir,
+        "neto_papeleta": neto_papeleta,
+        "umbral": resultado["umbral"],
+        "formula": "{} € ÷ {} € por papeleta = {} participaciones".format(
+            _num(a_cubrir, 2), _num(neto_papeleta, 2), _num(resultado["umbral"])
+        ),
+    }
+
     return {
+        "umbral_detalle": umbral_detalle,
         "nombre": "Rifa",
         "ingresos": pleno["ingresos"],
         "costes": pleno["costes"],

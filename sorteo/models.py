@@ -623,8 +623,9 @@ class EstudioRifa(models.Model):
         """
         from . import aranceles
 
-        def fila(concepto, valor, calculado, nota=""):
+        def fila(grupo, concepto, valor, calculado, nota=""):
             return {
+                "grupo": grupo,
                 "concepto": concepto,
                 "importe": valor if valor is not None else calculado,
                 "calculado": valor is None,
@@ -634,23 +635,31 @@ class EstudioRifa(models.Model):
         base = self.precio_compra or Decimal("0")
         return [
             fila(
+                "adquisicion",
                 "Notaría de la compra",
                 self.gastos_notaria,
                 aranceles.notaria(base),
                 "Arancel RD 1426/1989 aproximado a factura.",
             ),
             fila(
+                "adquisicion",
                 "Registro de la propiedad",
                 self.gastos_registro,
                 aranceles.registro(base),
                 "Arancel RD 1427/1989 aproximado a factura.",
             ),
-            fila("Gestoría de la compra", self.gastos_gestoria, Decimal("400")),
-            fila("Tasa de autorización DGOJ", self.tasa_dgoj, Decimal("100"), "Tasa vigente para rifas ocasionales."),
-            fila("Notaría del sorteo", self.gastos_notaria_sorteo, Decimal("400")),
-            fila("Asesoría jurídica y fiscal", self.gastos_asesoria, Decimal("800")),
-            fila("Marketing y campaña", self.presupuesto_marketing, Decimal("0")),
-            fila("Otros gastos", self.otros_gastos, Decimal("0")),
+            fila("adquisicion", "Gestoría de la compra", self.gastos_gestoria, Decimal("400")),
+            fila(
+                "proceso",
+                "Tasa de autorización DGOJ",
+                self.tasa_dgoj,
+                Decimal("100"),
+                "Tasa vigente para rifas ocasionales.",
+            ),
+            fila("proceso", "Notaría del sorteo", self.gastos_notaria_sorteo, Decimal("400")),
+            fila("proceso", "Asesoría jurídica y fiscal", self.gastos_asesoria, Decimal("800")),
+            fila("proceso", "Marketing y campaña", self.presupuesto_marketing, Decimal("0")),
+            fila("proceso", "Otros gastos", self.otros_gastos, Decimal("0")),
         ]
 
     @property

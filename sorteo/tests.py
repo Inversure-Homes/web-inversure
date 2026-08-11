@@ -7,6 +7,7 @@ consentimiento, duplicar un pago y publicar un ganador que no compró.
 """
 
 import datetime
+import math
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -577,3 +578,64 @@ class GastosDetallados(TestCase):
         self.estudio.save(update_fields=["presupuesto_marketing"])
         despues = comparar(self.estudio.como_datos())["entrada"]["total"]
         self.assertEqual(despues - antes, Decimal("3000"))
+
+
+class ComposicionDelUmbral(TestCase):
+    """
+    El umbral es la cifra que decide la operación, así que tiene que poder
+    auditarse partida a partida: costes de adquisición más costes del proceso
+    del activo, y de ahí las participaciones mínimas.
+    """
+
+    def setUp(self):
+        self.estudio = EstudioRifa.objects.create(
+            nombre="Umbral",
+            precio_compra=Decimal("18000"),
+            comunidad="andalucia",
+            precio_participacion=Decimal("10"),
+            participaciones=5000,
+            presupuesto_marketing=Decimal("2000"),
+        )
+        self.analisis = comparar(self.estudio.como_datos())
+
+    def test_los_dos_bloques_suman_el_coste_de_entrada(self):
+        entrada = self.analisis["entrada"]
+        self.assertEqual(entrada["adquisicion"] + entrada["proceso"], entrada["total"])
+        # El inmueble y su impuesto van en adquisición, no en el proceso.
+        self.assertGreater(entrada["adquisicion"], self.estudio.precio_compra)
+
+    def test_el_marketing_cuenta_como_coste_del_proceso(self):
+        antes = self.analisis["entrada"]["proceso"]
+        self.estudio.presupuesto_marketing = Decimal("5000")
+        self.estudio.save(update_fields=["presupuesto_marketing"])
+        despues = comparar(self.estudio.como_datos())["entrada"]["proceso"]
+        self.assertEqual(despues - antes, Decimal("3000"))
+
+    def test_las_partidas_suman_lo_que_hay_que_cubrir(self):
+        detalle = self.analisis["rifa"]["umbral_detalle"]
+        self.assertEqual(sum(c["importe"] for c in detalle["conceptos"]), detalle["a_cubrir"])
+
+    def test_el_umbral_es_lo_a_cubrir_entre_el_neto_por_papeleta(self):
+        detalle = self.analisis["rifa"]["umbral_detalle"]
+        esperado = math.ceil(detalle["a_cubrir"] / detalle["neto_papeleta"])
+        self.assertEqual(detalle["umbral"], esperado)
+        self.assertEqual(detalle["umbral"], self.analisis["rifa"]["umbral"])
+
+
+class FormularioDelEstudio(TestCase):
+    """
+    La plantilla reparte los campos por secciones con `{% if campo.name in
+    "a,b,c" %}`, y ese patrón deja caer en silencio cualquier campo que no esté
+    en ninguna lista. Si se añade uno al modelo y se olvida la plantilla, no
+    falla nada: simplemente no se puede rellenar. Esto lo detecta.
+    """
+
+    def test_la_plantilla_pinta_todos_los_campos(self):
+        from django.template.loader import render_to_string
+
+        from .views_estudios import EstudioForm
+
+        form = EstudioForm()
+        html = render_to_string("sorteo/erp_estudio_form.html", {"form": form, "titulo": "Nuevo estudio"})
+        faltan = [nombre for nombre in form.fields if 'name="{}"'.format(nombre) not in html]
+        self.assertEqual(faltan, [], "campos que la plantilla no pinta: {}".format(faltan))
