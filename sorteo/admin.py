@@ -57,6 +57,8 @@ class SorteoAdmin(admin.ModelAdmin):
                     "inmueble_referencia_catastral",
                     "inmueble_datos_registrales",
                     "inmueble_valor",
+                    "comunidad",
+                    "operacion_compra",
                     "inmueble_cargas",
                     "inmueble_gastos",
                 )

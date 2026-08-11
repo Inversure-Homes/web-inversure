@@ -14,6 +14,7 @@ from django.db.models.functions import TruncDate
 
 from core.models import GastoProyecto, IngresoProyecto
 
+from .impuestos import Operacion, calcular
 from .models import Interesado, Pedido
 
 # Prefijo con el que se reconocen los apuntes generados por el sorteo, para
@@ -177,7 +178,7 @@ def gastos_base(sorteo):
     # Sin gastos registrados, se toman los de la ficha del proyecto. Es el caso
     # normal al empezar: se rellena el proyecto y no se ha dado de alta ningún
     # gasto todavía. Sin esto la calculadora vería cero y daría cifras absurdas.
-    return coste_adquisicion(sorteo.proyecto)
+    return coste_adquisicion(sorteo.proyecto, sorteo)
 
 
 # Campos de la ficha del proyecto que componen el coste de adquisición. Se
@@ -192,11 +193,27 @@ CAMPOS_ADQUISICION = (
 )
 
 
-def coste_adquisicion(proyecto):
+def coste_adquisicion(proyecto, sorteo=None):
     total = Decimal("0")
     for campo in CAMPOS_ADQUISICION:
         total += getattr(proyecto, campo, None) or Decimal("0")
+
+    # Si nadie ha puesto el ITP a mano, se calcula por comunidad y tipo de
+    # operación. Olvidarlo deja el umbral corto en más de mil euros.
+    if not proyecto.itp and sorteo is not None:
+        total += impuesto_compra(sorteo)["importe"]
     return total
+
+
+def impuesto_compra(sorteo):
+    """ITP o IVA de la compra del inmueble, calculado desde el sorteo."""
+    proyecto = sorteo.proyecto
+    return calcular(
+        proyecto.precio_compra_inmueble or sorteo.inmueble_valor or Decimal("0"),
+        sorteo.comunidad,
+        sorteo.operacion_compra or Operacion.ITP,
+        valor_referencia=proyecto.valor_referencia,
+    )
 
 
 def desglose_gastos_base(sorteo):
@@ -226,10 +243,21 @@ def desglose_gastos_base(sorteo):
         for campo in CAMPOS_ADQUISICION
         if getattr(proyecto, campo, None)
     ]
+    impuesto = None
+    if not proyecto.itp:
+        impuesto = impuesto_compra(sorteo)
+        if impuesto["importe"]:
+            filas.append(
+                {
+                    "concepto": "{} al {:.10g} % (calculado)".format(impuesto["impuesto"], impuesto["tipo"]),
+                    "importe": impuesto["importe"],
+                }
+            )
     return {
         "origen": "ficha",
-        "total": coste_adquisicion(proyecto),
+        "total": coste_adquisicion(proyecto, sorteo),
         "filas": filas,
+        "impuesto": impuesto,
     }
 
 

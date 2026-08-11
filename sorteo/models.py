@@ -19,6 +19,8 @@ from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
 
+from .impuestos import COMUNIDADES, Operacion
+
 
 def _sumar_meses(fecha, meses):
     total = fecha.month - 1 + meses
@@ -157,6 +159,22 @@ class Sorteo(models.Model):
     inmueble_referencia_catastral = models.CharField(max_length=40, blank=True)
     inmueble_datos_registrales = models.CharField(max_length=255, blank=True)
     inmueble_valor = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    # Impuesto de la compra. El ITP lo fija cada comunidad y la operación decide
+    # si es ITP o IVA; con esto se calcula solo si el proyecto no lo trae.
+    comunidad = models.CharField(
+        max_length=30,
+        blank=True,
+        choices=COMUNIDADES,
+        verbose_name="Comunidad autónoma del inmueble",
+    )
+    operacion_compra = models.CharField(
+        max_length=10,
+        blank=True,
+        default=Operacion.ITP,
+        choices=Operacion.OPCIONES,
+        verbose_name="Impuesto de la compra",
+    )
+
     inmueble_cargas = models.TextField(default="Libre de cargas y gravámenes.")
     inmueble_gastos = models.TextField(
         default="Los gastos de notaría, registro e impuestos derivados de la transmisión corren por cuenta del ganador."

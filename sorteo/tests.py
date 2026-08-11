@@ -14,6 +14,7 @@ from django.test import TestCase
 from core.models import Proyecto
 
 from .calculadora import Config, escenarios, recomendar, umbral
+from .impuestos import Operacion, calcular
 from .models import ActaSorteo, Interesado, Organizador, Papeleta, Pedido, Sorteo
 from .notaria import cerrar_venta, huella, listado_canonico
 from .services import (
@@ -225,3 +226,30 @@ class Calculadora(BaseSorteo):
         # La perdida es mucho menor que el coste total, porque la plaza queda.
         self.assertGreater(cancelacion["resultado"], Decimal("-21160"))
         self.assertLess(cancelacion["resultado"], 0)
+
+
+class ImpuestoDeCompra(TestCase):
+    def test_el_tipo_depende_de_la_comunidad(self):
+        self.assertEqual(calcular(100000, "madrid")["importe"], Decimal("6000.00"))
+        self.assertEqual(calcular(100000, "cataluna")["importe"], Decimal("10000.00"))
+
+    def test_la_base_es_el_valor_de_referencia_si_es_mayor(self):
+        r = calcular(100000, "andalucia", valor_referencia=120000)
+        self.assertEqual(r["base"], Decimal("120000"))
+        self.assertEqual(r["importe"], Decimal("8400.00"))
+        self.assertTrue(r["avisos"])
+
+    def test_el_precio_manda_si_supera_al_valor_de_referencia(self):
+        r = calcular(100000, "andalucia", valor_referencia=80000)
+        self.assertEqual(r["base"], Decimal("100000"))
+
+    def test_primera_entrega_va_por_iva_mas_ajd(self):
+        r = calcular(100000, "madrid", Operacion.IVA)
+        self.assertEqual(r["impuesto"], "IVA + AJD")
+        # 21 % de IVA + 1,5 % de AJD
+        self.assertEqual(r["importe"], Decimal("22500.00"))
+
+    def test_sin_comunidad_no_se_inventa_un_tipo(self):
+        r = calcular(100000, "")
+        self.assertEqual(r["importe"], Decimal("0"))
+        self.assertTrue(r["avisos"])
