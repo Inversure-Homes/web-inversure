@@ -2,10 +2,10 @@
 {% load static formatting %}
 {% block content %}
 
-{#
+{% comment %}
   Proyecto usa su propio JS (proyecto.js). Mantenemos flags globales para que cualquier lógica compartida
   pueda detectar el modo proyecto.
-#}
+{% endcomment %}
 <script>
   window.ES_MODO_PROYECTO = true;
   window.PROYECTO_ID = {% if proyecto and proyecto.id %}{{ proyecto.id }}{% else %}null{% endif %};

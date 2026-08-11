@@ -315,8 +315,9 @@ class CoberturaDelCatalogo(TestCase):
 class ComentariosDePlantilla(TestCase):
     """
     Los comentarios {# #} de Django son de UNA sola línea: si abarcan varias se
-    imprimen tal cual en el HTML. Pasó en el pie de la landing y se vio en
-    producción, así que queda comprobado.
+    imprimen tal cual en el HTML. Pasó en el pie de la landing y en la ficha de
+    proyecto, y se vio en producción, así que queda comprobado en todas las
+    apps y no solo en las plantillas del sorteo.
     """
 
     def test_ninguna_plantilla_imprime_comentarios(self):
@@ -325,8 +326,17 @@ class ComentariosDePlantilla(TestCase):
 
         raiz = Path(__file__).resolve().parent.parent
         fallos = []
-        for carpeta in ("sorteo/templates", "landing/templates"):
-            for ruta in (raiz / carpeta).rglob("*.html"):
+        for carpeta in (
+            "sorteo/templates",
+            "landing/templates",
+            "core/templates",
+            "accounts/templates",
+            "cms/templates",
+        ):
+            directorio = raiz / carpeta
+            if not directorio.exists():
+                continue
+            for ruta in directorio.rglob("*.html"):
                 texto = ruta.read_text()
                 for m in re.finditer(r"\{#.*?#\}", texto, re.S):
                     if "\n" in m.group(0):
