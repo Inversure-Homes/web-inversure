@@ -1,0 +1,22 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<h1>Registrar acta notarial</h1>
+
+<p style="max-width:640px">
+  Esta pantalla <strong>no sortea</strong>: transcribe el acta. El notario
+  extrae entre las <strong>{{ sorteo.vendidas }}</strong> participaciones
+  vendidas de «{{ sorteo.titulo }}», así que el número premiado debe ser una de
+  ellas. Al guardar, el resultado se publica en la web y la operación
+  <strong>no se puede deshacer</strong>.
+</p>
+
+<form method="post">
+  {% csrf_token %}
+  <table>{{ form.as_table }}</table>
+  <p class="submit-row">
+    <input type="submit" value="Registrar y publicar" class="default">
+    <a href="{% url 'admin:sorteo_sorteo_changelist' %}" class="button cancel-link">Cancelar</a>
+  </p>
+</form>
+{% endblock %}

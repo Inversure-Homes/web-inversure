@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="{% static 'core/pwa/manifest.json' %}">
     <link rel="apple-touch-icon" href="{% static 'core/pwa/icon-180.png' %}">
-    <title>Inversure Homes</title>
+    <title>{% block title %}Inversure Homes{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'landing/landing-card.css' %}">
     <link rel="stylesheet" href="{% static 'landing/landing.css' %}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31,11 +31,13 @@
           <a href="#reseñas">Opiniones</a>
           <a href="#patrocinadores">Colaboradores</a>
         </nav>
+        {% block nav_actions %}
         <div class="landing-nav__actions">
           <button type="button" class="btn-outline" data-lead-open="oportunidad">Proponer proyecto</button>
           <button type="button" class="btn-solid" data-lead-open="inversor">Quiero invertir</button>
           <a class="btn-solid landing-cta" href="/app/login/">Acceso empleados</a>
         </div>
+        {% endblock %}
       </div>
     </header>
 

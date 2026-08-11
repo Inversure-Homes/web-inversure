@@ -1,0 +1,21 @@
+{% extends "landing/base.html" %}
+{% load static %}
+
+{#
+  Base de las páginas de sorteo.
+
+  El bloque `nav_actions` se vacía a propósito: el RD 958/2020 prohíbe
+  presentar el juego como actividad económica o de inversión, y dejar el botón
+  "Quiero invertir" junto a la compra de participaciones es justo esa
+  asociación. El menú y la marca se conservan; los CTA de inversión, no.
+#}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'sorteo/sorteo.css' %}">
+{% endblock %}
+
+{% block nav_actions %}
+  <div class="landing-nav__actions">
+    <a class="btn-outline" href="{% url 'sorteo:bases' %}">Bases del sorteo</a>
+  </div>
+{% endblock %}

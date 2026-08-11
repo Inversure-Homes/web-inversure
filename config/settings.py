@@ -115,6 +115,7 @@ INSTALLED_APPS = [
     'cms',
     'core.apps.CoreConfig',
     'landing',
+    'sorteo.apps.SorteoConfig',
     'storages',
 ]
 

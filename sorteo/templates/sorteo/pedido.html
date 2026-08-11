@@ -1,0 +1,76 @@
+{% extends "sorteo/base_sorteo.html" %}
+{% load humanize %}
+
+{% block title %}Tu participación · Inversure Homes{% endblock %}
+
+{% block content %}
+<main class="container sorteo-contenido">
+  {% if pedido.estado == "pendiente" %}
+    <div class="sorteo-panel">
+      <h2>Pago pendiente</h2>
+      <p class="sub">
+        Todavía no hemos recibido la confirmación de tu pago. Si acabas de
+        pagar, espera unos segundos y recarga esta página.
+      </p>
+      <div class="sorteo-numeros-grandes">{{ pedido.numeros_texto }}</div>
+      <p class="sorteo-pie">Localizador <code>{{ pedido.codigo }}</code></p>
+    </div>
+
+  {% elif pedido.estado == "caducado" %}
+    <div class="sorteo-panel">
+      <h2>Reserva caducada</h2>
+      <p class="sub">
+        Esta reserva expiró sin completarse el pago y las participaciones
+        volvieron a ponerse a la venta.
+      </p>
+      <a href="{% url 'sorteo:portada' %}">Volver al sorteo</a>
+    </div>
+
+  {% else %}
+    <h1>¡Gracias, {{ pedido.nombre }}!</h1>
+    <p class="sub">
+      Tu pago se ha confirmado y te hemos enviado un email a
+      <strong>{{ pedido.email }}</strong>.
+    </p>
+
+    <section class="sorteo-panel">
+      <h2>Tus números</h2>
+      <div class="sorteo-numeros-grandes">{{ pedido.numeros_texto }}</div>
+
+      <table class="sorteo-tabla">
+        <tbody>
+          <tr><th>Sorteo</th><td>{{ pedido.sorteo.titulo }}</td></tr>
+          <tr><th>Premio</th><td>{{ pedido.sorteo.premio_descripcion }}</td></tr>
+          <tr>
+            <th>Fecha del sorteo</th>
+            <td>{{ pedido.sorteo.fecha_sorteo|date:"j \d\e F \d\e Y" }}</td>
+          </tr>
+          <tr><th>Importe</th><td>{{ pedido.importe|floatformat:2 }} €</td></tr>
+          <tr>
+            <th>Precio por participación</th>
+            <td>{{ pedido.sorteo.precio_participacion|floatformat:2 }} €</td>
+          </tr>
+          <tr>
+            <th>Participaciones emitidas</th>
+            <td>{{ pedido.sorteo.total_participaciones|intcomma }}</td>
+          </tr>
+          <tr>
+            <th>El premio caduca el</th>
+            <td>{{ pedido.sorteo.fecha_caducidad_premio|date:"j \d\e F \d\e Y" }}</td>
+          </tr>
+          <tr><th>Localizador</th><td><code>{{ pedido.codigo }}</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <p class="sorteo-pie">
+      Guarda esta página: es el justificante de tu participación.
+      Organiza {{ pedido.sorteo.organizador.nombre }}{% if pedido.sorteo.organizador.autorizacion_dgoj %} ·
+      Autorización DGOJ {{ pedido.sorteo.organizador.autorizacion_dgoj }}{% endif %}.
+      <a href="{% url 'sorteo:bases' %}">Bases del sorteo</a>
+      (versión aceptada: {{ pedido.version_bases }}).
+      <a href="{% url 'sorteo:portada' %}">Volver al sorteo</a>
+    </p>
+  {% endif %}
+</main>
+{% endblock %}

@@ -1,0 +1,204 @@
+{% extends "core/base.html" %}
+{% load humanize %}
+
+{% block content %}
+<div class="inversure-app">
+  <section class="inversure-section">
+    <div class="container">
+
+      <section class="inversure-section-header mb-4 text-center">
+        <div class="inversure-section-icon mb-2">
+          <i class="bi bi-calculator"></i>
+        </div>
+        <h1 class="inversure-section-title">Escenarios y dimensionado</h1>
+        <div class="inversure-divider mx-auto"></div>
+        <p class="inversure-section-subtitle mx-auto">
+          {% if sorteo %}
+            {{ sorteo.titulo }} · configuración actual:
+            {{ cfg.emitidas|intcomma }} participaciones a
+            {{ cfg.precio|floatformat:"2g" }} €
+          {% else %}
+            Estudio previo: ¿compensa rifar este inmueble? No hace falta crear
+            proyecto ni sorteo para responderlo.
+          {% endif %}
+        </p>
+      </section>
+
+      {# ---------------- Escenarios ---------------- #}
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+          <h5 class="mb-1">Qué pasa en cada escenario</h5>
+          <p class="text-muted small mb-3">
+            {{ cfg.emitidas|intcomma }} participaciones a
+            {{ cfg.precio|floatformat:"2g" }} €, tasa de juego del
+            {{ form.tasa_pct.value|floatformat:"0" }} % y comisión del
+            {{ form.comision_pct.value|floatformat:"2" }} %.
+          </p>
+
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th>Escenario</th>
+                  <th class="text-end">Vendidas</th>
+                  <th class="text-end">Ingresos</th>
+                  <th class="text-end">Costes</th>
+                  <th class="text-end">Resultado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for f in escenarios.filas %}
+                  <tr>
+                    <td>
+                      <span class="badge bg-{{ f.tono }}">&nbsp;</span>
+                      <strong>{{ f.nombre }}</strong>
+                      <div class="text-muted small">{{ f.detalle }}</div>
+                    </td>
+                    <td class="text-end">
+                      {{ f.vendidas|intcomma }}
+                      <div class="text-muted small">{{ f.porcentaje }} %</div>
+                    </td>
+                    <td class="text-end">{{ f.ingresos|floatformat:"0g" }} €</td>
+                    <td class="text-end">{{ f.costes|floatformat:"0g" }} €</td>
+                    <td class="text-end fw-semibold
+                        {% if f.resultado < 0 %}text-danger{% else %}text-success{% endif %}">
+                      {{ f.resultado|floatformat:"0g" }} €
+                      {% if f.nota_resultado %}
+                        <div class="text-muted small fw-normal">{{ f.nota_resultado }}</div>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="row g-3 mt-2">
+            <div class="col-md-4">
+              <div class="border rounded p-3 h-100">
+                <div class="text-muted small text-uppercase">Umbral de rentabilidad</div>
+                <div class="fs-4 fw-semibold">
+                  {{ escenarios.umbral|intcomma }}
+                  <span class="text-muted fs-6">({{ escenarios.umbral_porcentaje }} %)</span>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="border rounded p-3 h-100">
+                <div class="text-muted small text-uppercase">Compradores necesarios</div>
+                <div class="fs-4 fw-semibold">≈ {{ escenarios.compradores|intcomma }}</div>
+                <div class="text-muted small">suponiendo 3 participaciones por persona</div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="border rounded p-3 h-100">
+                <div class="text-muted small text-uppercase">Suelo estructural</div>
+                <div class="fs-4 fw-semibold">{{ escenarios.suelo_estructural }} %</div>
+                <div class="text-muted small">
+                  el umbral nunca baja de ahí: lo impone la propia tasa
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# ---------------- Dimensionado ---------------- #}
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+          <h5 class="mb-1">Qué precio y cuántas participaciones</h5>
+          <p class="text-muted small mb-3">
+            Para cada precio, cuántas participaciones hay que emitir para
+            alcanzar el margen objetivo, y cuántas hay que colocar para no
+            perder dinero.
+          </p>
+
+          <form method="get" class="row g-2 align-items-end mb-4">
+            {% for campo in form %}
+              <div class="col-md-4">
+                <label class="form-label small">{{ campo.label }}</label>
+                {{ campo }}
+                {% if campo.help_text %}
+                  <div class="form-text small">{{ campo.help_text }}</div>
+                {% endif %}
+                {% for e in campo.errors %}
+                  <div class="text-danger small">{{ e }}</div>
+                {% endfor %}
+              </div>
+            {% endfor %}
+            <div class="col-12">
+              <button class="btn btn-inversure btn-sm">Recalcular</button>
+            </div>
+          </form>
+
+          {% if recomendada %}
+            <div class="alert alert-success">
+              <strong>Recomendación:</strong>
+              emitir <strong>{{ recomendada.emitidas|intcomma }}</strong>
+              participaciones a
+              <strong>{{ recomendada.precio|floatformat:"2g" }} €</strong>.
+              Hay que colocar {{ recomendada.umbral|intcomma }}
+              ({{ recomendada.umbral_porcentaje }} %) para no perder dinero, es
+              decir unos {{ recomendada.compradores|intcomma }} compradores.
+              <div class="small mt-2">
+                Se recomienda la combinación que exige <em>vender menos
+                papeletas</em>, no la de más margen: el riesgo real de una rifa
+                no es el precio, es no llegar a colocarla.
+              </div>
+            </div>
+          {% endif %}
+
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead>
+                <tr>
+                  <th>Precio</th>
+                  <th class="text-end">Emitir</th>
+                  <th class="text-end">Recaudación a pleno</th>
+                  <th class="text-end">Umbral</th>
+                  <th class="text-end">Compradores</th>
+                  <th class="text-end">Resultado a pleno</th>
+                  <th>Probabilidad</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for o in opciones %}
+                  <tr {% if forloop.first %}class="table-success"{% endif %}>
+                    <td class="fw-semibold">{{ o.precio|floatformat:"2g" }} €</td>
+                    <td class="text-end">{{ o.emitidas|intcomma }}</td>
+                    <td class="text-end">{{ o.bruto|floatformat:"0g" }} €</td>
+                    <td class="text-end">
+                      {{ o.umbral|intcomma }}
+                      <span class="text-muted">({{ o.umbral_porcentaje }} %)</span>
+                    </td>
+                    <td class="text-end">≈ {{ o.compradores|intcomma }}</td>
+                    <td class="text-end">{{ o.resultado_pleno|floatformat:"0g" }} €</td>
+                    <td class="small text-muted">{{ o.probabilidad }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <p class="text-muted small mb-0">
+            Subir el precio y emitir menos reduce las papeletas a vender para el
+            mismo margen, porque la tasa se paga sobre lo emitido. El límite lo
+            pone la conversión: cuanta más gente descarte pagar el importe, menos
+            sirve el ahorro. Y a mayor precio, peor probabilidad para el
+            comprador, que es un argumento de venta.
+          </p>
+        </div>
+      </div>
+
+      <p class="text-center">
+        {% if sorteo %}
+          <a href="{% url 'sorteo_erp:detalle' sorteo.pk %}">Volver al sorteo</a>
+        {% else %}
+          <a href="{% url 'sorteo_erp:lista' %}">Volver a sorteos</a>
+        {% endif %}
+      </p>
+
+    </div>
+  </section>
+</div>
+{% endblock %}

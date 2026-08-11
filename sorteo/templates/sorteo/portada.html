@@ -1,0 +1,189 @@
+{% extends "sorteo/base_sorteo.html" %}
+{% load static humanize %}
+
+{% block title %}{{ sorteo.titulo }} · Inversure Homes{% endblock %}
+
+{% block content %}
+<section class="sorteo-hero">
+  <div class="container">
+    <span class="sorteo-etiqueta">Sorteo ante notario</span>
+    <h1>{{ sorteo.titulo }}</h1>
+    <p class="sorteo-premio">{{ sorteo.premio_descripcion }}</p>
+
+    <div class="sorteo-meta">
+      <div>
+        <span class="k">Participación</span>
+        <span class="v">{{ sorteo.precio_participacion|floatformat:2 }} €</span>
+      </div>
+      <div>
+        <span class="k">Disponibles</span>
+        <span class="v">
+          {{ sorteo.disponibles|intcomma }}
+          <span class="tenue">/ {{ sorteo.total_participaciones|intcomma }}</span>
+        </span>
+      </div>
+      <div>
+        <span class="k">Fecha del sorteo</span>
+        <span class="v pequena">{{ sorteo.fecha_sorteo|date:"j \d\e F \d\e Y" }}</span>
+      </div>
+    </div>
+
+    <div class="sorteo-progreso" aria-hidden="true">
+      <div class="barra" style="width: {{ sorteo.porcentaje_vendido }}%"></div>
+    </div>
+    <p class="sorteo-progreso-texto">
+      {{ sorteo.vendidas|intcomma }} participaciones vendidas ·
+      {{ sorteo.recaudado|floatformat:"2g" }} € de
+      {{ sorteo.objetivo|floatformat:"2g" }} €
+    </p>
+  </div>
+</section>
+
+<main class="container sorteo-contenido">
+  {% if acta %}
+    <div class="sorteo-panel">
+      <h2>Sorteo celebrado</h2>
+      <p class="sub">La participación premiada es:</p>
+      <div class="sorteo-numeros-grandes">{{ acta.numero_premiado }}</div>
+      <p>
+        Sorteo celebrado ante notario{% if acta.notario %}, {{ acta.notario }}{% endif %}
+        el {{ acta.fecha|date:"j \d\e F \d\e Y" }}, acta con número de protocolo
+        <strong>{{ acta.protocolo }}</strong>.
+      </p>
+      <p class="sorteo-pie">
+        Condiciones de entrega y plazo de reclamación en las
+        <a href="{% url 'sorteo:bases' %}">bases del sorteo</a>.
+      </p>
+    </div>
+  {% elif not sorteo.abierto %}
+    <div class="sorteo-panel">
+      <h2>La venta está cerrada</h2>
+      <p class="sub">
+        El sorteo se celebrará el {{ sorteo.fecha_sorteo|date:"j \d\e F \d\e Y" }}
+        ante notario. El resultado se publicará en esta misma página.
+      </p>
+    </div>
+  {% else %}
+    <form id="sorteo-form" novalidate>
+      {% csrf_token %}
+
+      <section class="sorteo-panel">
+        <div class="sorteo-pestanas" role="tablist">
+          <button type="button" class="activa" data-modo="rapida">Compra rápida</button>
+          <button type="button" data-modo="elegir">Elegir mis números</button>
+        </div>
+
+        <div data-panel="rapida">
+          <h2>¿Cuántas participaciones quieres?</h2>
+          <p class="sub">Te asignamos los números al azar entre los disponibles.</p>
+          <div class="sorteo-atajos">
+            <button type="button" class="sorteo-chip activo" data-cantidad="1">1</button>
+            <button type="button" class="sorteo-chip" data-cantidad="2">2</button>
+            <button type="button" class="sorteo-chip" data-cantidad="5">5</button>
+            <button type="button" class="sorteo-chip" data-cantidad="10">10</button>
+            <button type="button" class="sorteo-chip" data-cantidad="20">20</button>
+            <input type="number" id="sorteo-cantidad" min="1"
+                   max="{{ sorteo.max_por_pedido }}" value="1"
+                   aria-label="Cantidad de participaciones">
+          </div>
+        </div>
+
+        <div data-panel="elegir" hidden>
+          <h2>Elige tus números</h2>
+          <p class="sub" id="sorteo-rango"></p>
+
+          <div class="sorteo-controles">
+            <div class="sorteo-buscador">
+              <input type="number" id="sorteo-busqueda" min="1"
+                     max="{{ sorteo.total_participaciones }}"
+                     placeholder="Ir a un número…" aria-label="Buscar un número">
+              <button type="button" class="sorteo-chip" id="sorteo-buscar">Buscar</button>
+            </div>
+            <select id="sorteo-bloque" aria-label="Bloque de números"></select>
+          </div>
+
+          <div class="sorteo-rejilla" id="sorteo-rejilla"></div>
+
+          <div class="sorteo-leyenda">
+            <span><i class="punto libre"></i> Libre</span>
+            <span><i class="punto reservada"></i> Reservada</span>
+            <span><i class="punto pagada"></i> Vendida</span>
+          </div>
+
+          <div class="sorteo-elegidos" id="sorteo-elegidos" hidden></div>
+        </div>
+      </section>
+
+      <section class="sorteo-panel">
+        <h2>Tus datos</h2>
+        <p class="sub">
+          Los necesitamos para enviarte las participaciones y avisarte si
+          resultas premiado.
+        </p>
+
+        <label for="sorteo-nombre">Nombre y apellidos</label>
+        <input type="text" id="sorteo-nombre" name="nombre" maxlength="120" required>
+
+        <div class="sorteo-fila">
+          <div>
+            <label for="sorteo-email">Email</label>
+            <input type="email" id="sorteo-email" name="email" maxlength="254" required>
+          </div>
+          <div>
+            <label for="sorteo-telefono">Teléfono (opcional)</label>
+            <input type="tel" id="sorteo-telefono" name="telefono" maxlength="30">
+          </div>
+        </div>
+
+        <div class="sorteo-resumen">
+          <span id="sorteo-resumen-texto">1 participación al azar</span>
+          <span class="total" id="sorteo-total">
+            {{ sorteo.precio_participacion|floatformat:2 }} €
+          </span>
+        </div>
+
+        <label class="sorteo-consentimiento">
+          <input type="checkbox" id="sorteo-acepta">
+          <span>
+            Declaro ser mayor de 18 años y acepto las
+            <a href="{% url 'sorteo:bases' %}" target="_blank" rel="noreferrer">bases del sorteo</a>.
+            La participación de menores de edad está prohibida.
+          </span>
+        </label>
+
+        <div class="sorteo-aviso error" id="sorteo-error" hidden></div>
+
+        <button type="submit" class="sorteo-primario" id="sorteo-enviar" disabled>
+          Ir al pago
+        </button>
+      </section>
+    </form>
+  {% endif %}
+
+  <p class="sorteo-pie">
+    Las reservas caducan a los {{ sorteo.reserva_minutos }} minutos si no se
+    completa el pago.<br><br>
+    Organiza {{ sorteo.organizador.nombre }}{% if sorteo.organizador.nif %},
+    NIF {{ sorteo.organizador.nif }}{% endif %}.
+    {% if sorteo.organizador.autorizacion_dgoj %}
+      Autorización DGOJ {{ sorteo.organizador.autorizacion_dgoj }}.
+    {% endif %}
+    El sorteo se celebra ante notario el
+    {{ sorteo.fecha_sorteo|date:"j \d\e F \d\e Y" }}.
+    <a href="{% url 'sorteo:bases' %}">Bases del sorteo</a>.<br>
+    Prohibida la participación de menores de 18 años.
+  </p>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+  {% if not acta and sorteo.abierto %}
+    <script id="sorteo-datos" type="application/json">
+      {"ocupadas": {{ ocupadas_json|safe }},
+       "total": {{ sorteo.total_participaciones }},
+       "precio": "{{ sorteo.precio_participacion }}",
+       "maximo": {{ sorteo.max_por_pedido }}}
+    </script>
+    <script src="{% static 'sorteo/sorteo.js' %}"></script>
+  {% endif %}
+{% endblock %}

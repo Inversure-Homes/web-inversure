@@ -1,0 +1,73 @@
+{% extends "core/base.html" %}
+{% load humanize %}
+
+{% block content %}
+<div class="inversure-app">
+  <section class="inversure-section">
+    <div class="container">
+
+      <section class="inversure-section-header mb-5 text-center">
+        <div class="inversure-section-icon mb-2">
+          <i class="bi bi-ticket-perforated"></i>
+        </div>
+        <h1 class="inversure-section-title">Sorteos</h1>
+        <div class="inversure-divider mx-auto"></div>
+        <p class="inversure-section-subtitle mx-auto">
+          Rifas de inmuebles. Cada sorteo cuelga de un proyecto, que es donde
+          vive su economía.
+        </p>
+      </section>
+
+      <div class="text-center mb-4">
+        <a href="{% url 'sorteo_erp:calculadora_libre' %}" class="btn btn-inversure">
+          <i class="bi bi-calculator"></i> ¿Compensa rifar un inmueble?
+        </a>
+        <div class="text-muted small mt-2">
+          Estudio previo, sin necesidad de crear proyecto ni sorteo.
+        </div>
+      </div>
+
+      {% if sorteos %}
+        <div class="row g-4">
+          {% for s in sorteos %}
+            <div class="col-md-6">
+              <div class="card h-100 shadow-sm border-0">
+                <div class="card-body d-flex flex-column">
+                  <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h5 class="mb-0">{{ s.titulo }}</h5>
+                    <span class="badge bg-secondary">{{ s.get_estado_display }}</span>
+                  </div>
+                  <p class="text-muted small mb-3">
+                    Proyecto: {{ s.proyecto.nombre }} ·
+                    Sorteo el {{ s.fecha_sorteo|date:"d/m/Y" }}
+                  </p>
+
+                  <div class="progress mb-2" style="height: 8px;">
+                    <div class="progress-bar bg-warning"
+                         style="width: {{ s.porcentaje_vendido }}%"></div>
+                  </div>
+                  <p class="small mb-3">
+                    <strong>{{ s.vendidas|intcomma }}</strong> de
+                    {{ s.total_participaciones|intcomma }} vendidas ·
+                    {{ s.recaudado|floatformat:"0g" }} €
+                  </p>
+
+                  <a href="{% url 'sorteo_erp:detalle' s.pk %}"
+                     class="btn btn-inversure mt-auto">Ver sorteo</a>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="alert alert-light border text-center">
+          Todavía no hay ningún sorteo. Se crean desde
+          <a href="/admin/sorteo/sorteo/add/">el administrador</a>, enlazándolos
+          a un proyecto existente.
+        </div>
+      {% endif %}
+
+    </div>
+  </section>
+</div>
+{% endblock %}

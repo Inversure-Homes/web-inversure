@@ -1,0 +1,31 @@
+{% extends "sorteo/base_sorteo.html" %}
+
+{% block content %}
+<main class="container sorteo-contenido">
+  <div class="sorteo-aviso">
+    <strong>Pago de prueba.</strong> La pasarela real (Stripe / Bizum) es el
+    paso siguiente. Aquí no se cobra dinero.
+  </div>
+
+  <section class="sorteo-panel">
+    <h2>{{ pedido.sorteo.titulo }}</h2>
+    <p class="sub">A nombre de {{ pedido.nombre }}</p>
+
+    <div class="sorteo-numeros-grandes">{{ pedido.numeros_texto }}</div>
+
+    <div class="sorteo-resumen">
+      <span>Total a pagar</span>
+      <span class="total">{{ pedido.importe|floatformat:2 }} €</span>
+    </div>
+
+    <form method="post">
+      {% csrf_token %}
+      <button type="submit" class="sorteo-primario">Simular pago correcto</button>
+    </form>
+
+    <p class="sorteo-pie">
+      <a href="{% url 'sorteo:portada' %}">Cancelar y volver</a>
+    </p>
+  </section>
+</main>
+{% endblock %}

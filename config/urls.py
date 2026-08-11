@@ -33,9 +33,11 @@ urlpatterns = [
         RedirectView.as_view(pattern_name="two_factor:login", permanent=False),
     ),
     path('admin/', admin.site.urls),
+    path('sorteo/', include(('sorteo.urls', 'sorteo'), namespace='sorteo')),
     path('', include(('landing.urls', 'landing'), namespace='landing')),
     path('app/', include(('accounts.urls', 'accounts'), namespace='accounts')),
     path('app/', include(('core.urls', 'core'), namespace='core')),
+    path('app/sorteos/', include(('sorteo.urls_erp', 'sorteo_erp'), namespace='sorteo_erp')),
     path('cms/', include(wagtailadmin_urls)),
     path('documents/', include(wagtaildocs_urls)),
 ]

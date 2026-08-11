@@ -1,0 +1,306 @@
+{% extends "core/base.html" %}
+{% load humanize %}
+
+{% block content %}
+<div class="inversure-app">
+  <section class="inversure-section">
+    <div class="container">
+
+      <section class="inversure-section-header mb-4 text-center">
+        <div class="inversure-section-icon mb-2">
+          <i class="bi bi-ticket-perforated"></i>
+        </div>
+        <h1 class="inversure-section-title">{{ sorteo.titulo }}</h1>
+        <div class="inversure-divider mx-auto"></div>
+        <p class="inversure-section-subtitle mx-auto">
+          Proyecto
+          <a href="{% url 'core:proyecto' sorteo.proyecto.id %}">{{ sorteo.proyecto.nombre }}</a>
+          · Sorteo ante notario el {{ sorteo.fecha_sorteo|date:"d/m/Y" }}
+          · <span class="badge bg-secondary">{{ sorteo.get_estado_display }}</span>
+        </p>
+      </section>
+
+      {% if messages %}
+        {% for m in messages %}
+          <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}success{% endif %}">
+            {{ m }}
+          </div>
+        {% endfor %}
+      {% endif %}
+
+      {% if acta %}
+        <div class="alert alert-warning">
+          <strong>Sorteo celebrado.</strong> Participación premiada
+          <strong>nº {{ acta.numero_premiado }}</strong> · acta
+          {{ acta.protocolo }}{% if acta.pedido %} · {{ acta.pedido.nombre }}
+          ({{ acta.pedido.email }}){% endif %}.
+        </div>
+      {% endif %}
+
+      {# ---------------- Cifras ---------------- #}
+      <div class="row g-3 mb-4">
+        <div class="col-md-3">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+              <div class="text-muted small text-uppercase">Vendidas</div>
+              <div class="fs-4 fw-semibold">
+                {{ resumen.vendidas|intcomma }}
+                <span class="text-muted fs-6">/ {{ sorteo.total_participaciones|intcomma }}</span>
+              </div>
+              <div class="progress mt-2" style="height: 6px;">
+                <div class="progress-bar bg-warning" style="width: {{ resumen.porcentaje }}%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+              <div class="text-muted small text-uppercase">Recaudado</div>
+              <div class="fs-4 fw-semibold">{{ resumen.recaudado|floatformat:"0g" }} €</div>
+              <div class="text-muted small">de {{ resumen.objetivo|floatformat:"0g" }} €</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+              <div class="text-muted small text-uppercase">Coste total</div>
+              <div class="fs-4 fw-semibold">{{ resumen.coste_total|floatformat:"0g" }} €</div>
+              <div class="text-muted small">gastos del proyecto</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card border-0 shadow-sm h-100
+                      {% if resumen.faltan_equilibrio %}border-start border-4 border-danger{% else %}border-start border-4 border-success{% endif %}">
+            <div class="card-body">
+              <div class="text-muted small text-uppercase">Punto de equilibrio</div>
+              {% if resumen.faltan_equilibrio %}
+                <div class="fs-4 fw-semibold text-danger">
+                  faltan {{ resumen.faltan_equilibrio|intcomma }}
+                </div>
+                <div class="text-muted small">
+                  equilibrio en {{ resumen.equilibrio|intcomma }}
+                  ({{ resumen.porcentaje_equilibrio }} %)
+                </div>
+              {% else %}
+                <div class="fs-4 fw-semibold text-success">superado</div>
+                <div class="text-muted small">
+                  resultado {{ resumen.resultado|floatformat:"0g" }} €
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {% if resumen.faltan_minimo %}
+        <div class="alert alert-warning">
+          <i class="bi bi-exclamation-triangle"></i>
+          Faltan <strong>{{ resumen.faltan_minimo|intcomma }}</strong>
+          participaciones para alcanzar el mínimo de
+          {{ resumen.minimo|intcomma }} fijado en las bases. Por debajo de esa
+          cifra el sorteo puede cancelarse con reintegro.
+        </div>
+      {% endif %}
+
+      {# ---------------- Datos económicos ---------------- #}
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Datos económicos</h5>
+            <div>
+              <a href="{% url 'sorteo_erp:calculadora' sorteo.pk %}"
+                 class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-calculator"></i> Escenarios y dimensionado
+              </a>
+              <a href="{% url 'sorteo_erp:sincronizar' sorteo.pk %}"
+                 class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-repeat"></i> Actualizar en el proyecto
+              </a>
+              <a href="{% url 'core:proyecto_gastos' sorteo.proyecto.id %}"
+                 class="btn btn-sm btn-inversure">Memoria económica</a>
+              <a href="{% url 'core:pdf_memoria_economica' sorteo.proyecto.id %}"
+                 class="btn btn-sm btn-outline-secondary">PDF</a>
+            </div>
+          </div>
+
+          <p class="text-muted small">
+            Los ingresos se consolidan por día en el proyecto, no un apunte por
+            pedido. La tasa del 20 % se calcula sobre las participaciones
+            emitidas, no sobre las vendidas.
+          </p>
+
+          <div class="row">
+            <div class="col-md-7">
+              <h6 class="text-uppercase small text-muted">Gastos</h6>
+              <table class="table table-sm">
+                <tbody>
+                  {% for g in gastos %}
+                    <tr>
+                      <td>{{ g.concepto }}</td>
+                      <td class="text-end text-nowrap">
+                        {{ g.importe_real|default:g.importe|floatformat:"2g" }} €
+                      </td>
+                    </tr>
+                  {% empty %}
+                    <tr><td colspan="2" class="text-muted">Sin gastos registrados.</td></tr>
+                  {% endfor %}
+                  <tr class="fw-semibold border-top">
+                    <td>Total</td>
+                    <td class="text-end">{{ resumen.coste_total|floatformat:"2g" }} €</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="col-md-5">
+              <h6 class="text-uppercase small text-muted">Últimos ingresos</h6>
+              <table class="table table-sm">
+                <tbody>
+                  {% for i in ingresos %}
+                    <tr>
+                      <td class="small">{{ i.fecha|date:"d/m/Y" }}</td>
+                      <td class="text-end text-nowrap">{{ i.importe|floatformat:"2g" }} €</td>
+                    </tr>
+                  {% empty %}
+                    <tr><td colspan="2" class="text-muted">Sin ingresos volcados todavía.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# ---------------- Participantes ---------------- #}
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Participantes</h5>
+            <div>
+              <a href="{% url 'sorteo_erp:exportar' sorteo.pk %}"
+                 class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-download"></i> CSV
+              </a>
+              <button class="btn btn-sm btn-inversure" type="button"
+                      data-bs-toggle="collapse" data-bs-target="#alta-manual">
+                <i class="bi bi-plus-lg"></i> Registrar venta
+              </button>
+            </div>
+          </div>
+
+          <div class="collapse mb-4" id="alta-manual">
+            <div class="border rounded p-3 bg-light">
+              <p class="small text-muted">
+                Para ventas presenciales en efectivo o por transferencia. Entran
+                en el sorteo igual que las de la web y quedan marcadas como
+                registro manual.
+              </p>
+              <form method="post" action="{% url 'sorteo_erp:venta_manual' sorteo.pk %}"
+                    class="row g-2">
+                {% csrf_token %}
+                {% for campo in form %}
+                  <div class="col-md-4">
+                    <label class="form-label small">{{ campo.label }}</label>
+                    {{ campo }}
+                    {% if campo.help_text %}
+                      <div class="form-text small">{{ campo.help_text }}</div>
+                    {% endif %}
+                  </div>
+                {% endfor %}
+                <div class="col-12">
+                  <button type="submit" class="btn btn-inversure btn-sm">
+                    Registrar participación
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <form method="get" class="mb-3">
+            <div class="input-group input-group-sm" style="max-width: 420px;">
+              <input type="search" name="q" value="{{ busqueda }}"
+                     class="form-control"
+                     placeholder="Buscar por nombre, email, teléfono o localizador">
+              <button class="btn btn-outline-secondary">Buscar</button>
+            </div>
+          </form>
+
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead>
+                <tr>
+                  <th>Localizador</th>
+                  <th>Nombre</th>
+                  <th>Contacto</th>
+                  <th>Números</th>
+                  <th class="text-end">Importe</th>
+                  <th>Estado</th>
+                  <th>Origen</th>
+                  <th>Fecha</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for p in pagina %}
+                  <tr>
+                    <td><code>{{ p.codigo }}</code></td>
+                    <td>{{ p.nombre }}</td>
+                    <td class="small">
+                      {{ p.email }}{% if p.telefono %}<br>{{ p.telefono }}{% endif %}
+                    </td>
+                    <td class="small" style="max-width:220px">{{ p.numeros_texto }}</td>
+                    <td class="text-end text-nowrap">{{ p.importe|floatformat:"2g" }} €</td>
+                    <td>
+                      <span class="badge {% if p.estado == 'pagado' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                        {{ p.get_estado_display }}
+                      </span>
+                    </td>
+                    <td class="small">
+                      {{ p.get_origen_display }}{% if p.medio_pago %}<br>
+                      <span class="text-muted">{{ p.medio_pago }}</span>{% endif %}
+                    </td>
+                    <td class="small">{{ p.creado_en|date:"d/m/Y H:i" }}</td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="8" class="text-muted text-center py-4">
+                      Todavía no hay participantes.
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          {% if pagina.has_other_pages %}
+            <nav class="d-flex justify-content-between align-items-center">
+              <span class="small text-muted">
+                Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}
+                · {{ pagina.paginator.count }} pedidos
+              </span>
+              <div>
+                {% if pagina.has_previous %}
+                  <a class="btn btn-sm btn-outline-secondary"
+                     href="?p={{ pagina.previous_page_number }}&q={{ busqueda }}">Anterior</a>
+                {% endif %}
+                {% if pagina.has_next %}
+                  <a class="btn btn-sm btn-outline-secondary"
+                     href="?p={{ pagina.next_page_number }}&q={{ busqueda }}">Siguiente</a>
+                {% endif %}
+              </div>
+            </nav>
+          {% endif %}
+        </div>
+      </div>
+
+      <p class="text-center">
+        <a href="/sorteo/" target="_blank" rel="noreferrer">Ver la página pública</a>
+        ·
+        <a href="{% url 'sorteo_erp:lista' %}">Volver a sorteos</a>
+      </p>
+
+    </div>
+  </section>
+</div>
+{% endblock %}

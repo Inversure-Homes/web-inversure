@@ -1,0 +1,186 @@
+"""
+Puente entre el sorteo y la economía del proyecto en el ERP.
+
+La venta de participaciones se vuelca al `Proyecto` como ingresos, para que la
+memoria económica y el PDF de rentabilidad funcionen sin tocarlos. Se consolida
+**por día**: con miles de pedidos, un apunte por cada uno haría ilegible la
+memoria.
+"""
+
+from decimal import Decimal
+
+from django.db.models import Count, Min
+from django.db.models.functions import TruncDate
+from django.utils import timezone
+
+from core.models import GastoProyecto, IngresoProyecto
+from .models import Papeleta, Pedido
+
+# Prefijo con el que se reconocen los apuntes generados por el sorteo, para
+# poder actualizarlos sin duplicar.
+MARCA = "[sorteo]"
+
+
+def consolidar_ingresos(sorteo):
+    """
+    Crea o actualiza un `IngresoProyecto` por cada día con ventas.
+
+    Idempotente: se puede ejecutar tantas veces como haga falta. Reconoce sus
+    propios apuntes por el prefijo del concepto.
+    """
+    dias = (
+        Pedido.objects.filter(sorteo=sorteo, estado=Pedido.Estado.PAGADO)
+        .annotate(dia=TruncDate("pagado_en"))
+        .values("dia")
+        .annotate(pedidos=Count("id"), papeletas=Count("papeletas"))
+        .order_by("dia")
+    )
+
+    tocados = 0
+    for fila in dias:
+        if not fila["dia"]:
+            continue
+        importe = Decimal(fila["papeletas"]) * sorteo.precio_participacion
+        concepto = "{} Venta de participaciones · {}".format(
+            MARCA, fila["dia"].isoformat()
+        )
+        IngresoProyecto.objects.update_or_create(
+            proyecto=sorteo.proyecto,
+            concepto=concepto,
+            defaults={
+                "fecha": fila["dia"],
+                "tipo": "otro",
+                "importe": importe,
+                "importe_real": importe,
+                "estado": "confirmado",
+                "pagado": True,
+                "observaciones": "{} participaciones en {} pedidos. Apunte "
+                "generado automáticamente por la app de sorteos.".format(
+                    fila["papeletas"], fila["pedidos"]
+                ),
+            },
+        )
+        tocados += 1
+    return tocados
+
+
+def gastos_previstos(sorteo):
+    """
+    Gastos que la propia mecánica de la rifa genera, calculados a partir de la
+    configuración del sorteo. Sirven para el panel y para dar de alta los
+    apuntes en el proyecto.
+
+    La tasa sobre actividades de juego se calcula sobre las participaciones
+    EMITIDAS, no sobre las vendidas: se paga igual se venda todo o la mitad.
+    """
+    emitido = sorteo.total_participaciones * sorteo.precio_participacion
+    tipo = Decimal(sorteo.tasa_juego_porcentaje) / Decimal("100")
+    tasa = (emitido * tipo).quantize(Decimal("0.01"))
+
+    valor = sorteo.inmueble_valor or Decimal("0")
+    ingreso_cuenta = (valor * Decimal("1.20") * Decimal("0.19")).quantize(
+        Decimal("0.01")
+    )
+
+    filas = [
+        {
+            "concepto": "Tasa sobre actividades de juego ({:.10g} % de los "
+            "ingresos brutos)".format(sorteo.tasa_juego_porcentaje),
+            "categoria": "legales",
+            "importe": tasa,
+            "nota": "Se anticipa sobre las {} participaciones emitidas.".format(
+                sorteo.total_participaciones
+            ),
+        }
+    ]
+    if sorteo.organizador_asume_ingreso_cuenta and valor:
+        filas.append(
+            {
+                "concepto": "Ingreso a cuenta del IRPF sobre el premio",
+                "categoria": "legales",
+                "importe": ingreso_cuenta,
+                "nota": "19 % sobre el valor del premio incrementado en un 20 %.",
+            }
+        )
+    return filas
+
+
+def crear_gastos_previstos(sorteo):
+    """Da de alta en el proyecto los gastos propios de la rifa. Idempotente."""
+    creados = 0
+    for fila in gastos_previstos(sorteo):
+        concepto = "{} {}".format(MARCA, fila["concepto"])
+        _, nuevo = GastoProyecto.objects.get_or_create(
+            proyecto=sorteo.proyecto,
+            concepto=concepto,
+            defaults={
+                "fecha": sorteo.fecha_inicio_venta,
+                "categoria": fila["categoria"],
+                "importe": fila["importe"],
+                "importe_estimado": fila["importe"],
+                "estado": "estimado",
+                "observaciones": fila["nota"],
+            },
+        )
+        creados += int(nuevo)
+    return creados
+
+
+def gastos_base(sorteo):
+    """
+    Gastos reales del proyecto, excluidos los que calcula la propia app.
+
+    Son los que no dependen del dimensionado del sorteo —la plaza, su ITP, la
+    notaría, la gestoría— y por tanto los que la calculadora toma como dato
+    fijo al proponer precio y número de participaciones.
+    """
+    total = Decimal("0")
+    for g in GastoProyecto.objects.filter(proyecto=sorteo.proyecto):
+        if (g.concepto or "").startswith(MARCA):
+            continue
+        total += g.importe_real or g.importe or Decimal("0")
+    return total
+
+
+def resumen_economico(sorteo):
+    """
+    Cifras para el panel del ERP.
+
+    La que importa de verdad es `faltan_equilibrio`: cuántas participaciones
+    quedan por vender para dejar de perder dinero.
+    """
+    vendidas = sorteo.vendidas
+    recaudado = vendidas * sorteo.precio_participacion
+
+    gastos = GastoProyecto.objects.filter(proyecto=sorteo.proyecto)
+    coste_total = sum(
+        (g.importe_real or g.importe or Decimal("0")) for g in gastos
+    )
+
+    precio = sorteo.precio_participacion or Decimal("1")
+    equilibrio = int(-(-coste_total // precio)) if coste_total else 0
+    faltan = max(0, equilibrio - vendidas)
+
+    return {
+        "vendidas": vendidas,
+        "reservadas": sorteo.reservadas,
+        "disponibles": sorteo.disponibles,
+        "porcentaje": sorteo.porcentaje_vendido,
+        "recaudado": recaudado,
+        "objetivo": sorteo.objetivo,
+        "coste_total": coste_total,
+        "resultado": recaudado - coste_total,
+        "equilibrio": equilibrio,
+        "faltan_equilibrio": faltan,
+        "porcentaje_equilibrio": (
+            round(equilibrio * 100 / sorteo.total_participaciones)
+            if sorteo.total_participaciones
+            else 0
+        ),
+        "minimo": sorteo.minimo_participaciones,
+        "faltan_minimo": (
+            max(0, sorteo.minimo_participaciones - vendidas)
+            if sorteo.minimo_participaciones
+            else None
+        ),
+    }

@@ -81,6 +81,29 @@
         </div>
         {% endif %}
 
+        {% if can_proyectos %}
+        <div class="col-md-4">
+            <a href="{% url 'sorteo_erp:lista' %}" class="text-decoration-none text-dark">
+                <div class="card h-100 shadow-sm border-0 hover-card">
+                    <div class="card-body text-center d-flex flex-column">
+                        <div class="card-icon-wrapper mb-3">
+                            <div class="card-icon-circle">
+                                <i class="bi bi-ticket-perforated fs-1"></i>
+                            </div>
+                        </div>
+                        <h5 class="mb-2">Sorteos</h5>
+                        <p class="text-muted mb-4">
+                            Rifas de inmuebles: participantes, ventas y economía.
+                        </p>
+                        <span class="btn btn-inversure mt-auto">
+                            Ver sorteos
+                        </span>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+
         {% if can_clientes %}
         <div class="col-md-4">
             <a href="{% url 'core:clientes_form' %}" class="text-decoration-none text-dark">
