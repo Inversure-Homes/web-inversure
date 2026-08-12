@@ -322,7 +322,17 @@ if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY and AWS_STORAGE_BUCKET_NAME:
     else:
         MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/"
 else:
-    STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    # `STATICFILES_STORAGE` quedó obsoleto en Django 4.2 y desapareció en la
+    # 5.1: si se deja, se ignora en silencio y los estáticos se sirven sin
+    # manifiesto ni hash. `STORAGES` funciona en las dos versiones.
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
 
 
 # =========================
