@@ -5,10 +5,9 @@ Lo que da valor a una firma simple no es el clic: es poder demostrar después
 qué documento se firmó y quién lo hizo. Estas pruebas cubren justo eso.
 """
 
+import json
 from datetime import date, timedelta
 from decimal import Decimal
-
-import json
 
 import pytest
 from django.core import mail
