@@ -3226,6 +3226,7 @@ function bindParticipaciones() {
               </select>
             </td>
             <td class="text-end">
+              ${esConciertos ? `<a class="btn btn-sm btn-outline-primary" href="${url}${r.id}/contrato/" target="_blank" rel="noopener noreferrer">Contrato</a>` : ""}
               <button type="button" class="btn btn-sm btn-outline-secondary inv-save">Guardar</button>
               <button type="button" class="btn btn-sm btn-outline-danger inv-del">Borrar</button>
             </td>

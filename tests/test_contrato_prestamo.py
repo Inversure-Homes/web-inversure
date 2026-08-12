@@ -184,3 +184,24 @@ def test_sin_acceso_al_proyecto_no_hay_contrato():
 
     r = core_views.contrato_prestamo(_peticion(mirón), proyecto_id=proyecto.id, participacion_id=participacion.id)
     assert r.status_code == 302
+
+
+def test_el_boton_esta_tambien_en_el_javascript():
+    """
+    La tabla de participaciones la repinta `proyecto.js` con `innerHTML` nada
+    más cargar, así que la fila del servidor se ve un instante y desaparece. Un
+    botón que solo esté en la plantilla de Django no llega a existir: hay que
+    ponerlo en los dos sitios.
+
+    Lo descubrí en producción, no aquí: los tests prueban la vista, no lo que
+    el navegador acaba pintando.
+    """
+    from pathlib import Path
+
+    raiz = Path(__file__).resolve().parent.parent
+    js = (raiz / "core" / "static" / "core" / "proyecto.js").read_text("utf-8")
+    plantilla = (raiz / "core" / "templates" / "core" / "proyecto.html").read_text("utf-8")
+
+    assert "/contrato/" in js, "el JS repinta la tabla y se comería el botón"
+    assert "esConciertos ?" in js.split("/contrato/")[0].rsplit("<td", 1)[-1], "el contrato es solo de Conciertos"
+    assert "core:contrato_prestamo" in plantilla, "y también en el primer pintado del servidor"
