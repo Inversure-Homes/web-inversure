@@ -39,7 +39,7 @@ import base64
 import mimetypes
 from functools import lru_cache
 from decimal import Decimal
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from urllib.request import Request, urlopen
 
 import requests
@@ -49,8 +49,15 @@ from django.db import connection
 from .models import Estudio, Proyecto
 from .models import EstudioSnapshot, ProyectoSnapshot
 from .models import GastoProyecto, IngresoProyecto, ChecklistItem
+from .models import IntentoPinPortal
 from .models import Cliente, Participacion, InversorPerfil, InversorPushSubscription, SolicitudParticipacion, ComunicacionInversor, DocumentoProyecto, DocumentoInversor, FacturaGasto, JustificanteIngreso
 from .finance import limit_loss_to_capital_enabled
+from .security import (
+    PIN_INTENTOS_MAXIMOS,
+    PIN_VENTANA_MINUTOS,
+    FicheroNoPermitido,
+    comprobar_fichero,
+)
 from .services.financial_dashboard import FinancialDashboardFilters, FinancialDashboardService
 from accounts.utils import (
     is_admin_user,
@@ -5976,6 +5983,22 @@ def _build_inversor_portal_context(perfil: InversorPerfil, internal_view: bool) 
     }
 
 
+def _ip_de(request) -> str:
+    reenviada = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if reenviada:
+        return reenviada.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR") or ""
+
+
+def _pin_bloqueado(perfil, ip: str) -> bool:
+    """¿Se han agotado los intentos recientes desde esta IP?"""
+    desde = timezone.now() - timedelta(minutes=PIN_VENTANA_MINUTOS)
+    fallidos = IntentoPinPortal.objects.filter(
+        perfil=perfil, ip=ip, acertado=False, creado__gte=desde
+    ).count()
+    return fallidos >= PIN_INTENTOS_MAXIMOS
+
+
 def inversor_portal(request, token: str):
     perfil = get_object_or_404(InversorPerfil, token=token, activo=True)
     portal_pin_hash = getattr(perfil, "portal_pin_hash", "")
@@ -5983,15 +6006,21 @@ def inversor_portal(request, token: str):
     if portal_pin_hash and not request.session.get(session_key):
         pin_error = None
         if request.method == "POST" and request.POST.get("portal_pin_submit"):
-            pin = (request.POST.get("portal_pin") or "").strip()
-            if pin and check_password(pin, portal_pin_hash):
-                request.session[session_key] = True
-                if request.POST.get("portal_pin_remember"):
-                    request.session.set_expiry(60 * 60 * 24 * 30)
-                else:
-                    request.session.set_expiry(0)
-                return redirect("core:inversor_portal", token=token)
-            pin_error = "PIN incorrecto. Inténtalo de nuevo."
+            ip = _ip_de(request)
+            if _pin_bloqueado(perfil, ip):
+                pin_error = "Demasiados intentos fallidos. Espera {} minutos.".format(PIN_VENTANA_MINUTOS)
+            else:
+                pin = (request.POST.get("portal_pin") or "").strip()
+                acertado = bool(pin) and check_password(pin, portal_pin_hash)
+                IntentoPinPortal.objects.create(perfil=perfil, ip=ip, acertado=acertado)
+                if acertado:
+                    request.session[session_key] = True
+                    if request.POST.get("portal_pin_remember"):
+                        request.session.set_expiry(60 * 60 * 24 * 30)
+                    else:
+                        request.session.set_expiry(0)
+                    return redirect("core:inversor_portal", token=token)
+                pin_error = "PIN incorrecto. Inténtalo de nuevo."
         ctx = {
             "perfil": perfil,
             "portal_pin_required": True,
@@ -6096,6 +6125,11 @@ def inversor_documento_upload(request, perfil_id: int):
     archivo = request.FILES.get("doc_archivo")
     if not titulo or not archivo:
         messages.error(request, "Faltan datos para subir el documento.")
+        return redirect("core:inversores_list")
+    try:
+        comprobar_fichero(archivo)
+    except FicheroNoPermitido as exc:
+        messages.error(request, str(exc))
         return redirect("core:inversores_list")
     DocumentoInversor.objects.create(
         inversor=perfil,
@@ -7918,6 +7952,11 @@ def proyecto_gasto_factura(request, proyecto_id: int, gasto_id: int):
     archivo = request.FILES.get("factura") or request.FILES.get("archivo")
     if not archivo and not documento_id:
         return JsonResponse({"ok": False, "error": "Archivo requerido"}, status=400)
+    if archivo:
+        try:
+            comprobar_fichero(archivo)
+        except FicheroNoPermitido as exc:
+            return JsonResponse({"ok": False, "error": str(exc)}, status=400)
 
     factura_obj, _ = FacturaGasto.objects.get_or_create(gasto=gasto)
     if documento_id:
@@ -8145,6 +8184,10 @@ def proyecto_ingreso_justificante(request, proyecto_id: int, ingreso_id: int):
     archivo = request.FILES.get("justificante") or request.FILES.get("archivo")
     if not archivo:
         return JsonResponse({"ok": False, "error": "Archivo requerido"}, status=400)
+    try:
+        comprobar_fichero(archivo)
+    except FicheroNoPermitido as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
 
     just_obj, _ = JustificanteIngreso.objects.get_or_create(ingreso=ingreso)
     just_obj.archivo = archivo
@@ -8173,6 +8216,12 @@ def proyecto_documentos(request, proyecto_id: int):
     archivos = request.FILES.getlist("archivo")
     if not archivos:
         return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-documentacion")
+    for candidato in archivos:
+        try:
+            comprobar_fichero(candidato)
+        except FicheroNoPermitido as exc:
+            messages.error(request, "{}: {}".format(getattr(candidato, "name", "El fichero"), exc))
+            return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-documentacion")
 
     titulo = (request.POST.get("titulo") or "").strip()
 

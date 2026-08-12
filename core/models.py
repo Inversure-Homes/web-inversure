@@ -1875,3 +1875,37 @@ class MovimientoProyecto(models.Model):
 
     def __str__(self):
         return f"{self.proyecto} · {self.tipo} · {self.importe} €"
+
+
+class IntentoPinPortal(models.Model):
+    """
+    Cada intento de PIN en el portal del inversor.
+
+    Existe para poder contarlos. El PIN es un secreto corto y el enlace del
+    portal no pasa por el login del ERP, así que `django-axes` —que protege el
+    formulario de acceso— no lo cubre: sin llevar la cuenta, un PIN de cuatro o
+    seis dígitos se prueba entero en minutos.
+
+    Se cuenta contra la base de datos y no contra la caché porque la de Django
+    es por proceso: con varios workers, cada uno llevaría la suya.
+    """
+
+    perfil = models.ForeignKey(
+        "InversorPerfil",
+        on_delete=models.CASCADE,
+        related_name="intentos_pin",
+    )
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    acertado = models.BooleanField(default=False)
+    creado = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "intento de PIN del portal"
+        verbose_name_plural = "intentos de PIN del portal"
+        ordering = ["-creado"]
+        indexes = [models.Index(fields=["perfil", "ip", "creado"])]
+
+    def __str__(self):
+        return "{} · {} · {:%d/%m/%Y %H:%M}".format(
+            self.perfil_id, "acertado" if self.acertado else "fallido", self.creado
+        )

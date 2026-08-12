@@ -80,7 +80,7 @@ configurado, pero nada impide que un servicio nuevo —una copia de pruebas, una
 migración de hosting— arranque sin ellas y cifre con la constante pública sin
 que nadie se entere.
 
-### A3 · Rotar `SECRET_KEY` destruye los datos cifrados sin dar ningún error
+### A3 · Fallo silencioso al descifrar — CERRADO
 
 `core/security.py:58` — al descifrar, si el token no es válido:
 
@@ -106,6 +106,10 @@ Lo que sigue en pie es el fallo silencioso: si algún día se rota la
 con otra clave— los campos se muestran como `enc::gAAAAA…` sin que salte ningún
 error. **Arreglo:** que un fallo al descifrar quede al menos registrado en el
 log en vez de devolver el texto cifrado como si fuera el dato.
+
+**Arreglado** el 12/08/2026: el fallo se registra con `log.error` señalando la
+causa probable. Sigue devolviendo el cifrado para que un dato ilegible no tumbe
+la ficha entera, pero deja de ser invisible.
 
 ---
 
@@ -147,13 +151,22 @@ escribiendo la URL. Si un comercial debe gestionar clientes, lo que hay que
 cambiar es la tabla de permisos de `accounts/utils.py`, no reabrir la puerta en
 las vistas.
 
-### M2 · El PIN del portal del inversor no tiene límite de intentos
+### M2 · El PIN del portal del inversor — CERRADO
 
-`core/views.py:5923` valida el PIN con `check_password` sin contar fallos.
+`core/views.py:5923` validaba el PIN con `check_password` sin contar fallos.
 `django-axes` protege el formulario de acceso del ERP, no este. Un PIN es un
 secreto corto: sin bloqueo, se prueba entero.
 
-### M3 · Los documentos subidos no se validan
+**Arreglado** el 12/08/2026. Cinco intentos fallidos cada quince minutos,
+contados contra el modelo `IntentoPinPortal` —la caché de Django es por proceso
+y con varios workers cada uno llevaría su cuenta—. El bloqueo frena también el
+PIN correcto, o bastaría con acertar al sexto.
+
+Se cuenta por **(inversor, IP)** y no solo por inversor: bloquear por inversor
+dejaría que cualquiera echase al legítimo de su propio portal fallando cinco
+veces. No para un ataque repartido entre muchas IP, pero sí el caso realista.
+
+### M3 · Documentos subidos sin validar — CERRADO
 
 `core/views.py:6014` guarda lo que llegue: sin comprobar extensión ni tipo de
 contenido, hasta 25 MB.
@@ -164,6 +177,14 @@ sin caducidad. En realidad `_apply_project_signed_url` se llama sobre todos los
 documentos del inversor (`core/views.py:5442` y `:5881`), así que la ruta normal
 siempre va firmada. El respaldo sin firmar solo aparecería si fallase la propia
 firma. Queda como detalle a limpiar, no como fuga.
+
+**Arreglado** el 12/08/2026 lo que sí era un hueco: `comprobar_fichero` valida
+extensión, tamaño y tipo declarado en los cuatro puntos de subida —documentos
+del inversor, facturas de gasto, justificantes de ingreso y documentos de
+proyecto—. La lista es de permitidos y no de prohibidos, porque las de
+prohibidos siempre se quedan cortas. Lo que evita: que alguien deje un `.html`
+o un `.svg` con JavaScript en un sitio que después se sirve desde nuestro
+dominio.
 
 ### M4 · Persistencia de los documentos — DESCARTADO
 
@@ -282,10 +303,10 @@ perder:
 |---|---|
 | A1 · Edición del beneficio sin login | **cerrado** |
 | A2 · Clave de cifrado | **descartado** — variables puestas |
-| A3 · Fallo silencioso al descifrar | abierto, gravedad rebajada |
+| A3 · Fallo silencioso al descifrar | **cerrado** |
 | M1 · Rutas sin control de permisos | **cerrado** |
-| M2 · PIN sin límite de intentos | abierto |
-| M3 · Documentos sin validar | abierto, gravedad rebajada |
+| M2 · PIN sin límite de intentos | **cerrado** |
+| M3 · Documentos sin validar | **cerrado** |
 | M4 · Persistencia de documentos | **descartado** — S3 activo |
 | M5 · Política de privacidad | abierto |
 | M6 · Sin borrado ni retención de datos | abierto |
