@@ -235,25 +235,52 @@ def condiciones_cuenta_participe(participacion, firma: date | None = None) -> di
 DIAS_PAGO_RESCISION = 15
 
 
-def intereses_devengados(participacion, hasta: date) -> Decimal:
-    """
-    Lo devengado por un préstamo hasta la fecha de salida.
+def meses_transcurridos(desde: date, hasta: date) -> tuple[int, int]:
+    """Meses completos y días sueltos entre dos fechas."""
+    import calendar
 
-    Se cuentan los períodos bimensuales completos: el contrato liquida por
-    períodos vencidos, no día a día, y cobrar medio período no está pactado.
+    meses = (hasta.year - desde.year) * 12 + (hasta.month - desde.month)
+    dia = min(desde.day, calendar.monthrange(hasta.year, hasta.month)[1])
+    ancla = date(hasta.year, hasta.month, dia)
+    if hasta < ancla:
+        meses -= 1
+        anio = hasta.year - 1 if hasta.month == 1 else hasta.year
+        mes = 12 if hasta.month == 1 else hasta.month - 1
+        ancla = date(anio, mes, min(desde.day, calendar.monthrange(anio, mes)[1]))
+    return max(0, meses), max(0, (hasta - ancla).days)
+
+
+def intereses_devengados(participacion, hasta: date, prorratear_dias: bool = True) -> Decimal:
     """
+    Lo devengado por un préstamo hasta la fecha de salida, al tipo mensual.
+
+    El contrato expresa el interés por período bimensual —un 5 %— pero al salir
+    antes de tiempo se devenga **por meses**, a la mitad de ese tipo: 2,5 %
+    mensual. No es lo mismo que contar períodos completos, y la diferencia es
+    dinero: quien lleve siete meses cobra siete, no seis.
+
+    Con `prorratear_dias` los días sueltos del último mes cuentan su parte. Sin
+    él, solo se pagan los meses completos.
+    """
+    import calendar
+
     firma = participacion.contrato_fecha or participacion.fecha_aportacion
     if not firma or hasta < firma:
         return Decimal("0")
 
-    meses = (hasta.year - firma.year) * 12 + (hasta.month - firma.month)
-    if hasta.day < firma.day:
-        meses -= 1
-    periodos = max(0, min(int(meses // 2), int(participacion.contrato_meses or 12) // 2))
+    meses, dias = meses_transcurridos(firma, hasta)
+    tope = int(participacion.contrato_meses or 12)
+    if meses >= tope:
+        meses, dias = tope, 0
 
     capital = Decimal(participacion.importe_invertido or 0)
-    interes = Decimal(participacion.contrato_interes_bimensual or 0)
-    return (capital * interes / 100 * periodos).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    mensual = Decimal(participacion.contrato_interes_bimensual or 0) / 2
+
+    devengo = Decimal(meses)
+    if prorratear_dias and dias:
+        devengo += Decimal(dias) / Decimal(calendar.monthrange(hasta.year, hasta.month)[1])
+
+    return (capital * mensual / 100 * devengo).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 def condiciones_baja(participacion, fecha: date | None = None, rendimiento=None, motivo: str = "") -> dict:

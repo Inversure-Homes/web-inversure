@@ -351,19 +351,33 @@ def test_el_cambio_de_año_no_se_tuerce():
 # --- Baja del inversor -----------------------------------------------------
 
 
-def test_lo_devengado_cuenta_periodos_completos():
+def test_lo_devengado_va_por_meses_al_2_5_por_ciento():
     """
-    El contrato liquida por períodos bimensuales vencidos, no día a día. Cobrar
-    medio período no está pactado en ninguna parte.
+    Al salir antes de tiempo se devenga por meses a la mitad del tipo
+    bimensual: 2,5 % mensual. No es lo mismo que contar períodos completos —
+    quien lleva siete meses cobra siete, no seis— y la diferencia es dinero.
     """
     from core.contratos import intereses_devengados
 
-    proyecto, participacion = _escenario()  # 50.000 € al 5 %, firmado el 23/06/2026
-    assert intereses_devengados(participacion, date(2026, 8, 1)) == Decimal("0")  # mes y medio
-    assert intereses_devengados(participacion, date(2026, 8, 23)) == Decimal("2500")  # 1 período
-    assert intereses_devengados(participacion, date(2026, 12, 23)) == Decimal("7500")  # 3 períodos
-    # No pasa del plazo pactado.
+    _proyecto, participacion = _escenario()  # 50.000 € al 5 % bimensual desde el 23/06/2026
+
+    # Dos meses justos: 2 × 2,5 % × 50.000.
+    assert intereses_devengados(participacion, date(2026, 8, 23)) == Decimal("2500")
+    # Siete meses: antes salían tres períodos (7.500 €), ahora siete meses.
+    assert intereses_devengados(participacion, date(2027, 1, 23)) == Decimal("8750")
+    # Nunca pasa del plazo pactado.
     assert intereses_devengados(participacion, date(2030, 1, 1)) == Decimal("15000")
+
+
+def test_los_dias_sueltos_se_pueden_prorratear_o_no():
+    """La diferencia entre convenios es real, así que se elige explícitamente."""
+    from core.contratos import intereses_devengados
+
+    _proyecto, participacion = _escenario()  # 50.000 € desde el 23/06/2026
+    hasta = date(2026, 9, 1)  # dos meses y nueve días
+
+    assert intereses_devengados(participacion, hasta, prorratear_dias=False) == Decimal("2500")
+    assert intereses_devengados(participacion, hasta) > Decimal("2500")
 
 
 def test_el_acuerdo_de_resolucion_lleva_el_finiquito():
