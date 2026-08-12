@@ -189,11 +189,25 @@ No encontré nada de supresión ni de plazos de conservación. El derecho de
 supresión (art. 17) hoy solo puede ejercerse borrando a mano desde el admin, lo
 que además choca con las claves protegidas de participaciones y liquidaciones.
 
-### M7 · Django 4.2 está fuera de soporte
+### M7 · Django fuera de soporte — CERRADO
 
-`requirements.txt` fija `Django==4.2.30`. El soporte extendido de la 4.2 LTS
-terminó en **abril de 2026**: ya no recibe parches de seguridad. Conviene
-confirmarlo en la web del proyecto y planificar el salto a la 5.2 LTS.
+`requirements.txt` fijaba `Django==4.2.30`, cuyo soporte extendido terminó en
+abril de 2026: sin parches de seguridad.
+
+**Actualizado a 5.2.17 LTS** el 12/08/2026, con soporte hasta abril de 2028.
+Probado en un entorno aparte y ejecutando todo contra las dos versiones: 462
+pruebas en verde en ambas, sin migraciones nuevas, `collectstatic` correcto y
+los mismos códigos de respuesta en el 2FA, el admin y el CMS. El único punto
+que lo impedía era `STATICFILES_STORAGE`, que desapareció en la 5.1 y se ignora
+en silencio; sustituido por `STORAGES`, que vale para las dos.
+
+Verificado en producción: portada, política, noticias y `healthz` en 200; ERP,
+admin y CMS redirigiendo al login; y los estáticos servidos con su hash, que es
+lo que prueba que el manifiesto se generó.
+
+`django-two-factor-auth` 1.15.2 y `django-auditlog` 2.3.0 siguen en versiones
+antiguas. Funcionan con la 5.2 y `pip check` no protesta, pero conviene
+actualizarlas en su propio paso.
 
 ---
 
@@ -271,15 +285,14 @@ perder:
 | M4 · Persistencia de documentos | **descartado** — S3 activo |
 | M5 · Política de privacidad | abierto |
 | M6 · Sin borrado ni retención de datos | abierto |
-| M7 · Django fuera de soporte | abierto |
+| M7 · Django fuera de soporte | **cerrado** |
 | D1–D4 · Deuda técnica | abierto |
 
 **Por dónde seguiría**, ahora que los dos sustos han quedado descartados:
 
-1. **M7**, actualizar Django. Es lo único que os deja sin parches de seguridad.
-2. **M5 y M6**, que son cumplimiento y no dependen de nosotros: una política de
+1. **M5 y M6**, que son cumplimiento y no dependen de nosotros: una política de
    privacidad seria y un procedimiento de supresión. Guardáis DNI e IBAN.
-3. **M2**, el límite de intentos del PIN. Es pequeño y cierra la única puerta
+2. **M2**, el límite de intentos del PIN. Es pequeño y cierra la única puerta
    que queda con un secreto corto detrás.
-4. **A3 y M3**, que son endurecimiento.
-5. **D1–D4**, cuando haya aire.
+3. **A3 y M3**, que son endurecimiento.
+4. **D1–D4**, cuando haya aire.
