@@ -162,7 +162,9 @@
 
   <p class="sorteo-pie">
     Las reservas caducan a los {{ sorteo.reserva_minutos }} minutos si no se
-    completa el pago.<br><br>
+    completa el pago.<br>
+    ¿Ya compraste y has perdido el enlace?
+    <a href="{% url 'sorteo:recuperar' %}">Recupera tus participaciones</a>.<br><br>
     Organiza {{ sorteo.organizador.nombre }}{% if sorteo.organizador.nif %},
     NIF {{ sorteo.organizador.nif }}{% endif %}.
     {% if sorteo.organizador.autorizacion_dgoj %}

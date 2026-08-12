@@ -12,4 +12,5 @@ urlpatterns = [
     path("reservar/", views.reservar, name="reservar"),
     path("pago/<uuid:pedido_id>/", views.pago_pendiente, name="pago"),
     path("pedido/<uuid:pedido_id>/", views.pedido, name="pedido"),
+    path("recuperar/", views.recuperar, name="recuperar"),
 ]

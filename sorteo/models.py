@@ -684,3 +684,34 @@ class EstudioRifa(models.Model):
             "meses_venta": self.meses_venta,
             "meses_rifa": self.meses_rifa,
         }
+
+
+class SolicitudReenvio(models.Model):
+    """
+    Cada petición de «reenvíame mis participaciones».
+
+    Existe para poder contarlas: sin cuentas de usuario, el reenvío es un
+    formulario abierto con un correo dentro, y sin llevar la cuenta se
+    convierte en una forma cómoda de llenarle el buzón a un tercero. La caché
+    de Django no vale para contar —es por proceso, y con varios workers cada
+    uno llevaría la suya—, así que se cuenta aquí.
+
+    De paso queda el rastro: si alguna vez se abusa, se ve desde dónde.
+    """
+
+    sorteo = models.ForeignKey(Sorteo, on_delete=models.CASCADE, related_name="solicitudes_reenvio")
+    email = models.EmailField()
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    # Si el correo no tenía participaciones no se manda nada, pero la petición
+    # se registra igual: es justo la que interesa vigilar.
+    enviado = models.BooleanField(default=False)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "solicitud de reenvío"
+        verbose_name_plural = "solicitudes de reenvío"
+        ordering = ["-creado_en"]
+        indexes = [models.Index(fields=["sorteo", "creado_en"])]
+
+    def __str__(self):
+        return "{} · {:%d/%m/%Y %H:%M}".format(self.email, self.creado_en)

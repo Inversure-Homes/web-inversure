@@ -12,6 +12,7 @@ import math
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.test import TestCase
 from django.utils import timezone
 
@@ -906,3 +907,89 @@ class PagoSimulado(BaseSorteo):
             self.client.post("/sorteo/pago/{}/".format(self.pedido.id))
         self.pedido.refresh_from_db()
         self.assertEqual(self.pedido.estado, Pedido.Estado.PAGADO)
+
+
+class ResultadoEnElJustificante(BaseSorteo):
+    """
+    Después del sorteo, la página del pedido dice si ha tocado.
+
+    Es donde va a mirar quien compró: el enlace lo tiene en su correo y es lo
+    primero que abre el día del sorteo. Enseñarle «gracias por tu compra» y
+    nada más le dejaría preguntándose.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.ganador = confirmar_pago(reservar_numeros(self.sorteo, [5], DATOS).id)
+        self.otro = confirmar_pago(reservar_numeros(self.sorteo, [6], dict(DATOS, email="b@e.com")).id)
+
+    def _ver(self, pedido):
+        return self.client.get("/sorteo/pedido/{}/".format(pedido.id)).content.decode()
+
+    def test_antes_del_sorteo_no_se_adelanta_nada(self):
+        html = self._ver(self.ganador)
+        self.assertIn("Gracias", html)
+        self.assertNotIn("Número premiado", html)
+
+    def test_al_premiado_se_le_dice(self):
+        registrar_acta(self.sorteo, 5, "2026/1487", datetime.date(2026, 12, 22))
+        html = self._ver(self.ganador)
+        self.assertIn("Enhorabuena", html)
+        self.assertIn("reclamar el premio", html)
+
+    def test_al_resto_tambien_se_le_dice(self):
+        registrar_acta(self.sorteo, 5, "2026/1487", datetime.date(2026, 12, 22))
+        html = self._ver(self.otro)
+        self.assertIn("El sorteo ya se ha celebrado", html)
+        self.assertIn("no han resultado premiados", html)
+        self.assertNotIn("Enhorabuena", html)
+
+
+class RecuperarParticipaciones(BaseSorteo):
+    """
+    Reenvío del enlace a quien lo perdió.
+
+    No hay cuentas: el justificante es un enlace imposible de adivinar, y quien
+    borra el correo se queda sin él. Solo se manda al mismo buzón donde ya
+    estaba, que es el único sitio al que se puede mandar sin comprobar
+    identidad.
+    """
+
+    def setUp(self):
+        super().setUp()
+        confirmar_pago(reservar_numeros(self.sorteo, [11, 12], DATOS).id)
+        mail.outbox = []
+
+    def _pedir(self, email, ip="10.0.0.1"):
+        return self.client.post("/sorteo/recuperar/", {"email": email}, HTTP_X_FORWARDED_FOR=ip)
+
+    def test_manda_los_enlaces_al_comprador(self):
+        self._pedir(DATOS["email"])
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [DATOS["email"]])
+        self.assertIn("/sorteo/pedido/", mail.outbox[0].body)
+
+    def test_un_correo_desconocido_no_recibe_nada(self):
+        self._pedir("nadie@ejemplo.com")
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_la_respuesta_no_delata_quien_ha_jugado(self):
+        """
+        Misma pantalla exista o no el correo. Si dijera «no hay participaciones
+        con ese email», probando direcciones se averigua quién ha jugado.
+        """
+        conocido = self._pedir(DATOS["email"]).content.decode()
+        desconocido = self._pedir("nadie@ejemplo.com", ip="10.0.0.2").content.decode()
+        self.assertIn("Revisa tu correo", conocido)
+        self.assertEqual(conocido, desconocido)
+
+    def test_no_sirve_para_bombardear_un_buzon(self):
+        for _ in range(RESERVAS_POR_VENTANA + 4):
+            self._pedir(DATOS["email"])
+        self.assertLessEqual(len(mail.outbox), RESERVAS_POR_VENTANA)
+
+    def test_las_reservas_sin_pagar_no_se_reenvian(self):
+        reservar_numeros(self.sorteo, [30], dict(DATOS, email="pendiente@e.com"))
+        mail.outbox = []
+        self._pedir("pendiente@e.com")
+        self.assertEqual(len(mail.outbox), 0)

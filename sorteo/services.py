@@ -9,7 +9,7 @@ from django.db import connection, transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from .models import ActaSorteo, Papeleta, Pedido, Sorteo
+from .models import ActaSorteo, Papeleta, Pedido, SolicitudReenvio, Sorteo
 
 
 class ErrorSorteo(Exception):
@@ -168,6 +168,35 @@ def comprobar_ritmo(sorteo, ip, email):
     """
     desde = timezone.now() - timedelta(minutes=VENTANA_RESERVAS_MINUTOS)
     recientes = Pedido.objects.filter(sorteo=sorteo, creado_en__gte=desde)
+
+    condicion = Q()
+    if ip:
+        condicion |= Q(ip=ip)
+    if email:
+        condicion |= Q(email__iexact=email)
+    if not condicion:
+        return
+
+    if recientes.filter(condicion).count() >= RESERVAS_POR_VENTANA:
+        raise DemasiadasReservas(VENTANA_RESERVAS_MINUTOS)
+
+
+def registrar_reenvio(sorteo, email, ip, enviado):
+    """Deja constancia de una petición de reenvío, se mandara o no."""
+    return SolicitudReenvio.objects.create(sorteo=sorteo, email=email, ip=ip, enviado=enviado)
+
+
+def comprobar_ritmo_reenvio(sorteo, ip, email):
+    """
+    El mismo tope, pero contra las solicitudes de reenvío.
+
+    No sirve reutilizar `comprobar_ritmo`: aquella cuenta pedidos creados, y
+    pedir el reenvío no crea ninguno, así que el contador no se movía nunca y
+    el límite no llegaba a saltar. Sin esto, el formulario es una forma cómoda
+    de llenarle el buzón a un tercero.
+    """
+    desde = timezone.now() - timedelta(minutes=VENTANA_RESERVAS_MINUTOS)
+    recientes = SolicitudReenvio.objects.filter(sorteo=sorteo, creado_en__gte=desde)
 
     condicion = Q()
     if ip:

@@ -7,14 +7,16 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .correo import confirmar_alta, confirmar_pedido
+from .correo import confirmar_alta, confirmar_pedido, reenviar_participaciones
 from .models import Interesado, Papeleta, Pedido, Sorteo
 from .services import (
     DemasiadasReservas,
     ErrorSorteo,
     comprobar_ritmo,
+    comprobar_ritmo_reenvio,
     confirmar_pago,
     liberar_caducadas,
+    registrar_reenvio,
     reservar_cantidad,
     reservar_numeros,
 )
@@ -280,5 +282,68 @@ def pago_pendiente(request, pedido_id):
 
 
 def pedido(request, pedido_id):
+    """
+    El justificante de participación, y después del sorteo también el
+    resultado.
+
+    Quien compró entra aquí desde el enlace de su email, así que es donde va a
+    mirar el día del sorteo. Dejarlo enseñando solo «gracias por tu compra» a
+    alguien que viene a ver si le ha tocado sería raro: el acta ya está
+    registrada y el dato es público en la portada.
+    """
     pedido = get_object_or_404(Pedido.objects.select_related("sorteo", "sorteo__organizador"), pk=pedido_id)
-    return render(request, "sorteo/pedido.html", {"pedido": pedido})
+    acta = getattr(pedido.sorteo, "acta", None)
+    return render(
+        request,
+        "sorteo/pedido.html",
+        {
+            "pedido": pedido,
+            "acta": acta,
+            "premiado": bool(acta and acta.pedido_id == pedido.id),
+        },
+    )
+
+
+def recuperar(request):
+    """
+    Reenvía por email los enlaces a las participaciones de quien los perdió.
+
+    No hay cuentas de usuario: el justificante es un enlace con un
+    identificador imposible de adivinar, y quien borra el correo se queda sin
+    él. Esto lo devuelve al mismo buzón donde ya estaba, que es el único sitio
+    al que se puede mandar sin comprobar identidad.
+
+    La respuesta es **siempre la misma**, exista o no ese correo. Si dijera
+    «no hay participaciones con ese email», cualquiera podría averiguar quién
+    ha jugado probando direcciones. Y va con el mismo tope que las reservas,
+    porque si no sería una forma cómoda de mandarle correo a un tercero.
+    """
+    sorteo = _sorteo_activo()
+    enviado = False
+    error = ""
+
+    if request.method == "POST":
+        email = str(request.POST.get("email") or "").strip()[:254]
+        if "@" not in email:
+            error = "Escribe el email con el que compraste."
+        else:
+            try:
+                comprobar_ritmo_reenvio(sorteo, _ip(request), email)
+            except DemasiadasReservas:
+                error = "Has pedido el reenvío demasiadas veces. Espera unos minutos."
+            else:
+                pedidos = list(
+                    Pedido.objects.filter(sorteo=sorteo, email__iexact=email, estado=Pedido.Estado.PAGADO).order_by(
+                        "creado_en"
+                    )
+                )
+                if pedidos:
+                    reenviar_participaciones(email, sorteo, pedidos)
+                registrar_reenvio(sorteo, email, _ip(request), bool(pedidos))
+                enviado = True
+
+    return render(
+        request,
+        "sorteo/recuperar.html",
+        {"sorteo": sorteo, "enviado": enviado, "error": error},
+    )

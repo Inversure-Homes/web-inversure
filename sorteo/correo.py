@@ -88,3 +88,23 @@ def avisar_ganador(acta):
         },
         acta.pedido.email,
     )
+
+
+def reenviar_participaciones(email, sorteo, pedidos):
+    """
+    Devuelve al comprador los enlaces de sus participaciones.
+
+    Solo se manda al correo con el que se compró, nunca a otro: es la única
+    dirección que ya conocía esos enlaces, así que reenviarlos ahí no revela
+    nada a nadie.
+    """
+    return _enviar(
+        "Tus participaciones · {}".format(sorteo.titulo),
+        "sorteo/email/recuperar.txt",
+        {
+            "sorteo": sorteo,
+            "pedidos": [{"pedido": p, "url": base_url() + reverse("sorteo:pedido", args=[p.id])} for p in pedidos],
+            "url_bases": base_url() + reverse("sorteo:bases"),
+        },
+        email,
+    )

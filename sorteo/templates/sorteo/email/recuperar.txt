@@ -1,0 +1,17 @@
+Hola,
+
+Nos has pedido los enlaces de tus participaciones en «{{ sorteo.titulo }}».
+Aquí están:
+
+{% for fila in pedidos %}- Números {{ fila.pedido.numeros_texto }} · localizador {{ fila.pedido.codigo }}
+  {{ fila.url }}
+{% endfor %}
+Guarda estos enlaces: son el justificante de tu participación y con ellos
+podrás consultar el resultado después del sorteo, que se celebra el
+{{ sorteo.fecha_sorteo|date:"j \d\e F \d\e Y" }} ante notario.
+
+Si no has sido tú quien lo ha pedido, puedes ignorar este mensaje: no se ha
+cambiado nada y estos enlaces ya estaban en tu correo.
+
+Bases del sorteo: {{ url_bases }}
+{{ sorteo.organizador.nombre }}{% if sorteo.organizador.autorizacion_dgoj %} · Autorización DGOJ {{ sorteo.organizador.autorizacion_dgoj }}{% endif %}

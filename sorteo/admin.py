@@ -15,6 +15,7 @@ from .models import (
     Organizador,
     Papeleta,
     Pedido,
+    SolicitudReenvio,
     Sorteo,
 )
 from .services import ErrorSorteo, registrar_acta
@@ -320,4 +321,17 @@ class ActaSorteoAdmin(admin.ModelAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(SolicitudReenvio)
+class SolicitudReenvioAdmin(admin.ModelAdmin):
+    """Solo para mirar: si alguien abusa del reenvío, se ve aquí desde dónde."""
+
+    list_display = ("email", "sorteo", "ip", "enviado", "creado_en")
+    list_filter = ("enviado", "sorteo")
+    search_fields = ("email", "ip")
+    readonly_fields = ("sorteo", "email", "ip", "enviado", "creado_en")
+
+    def has_add_permission(self, request):
         return False

@@ -1,0 +1,51 @@
+{% extends "sorteo/base_sorteo.html" %}
+
+{% block title %}Recuperar mis participaciones · Inversure Homes{% endblock %}
+
+{% comment %}
+  La respuesta es la misma exista o no el correo. Si dijera «no hay
+  participaciones con ese email», cualquiera podría averiguar quién ha jugado
+  probando direcciones.
+{% endcomment %}
+{% block content %}
+<main class="container sorteo-contenido">
+
+  {% if enviado %}
+    <div class="sorteo-panel">
+      <h2>Revisa tu correo</h2>
+      <p class="sub">
+        Si hay participaciones compradas con ese email, acabamos de enviarte
+        los enlaces. Mira también la carpeta de spam.
+      </p>
+      <p class="sorteo-pie">
+        <a href="{% url 'sorteo:portada' %}">Volver al sorteo</a>
+      </p>
+    </div>
+
+  {% else %}
+    <h1>Recuperar mis participaciones</h1>
+    <p class="sub">
+      Al comprar te enviamos un email con el enlace a tus números. Si lo has
+      perdido, escribe aquí el correo con el que compraste y te lo mandamos
+      otra vez al mismo buzón.
+    </p>
+
+    <form method="post" class="sorteo-panel">
+      {% csrf_token %}
+
+      {% if error %}<div class="sorteo-aviso error">{{ error }}</div>{% endif %}
+
+      <label for="email">Email con el que compraste</label>
+      <input type="email" id="email" name="email" required autocomplete="email" />
+
+      <button type="submit" class="sorteo-primario">Enviarme mis participaciones</button>
+    </form>
+
+    <p class="sorteo-pie">
+      Solo lo mandamos a esa misma dirección, nunca a otra: es la única que ya
+      tenía esos enlaces. <a href="{% url 'sorteo:portada' %}">Volver al sorteo</a>
+    </p>
+  {% endif %}
+
+</main>
+{% endblock %}
