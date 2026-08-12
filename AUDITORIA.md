@@ -57,7 +57,7 @@ exenta, y la vista exige `_user_can_edit_project`. La ruta antigua ya no
 resuelve. Cinco pruebas lo fijan, incluidas las dos que importan: sin permiso
 no se escribe nada, y quien gestiona el proyecto sigue pudiendo.
 
-### A2 · La clave que cifra los DNI y los IBAN puede ser una constante pública
+### A2 · La clave que cifra los DNI y los IBAN — DESCARTADO
 
 `core/security.py:29` y `config/settings.py:34`:
 
@@ -70,13 +70,15 @@ Si en Render no está definida ninguna de las dos variables, el DNI, el IBAN, el
 teléfono y la dirección postal de todos los clientes están cifrados con una
 cadena que está escrita en el repositorio.
 
-**No he podido comprobarlo desde fuera** y no he intentado forzar nada: hay que
-mirar las variables de entorno del servicio. Es la primera comprobación que
-haría.
+**Comprobado el 12/08/2026**: las variables están puestas en Render. Los datos
+sensibles están cifrados con una clave real, no con la constante del
+repositorio. **No hay problema.**
 
-**Arreglo.** Además de ponerlas, hacer que la aplicación **se niegue a arrancar**
-sin ellas cuando `DEBUG` es falso. Un fallo silencioso aquí no se descubre hasta
-que es tarde.
+Queda una recomendación, no un hallazgo: que la aplicación **se niegue a
+arrancar** sin esas variables cuando `DEBUG` es falso. Hoy el sistema está bien
+configurado, pero nada impide que un servicio nuevo —una copia de pruebas, una
+migración de hosting— arranque sin ellas y cifre con la constante pública sin
+que nadie se entere.
 
 ### A3 · Rotar `SECRET_KEY` destruye los datos cifrados sin dar ningún error
 
@@ -95,9 +97,15 @@ sensibles ilegibles. Y no salta ningún error: las fichas empiezan a mostrar
 Peor: `encrypt_value` no vuelve a cifrar lo que ya empieza por `enc::`, así que
 un guardado posterior tampoco lo arregla.
 
-**Arreglo.** Separar `SENSITIVE_DATA_KEY` de `SECRET_KEY` de verdad (no por
-defecto), y que un fallo al descifrar lance excepción o quede registrado en el
-log en vez de devolver el cifrado.
+**Matizado tras comprobar el entorno.** Con `SENSITIVE_DATA_KEY` puesta, la
+clave de cifrado ya no depende de la de firma: rotar `SECRET_KEY` **no** rompe
+los datos. Eso rebaja mucho la gravedad.
+
+Lo que sigue en pie es el fallo silencioso: si algún día se rota la
+`SENSITIVE_DATA_KEY` —o se restaura una copia de la base de datos en un entorno
+con otra clave— los campos se muestran como `enc::gAAAAA…` sin que salte ningún
+error. **Arreglo:** que un fallo al descifrar quede al menos registrado en el
+log en vez de devolver el texto cifrado como si fuera el dato.
 
 ---
 
@@ -148,17 +156,23 @@ secreto corto: sin bloqueo, se prueba entero.
 ### M3 · Los documentos subidos no se validan
 
 `core/views.py:6014` guarda lo que llegue: sin comprobar extensión ni tipo de
-contenido, hasta 25 MB. Y en las plantillas
-(`inversor_portal.html:771`, `inversores.html:285`) el enlace es
-`{{ d.signed_url|default:d.archivo.url }}`: si la firma falla, cae a una URL
-que con `AWS_QUERYSTRING_AUTH = False` **no caduca nunca**.
+contenido, hasta 25 MB.
 
-### M4 · Si S3 no está configurado, los documentos se pierden en cada despliegue
+*Corregido a la baja tras revisarlo mejor:* escribí que el enlace
+`{{ d.signed_url|default:d.archivo.url }}` podía caer en una URL sin firmar y
+sin caducidad. En realidad `_apply_project_signed_url` se llama sobre todos los
+documentos del inversor (`core/views.py:5442` y `:5881`), así que la ruta normal
+siempre va firmada. El respaldo sin firmar solo aparecería si fallase la propia
+firma. Queda como detalle a limpiar, no como fuga.
 
-`config/settings.py:288` deja `MEDIA_ROOT` en el disco local, y el disco de
-Render es efímero. `config/urls.py` no sirve `/media/`, y en producción esa ruta
-da 404. Si S3 no está activo, cada despliegue se lleva por delante los
-documentos subidos. **Hay que confirmar si las variables de AWS están puestas.**
+### M4 · Persistencia de los documentos — DESCARTADO
+
+`config/settings.py:288` deja `MEDIA_ROOT` en el disco local, que en Render es
+efímero, y `/media/` da 404 en producción. Eso habría significado perder los
+documentos en cada despliegue.
+
+**Comprobado el 12/08/2026**: las variables de AWS están puestas, así que los
+ficheros van a S3 y persisten. **No hay problema.**
 
 ### M5 · La política de privacidad no cumple el artículo 13 del RGPD
 
@@ -244,12 +258,28 @@ perder:
 
 ---
 
-## Por dónde empezaría
+## Estado a 12 de agosto de 2026
 
-1. **Comprobar las variables de entorno de Render**: `DJANGO_SECRET_KEY` y
-   `SENSITIVE_DATA_KEY`, y si S3 está activo. Son cinco minutos y determinan si
-   A2 y M4 son problemas reales o falsas alarmas.
-2. **Cerrar A1**, que es explotable hoy con solo tener un enlace.
-3. **M1**, área por área, empezando por clientes e inversores.
-4. **A3**, antes de que a alguien le dé por rotar la clave.
-5. El resto, por orden.
+| | |
+|---|---|
+| A1 · Edición del beneficio sin login | **cerrado** |
+| A2 · Clave de cifrado | **descartado** — variables puestas |
+| A3 · Fallo silencioso al descifrar | abierto, gravedad rebajada |
+| M1 · Rutas sin control de permisos | **cerrado** |
+| M2 · PIN sin límite de intentos | abierto |
+| M3 · Documentos sin validar | abierto, gravedad rebajada |
+| M4 · Persistencia de documentos | **descartado** — S3 activo |
+| M5 · Política de privacidad | abierto |
+| M6 · Sin borrado ni retención de datos | abierto |
+| M7 · Django fuera de soporte | abierto |
+| D1–D4 · Deuda técnica | abierto |
+
+**Por dónde seguiría**, ahora que los dos sustos han quedado descartados:
+
+1. **M7**, actualizar Django. Es lo único que os deja sin parches de seguridad.
+2. **M5 y M6**, que son cumplimiento y no dependen de nosotros: una política de
+   privacidad seria y un procedimiento de supresión. Guardáis DNI e IBAN.
+3. **M2**, el límite de intentos del PIN. Es pequeño y cierra la única puerta
+   que queda con un secreto corto detrás.
+4. **A3 y M3**, que son endurecimiento.
+5. **D1–D4**, cuando haya aire.
