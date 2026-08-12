@@ -99,7 +99,16 @@ urlpatterns = [
     path("inversor/<str:token>/push/unsubscribe/", views.inversor_push_unsubscribe, name="inversor_push_unsubscribe"),
     path("inversor/<str:token>/", views.inversor_portal, name="inversor_portal"),
     path("inversor/<str:token>/solicitar/<int:proyecto_id>/", views.inversor_solicitar, name="inversor_solicitar"),
-    path("inversor/<str:token>/beneficio/<int:participacion_id>/", views.inversor_beneficio_update, name="inversor_beneficio_update"),
+    # Edición interna del beneficio. Cuelga de `inversores/` y no de
+    # `inversor/<token>/` a propósito: el middleware exime del login todo lo que
+    # empieza por `/app/inversor/`, porque ahí vive el portal del inversor y el
+    # token hace de credencial. Esta vista escribe cifras del proyecto, así que
+    # no puede vivir en esa zona.
+    path(
+        "inversores/<int:perfil_id>/beneficio/<int:participacion_id>/",
+        views.inversor_beneficio_update,
+        name="inversor_beneficio_update",
+    ),
 
     # Solicitudes de participación (interno)
     path("proyectos/<int:proyecto_id>/solicitudes/", views.proyecto_solicitudes, name="proyecto_solicitudes"),

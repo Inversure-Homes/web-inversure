@@ -6041,13 +6041,30 @@ def inversor_documento_borrar(request, perfil_id: int, doc_id: int):
     return redirect("core:inversores_list")
 
 
-def inversor_beneficio_update(request, token: str, participacion_id: int):
-    perfil = get_object_or_404(InversorPerfil, token=token, activo=True)
+def inversor_beneficio_update(request, perfil_id: int, participacion_id: int):
+    """
+    Edición interna del beneficio de una participación.
+
+    Escribe dos cosas: el beneficio de esa participación y, en
+    `proyecto.extra`, el beneficio bruto, la comisión y el impuesto de
+    sociedades del **proyecto entero**, que es lo que ven todos sus inversores.
+    Por eso exige permiso de edición sobre el proyecto.
+
+    Antes colgaba de `/app/inversor/<token>/…`, dentro de la zona que el
+    middleware exime del login para el portal del inversor. El formulario solo
+    se pintaba en la vista interna, pero eso solo lo escondía: cualquiera con el
+    enlace de un inversor podía mandar el POST y cambiar cifras del proyecto.
+    """
+    perfil = get_object_or_404(InversorPerfil, id=perfil_id)
     if request.method != "POST":
-        return redirect("core:inversor_portal", token=token)
+        return redirect("core:inversor_portal_admin", perfil_id=perfil.id)
 
     participacion = get_object_or_404(Participacion, id=participacion_id, cliente=perfil.cliente)
     proyecto = participacion.proyecto
+
+    if not _user_can_edit_project(request.user, proyecto):
+        messages.error(request, "No tienes permiso para editar la economía de este proyecto.")
+        return redirect("core:inversor_portal_admin", perfil_id=perfil.id)
 
     def _get_decimal(name: str):
         if name not in request.POST:
@@ -6067,14 +6084,14 @@ def inversor_beneficio_update(request, token: str, participacion_id: int):
             participacion.beneficio_neto_override = None
             participacion.save(update_fields=["beneficio_neto_override"])
             messages.success(request, "Beneficio actualizado correctamente.")
-            return redirect("core:inversor_portal", token=token)
+            return redirect("core:inversor_portal_admin", perfil_id=perfil.id)
         if legacy_val is None:
             messages.error(request, "El beneficio indicado no es válido.")
-            return redirect("core:inversor_portal", token=token)
+            return redirect("core:inversor_portal_admin", perfil_id=perfil.id)
         participacion.beneficio_neto_override = legacy_val
         participacion.save(update_fields=["beneficio_neto_override"])
         messages.success(request, "Beneficio actualizado correctamente.")
-        return redirect("core:inversor_portal", token=token)
+        return redirect("core:inversor_portal_admin", perfil_id=perfil.id)
 
     proj_keys = (
         "beneficio_bruto",
@@ -6131,7 +6148,7 @@ def inversor_beneficio_update(request, token: str, participacion_id: int):
         participacion.save(update_fields=["beneficio_override_data", "beneficio_neto_override"])
 
     messages.success(request, "Beneficio actualizado correctamente.")
-    return redirect("core:inversor_portal", token=token)
+    return redirect("core:inversor_portal_admin", perfil_id=perfil.id)
 
 
 def inversor_solicitar(request, token: str, proyecto_id: int):

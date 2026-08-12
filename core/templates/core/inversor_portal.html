@@ -656,7 +656,7 @@
 	                </td>
 	                <td class="text-end col-action">
 	                  {% if internal_view %}
-	                    <form id="beneficio-form-{{ b.participacion_id }}" method="post" action="{% url 'core:inversor_beneficio_update' perfil.token b.participacion_id %}">
+	                    <form id="beneficio-form-{{ b.participacion_id }}" method="post" action="{% url 'core:inversor_beneficio_update' perfil.id b.participacion_id %}">
                       {% csrf_token %}
                       <button type="submit" class="btn btn-sm btn-outline-secondary">Guardar</button>
                     </form>
