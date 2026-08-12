@@ -160,3 +160,47 @@ def condiciones(participacion, firma: date | None = None) -> dict:
         "intereses_totales": por_periodo * len(periodos),
         "periodos": periodos,
     }
+
+
+# --- Cuenta en participación ----------------------------------------------
+#
+# El contrato de los proyectos inmobiliarios. No es un préstamo: la cláusula
+# 1.2 lo niega expresamente, y de esa distinción dependen el tratamiento fiscal
+# y que la pérdida del partícipe quede limitada a su aportación.
+
+MESES_NEGOCIO = 6
+PARTICIPACION_MINIMA = Decimal("10000")
+
+
+def condiciones_cuenta_participe(participacion, firma: date | None = None) -> dict:
+    """Lo que el contrato de cuenta partícipe necesita del proyecto y de la participación."""
+    proyecto = participacion.proyecto
+    firma = firma or participacion.contrato_fecha or participacion.fecha_aportacion or date.today()
+    meses = int(participacion.contrato_meses or MESES_NEGOCIO)
+
+    aportacion = Decimal(participacion.importe_invertido or 0)
+    adquisicion = Decimal(
+        getattr(proyecto, "precio_compra_inmueble", None) or getattr(proyecto, "precio_propiedad", None) or 0
+    )
+    venta = Decimal(getattr(proyecto, "precio_venta_estimado", None) or 0)
+
+    # El concepto de la transferencia identifica al partícipe y al inmueble: es
+    # lo que permite conciliar el ingreso cuando entran varios el mismo día.
+    concepto = 'Aportación cuenta partícipe "{}" + {}'.format(
+        participacion.cliente.nombre or "", (proyecto.direccion or proyecto.nombre or "").strip()
+    )
+
+    return {
+        "fecha": firma,
+        "meses": meses,
+        "vencimiento": sumar_meses(firma, meses),
+        "aportacion": aportacion,
+        "aportacion_letra": importe_en_letra(aportacion),
+        "porcentaje": Decimal(participacion.porcentaje_participacion or 0),
+        "valor_adquisicion": adquisicion,
+        "adquisicion_letra": importe_en_letra(adquisicion),
+        "precio_venta": venta,
+        "participacion_minima": PARTICIPACION_MINIMA,
+        "minimo_letra": importe_en_letra(PARTICIPACION_MINIMA),
+        "concepto_transferencia": concepto,
+    }

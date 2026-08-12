@@ -70,6 +70,13 @@ PRESTATARIA = {
     "representante_domicilio": os.environ.get("PRESTATARIA_REPRESENTANTE_DOMICILIO", "Málaga, en Ildefonso Marzo 18"),
     "representante_estado_civil": os.environ.get("PRESTATARIA_REPRESENTANTE_ESTADO_CIVIL", "casado"),
     "representante_profesion": os.environ.get("PRESTATARIA_REPRESENTANTE_PROFESION", "empresario"),
+    # En el contrato de cuenta partícipe el representante firma como agente
+    # inmobiliario, no como empresario. Es el mismo documento de identidad,
+    # pero la condición en la que interviene cambia según el contrato.
+    "representante_profesion_inmobiliaria": os.environ.get(
+        "PRESTATARIA_REPRESENTANTE_PROFESION_INMOBILIARIA", "agente inmobiliario"
+    ),
+    "entidad_bancaria": os.environ.get("PRESTATARIA_ENTIDAD_BANCARIA", "SABADELL"),
 }
 
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")

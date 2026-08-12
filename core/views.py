@@ -52,6 +52,7 @@ from .models import GastoProyecto, IngresoProyecto, ChecklistItem
 from .models import IntentoPinPortal
 from .models import Cliente, Participacion, InversorPerfil, InversorPushSubscription, SolicitudParticipacion, ComunicacionInversor, DocumentoProyecto, DocumentoInversor, FacturaGasto, JustificanteIngreso
 from .contratos import condiciones as condiciones_prestamo
+from .contratos import condiciones_cuenta_participe
 from .finance import limit_loss_to_capital_enabled
 from .security import (
     PIN_INTENTOS_MAXIMOS,
@@ -8779,7 +8780,7 @@ def proyecto_liquidaciones(request, proyecto_id: int):
 
 def contrato_prestamo(request, proyecto_id: int, participacion_id: int):
     """
-    Contrato de préstamo del inversor, con su anexo de protección de datos.
+    Contrato del inversor, con su anexo de protección de datos.
 
     Se genera a partir de los datos que ya están en el sistema en lugar de
     rellenar una plantilla a mano. El motivo no es la comodidad: el contrato
@@ -8798,16 +8799,33 @@ def contrato_prestamo(request, proyecto_id: int, participacion_id: int):
         messages.error(request, "No tienes acceso a este proyecto.")
         return redirect("core:lista_proyectos")
 
+    # Cada tipo de proyecto tiene su contrato, y no son intercambiables:
+    # Conciertos es un préstamo con interés y devolución del capital; los
+    # inmobiliarios son cuentas en participación de los artículos 239 y ss. del
+    # Código de Comercio, donde el partícipe asume el resultado del negocio y
+    # su pérdida se limita a lo aportado. Confundirlos cambiaría la naturaleza
+    # jurídica de la operación, no solo el papel.
+    if _proyecto_es_conciertos(participacion.proyecto):
+        plantilla = "core/pdf_contrato_prestamo.html"
+        prefijo = "contrato-prestamo"
+        extra = {"prestataria": settings.PRESTATARIA, "condiciones": condiciones_prestamo(participacion)}
+    else:
+        plantilla = "core/pdf_contrato_cuenta_participe.html"
+        prefijo = "contrato-cuenta-participe"
+        extra = {
+            "gestor": settings.PRESTATARIA,
+            "contrato": condiciones_cuenta_participe(participacion),
+        }
+
     contexto = {
         "cliente": participacion.cliente,
         "participacion": participacion,
         "proyecto": participacion.proyecto,
-        "prestataria": settings.PRESTATARIA,
-        "condiciones": condiciones_prestamo(participacion),
+        **extra,
     }
-    respuesta = render(request, "core/pdf_contrato_prestamo.html", contexto)
+    respuesta = render(request, plantilla, contexto)
 
-    nombre = "contrato-prestamo-{}".format(slugify(participacion.cliente.nombre or participacion.id))
+    nombre = "{}-{}".format(prefijo, slugify(participacion.cliente.nombre or participacion.id))
     return _respuesta_pdf(request, respuesta, nombre)
 
 def proyecto_participacion_detalle(request, proyecto_id: int, participacion_id: int):

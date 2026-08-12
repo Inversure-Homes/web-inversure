@@ -1144,15 +1144,13 @@
                                         </select>
                                       </td>
                                       <td class="text-end">
-                                          {% if es_conciertos %}
-                                            {% comment %}
-                                              El contrato de préstamo es de Conciertos: el resto de
-                                              proyectos son participaciones en la operación, no préstamos.
-                                            {% endcomment %}
-                                            <a class="btn btn-sm btn-outline-primary"
-                                               href="{% url 'core:contrato_prestamo' proyecto.id p.id %}"
-                                               target="_blank" rel="noopener noreferrer">Contrato</a>
-                                          {% endif %}
+                                          {% comment %}
+                                            Conciertos genera un préstamo; el resto, una cuenta en
+                                            participación. Lo decide la vista, no la plantilla.
+                                          {% endcomment %}
+                                          <a class="btn btn-sm btn-outline-primary"
+                                             href="{% url 'core:contrato_prestamo' proyecto.id p.id %}"
+                                             target="_blank" rel="noopener noreferrer">Contrato</a>
                                           <button type="button" class="btn btn-sm btn-outline-secondary inv-save">Guardar</button>
                                           <button type="button" class="btn btn-sm btn-outline-danger inv-del">Borrar</button>
                                       </td>

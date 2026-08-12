@@ -203,5 +203,113 @@ def test_el_boton_esta_tambien_en_el_javascript():
     plantilla = (raiz / "core" / "templates" / "core" / "proyecto.html").read_text("utf-8")
 
     assert "/contrato/" in js, "el JS repinta la tabla y se comería el botón"
-    assert "esConciertos ?" in js.split("/contrato/")[0].rsplit("<td", 1)[-1], "el contrato es solo de Conciertos"
+    # El botón ya no depende del tipo de proyecto: todos los inversores tienen
+    # contrato. Cuál se emite lo decide la vista, que es donde está el criterio.
+    assert "esConciertos ?" not in js.split("/contrato/")[0].rsplit("<td", 1)[-1]
     assert "core:contrato_prestamo" in plantilla, "y también en el primer pintado del servidor"
+
+
+# --- Cuenta en participación (proyectos inmobiliarios) ---------------------
+
+
+def _escenario_inmobiliario():
+    proyecto = Proyecto.objects.create(
+        nombre="MADRID",
+        direccion="C/ Ariza 142",
+        precio_compra_inmueble=Decimal("135000"),
+        precio_venta_estimado=Decimal("178700"),
+    )
+    cliente = Cliente.objects.create(
+        nombre="Alejandro Vergara",
+        dni_cif="26261870X",
+        email="a@ejemplo.com",
+        direccion_postal="Málaga",
+    )
+    participacion = Participacion.objects.create(
+        proyecto=proyecto,
+        cliente=cliente,
+        importe_invertido=Decimal("7500"),
+        porcentaje_participacion=Decimal("5.30"),
+        estado="confirmada",
+        contrato_fecha=date(2026, 2, 12),
+        contrato_meses=6,
+    )
+    return proyecto, participacion
+
+
+def test_un_proyecto_inmobiliario_no_genera_un_prestamo():
+    """
+    La diferencia no es de formato. La cláusula 1.2 del contrato de cuenta
+    partícipe niega expresamente que la relación sea un préstamo o un crédito,
+    y de eso dependen el tratamiento fiscal y que la pérdida del partícipe se
+    limite a su aportación. Emitir el documento equivocado cambiaría la
+    naturaleza jurídica de la operación.
+    """
+    proyecto, participacion = _escenario_inmobiliario()
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    html = core_views.contrato_prestamo(
+        _peticion(jefe, "/x/?html=1"), proyecto_id=proyecto.id, participacion_id=participacion.id
+    ).content.decode()
+
+    assert "CUENTA PARTÍCIPE" in html
+    assert "239 y siguientes del Código de Comercio" in html
+    assert "CONTRATO DE PRÉSTAMO" not in html
+    assert "calendario de liquidaciones" not in html
+
+
+def test_conciertos_sigue_generando_el_prestamo():
+    proyecto, participacion = _escenario()  # crea el proyecto con extra tipo conciertos
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    html = core_views.contrato_prestamo(
+        _peticion(jefe, "/x/?html=1"), proyecto_id=proyecto.id, participacion_id=participacion.id
+    ).content.decode()
+
+    assert "CONTRATO DE PRÉSTAMO" in html
+    assert "CUENTA PARTÍCIPE" not in html
+
+
+def test_el_contrato_inmobiliario_lleva_las_cifras_del_proyecto():
+    proyecto, participacion = _escenario_inmobiliario()
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    html = core_views.contrato_prestamo(
+        _peticion(jefe, "/x/?html=1"), proyecto_id=proyecto.id, participacion_id=participacion.id
+    ).content.decode()
+
+    for esperado in [
+        "CIENTO TREINTA Y CINCO MIL EUROS",  # valor de adquisición en letra
+        "178.700,00",  # precio de venta estimado
+        "SIETE MIL QUINIENTOS EUROS",  # aportación en letra
+        "5,30",  # porcentaje de participación
+        "DIEZ MIL EUROS",  # participación mínima
+        "ES41 0081 1508 1600 0146 1056",  # cuenta del gestor
+        "Aportación cuenta partícipe",  # concepto para conciliar el ingreso
+    ]:
+        assert esperado in html, esperado
+
+
+def test_lleva_los_dos_anexos():
+    proyecto, participacion = _escenario_inmobiliario()
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    html = core_views.contrato_prestamo(
+        _peticion(jefe, "/x/?html=1"), proyecto_id=proyecto.id, participacion_id=participacion.id
+    ).content.decode()
+
+    assert "ANEXO I" in html
+    assert "PROTECCIÓN DE DATOS" in html
+    assert "Agencia Española de Protección de Datos" in html
+
+
+def test_la_perdida_del_participe_queda_limitada():
+    """Es la protección esencial del partícipe y tiene que estar escrita."""
+    proyecto, participacion = _escenario_inmobiliario()
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    html = core_views.contrato_prestamo(
+        _peticion(jefe, "/x/?html=1"), proyecto_id=proyecto.id, participacion_id=participacion.id
+    ).content.decode()
+
+    assert "limitada a las Aportaciones efectuadas" in html
