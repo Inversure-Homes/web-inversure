@@ -312,6 +312,19 @@ class InteresadoAdmin(admin.ModelAdmin):
 
 @admin.register(ActaSorteo)
 class ActaSorteoAdmin(admin.ModelAdmin):
+    """
+    El acta se transcribe una vez y no se edita: es el reflejo de un documento
+    notarial, y un resultado publicado que se puede cambiar a posteriori no
+    vale como resultado.
+
+    Borrarla sí, pero solo un superusuario. La alternativa era que una
+    equivocación al transcribir —un número mal tecleado, un acta registrada
+    sobre el sorteo que no era— quedara ahí para siempre bloqueando además el
+    pedido y el sorteo, que la protegen con PROTECT. Sigue sin poder editarse:
+    para corregir hay que borrar y volver a transcribir, que deja rastro en el
+    registro de auditoría en vez de cambiar un número sin que se note.
+    """
+
     list_display = ("sorteo", "numero_premiado", "protocolo", "fecha", "registrado_por")
 
     def has_add_permission(self, request):
@@ -321,7 +334,7 @@ class ActaSorteoAdmin(admin.ModelAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):
-        return False
+        return bool(getattr(request.user, "is_superuser", False))
 
 
 @admin.register(SolicitudReenvio)

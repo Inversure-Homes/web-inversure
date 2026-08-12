@@ -993,3 +993,54 @@ class RecuperarParticipaciones(BaseSorteo):
         mail.outbox = []
         self._pedir("pendiente@e.com")
         self.assertEqual(len(mail.outbox), 0)
+
+
+class BorrarUnActa(BaseSorteo):
+    """
+    El acta no se edita, pero un superusuario puede borrarla.
+
+    Sin eso, un acta transcrita por error —número mal tecleado, sorteo
+    equivocado— se queda para siempre, y además bloquea el pedido y el sorteo,
+    que la protegen con PROTECT.
+    """
+
+    def setUp(self):
+        super().setUp()
+        confirmar_pago(reservar_numeros(self.sorteo, [5], DATOS).id)
+        registrar_acta(self.sorteo, 5, "2026/1", datetime.date(2026, 12, 22))
+
+    def _admin(self):
+        from django.contrib.admin.sites import AdminSite
+
+        from .admin import ActaSorteoAdmin
+
+        return ActaSorteoAdmin(ActaSorteo, AdminSite())
+
+    def _peticion(self, usuario):
+        from django.test import RequestFactory
+
+        peticion = RequestFactory().get("/admin/")
+        peticion.user = usuario
+        return peticion
+
+    def test_un_superusuario_puede_borrarla(self):
+        jefe = get_user_model().objects.create_superuser("jefe", "j@e.com", "clave-larga-de-prueba")
+        self.assertTrue(self._admin().has_delete_permission(self._peticion(jefe)))
+
+    def test_los_demas_no(self):
+        normal = get_user_model().objects.create_user("normal", "n@e.com", "clave-larga-de-prueba")
+        normal.is_staff = True
+        normal.save(update_fields=["is_staff"])
+        self.assertFalse(self._admin().has_delete_permission(self._peticion(normal)))
+
+    def test_sigue_sin_poder_editarse(self):
+        jefe = get_user_model().objects.create_superuser("jefa", "j2@e.com", "clave-larga-de-prueba")
+        self.assertFalse(self._admin().has_change_permission(self._peticion(jefe)))
+        self.assertFalse(self._admin().has_add_permission(self._peticion(jefe)))
+
+    def test_borrarla_libera_el_sorteo(self):
+        """Es lo que importa: sin acta, el sorteo vuelve a poder borrarse."""
+        ActaSorteo.objects.all().delete()
+        Pedido.objects.filter(sorteo=self.sorteo).delete()
+        self.sorteo.delete()
+        self.assertFalse(Sorteo.objects.filter(pk=self.sorteo.pk).exists())
