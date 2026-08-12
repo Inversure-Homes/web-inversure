@@ -3227,6 +3227,7 @@ function bindParticipaciones() {
             </td>
             <td class="text-end">
               <a class="btn btn-sm btn-outline-primary" href="${url}${r.id}/contrato/" target="_blank" rel="noopener noreferrer">Contrato</a>
+              <button type="button" class="btn btn-sm btn-outline-success inv-emitir" data-nombre="${r.cliente_nombre}">Emitir</button>
               <button type="button" class="btn btn-sm btn-outline-secondary inv-save">Guardar</button>
               <button type="button" class="btn btn-sm btn-outline-danger inv-del">Borrar</button>
             </td>
@@ -3267,6 +3268,40 @@ function bindParticipaciones() {
 
   tabla.addEventListener("click", async (e) => {
     const btnDel = e.target.closest(".inv-del");
+    const btnEmitir = e.target.closest(".inv-emitir");
+    if (btnEmitir) {
+      const fila = btnEmitir.closest("tr");
+      const id = fila && fila.dataset.id;
+      if (!id) return;
+      const nombre = btnEmitir.dataset.nombre || "el inversor";
+      // Esto manda un correo a una persona real: se confirma siempre.
+      if (!confirm(`Se enviará el contrato a ${nombre} para que lo lea y lo firme. ¿Continuar?`)) return;
+      btnEmitir.disabled = true;
+      btnEmitir.textContent = "Enviando…";
+      try {
+        const resp = await fetch(`${url}${id}/contrato/emitir/`, {
+          method: "POST",
+          headers: { "X-CSRFToken": getCsrfToken(), "X-Requested-With": "XMLHttpRequest" },
+        });
+        const data = await resp.json();
+        if (data && data.ok) {
+          btnEmitir.classList.remove("btn-outline-success");
+          btnEmitir.classList.add("btn-success");
+          btnEmitir.textContent = "Enviado";
+          alert(data.mensaje + (data.portal_creado ? "\n\nSe le ha creado también su acceso al portal." : ""));
+        } else {
+          btnEmitir.disabled = false;
+          btnEmitir.textContent = "Emitir";
+          alert((data && data.error) || "No se pudo emitir el contrato.");
+        }
+      } catch (err) {
+        btnEmitir.disabled = false;
+        btnEmitir.textContent = "Emitir";
+        alert("No se pudo emitir el contrato.");
+      }
+      return;
+    }
+
     const btnSave = e.target.closest(".inv-save");
     const tr = e.target.closest("tr");
     if (!tr) return;

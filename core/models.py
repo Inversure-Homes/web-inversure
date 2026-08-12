@@ -2016,6 +2016,17 @@ class FirmaContrato(models.Model):
         help_text="Las casillas voluntarias del anexo de protección de datos, tal y como se marcaron.",
     )
 
+    # Cuándo se le mandó el contrato al inversor y quién lo mandó. Sirve para
+    # saber a quién le falta firmar sin tener que preguntar.
+    enviado_en = models.DateTimeField(null=True, blank=True)
+    enviado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+
     firmado_en = models.DateTimeField(null=True, blank=True)
     creado = models.DateTimeField(auto_now_add=True)
 

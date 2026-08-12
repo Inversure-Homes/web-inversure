@@ -53,7 +53,7 @@ from .models import FirmaContrato, IntentoPinPortal
 from .models import Cliente, Participacion, InversorPerfil, InversorPushSubscription, SolicitudParticipacion, ComunicacionInversor, DocumentoProyecto, DocumentoInversor, FacturaGasto, JustificanteIngreso
 from .contratos import condiciones as condiciones_prestamo
 from .contratos import condiciones_cuenta_participe
-from .correo_contratos import enviar_codigo_contrato, enviar_contrato_firmado
+from .correo_contratos import enviar_codigo_contrato, enviar_contrato_firmado, enviar_invitacion_firma
 from .firmas import ErrorFirma
 from .firmas import comprobar_codigo as comprobar_codigo_firma
 from .firmas import enviar_codigo as enviar_codigo_firma
@@ -9006,6 +9006,74 @@ def contrato_prestamo(request, proyecto_id: int, participacion_id: int):
 
     nombre = "{}-{}".format(prefijo, slugify(participacion.cliente.nombre or participacion.id))
     return _respuesta_pdf(request, respuesta, nombre)
+
+def contrato_emitir(request, proyecto_id: int, participacion_id: int):
+    """
+    Emite el contrato: se lo manda al inversor para que lo lea y lo firme.
+
+    No adjunta el PDF al correo. El contrato se lee donde se firma, para que el
+    documento que el inversor tiene delante sea exactamente el que se sella con
+    la huella. Un adjunto podría acabar siendo otra versión.
+    """
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+
+    participacion = get_object_or_404(
+        Participacion.objects.select_related("cliente", "proyecto"),
+        id=participacion_id,
+        proyecto_id=proyecto_id,
+    )
+    if not _user_can_edit_project(request.user, participacion.proyecto):
+        return JsonResponse({"ok": False, "error": "No tienes permiso sobre este proyecto."}, status=403)
+
+    cliente = participacion.cliente
+    email = (cliente.email or "").strip()
+    if not email:
+        return JsonResponse(
+            {"ok": False, "error": "{} no tiene correo. Añádelo antes de emitir el contrato.".format(cliente.nombre)},
+            status=400,
+        )
+
+    # Sin portal no hay dónde firmar, así que se crea al emitir. El token es la
+    # credencial del inversor y nace aquí.
+    perfil, creado_portal = InversorPerfil.objects.get_or_create(cliente=cliente)
+
+    _plantilla, tipo, _extra = _contrato_de(participacion)
+    firma, _ = FirmaContrato.objects.get_or_create(
+        participacion=participacion,
+        tipo=tipo,
+        estado__in=[FirmaContrato.Estado.PENDIENTE, FirmaContrato.Estado.FIRMADO],
+        defaults={"estado": FirmaContrato.Estado.PENDIENTE},
+    )
+    if firma.firmado:
+        return JsonResponse(
+            {"ok": False, "error": "Este contrato ya está firmado ({:%d/%m/%Y}).".format(firma.firmado_en)},
+            status=400,
+        )
+
+    url = request.build_absolute_uri(
+        reverse("core:inversor_contrato", args=[perfil.token, participacion.id])
+    )
+    enviado = enviar_invitacion_firma(participacion, email, url)
+    if not enviado:
+        return JsonResponse(
+            {"ok": False, "error": "No se pudo enviar el correo. Revisa la configuración de envío."},
+            status=502,
+        )
+
+    firma.enviado_en = timezone.now()
+    firma.enviado_por = request.user if request.user.is_authenticated else None
+    firma.email = email
+    firma.save(update_fields=["enviado_en", "enviado_por", "email"])
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "email": email,
+            "portal_creado": creado_portal,
+            "mensaje": "Contrato enviado a {}.".format(email),
+        }
+    )
 
 def proyecto_participacion_detalle(request, proyecto_id: int, participacion_id: int):
     try:

@@ -8,6 +8,8 @@ qué documento se firmó y quién lo hizo. Estas pruebas cubren justo eso.
 from datetime import date, timedelta
 from decimal import Decimal
 
+import json
+
 import pytest
 from django.core import mail
 from django.test import Client
@@ -213,3 +215,115 @@ def test_no_se_firma_dos_veces():
 
     assert FirmaContrato.objects.filter(participacion=participacion).count() == 1
     assert FirmaContrato.objects.get(participacion=participacion).firmado_en == firmado_en
+
+
+# --- Emisión desde el ERP --------------------------------------------------
+
+
+def _usuario_gestor(**acceso):
+    from accounts.models import UserAccess
+
+    from .factories import UserAccessFactory, UserFactory
+
+    user = UserFactory()
+    UserAccessFactory(user=user, **(acceso or {"role": UserAccess.ROLE_DIRECCION, "use_custom_perms": False}))
+    return user
+
+
+def _emitir(usuario, participacion):
+    """
+    Se llama a la vista directamente: el middleware de roles del ERP redirige al
+    alta de 2FA, así que el cliente de pruebas nunca llegaría a ejecutarla.
+    """
+    from django.test import RequestFactory
+
+    from core import views as core_views
+
+    peticion = RequestFactory().post("/emitir/")
+    peticion.user = usuario
+    return core_views.contrato_emitir(
+        peticion, proyecto_id=participacion.proyecto_id, participacion_id=participacion.id
+    )
+
+
+def _json(respuesta):
+    return json.loads(respuesta.content)
+
+
+def test_emitir_le_manda_al_inversor_el_enlace_para_firmar():
+    perfil, participacion = _escenario()
+
+    r = _emitir(_usuario_gestor(), participacion)
+
+    assert r.status_code == 200 and _json(r)["ok"]
+    assert len(mail.outbox) == 1
+    correo = mail.outbox[0]
+    assert correo.to == ["alejandro@ejemplo.com"]
+    assert "/app/inversor/{}/contrato/{}/".format(perfil.token, participacion.id) in correo.body
+    # No adjunta el PDF: el contrato se lee donde se firma, y así el documento
+    # que ve es exactamente el que se sella con la huella.
+    assert not correo.attachments
+
+
+def test_emitir_deja_constancia_de_quien_y_cuando():
+    _perfil, participacion = _escenario()
+    gestor = _usuario_gestor()
+
+    _emitir(gestor, participacion)
+
+    firma = FirmaContrato.objects.get(participacion=participacion)
+    assert firma.enviado_en is not None
+    assert firma.enviado_por == gestor
+    assert not firma.firmado
+
+
+def test_sin_correo_no_se_emite_y_se_dice_por_que():
+    _perfil, participacion = _escenario()
+    participacion.cliente.email = ""
+    participacion.cliente.save(update_fields=["email"])
+
+    r = _emitir(_usuario_gestor(), participacion)
+
+    assert r.status_code == 400
+    assert "no tiene correo" in _json(r)["error"]
+    assert len(mail.outbox) == 0
+
+
+def test_si_no_tiene_portal_se_le_crea_al_emitir():
+    """Sin portal no hay dónde firmar."""
+    proyecto = Proyecto.objects.create(nombre="COIN")
+    cliente = Cliente.objects.create(nombre="Nuevo Inversor", dni_cif="00000003P", email="n@e.com")
+    participacion = Participacion.objects.create(
+        proyecto=proyecto, cliente=cliente, importe_invertido=Decimal("10000"), estado="confirmada"
+    )
+    assert not InversorPerfil.objects.filter(cliente=cliente).exists()
+
+    r = _emitir(_usuario_gestor(), participacion)
+
+    assert _json(r)["portal_creado"] is True
+    assert InversorPerfil.objects.filter(cliente=cliente).exists()
+
+
+def test_no_se_reemite_un_contrato_ya_firmado():
+    perfil, participacion = _escenario()
+    firmante = Client()
+    firmante.post(_url(perfil, participacion), {"pedir_codigo": "1"})
+    _firmar(firmante, perfil, participacion, _codigo_del_correo())
+    mail.outbox = []
+
+    r = _emitir(_usuario_gestor(), participacion)
+
+    assert r.status_code == 400
+    assert "ya está firmado" in _json(r)["error"]
+    assert len(mail.outbox) == 0
+
+
+def test_sin_permiso_sobre_el_proyecto_no_se_emite():
+    """Emitir manda un correo a una persona real en nombre de la empresa."""
+    _perfil, participacion = _escenario()
+    mirón = _usuario_gestor(use_custom_perms=True, role="", can_proyectos=False, can_clientes=True)
+
+    r = _emitir(mirón, participacion)
+
+    assert r.status_code == 403
+    assert len(mail.outbox) == 0

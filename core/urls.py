@@ -64,6 +64,11 @@ urlpatterns = [
         views.contrato_prestamo,
         name="contrato_prestamo",
     ),
+    path(
+        "proyectos/<int:proyecto_id>/participaciones/<int:participacion_id>/contrato/emitir/",
+        views.contrato_emitir,
+        name="contrato_emitir",
+    ),
 
     # Clientes
     path("clientes/", views.clientes, name="clientes"),

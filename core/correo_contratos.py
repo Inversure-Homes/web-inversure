@@ -72,3 +72,36 @@ def enviar_contrato_firmado(participacion, email: str, pdf: bytes) -> bool:
     except Exception:
         log.exception("No se pudo enviar el contrato firmado a %s", email)
         return False
+
+
+def enviar_invitacion_firma(participacion, email: str, url: str) -> bool:
+    """
+    Le manda al inversor el enlace para leer y firmar su contrato.
+
+    No adjunta el PDF: el contrato hay que leerlo donde se firma, y así el
+    documento que ve es exactamente el que se sella con la huella.
+    """
+    cuerpo = (
+        "Hola{}:\n\n"
+        "Ya tienes disponible tu contrato de {}.\n\n"
+        "Puedes leerlo y firmarlo aquí:\n{}\n\n"
+        "Para firmar te pediremos un código que enviaremos a este mismo correo.\n"
+        "Si tienes cualquier duda antes de firmar, respóndenos a este mensaje.\n\n"
+        "{}\n"
+    ).format(
+        " " + (participacion.cliente.nombre or "").split()[0] if participacion.cliente.nombre else "",
+        participacion.proyecto.nombre,
+        url,
+        settings.PRESTATARIA["razon_social"],
+    )
+    try:
+        EmailMessage(
+            subject="Tu contrato de {}".format(participacion.proyecto.nombre),
+            body=cuerpo,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[email],
+        ).send(fail_silently=False)
+        return True
+    except Exception:
+        log.exception("No se pudo enviar la invitación de firma a %s", email)
+        return False
