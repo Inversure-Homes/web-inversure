@@ -49,6 +49,29 @@ DEV_APPS_ENABLED = DEBUG and _env_bool("DJANGO_DEV_APPS", False)
 # en un entorno de pruebas, nunca con una rifa abierta al público.
 SORTEO_PAGO_SIMULADO = _env_bool("SORTEO_PAGO_SIMULADO", DEBUG)
 
+# =========================
+# CONTRATO DE PRÉSTAMO
+# =========================
+# Datos de la parte prestataria, que son siempre los mismos y aparecen en cada
+# contrato. Van aquí y no escritos en la plantilla para que un cambio de
+# domicilio o de cuenta no obligue a tocar el documento, y con variable de
+# entorno por si hay que corregir algo sin desplegar.
+PRESTATARIA = {
+    "razon_social": os.environ.get("PRESTATARIA_RAZON_SOCIAL", "INVERSURE HOMES S.L."),
+    "marca": os.environ.get("PRESTATARIA_MARCA", "INVERSURE"),
+    "cif": os.environ.get("PRESTATARIA_CIF", "B-75265843"),
+    "domicilio": os.environ.get("PRESTATARIA_DOMICILIO", "calle Antonio Chacón 5, Málaga"),
+    "poblacion": os.environ.get("PRESTATARIA_POBLACION", "Málaga"),
+    "fuero": os.environ.get("PRESTATARIA_FUERO", "Málaga"),
+    "email": os.environ.get("PRESTATARIA_EMAIL", "administracion@inversurehomes.es"),
+    "iban": os.environ.get("PRESTATARIA_IBAN", "ES41 0081 1508 1600 0146 1056"),
+    "representante": os.environ.get("PRESTATARIA_REPRESENTANTE", "DON MIGUEL ÁNGEL PÉREZ RODRÍGUEZ"),
+    "representante_dni": os.environ.get("PRESTATARIA_REPRESENTANTE_DNI", "74.871.983-Z"),
+    "representante_domicilio": os.environ.get("PRESTATARIA_REPRESENTANTE_DOMICILIO", "Málaga, en Ildefonso Marzo 18"),
+    "representante_estado_civil": os.environ.get("PRESTATARIA_REPRESENTANTE_ESTADO_CIVIL", "casado"),
+    "representante_profesion": os.environ.get("PRESTATARIA_REPRESENTANTE_PROFESION", "empresario"),
+}
+
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 if SENTRY_DSN:
     send_default_pii = str(os.environ.get("SENTRY_SEND_DEFAULT_PII") or "0").strip() == "1"

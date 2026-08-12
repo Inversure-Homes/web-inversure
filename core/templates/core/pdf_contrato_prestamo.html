@@ -1,0 +1,516 @@
+{% load formatting %}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Contrato de préstamo · {{ cliente.nombre }}</title>
+
+  {% comment %}
+    Contrato de préstamo de dinero, y su anexo de protección de datos.
+
+    El texto es el del contrato que ya se firma; lo que cambia son las partes,
+    el importe y las fechas. Las fechas se calculan y no se teclean: el
+    documento original traía el calendario escrito a mano y ahí es donde se
+    cuelan los errores de año.
+
+    Nada de recursos externos: esto lo consume WeasyPrint, no un navegador.
+  {% endcomment %}
+  <style>
+    @page {
+      size: A4;
+      margin: 22mm 20mm 20mm 20mm;
+      @bottom-center {
+        content: "Contrato de préstamo · " counter(page) " de " counter(pages);
+        font-family: Arial, sans-serif;
+        font-size: 8pt;
+        color: #6b7280;
+      }
+    }
+    @page :first { @bottom-center { content: normal; } }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.55;
+      color: #111827;
+      text-align: justify;
+    }
+
+    h1 {
+      color: #20304d;
+      font-size: 19pt;
+      text-align: center;
+      margin: 0 0 4px;
+    }
+    .lugar { text-align: center; color: #4b5563; margin: 0 0 26px; }
+
+    h2 {
+      color: #1f304d;
+      font-size: 11pt;
+      letter-spacing: .1em;
+      text-align: center;
+      margin: 22px 0 10px;
+    }
+
+    p { margin: 0 0 10px; }
+    .clausula { margin-bottom: 12px; break-inside: avoid; }
+    .clausula > .titulo { font-weight: bold; }
+
+    table.calendario {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0 12px;
+      font-size: 10pt;
+    }
+    table.calendario th, table.calendario td {
+      border: 1px solid #d1d5db;
+      padding: 5px 8px;
+      text-align: left;
+    }
+    table.calendario th { background: #f3f4f6; }
+
+    .firmas {
+      margin-top: 44px;
+      width: 100%;
+      table-layout: fixed;   /* si no, la columna del hueco se come el ancho */
+      break-inside: avoid;
+    }
+    .firmas td {
+      width: 45%;
+      padding-top: 54px;
+      border-top: 1px solid #111827;
+      vertical-align: top;
+      font-size: 10pt;
+      text-align: left;
+    }
+    .firmas .hueco { width: 10%; border: 0; padding: 0; }
+
+    .anexo { break-before: page; }
+    .anexo h1 { font-size: 15pt; }
+    .anexo .cuadro {
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      background: #f9fafb;
+      font-size: 10pt;
+    }
+    .anexo table.datos { width: 100%; border-collapse: collapse; font-size: 10pt; }
+    .anexo table.datos th, .anexo table.datos td {
+      border: 1px solid #d1d5db; padding: 5px 8px; text-align: left; vertical-align: top;
+    }
+    .anexo table.datos th { background: #f3f4f6; width: 32%; }
+    .casilla { font-size: 10pt; margin: 6px 0; }
+    .casilla .marco {
+      display: inline-block; width: 11px; height: 11px;
+      border: 1px solid #111827; margin-right: 7px; vertical-align: -1px;
+    }
+    .aviso { font-size: 9pt; color: #4b5563; }
+  </style>
+</head>
+<body>
+
+  <h1>CONTRATO DE PRÉSTAMO DE DINERO</h1>
+  <p class="lugar">En {{ prestataria.poblacion }}, a {{ condiciones.firma|fecha_larga }}</p>
+
+  <h2>REUNIDOS</h2>
+
+  <p>De una parte,</p>
+
+  <p>
+    <strong>{{ prestataria.representante }}</strong>, mayor de edad,
+    {{ prestataria.representante_estado_civil }}, {{ prestataria.representante_profesion }},
+    vecino de {{ prestataria.poblacion }}, domiciliado en
+    {{ prestataria.representante_domicilio }}, con D.N.I. número
+    {{ prestataria.representante_dni }}.
+  </p>
+
+  <p>
+    En representación de la entidad de nacionalidad española denominada
+    <strong>{{ prestataria.razon_social }}</strong>, con C.I.F.
+    {{ prestataria.cif }}, domiciliada en {{ prestataria.domicilio }}. En
+    adelante, <strong>LA ENTIDAD PRESTATARIA</strong> o <strong>EL PRESTATARIO</strong>.
+  </p>
+
+  <p>Y de otra,</p>
+
+  <p>
+    <strong>{{ cliente.nombre }}</strong>, mayor de edad,
+    {{ cliente.estado_civil|default:"__________" }},
+    {{ cliente.profesion|default:"__________" }}, con DNI
+    {{ cliente.dni_cif|default:"__________" }} y domicilio en
+    {{ cliente.direccion_postal|default:"__________" }}, y con dirección de
+    correo electrónico {{ cliente.email|default:"__________" }}. En adelante,
+    <strong>LA PARTE PRESTAMISTA</strong> o <strong>EL PRESTAMISTA</strong>.
+  </p>
+
+  <h2>MANIFIESTAN</h2>
+
+  <p>
+    <strong>Primero.—</strong> Que la mercantil {{ prestataria.razon_social }},
+    asociada a la firma {{ prestataria.marca }}, tiene la necesidad de obtener
+    una cantidad determinada de dinero, ascendente a
+    <strong>{{ condiciones.capital_letra }}</strong>
+    ({{ condiciones.capital|es_number }} €), para su actividad empresarial.
+  </p>
+
+  <p>
+    <strong>Segundo.—</strong> Que {{ cliente.nombre }} dispone de una cantidad
+    ascendente a <strong>{{ condiciones.capital_letra }}</strong>
+    ({{ condiciones.capital|es_number }} €), y ha decidido, en atención a las
+    necesidades del primero, la entrega en concepto de préstamo de la cantidad
+    de dinero anteriormente señalada.
+  </p>
+
+  <p>
+    <strong>Tercero.—</strong> Que por medio de la presente, y con arreglo a lo
+    manifestado <em>ut supra</em>, ambas partes llevan a efecto un contrato de
+    préstamo de dinero con arreglo a las siguientes
+  </p>
+
+  <h2>ESTIPULACIONES</h2>
+
+  <div class="clausula">
+    <p>
+      <span class="titulo">Primera.—</span> {{ cliente.nombre }}, en calidad de
+      parte prestamista, entregará en un plazo máximo de veinticuatro (24) horas
+      desde la suscripción del presente contrato a la mercantil
+      {{ prestataria.razon_social }} la cantidad de
+      <strong>{{ condiciones.capital_letra }}</strong>
+      ({{ condiciones.capital|es_number }} €) —en adelante, «el capital»— en
+      concepto de préstamo, adquiriendo esta última, el prestatario, dicha
+      cantidad, y obligándose a restituirla en el plazo pactado en la
+      estipulación siguiente.
+    </p>
+    <p>
+      La cantidad objeto del préstamo se entregará mediante transferencia
+      bancaria desde la cuenta corriente n.º
+      <strong>{{ cliente.iban|default:"__________" }}</strong>, de la que es
+      titular la parte prestamista, a la cuenta corriente n.º
+      <strong>{{ prestataria.iban }}</strong>, de la que es titular
+      {{ prestataria.razon_social }}, según reconocen y expresamente manifiestan
+      mediante la firma del presente contrato.
+    </p>
+    <p>
+      Ambas partes reconocen que el presente contrato quedará perfeccionado en
+      el momento en que se realice la entrega de la cantidad prestada mediante
+      la transferencia bancaria más arriba referida.
+    </p>
+  </div>
+
+  <div class="clausula">
+    <p>
+      <span class="titulo">Segunda.—</span> El presente contrato tendrá una
+      duración de {{ condiciones.meses }} MESES, contados desde la suscripción
+      del mismo (en adelante, la «Fecha de Concesión»), por lo que vencerá el
+      día <strong>{{ condiciones.vencimiento|fecha_larga }}</strong> (en
+      adelante, la «Fecha de Vencimiento»).
+    </p>
+    <p>
+      A la Fecha de Vencimiento, la prestataria quedará obligada a restituir
+      íntegramente el capital pendiente a la prestamista, salvo que el préstamo
+      hubiera sido cancelado anticipadamente.
+    </p>
+    <p>
+      La restitución se efectuará igualmente mediante ingreso o transferencia
+      bancaria de la totalidad de la cantidad prestada a la cuenta corriente
+      n.º <strong>{{ cliente.iban|default:"__________" }}</strong>, de la que la
+      parte prestamista manifiesta expresamente ser titular, u otra que esta
+      notifique al efecto.
+    </p>
+    <p>El resguardo de ingreso o transferencia servirá de recibo y de la más fiel carta de pago.</p>
+  </div>
+
+  <div class="clausula">
+    <p>
+      <span class="titulo">Tercera.—</span> El presente préstamo de dinero
+      devengará un interés fijo del
+      <strong>{{ condiciones.interes_periodo|es_number }} %</strong> del
+      principal del préstamo por cada período bimensual (de dos meses), durante
+      el plazo de duración pactado en la cláusula anterior, lo que supone un
+      total del {{ condiciones.interes_total_pct|es_number }} % sobre el
+      principal a lo largo de los {{ condiciones.meses }} meses de vigencia.
+    </p>
+    <p>
+      Sin perjuicio de lo anterior, y con ocasión de la tramitación que requiera
+      la empresa para hacer el pago, los intereses se abonarán, salvo pacto en
+      contrario expresamente suscrito por las partes, al vencimiento de cada
+      período bimensual, con arreglo al siguiente calendario de liquidaciones:
+    </p>
+
+    <table class="calendario">
+      <thead>
+        <tr><th>Período</th><th>Meses</th><th>Vencimiento</th><th>Importe</th></tr>
+      </thead>
+      <tbody>
+        {% for p in condiciones.periodos %}
+          <tr>
+            <td>Período {{ p.numero }}</td>
+            <td>{{ p.desde_mes }}–{{ p.hasta_mes }}</td>
+            <td>{{ p.vencimiento|date:"d/m/Y" }}</td>
+            <td>{{ condiciones.importe_por_periodo|es_number }} €</td>
+          </tr>
+        {% endfor %}
+        <tr>
+          <td colspan="3"><strong>Total de intereses</strong></td>
+          <td><strong>{{ condiciones.intereses_totales|es_number }} €</strong></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      El pago de intereses se efectuará mediante transferencia bancaria a la
+      cuenta que la prestamista designe a tales efectos.
+    </p>
+  </div>
+
+  <div class="clausula">
+    <p>
+      <span class="titulo">Cuarta.—</span> La parte prestataria podrá amortizar
+      parcial o totalmente el préstamo con carácter anticipado en cualquier
+      momento durante su vigencia. De este modo podrá cancelarlo anticipadamente
+      cuando lo considere conveniente, previo pago de la cantidad entregada y de
+      los intereses devengados hasta ese momento. En el caso de que, al efectuar
+      una entrega a cuenta, hubiera alguna cantidad pendiente de pago, se
+      imputará la entrega en primer lugar al pago de dichas cantidades adeudadas.
+    </p>
+  </div>
+
+  <div class="clausula">
+    <p>
+      <span class="titulo">Quinta.— Vencimiento anticipado.</span> Será de
+      cuenta de quien incumpla las obligaciones que se derivan del presente
+      documento la totalidad de los gastos que suponga a la otra parte exigir su
+      cumplimiento, tanto judiciales como extrajudiciales, incluidos derechos de
+      Procuradores de los Tribunales y honorarios de Abogados, aun cuando su
+      intervención no haya sido preceptiva por ley.
+    </p>
+  </div>
+
+  <div class="clausula">
+    <p>
+      <span class="titulo">Sexta.—</span> La prestataria no podrá ceder ni
+      transmitir, total ni parcialmente, su posición contractual ni los derechos
+      y obligaciones derivados del presente contrato sin el previo
+      consentimiento escrito de la prestamista.
+    </p>
+  </div>
+
+  <div class="clausula">
+    <p>
+      <span class="titulo">Séptima.—</span> El presente préstamo se regirá por
+      lo establecido en el presente contrato y, en lo no previsto, por las
+      disposiciones aplicables del Código Civil.
+    </p>
+  </div>
+
+  <div class="clausula">
+    <p>
+      <span class="titulo">Octava.—</span> Todas las comunicaciones entre las
+      partes derivadas del presente contrato se realizarán por escrito y se
+      dirigirán a las siguientes personas y domicilios:
+    </p>
+    <table class="calendario">
+      <tbody>
+        <tr>
+          <th>Prestamista — Dirección</th>
+          <td>{{ cliente.direccion_postal|default:"__________" }}</td>
+        </tr>
+        <tr>
+          <th>Prestamista — Email</th>
+          <td>{{ cliente.email|default:"__________" }}</td>
+        </tr>
+        <tr><th>Prestataria — Dirección</th><td>{{ prestataria.domicilio }}</td></tr>
+        <tr><th>Prestataria — Email</th><td>{{ prestataria.email }}</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Las partes podrán modificar sus datos de contacto notificándolo a la otra
+      parte de forma fehaciente con al menos cinco (5) días de antelación.
+    </p>
+  </div>
+
+  <div class="clausula">
+    <p>
+      <span class="titulo">Novena.—</span> Para la resolución de cualquier
+      cuestión o controversia que se suscite en relación con la interpretación,
+      aplicación, cumplimiento y ejecución del presente contrato, las partes,
+      con renuncia a su fuero propio, se someten a los Juzgados y Tribunales de
+      {{ prestataria.fuero }}.
+    </p>
+  </div>
+
+  <div class="clausula">
+    <p>
+      <span class="titulo">Décima.— Protección de datos.</span> Ambas partes
+      tratarán los datos personales de la otra con la única finalidad de
+      ejecutar el presente contrato y cumplir las obligaciones legales que de él
+      se derivan. El anexo que acompaña a este documento recoge la información
+      exigida por el Reglamento (UE) 2016/679 y forma parte inseparable del
+      mismo.
+    </p>
+  </div>
+
+  <p>
+    Y en prueba de su conformidad, firman las partes el presente contrato de
+    préstamo en dos ejemplares y a un solo efecto.
+  </p>
+
+  <table class="firmas">
+    <tr>
+      <td>
+        <strong>El Prestatario</strong><br>
+        {{ prestataria.razon_social }}<br>
+        {{ prestataria.representante }}
+      </td>
+      <td class="hueco"></td>
+      <td>
+        <strong>El Prestamista</strong><br>
+        {{ cliente.nombre }}<br>
+        DNI {{ cliente.dni_cif|default:"__________" }}
+      </td>
+    </tr>
+  </table>
+
+  {# ------------------------------------------------------------------ #}
+
+  <div class="anexo">
+    <h1>ANEXO · INFORMACIÓN Y AUTORIZACIÓN EN MATERIA DE PROTECCIÓN DE DATOS</h1>
+    <p class="lugar">
+      Anexo al contrato de préstamo suscrito en {{ prestataria.poblacion }} el
+      {{ condiciones.firma|fecha_larga }}
+    </p>
+
+    <div class="cuadro">
+      Este anexo cumple el deber de información del artículo 13 del Reglamento
+      (UE) 2016/679, de Protección de Datos (RGPD), y de la Ley Orgánica 3/2018.
+      Léelo antes de firmar y quédate con una copia.
+    </div>
+
+    <table class="datos">
+      <tbody>
+        <tr>
+          <th>Responsable del tratamiento</th>
+          <td>
+            {{ prestataria.razon_social }}, C.I.F. {{ prestataria.cif }},
+            con domicilio en {{ prestataria.domicilio }}.<br>
+            Contacto: {{ prestataria.email }}
+          </td>
+        </tr>
+        <tr>
+          <th>Datos que tratamos</th>
+          <td>
+            Nombre y apellidos, DNI, domicilio, teléfono, correo electrónico,
+            número de cuenta bancaria y los datos económicos del préstamo
+            (importe, intereses, fechas y liquidaciones).
+          </td>
+        </tr>
+        <tr>
+          <th>Para qué los tratamos</th>
+          <td>
+            Para gestionar y ejecutar este contrato de préstamo, abonar los
+            intereses y la devolución del capital, y cumplir nuestras
+            obligaciones contables, fiscales y de prevención del blanqueo de
+            capitales.
+          </td>
+        </tr>
+        <tr>
+          <th>Base jurídica</th>
+          <td>
+            La ejecución del contrato en el que usted es parte
+            (art. 6.1.b del RGPD) y el cumplimiento de obligaciones legales que
+            nos incumben (art. 6.1.c).
+          </td>
+        </tr>
+        <tr>
+          <th>Cuánto tiempo</th>
+          <td>
+            Mientras dure la relación contractual y, después, durante los plazos
+            de prescripción de las obligaciones contables y fiscales. Vencidos
+            esos plazos, sus datos identificativos se suprimen o se anonimizan,
+            conservándose únicamente las cifras, que ya no permiten
+            identificarle.
+          </td>
+        </tr>
+        <tr>
+          <th>Destinatarios</th>
+          <td>
+            No cedemos sus datos a terceros con fines comerciales. Acceden a
+            ellos, por nuestra cuenta y bajo contrato, los proveedores que hacen
+            funcionar nuestros sistemas (alojamiento, almacenamiento de
+            documentos y correo), así como nuestra asesoría fiscal y contable, y
+            las Administraciones Públicas cuando la ley lo exija.
+          </td>
+        </tr>
+        <tr>
+          <th>Sus derechos</th>
+          <td>
+            Puede solicitar el acceso a sus datos, su rectificación o supresión,
+            la limitación de su tratamiento, oponerse a él y solicitar su
+            portabilidad, escribiendo a {{ prestataria.email }}. Le
+            responderemos en el plazo máximo de un mes. Si considera que no
+            hemos atendido correctamente su solicitud, puede reclamar ante la
+            Agencia Española de Protección de Datos (<em>www.aepd.es</em>).
+          </td>
+        </tr>
+        <tr>
+          <th>Seguridad</th>
+          <td>
+            Su DNI, cuenta bancaria, teléfono y dirección se almacenan cifrados.
+            El acceso de nuestro personal está limitado por perfiles y protegido
+            con doble factor de autenticación.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 style="margin-top:20px">AUTORIZACIONES</h2>
+
+    <p>
+      Las casillas siguientes son <strong>voluntarias</strong> y no condicionan
+      la firma del contrato ni sus condiciones. Puede revocarlas en cualquier
+      momento escribiendo a {{ prestataria.email }}.
+    </p>
+
+    <p class="casilla">
+      <span class="marco"></span> Autorizo a {{ prestataria.razon_social }} a
+      enviarme <strong>información sobre nuevas oportunidades de inversión</strong>
+      por correo electrónico.
+    </p>
+    <p class="casilla">
+      <span class="marco"></span> Autorizo el envío de las
+      <strong>comunicaciones e informes relativos a este préstamo por correo
+      electrónico</strong>, en lugar de en papel.
+    </p>
+
+    <p class="aviso" style="margin-top:14px">
+      Marcar o no marcar estas casillas no afecta al tratamiento necesario para
+      ejecutar el contrato, que se realiza sobre la base jurídica indicada más
+      arriba y no requiere su consentimiento.
+    </p>
+
+    <p style="margin-top:24px">
+      He leído y comprendido la información anterior sobre el tratamiento de mis
+      datos personales.
+    </p>
+
+    <table class="firmas">
+      <tr>
+        <td>
+          <strong>El Prestamista</strong><br>
+          {{ cliente.nombre }}<br>
+          DNI {{ cliente.dni_cif|default:"__________" }}<br>
+          Fecha: ____ / ____ / ________
+        </td>
+        <td class="hueco"></td>
+        <td>
+          <strong>El Prestatario</strong><br>
+          {{ prestataria.razon_social }}<br>
+          {{ prestataria.representante }}
+        </td>
+      </tr>
+    </table>
+  </div>
+
+</body>
+</html>

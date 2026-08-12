@@ -1,4 +1,6 @@
 from django.conf import settings
+from decimal import Decimal
+
 from django.db import models
 from django.utils.timezone import now
 
@@ -1054,6 +1056,21 @@ class Cliente(models.Model):
         help_text="Dirección postal completa del cliente"
     )
 
+    # El contrato de préstamo identifica a las partes con estado civil y
+    # profesión («mayor de edad, soltero, funcionario»). Van cifrados como el
+    # resto de datos personales: no hacen falta para buscar, solo para el
+    # documento.
+    estado_civil = EncryptedCharField(
+        blank=True,
+        null=True,
+        help_text="Soltero/a, casado/a… Aparece en el contrato de préstamo.",
+    )
+    profesion = EncryptedCharField(
+        blank=True,
+        null=True,
+        help_text="Profesión u ocupación. Aparece en el contrato de préstamo.",
+    )
+
     cuota_abonada = models.BooleanField(
         default=False,
         help_text="Indica si el cliente ha abonado la cuota"
@@ -1175,6 +1192,29 @@ class Participacion(models.Model):
         null=True,
         blank=True,
         help_text="Fecha de la aportación para cálculo de rentabilidad"
+    )
+
+    # =========================
+    # CONTRATO DE PRÉSTAMO
+    # =========================
+    # Condiciones que van al contrato. Se guardan por participación y no como
+    # constantes porque cada inversor puede pactar las suyas, y porque un
+    # contrato firmado tiene que poder reproducirse años después tal y como se
+    # firmó, aunque las condiciones que se ofrecen hoy sean otras.
+    contrato_fecha = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Fecha de firma. Si se deja vacía se usa la de la aportación.",
+    )
+    contrato_meses = models.PositiveIntegerField(
+        default=12,
+        help_text="Duración del préstamo en meses.",
+    )
+    contrato_interes_bimensual = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("5"),
+        help_text="Interés por período de dos meses, en %. Un 5 % bimensual son seis períodos al año.",
     )
 
     # =========================
