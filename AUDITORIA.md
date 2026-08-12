@@ -103,7 +103,7 @@ log en vez de devolver el cifrado.
 
 ## Gravedad media
 
-### M1 · 24 rutas de `core` sin control propio de permisos
+### M1 · 24 rutas de `core` sin control propio de permisos — CERRADO
 
 De 62 rutas, 38 comprueban permisos y 24 no: dependen solo del middleware, que
 exige estar autenticado con **cualquier** permiso del ERP. Es la misma clase de
@@ -121,9 +121,23 @@ Las que más pesan:
 | `/app/inversores/<id>/documentos/` y `.../borrar/` | subir y borrar documentos |
 | `/app/dashboard/data/` | los datos económicos agregados |
 
-**Arreglo.** Un helper por área (`_user_can_view_clientes`,
-`_user_can_view_inversores`) delegando en `resolve_permissions`, como hicimos
-con estudios. Lo importante es que decidan lo mismo que decide el menú.
+**Arreglado** el 12/08/2026. Tres helpers —`_user_can_view_clientes`,
+`_user_can_view_inversores` y `_user_can_view_proyectos`— delegando en
+`resolve_permissions`, que es la misma función con la que `home.html` decide si
+enseña cada tarjeta. Aplicados a 17 vistas; las de JavaScript devuelven 403 en
+JSON y no un 302, que llegaría como HTML donde se espera JSON.
+
+De 62 rutas quedan 7 sin control propio, y las 7 son correctas: seis del portal
+del inversor, que van por token —esa es su credencial—, y el service worker,
+que es un `.js` sin datos. Hay una prueba que cruza `urls.py` con el cuerpo de
+cada vista y falla si aparece cualquier otra.
+
+**Cambia quién entra**, y conviene decidirlo a conciencia: el rol **comercial**
+tiene `can_proyectos` pero no `can_clientes` ni `can_inversores`. El menú ya le
+escondía esas dos tarjetas; lo que había es que el servidor le dejaba entrar
+escribiendo la URL. Si un comercial debe gestionar clientes, lo que hay que
+cambiar es la tabla de permisos de `accounts/utils.py`, no reabrir la puerta en
+las vistas.
 
 ### M2 · El PIN del portal del inversor no tiene límite de intentos
 

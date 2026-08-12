@@ -416,6 +416,27 @@ def _user_can_edit_estudio(user) -> bool:
     return False
 
 
+def _user_can_view_clientes(user) -> bool:
+    """La cartera de clientes: nombres, DNI, IBAN y teléfonos."""
+    return bool(resolve_permissions(user).get("can_clientes"))
+
+
+def _user_can_view_inversores(user) -> bool:
+    """
+    Los inversores y su posición económica.
+
+    Incluye el envío de comunicaciones y la configuración de su portal, que son
+    acciones con efecto hacia fuera: mejor un solo permiso que decida sobre
+    todo el área que un criterio distinto por vista.
+    """
+    return bool(resolve_permissions(user).get("can_inversores"))
+
+
+def _user_can_view_proyectos(user) -> bool:
+    """Proyectos y el panel económico: los dos van por `can_proyectos`."""
+    return bool(resolve_permissions(user).get("can_proyectos"))
+
+
 def _user_can_view_estudio(user) -> bool:
     """
     Quién puede ver estudios.
@@ -4681,12 +4702,19 @@ def dashboard(request):
 
 @require_GET
 def dashboard_data(request):
+    if not _user_can_view_proyectos(request.user):
+        return JsonResponse({"ok": False, "error": "No tienes acceso al panel."}, status=403)
+
     filters = FinancialDashboardFilters.from_mapping(request.GET)
     payload = FinancialDashboardService(request.user, filters=filters).build()
     return JsonResponse(payload)
 
 
 def checklist_pendientes(request):
+    if not _user_can_view_proyectos(request.user):
+        messages.error(request, "No tienes acceso a los proyectos.")
+        return redirect("core:home")
+
     estado = (request.GET.get("estado") or "pendiente").strip().lower()
     fase = (request.GET.get("fase") or "").strip().lower()
     proyecto_q = (request.GET.get("proyecto") or "").strip()
@@ -4900,6 +4928,10 @@ def lista_estudio(request):
 
 
 def lista_proyectos(request):
+    if not _user_can_view_proyectos(request.user):
+        messages.error(request, "No tienes acceso a los proyectos.")
+        return redirect("core:home")
+
     estados_cerrados = {"cerrado", "descartado"}
     all_active = Proyecto.objects.exclude(estado__in=estados_cerrados).order_by("-id")
     base_proyectos = all_active.exclude(
@@ -5053,6 +5085,10 @@ def lista_proyectos(request):
 
 
 def lista_proyectos_cerrados(request):
+    if not _user_can_view_proyectos(request.user):
+        messages.error(request, "No tienes acceso a los proyectos.")
+        return redirect("core:home")
+
     estados_cerrados = {"cerrado", "descartado"}
     all_closed = Proyecto.objects.filter(estado__in=estados_cerrados).order_by("-id")
     base_proyectos = all_closed.exclude(
@@ -5180,6 +5216,10 @@ def lista_proyectos_cerrados(request):
 
 
 def clientes(request):
+    if not _user_can_view_clientes(request.user):
+        messages.error(request, "No tienes acceso a los clientes.")
+        return redirect("core:home")
+
     clientes_qs = Cliente.objects.all().order_by("nombre")
     return render(request, "core/clientes.html", {"clientes": clientes_qs})
 
@@ -5224,6 +5264,10 @@ def _validar_dni_cif(value: str) -> bool:
 
 
 def clientes_form(request):
+    if not _user_can_view_clientes(request.user):
+        messages.error(request, "No tienes acceso a los clientes.")
+        return redirect("core:home")
+
     if request.method == "POST":
         data = request.POST
         try:
@@ -5280,6 +5324,10 @@ def clientes_form(request):
 
 
 def cliente_edit(request, cliente_id: int):
+    if not _user_can_view_clientes(request.user):
+        messages.error(request, "No tienes acceso a los clientes.")
+        return redirect("core:home")
+
     cliente = get_object_or_404(Cliente, id=cliente_id)
     if request.method == "POST":
         data = request.POST
@@ -5319,6 +5367,10 @@ def cliente_edit(request, cliente_id: int):
 
 
 def inversores_list(request):
+    if not _user_can_view_inversores(request.user):
+        messages.error(request, "No tienes acceso a los inversores.")
+        return redirect("core:home")
+
     participaciones_qs = Participacion.objects.select_related("proyecto").filter(
         estado="confirmada"
     ).order_by("-creado")
@@ -5468,6 +5520,10 @@ def inversores_list(request):
 
 
 def clientes_import(request):
+    if not _user_can_view_clientes(request.user):
+        messages.error(request, "No tienes acceso a los clientes.")
+        return redirect("core:home")
+
     if request.method == "POST" and request.FILES.get("archivo"):
         archivo = request.FILES["archivo"]
         try:
@@ -5541,12 +5597,20 @@ def clientes_import(request):
 
 
 def cliente_inversor_link(request, cliente_id: int):
+    if not _user_can_view_clientes(request.user):
+        messages.error(request, "No tienes acceso a los clientes.")
+        return redirect("core:home")
+
     cliente = get_object_or_404(Cliente, id=cliente_id)
     perfil, _ = InversorPerfil.objects.get_or_create(cliente=cliente)
     return render(request, "core/inversor_link.html", {"cliente": cliente, "perfil": perfil})
 
 
 def inversor_buscar(request):
+    if not _user_can_view_inversores(request.user):
+        messages.error(request, "No tienes acceso a los inversores.")
+        return redirect("core:home")
+
     dni_cif = (request.GET.get("dni_cif") or "").strip()
     email = (request.GET.get("email") or "").strip()
     cliente = None
@@ -5942,6 +6006,10 @@ def inversor_portal(request, token: str):
 
 
 def inversor_portal_admin(request, perfil_id: int):
+    if not _user_can_view_inversores(request.user):
+        messages.error(request, "No tienes acceso a los inversores.")
+        return redirect("core:home")
+
     perfil = get_object_or_404(InversorPerfil, id=perfil_id)
     ctx = _build_inversor_portal_context(perfil, internal_view=True)
     ctx["is_inversor_portal"] = False
@@ -5949,6 +6017,10 @@ def inversor_portal_admin(request, perfil_id: int):
 
 
 def inversor_portal_config(request, perfil_id: int):
+    if not _user_can_view_inversores(request.user):
+        messages.error(request, "No tienes acceso a los inversores.")
+        return redirect("core:home")
+
     if request.method != "POST":
         return redirect("core:inversor_portal_admin", perfil_id=perfil_id)
     perfil = get_object_or_404(InversorPerfil, id=perfil_id)
@@ -6012,6 +6084,10 @@ def inversor_portal_config(request, perfil_id: int):
 
 
 def inversor_documento_upload(request, perfil_id: int):
+    if not _user_can_view_inversores(request.user):
+        messages.error(request, "No tienes acceso a los inversores.")
+        return redirect("core:home")
+
     if request.method != "POST":
         return redirect("core:inversores_list")
     perfil = get_object_or_404(InversorPerfil, id=perfil_id)
@@ -6032,6 +6108,10 @@ def inversor_documento_upload(request, perfil_id: int):
 
 
 def inversor_documento_borrar(request, perfil_id: int, doc_id: int):
+    if not _user_can_view_inversores(request.user):
+        messages.error(request, "No tienes acceso a los inversores.")
+        return redirect("core:home")
+
     if request.method != "POST":
         return redirect("core:inversores_list")
     perfil = get_object_or_404(InversorPerfil, id=perfil_id)
@@ -8189,6 +8269,9 @@ def proyecto_documento_flag(request, proyecto_id: int, documento_id: int):
 
 def proyecto_presentacion_generar(request, proyecto_id: int):
     proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+    if not _user_can_view_project(request.user, proyecto):
+        messages.error(request, "No tienes acceso a este proyecto.")
+        return redirect("core:lista_proyectos")
     if request.method != "POST":
         return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-difusion")
 
@@ -8294,6 +8377,9 @@ def proyecto_presentacion_generar(request, proyecto_id: int):
 
 def proyecto_presentacion_preview(request, proyecto_id: int, formato: str):
     proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+    if not _user_can_view_project(request.user, proyecto):
+        messages.error(request, "No tienes acceso a este proyecto.")
+        return redirect("core:lista_proyectos")
     if request.method != "POST":
         return redirect(f"{reverse('core:proyecto', args=[proyecto_id])}#vista-difusion")
 
@@ -9110,6 +9196,9 @@ def proyecto_comunicaciones(request, proyecto_id: int):
 
 
 def inversor_comunicacion_preview(request, perfil_id: int):
+    if not _user_can_view_inversores(request.user):
+        return JsonResponse({"ok": False, "error": "No tienes acceso a los inversores."}, status=403)
+
     if request.method != "POST":
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
     if not request.user.is_authenticated:
@@ -9207,6 +9296,9 @@ def inversor_comunicacion_preview(request, perfil_id: int):
 
 
 def inversor_comunicacion_send(request, perfil_id: int):
+    if not _user_can_view_inversores(request.user):
+        return JsonResponse({"ok": False, "error": "No tienes acceso a los inversores."}, status=403)
+
     if request.method != "POST":
         return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
     if not request.user.is_authenticated:
