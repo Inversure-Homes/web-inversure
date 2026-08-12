@@ -1,0 +1,56 @@
+{% extends "landing/base.html" %}
+
+{% comment %}
+  Página no encontrada.
+
+  Django la busca por nombre en la raíz de las carpetas de plantillas, así que
+  vive aquí y no en `landing/`. Se sirve para todo el sitio: la web pública, el
+  ERP y el portal del sorteo.
+
+  Extiende la base de la web porque en un 404 lo útil es dar salida —cabecera,
+  menú y pie con enlaces— en vez de dejar a alguien en una página muerta. Los
+  errores 500 no pueden hacer esto: van en su propia plantilla, sin depender de
+  nada.
+{% endcomment %}
+{% block title %}Página no encontrada · Inversure Homes{% endblock %}
+
+{% block extra_head %}
+<style>
+  .error-404 { padding: 96px 0 120px; }
+  .error-404 .codigo {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: clamp(72px, 16vw, 148px);
+    line-height: 1;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 0;
+  }
+  .error-404 h1 {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: clamp(24px, 4vw, 34px);
+    margin: 12px 0 8px;
+  }
+  .error-404 p { color: var(--muted); max-width: 52ch; margin: 0 0 8px; }
+  .error-404 .acciones { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+  /* `.btn-outline` de la cabecera es blanco sobre fondo oscuro; aquí el fondo
+     es claro, así que necesita su propio borde. */
+  .error-404 .btn-outline { border-color: rgba(11, 19, 36, 0.25); color: var(--ink); }
+</style>
+{% endblock %}
+
+{% block content %}
+  <section class="section error-404">
+    <div class="container">
+      <p class="codigo">404</p>
+      <h1>Esta página no existe</h1>
+      <p>
+        Puede que el enlace esté mal escrito, que la página se retirara o que
+        nunca llegara a publicarse.
+      </p>
+      <div class="acciones">
+        <a class="btn-solid" href="/">Ir al inicio</a>
+        <a class="btn-outline" href="/app/login/">Acceso empleados</a>
+      </div>
+    </div>
+  </section>
+{% endblock %}
