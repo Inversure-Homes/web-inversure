@@ -195,7 +195,7 @@ documentos en cada despliegue.
 **Comprobado el 12/08/2026**: las variables de AWS están puestas, así que los
 ficheros van a S3 y persisten. **No hay problema.**
 
-### M5 · La política de privacidad no cumple el artículo 13 del RGPD
+### M5 · La política de privacidad no cumple el artículo 13 del RGPD — BORRADOR ENTREGADO
 
 `landing/templates/landing/privacidad.html` tiene 16 líneas para una empresa
 que guarda DNI, IBAN, teléfono y dirección postal. Faltan: identidad completa
@@ -204,11 +204,19 @@ tratamiento, categorías de datos, destinatarios, transferencias
 internacionales —hay S3—, plazos de conservación y la vía de reclamación ante
 la AEPD.
 
-### M6 · No hay borrado ni anonimización de datos personales
+**12/08/2026:** borrador en `PROTECCION_DATOS.md`, con el inventario real de qué
+guarda el sistema, quién accede y a qué terceros sale. No se publica hasta que
+lo revise la asesoría.
+
+### M6 · No hay borrado ni anonimización de datos personales — PROCEDIMIENTO PROPUESTO
 
 No encontré nada de supresión ni de plazos de conservación. El derecho de
 supresión (art. 17) hoy solo puede ejercerse borrando a mano desde el admin, lo
 que además choca con las claves protegidas de participaciones y liquidaciones.
+
+**12/08/2026:** procedimiento propuesto en `PROTECCION_DATOS.md`, basado en
+anonimizar en vez de borrar cuando hay obligaciones contables detrás.
+Implementable en cuanto la asesoría confirme plazos y alcance.
 
 ### M7 · Django fuera de soporte — CERRADO
 
@@ -308,8 +316,8 @@ perder:
 | M2 · PIN sin límite de intentos | **cerrado** |
 | M3 · Documentos sin validar | **cerrado** |
 | M4 · Persistencia de documentos | **descartado** — S3 activo |
-| M5 · Política de privacidad | abierto |
-| M6 · Sin borrado ni retención de datos | abierto |
+| M5 · Política de privacidad | borrador entregado, pendiente de asesoría |
+| M6 · Sin borrado ni retención de datos | procedimiento propuesto, pendiente de asesoría |
 | M7 · Django fuera de soporte | **cerrado** |
 | D1–D4 · Deuda técnica | abierto |
 
