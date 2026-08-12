@@ -23,7 +23,7 @@ PyMuPDF==1.24.10
 django-axes==6.5.2
 sentry-sdk==2.21.0
 django-otp==1.5.0
-django-two-factor-auth==1.15.2
+django-two-factor-auth==1.18.1
 phonenumbers==8.13.29
 django-auditlog==3.4.1
 cryptography==48.0.1
