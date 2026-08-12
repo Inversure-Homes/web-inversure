@@ -1,0 +1,94 @@
+{% load formatting %}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Evidencias de la firma</title>
+
+  {% comment %}
+    Hoja de evidencias que se une al final del contrato firmado.
+
+    Su razón de ser: una firma electrónica simple vale lo que valga la prueba de
+    quién firmó y qué firmó. Esta hoja recoge esa prueba, y la huella que imprime
+    es la del contrato SIN esta hoja, para que cualquiera pueda comprobarla.
+  {% endcomment %}
+  <style>
+    @page { size: A4; margin: 20mm 18mm; }
+    body {
+      margin: 0; font-family: Arial, Helvetica, sans-serif;
+      font-size: 10pt; line-height: 1.5; color: #111827;
+    }
+    h1 { color: #20304d; font-size: 15pt; text-align: center; margin: 0 0 4px; }
+    .sub { text-align: center; color: #4b5563; margin: 0 0 20px; font-size: 9.5pt; }
+    table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-bottom: 14px; }
+    th, td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; vertical-align: top; }
+    th { background: #f3f4f6; width: 34%; }
+    .huella { font-family: "Courier New", monospace; font-size: 8.5pt; word-break: break-all; }
+    .nota {
+      border: 1px solid #d1d5db; background: #f9fafb; border-radius: 4px;
+      padding: 10px 12px; font-size: 9pt; color: #374151;
+    }
+    .casilla { font-size: 9.5pt; margin: 4px 0; }
+  </style>
+</head>
+<body>
+
+  <h1>EVIDENCIAS DE LA FIRMA ELECTRÓNICA</h1>
+  <p class="sub">Documento generado automáticamente. Forma parte inseparable del contrato que le precede.</p>
+
+  <table>
+    <tbody>
+      <tr><th>Documento firmado</th><td>{{ firma.get_tipo_display }} · {{ proyecto.nombre }}</td></tr>
+      <tr><th>Firmante</th><td>{{ firma.nombre_declarado }}</td></tr>
+      <tr><th>DNI declarado</th><td>{{ cliente.dni_cif|default:"—" }}</td></tr>
+      <tr><th>Correo verificado</th><td>{{ firma.email }}</td></tr>
+      <tr>
+        <th>Fecha y hora</th>
+        <td>{{ firma.firmado_en|date:"d/m/Y H:i:s" }} ({{ zona }})</td>
+      </tr>
+      <tr><th>Dirección IP</th><td>{{ firma.ip|default:"—" }}</td></tr>
+      <tr><th>Navegador</th><td style="font-size:8.5pt">{{ firma.user_agent|default:"—" }}</td></tr>
+      <tr>
+        <th>Huella SHA-256 del contrato</th>
+        <td class="huella">{{ firma.hash_documento }}</td>
+      </tr>
+      <tr><th>Referencia interna</th><td>{{ firma.id }}</td></tr>
+    </tbody>
+  </table>
+
+  <h3 style="font-size:10.5pt; color:#1f304d;">Autorizaciones marcadas</h3>
+  {% if firma.autorizaciones %}
+    {% for clave, valor in firma.autorizaciones.items %}
+      <p class="casilla">{% if valor %}✔{% else %}✗{% endif %} {{ clave }}</p>
+    {% endfor %}
+  {% else %}
+    <p class="casilla">No se marcó ninguna autorización voluntaria.</p>
+  {% endif %}
+
+  <div class="nota" style="margin-top:16px">
+    <p style="margin:0 0 8px"><strong>Cómo comprobar este documento.</strong></p>
+    <p style="margin:0 0 8px">
+      La huella SHA-256 que figura más arriba corresponde al contrato tal y como
+      se le mostró al firmante, <strong>sin incluir esta hoja de evidencias</strong>.
+      Calcular la huella de un documento que contuviera su propia huella sería
+      imposible de verificar, por eso se separan.
+    </p>
+    <p style="margin:0">
+      Cualquier alteración posterior del contrato, por mínima que sea, produce
+      una huella distinta.
+    </p>
+  </div>
+
+  <div class="nota" style="margin-top:12px">
+    <p style="margin:0">
+      <strong>Naturaleza de esta firma.</strong> Se trata de una firma
+      electrónica <strong>simple</strong>, conforme al artículo 3.10 del
+      Reglamento (UE) 910/2014 (eIDAS). No se le negará efecto jurídico ni
+      admisibilidad como prueba por el solo hecho de presentarse en forma
+      electrónica (art. 25.1). La identidad del firmante se verificó mediante un
+      código de un solo uso remitido a la dirección de correo que consta más
+      arriba.
+    </p>
+  </div>
+
+</body>
+</html>

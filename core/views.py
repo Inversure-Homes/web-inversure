@@ -49,10 +49,17 @@ from django.db import connection
 from .models import Estudio, Proyecto
 from .models import EstudioSnapshot, ProyectoSnapshot
 from .models import GastoProyecto, IngresoProyecto, ChecklistItem
-from .models import IntentoPinPortal
+from .models import FirmaContrato, IntentoPinPortal
 from .models import Cliente, Participacion, InversorPerfil, InversorPushSubscription, SolicitudParticipacion, ComunicacionInversor, DocumentoProyecto, DocumentoInversor, FacturaGasto, JustificanteIngreso
 from .contratos import condiciones as condiciones_prestamo
 from .contratos import condiciones_cuenta_participe
+from .correo_contratos import enviar_codigo_contrato, enviar_contrato_firmado
+from .firmas import ErrorFirma
+from .firmas import comprobar_codigo as comprobar_codigo_firma
+from .firmas import enviar_codigo as enviar_codigo_firma
+from .firmas import huella as huella_documento
+from .firmas import sellar as sellar_firma
+from .firmas import unir as unir_pdfs
 from .finance import limit_loss_to_capital_enabled
 from .security import (
     PIN_INTENTOS_MAXIMOS,
@@ -6274,6 +6281,178 @@ def inversor_beneficio_update(request, perfil_id: int, participacion_id: int):
     messages.success(request, "Beneficio actualizado correctamente.")
     return redirect("core:inversor_portal_admin", perfil_id=perfil.id)
 
+
+def _contrato_de(participacion):
+    """Qué contrato le toca a esta participación, y con qué contexto."""
+    if _proyecto_es_conciertos(participacion.proyecto):
+        return (
+            "core/pdf_contrato_prestamo.html",
+            FirmaContrato.Tipo.PRESTAMO,
+            {"prestataria": settings.PRESTATARIA, "condiciones": condiciones_prestamo(participacion)},
+        )
+    return (
+        "core/pdf_contrato_cuenta_participe.html",
+        FirmaContrato.Tipo.CUENTA_PARTICIPE,
+        {"gestor": settings.PRESTATARIA, "contrato": condiciones_cuenta_participe(participacion)},
+    )
+
+
+def _pdf_contrato(request, participacion) -> bytes:
+    """El PDF del contrato, que es lo que se firma y de lo que sale la huella."""
+    from weasyprint import HTML  # defer import
+
+    plantilla, _tipo, extra = _contrato_de(participacion)
+    html = render_to_string(
+        plantilla,
+        {
+            "cliente": participacion.cliente,
+            "participacion": participacion,
+            "proyecto": participacion.proyecto,
+            **extra,
+        },
+        request,
+    )
+    return HTML(string=html, base_url=request.build_absolute_uri("/")).write_pdf()
+
+
+AUTORIZACIONES = {
+    "novedades": "Recibir información sobre nuevas oportunidades de inversión",
+    "digital": "Recibir las comunicaciones e informes por correo electrónico",
+    "mensajeria": "Canal de comunicación por mensajería instantánea",
+}
+
+
+def inversor_contrato(request, token: str, participacion_id: int):
+    """
+    Lectura y firma del contrato por el propio inversor.
+
+    Vive en la zona del portal, que va por token, porque el que firma es él y el
+    token es su credencial. A diferencia de otras vistas de esa zona, esta sí
+    escribe —crea la firma—, pero solo sobre su propia participación y con un
+    segundo factor: un código de un solo uso enviado a su correo.
+    """
+    perfil = get_object_or_404(InversorPerfil, token=token, activo=True)
+    participacion = get_object_or_404(
+        Participacion.objects.select_related("cliente", "proyecto"),
+        id=participacion_id,
+        cliente=perfil.cliente,
+    )
+
+    _plantilla, tipo, _extra = _contrato_de(participacion)
+    firma = (
+        FirmaContrato.objects.filter(participacion=participacion, tipo=tipo)
+        .exclude(estado=FirmaContrato.Estado.ANULADO)
+        .first()
+    )
+    if firma is None:
+        firma = FirmaContrato.objects.create(participacion=participacion, tipo=tipo)
+
+    error = ""
+    aviso = ""
+
+    if request.method == "POST" and not firma.firmado:
+        email = (participacion.cliente.email or "").strip()
+
+        if request.POST.get("pedir_codigo"):
+            if not email:
+                error = "No tenemos tu correo. Escríbenos y lo añadimos antes de firmar."
+            else:
+                codigo = enviar_codigo_firma(firma, email)
+                enviar_codigo_contrato(participacion, email, codigo)
+                aviso = "Te hemos enviado un código a {}.".format(email)
+
+        elif request.POST.get("firmar"):
+            if request.POST.get("acepto") != "si":
+                error = "Marca que has leído y aceptas el contrato."
+            else:
+                try:
+                    comprobar_codigo_firma(firma, request.POST.get("codigo", ""))
+                except ErrorFirma as exc:
+                    error = str(exc)
+                else:
+                    pdf = _pdf_contrato(request, participacion)
+                    marcadas = {
+                        texto: bool(request.POST.get("aut_" + clave))
+                        for clave, texto in AUTORIZACIONES.items()
+                    }
+                    firma.nombre_declarado = (request.POST.get("nombre") or participacion.cliente.nombre or "")[:200]
+                    firma.autorizaciones = marcadas
+                    firma.ip = _ip_de(request)
+                    firma.user_agent = request.META.get("HTTP_USER_AGENT", "")[:400]
+                    firma.firmado_en = timezone.now()
+                    firma.hash_documento = huella_documento(pdf)
+
+                    evidencias = render_to_string(
+                        "core/pdf_evidencias_firma.html",
+                        {
+                            "firma": firma,
+                            "cliente": participacion.cliente,
+                            "proyecto": participacion.proyecto,
+                            "zona": settings.TIME_ZONE,
+                        },
+                        request,
+                    )
+                    from weasyprint import HTML  # defer import
+
+                    completo = unir_pdfs(
+                        pdf, HTML(string=evidencias, base_url=request.build_absolute_uri("/")).write_pdf()
+                    )
+                    sellar_firma(
+                        firma,
+                        pdf,
+                        {
+                            "nombre": firma.nombre_declarado,
+                            "ip": firma.ip,
+                            "user_agent": firma.user_agent,
+                            "autorizaciones": marcadas,
+                            "pdf_completo": completo,
+                        },
+                    )
+                    enviar_contrato_firmado(participacion, email, completo)
+                    return redirect("core:inversor_contrato", token=token, participacion_id=participacion.id)
+
+    return render(
+        request,
+        "core/inversor_contrato.html",
+        {
+            "perfil": perfil,
+            "participacion": participacion,
+            "proyecto": participacion.proyecto,
+            "cliente": participacion.cliente,
+            "firma": firma,
+            "autorizaciones": AUTORIZACIONES,
+            "error": error,
+            "aviso": aviso,
+            "es_conciertos": _proyecto_es_conciertos(participacion.proyecto),
+            "is_inversor_portal": True,
+        },
+    )
+
+
+def inversor_contrato_pdf(request, token: str, participacion_id: int):
+    """El PDF, para leerlo antes de firmar o para descargarlo después."""
+    perfil = get_object_or_404(InversorPerfil, token=token, activo=True)
+    participacion = get_object_or_404(Participacion, id=participacion_id, cliente=perfil.cliente)
+
+    _plantilla, tipo, _extra = _contrato_de(participacion)
+    firma = (
+        FirmaContrato.objects.filter(
+            participacion=participacion, tipo=tipo, estado=FirmaContrato.Estado.FIRMADO
+        )
+        .exclude(documento="")
+        .first()
+    )
+    # Una vez firmado se entrega el archivado, no uno regenerado: si algo
+    # cambiase en el sistema, lo que vale es lo que se firmó.
+    if firma and firma.documento:
+        with firma.documento.open("rb") as f:
+            contenido = f.read()
+    else:
+        contenido = _pdf_contrato(request, participacion)
+
+    respuesta = HttpResponse(contenido, content_type="application/pdf")
+    respuesta["Content-Disposition"] = 'inline; filename="contrato-{}.pdf"'.format(participacion.id)
+    return respuesta
 
 def inversor_solicitar(request, token: str, proyecto_id: int):
     perfil = get_object_or_404(InversorPerfil, token=token, activo=True)

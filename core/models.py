@@ -1949,3 +1949,85 @@ class IntentoPinPortal(models.Model):
         return "{} · {} · {:%d/%m/%Y %H:%M}".format(
             self.perfil_id, "acertado" if self.acertado else "fallido", self.creado
         )
+
+
+class FirmaContrato(models.Model):
+    """
+    Firma electrónica simple de un contrato, con su rastro probatorio.
+
+    Lo que hace que una firma simple valga como prueba no es el clic: es poder
+    demostrar **qué** documento se firmó y **quién** lo hizo. Por eso se guarda
+    la huella SHA-256 del PDF exacto que el partícipe tuvo delante —no una copia
+    parecida generada después—, el propio fichero, y las circunstancias: código
+    de un solo uso enviado a su correo, IP, hora y navegador.
+
+    Esto es firma electrónica **simple** del artículo 3.10 del Reglamento eIDAS.
+    Es válida y admisible, pero si el firmante la niega, la carga de acreditarla
+    es de quien la invoca. No equivale a una firma cualificada, que exige un
+    prestador de servicios de confianza.
+    """
+
+    class Tipo(models.TextChoices):
+        PRESTAMO = "prestamo", "Préstamo"
+        CUENTA_PARTICIPE = "cuenta_participe", "Cuenta en participación"
+
+    class Estado(models.TextChoices):
+        PENDIENTE = "pendiente", "Pendiente de firma"
+        FIRMADO = "firmado", "Firmado"
+        ANULADO = "anulado", "Anulado"
+
+    participacion = models.ForeignKey(
+        "Participacion",
+        on_delete=models.PROTECT,
+        related_name="firmas",
+        help_text="Protegida: un contrato firmado no puede desaparecer porque se borre la participación.",
+    )
+    tipo = models.CharField(max_length=20, choices=Tipo.choices)
+    estado = models.CharField(max_length=12, choices=Estado.choices, default=Estado.PENDIENTE)
+
+    # --- Qué se firmó ---
+    hash_documento = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text="SHA-256 del PDF del contrato, sin la hoja de evidencias.",
+    )
+    documento = models.FileField(
+        upload_to="contratos/firmados/",
+        blank=True,
+        null=True,
+        help_text="El PDF firmado, con su hoja de evidencias.",
+    )
+
+    # --- Quién y cómo ---
+    nombre_declarado = models.CharField(max_length=200, blank=True)
+    email = models.EmailField(blank=True)
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=400, blank=True)
+
+    # El código va cifrado con el mismo hasher que las contraseñas: si alguien
+    # lee la base de datos no puede firmar en nombre de otro.
+    codigo_hash = models.CharField(max_length=128, blank=True)
+    codigo_enviado_en = models.DateTimeField(null=True, blank=True)
+    codigo_intentos = models.PositiveIntegerField(default=0)
+
+    autorizaciones = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Las casillas voluntarias del anexo de protección de datos, tal y como se marcaron.",
+    )
+
+    firmado_en = models.DateTimeField(null=True, blank=True)
+    creado = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "firma de contrato"
+        verbose_name_plural = "firmas de contrato"
+        ordering = ["-creado"]
+        indexes = [models.Index(fields=["participacion", "estado"])]
+
+    def __str__(self):
+        return "{} · {} · {}".format(self.participacion_id, self.get_tipo_display(), self.get_estado_display())
+
+    @property
+    def firmado(self) -> bool:
+        return self.estado == self.Estado.FIRMADO

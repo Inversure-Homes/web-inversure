@@ -1,0 +1,120 @@
+{% extends "core/base.html" %}
+{% load formatting %}
+
+{% comment %}
+  Lectura y firma del contrato por el propio inversor.
+
+  El contrato se muestra incrustado y no en un enlace aparte: quien firma tiene
+  que haber tenido el documento delante, y eso también forma parte de la prueba.
+{% endcomment %}
+{% block content %}
+<div class="container" style="max-width: 900px; padding-top: 24px; padding-bottom: 48px;">
+
+  <h1 class="h3 mb-1">{{ proyecto.nombre }}</h1>
+  <p class="text-muted">
+    {% if es_conciertos %}Contrato de préstamo{% else %}Contrato de cuenta en participación{% endif %}
+    · Aportación de {{ participacion.importe_invertido|es_number }} €
+  </p>
+
+  {% if firma.firmado %}
+
+    <div class="alert alert-success">
+      <strong>Contrato firmado</strong> el {{ firma.firmado_en|date:"d/m/Y" }} a las
+      {{ firma.firmado_en|date:"H:i" }}. Te enviamos una copia a {{ firma.email }}.
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body">
+        <h2 class="h6">Evidencias de tu firma</h2>
+        <table class="table table-sm mb-0">
+          <tbody>
+            <tr><th style="width:34%">Fecha y hora</th><td>{{ firma.firmado_en|date:"d/m/Y H:i:s" }}</td></tr>
+            <tr><th>Correo verificado</th><td>{{ firma.email }}</td></tr>
+            <tr>
+              <th>Huella del documento</th>
+              <td style="font-family:monospace; font-size:.8rem; word-break:break-all">{{ firma.hash_documento }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <a class="btn btn-primary"
+       href="{% url 'core:inversor_contrato_pdf' perfil.token participacion.id %}"
+       target="_blank" rel="noopener noreferrer">Descargar el contrato firmado</a>
+
+  {% else %}
+
+    {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+    {% if aviso %}<div class="alert alert-info">{{ aviso }}</div>{% endif %}
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body p-0">
+        <embed src="{% url 'core:inversor_contrato_pdf' perfil.token participacion.id %}"
+               type="application/pdf" width="100%" height="620">
+        <div class="p-3 border-top">
+          <a href="{% url 'core:inversor_contrato_pdf' perfil.token participacion.id %}"
+             target="_blank" rel="noopener noreferrer">Abrir el contrato en una pestaña nueva</a>
+        </div>
+      </div>
+    </div>
+
+    <form method="post" class="card border-0 shadow-sm">
+      {% csrf_token %}
+      <div class="card-body">
+        <h2 class="h6 mb-3">Firmar</h2>
+
+        <div class="mb-3">
+          <label class="form-label small fw-semibold" for="nombre">Nombre y apellidos</label>
+          <input type="text" class="form-control" id="nombre" name="nombre"
+                 value="{{ cliente.nombre }}" required>
+        </div>
+
+        <p class="small text-muted mb-2">Autorizaciones voluntarias. No condicionan la firma.</p>
+        {% for clave, texto in autorizaciones.items %}
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="aut_{{ clave }}" name="aut_{{ clave }}">
+            <label class="form-check-label small" for="aut_{{ clave }}">{{ texto }}</label>
+          </div>
+        {% endfor %}
+
+        <hr class="my-3">
+
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="acepto" name="acepto" value="si" required>
+          <label class="form-check-label" for="acepto">
+            He leído el contrato completo y sus anexos, y acepto su contenido.
+          </label>
+        </div>
+
+        {% if firma.codigo_enviado_en %}
+          <div class="mb-3" style="max-width: 240px">
+            <label class="form-label small fw-semibold" for="codigo">
+              Código enviado a tu correo
+            </label>
+            <input type="text" class="form-control" id="codigo" name="codigo"
+                   inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
+            <div class="form-text small">Caduca a los 15 minutos.</div>
+          </div>
+          <button class="btn btn-primary" name="firmar" value="1">Firmar el contrato</button>
+          <button class="btn btn-link btn-sm" name="pedir_codigo" value="1">Enviarme otro código</button>
+        {% else %}
+          <p class="small text-muted">
+            Para firmar te enviaremos un código a <strong>{{ cliente.email|default:"tu correo" }}</strong>.
+            Es lo que acredita que eres tú quien firma.
+          </p>
+          <button class="btn btn-primary" name="pedir_codigo" value="1">Enviarme el código</button>
+        {% endif %}
+      </div>
+    </form>
+
+    <p class="small text-muted mt-3">
+      Al firmar se registrarán la fecha y hora, tu dirección IP, el navegador y
+      la huella digital del documento exacto que has leído. Esa información se
+      añade al contrato como hoja final y sirve para acreditar la firma.
+    </p>
+
+  {% endif %}
+
+</div>
+{% endblock %}

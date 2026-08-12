@@ -104,6 +104,16 @@ urlpatterns = [
     path("inversor/<str:token>/push/unsubscribe/", views.inversor_push_unsubscribe, name="inversor_push_unsubscribe"),
     path("inversor/<str:token>/", views.inversor_portal, name="inversor_portal"),
     path("inversor/<str:token>/solicitar/<int:proyecto_id>/", views.inversor_solicitar, name="inversor_solicitar"),
+    path(
+        "inversor/<str:token>/contrato/<int:participacion_id>/",
+        views.inversor_contrato,
+        name="inversor_contrato",
+    ),
+    path(
+        "inversor/<str:token>/contrato/<int:participacion_id>/pdf/",
+        views.inversor_contrato_pdf,
+        name="inversor_contrato_pdf",
+    ),
     # Edición interna del beneficio. Cuelga de `inversores/` y no de
     # `inversor/<token>/` a propósito: el middleware exime del login todo lo que
     # empieza por `/app/inversor/`, porque ahí vive el portal del inversor y el
