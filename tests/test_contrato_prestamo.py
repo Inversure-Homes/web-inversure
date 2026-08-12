@@ -71,16 +71,10 @@ def test_los_meses_cortos_no_desbordan():
 
 
 def test_el_calendario_sale_bimensual():
+    """Seis períodos de dos meses en un año. Las fechas exactas, más abajo."""
     periodos = calendario_liquidaciones(date(2026, 6, 23), 12)
     assert len(periodos) == 6
-    assert [p["vencimiento"] for p in periodos] == [
-        date(2026, 8, 23),
-        date(2026, 10, 23),
-        date(2026, 12, 23),
-        date(2027, 2, 23),
-        date(2027, 4, 23),
-        date(2027, 6, 23),
-    ]
+    assert [(p["desde_mes"], p["hasta_mes"]) for p in periodos] == [(1, 2), (3, 4), (5, 6), (7, 8), (9, 10), (11, 12)]
 
 
 # --- El documento ----------------------------------------------------------
@@ -147,8 +141,8 @@ def test_el_contrato_lleva_los_datos_de_las_dos_partes():
         "B-75265843",
         "CINCUENTA MIL EUROS",
         "23 de junio de 2027",
-        "23/08/2026",
-        "23/06/2027",
+        "01/09/2026",
+        "01/07/2027",
     ]:
         assert esperado in html, esperado
 
@@ -313,3 +307,114 @@ def test_la_perdida_del_participe_queda_limitada():
     ).content.decode()
 
     assert "limitada a las Aportaciones efectuadas" in html
+
+
+# --- Calendario en día 1 ---------------------------------------------------
+
+
+def test_las_liquidaciones_caen_en_dia_1():
+    """
+    Es como Inversure lo venía haciendo a mano. El contrato de Jorge de Diego,
+    firmado el 23/06/2026, liquidaba el 01/09 y no el 23/08. Pagar siempre en
+    día 1 cuadra con la tesorería; el aniversario de la firma no le importa a
+    nadie.
+    """
+    assert [p["vencimiento"] for p in calendario_liquidaciones(date(2026, 6, 23), 12)] == [
+        date(2026, 9, 1),
+        date(2026, 11, 1),
+        date(2027, 1, 1),
+        date(2027, 3, 1),
+        date(2027, 5, 1),
+        date(2027, 7, 1),
+    ]
+
+
+def test_firmando_en_dia_1_no_se_pierde_un_mes():
+    """Si el período ya termina en día 1, ese mismo es el vencimiento."""
+    assert [p["vencimiento"] for p in calendario_liquidaciones(date(2026, 9, 1), 12)] == [
+        date(2026, 11, 1),
+        date(2027, 1, 1),
+        date(2027, 3, 1),
+        date(2027, 5, 1),
+        date(2027, 7, 1),
+        date(2027, 9, 1),
+    ]
+
+
+def test_el_cambio_de_año_no_se_tuerce():
+    from core.contratos import primero_de_mes_siguiente
+
+    assert primero_de_mes_siguiente(date(2026, 12, 15)) == date(2027, 1, 1)
+    assert primero_de_mes_siguiente(date(2026, 12, 1)) == date(2026, 12, 1)
+
+
+# --- Baja del inversor -----------------------------------------------------
+
+
+def test_lo_devengado_cuenta_periodos_completos():
+    """
+    El contrato liquida por períodos bimensuales vencidos, no día a día. Cobrar
+    medio período no está pactado en ninguna parte.
+    """
+    from core.contratos import intereses_devengados
+
+    proyecto, participacion = _escenario()  # 50.000 € al 5 %, firmado el 23/06/2026
+    assert intereses_devengados(participacion, date(2026, 8, 1)) == Decimal("0")  # mes y medio
+    assert intereses_devengados(participacion, date(2026, 8, 23)) == Decimal("2500")  # 1 período
+    assert intereses_devengados(participacion, date(2026, 12, 23)) == Decimal("7500")  # 3 períodos
+    # No pasa del plazo pactado.
+    assert intereses_devengados(participacion, date(2030, 1, 1)) == Decimal("15000")
+
+
+def test_el_acuerdo_de_resolucion_lleva_el_finiquito():
+    """
+    Sin la cláusula de finiquito, alguien puede cobrar y reclamar después. Es
+    la razón de ser del documento.
+    """
+    proyecto, participacion = _escenario()
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    html = core_views.contrato_rescision(
+        _peticion(jefe, "/x/?html=1&fecha=2026-09-01"),
+        proyecto_id=proyecto.id,
+        participacion_id=participacion.id,
+    ).content.decode()
+
+    assert "finiquitado" in html
+    assert "tiene que reclamar" in html
+    assert "resolver de mutuo acuerdo" in html
+    # Y dice por qué hace falta un acuerdo y no basta con avisar.
+    assert "no contempla su terminación anticipada" in html
+
+
+def test_el_acuerdo_suma_aportacion_y_devengado():
+    proyecto, participacion = _escenario()  # 50.000 € al 5 % desde el 23/06/2026
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    html = core_views.contrato_rescision(
+        _peticion(jefe, "/x/?html=1&fecha=2026-10-23"),
+        proyecto_id=proyecto.id,
+        participacion_id=participacion.id,
+    ).content.decode()
+
+    assert "50.000,00" in html  # aportación
+    assert "5.000,00" in html  # dos períodos devengados
+    assert "55.000,00" in html  # total a devolver
+    assert "CINCUENTA Y CINCO MIL EUROS" in html
+
+
+def test_el_acuerdo_de_una_cuenta_participe_habla_de_partícipe():
+    proyecto, participacion = _escenario_inmobiliario()
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    html = core_views.contrato_rescision(
+        _peticion(jefe, "/x/?html=1&fecha=2026-06-01&rendimiento=1200"),
+        proyecto_id=proyecto.id,
+        participacion_id=participacion.id,
+    ).content.decode()
+
+    assert "EL PARTÍCIPE" in html
+    assert "PRESTAMISTA" not in html
+    # En una cuenta en participación el resultado no se calcula solo.
+    assert "1.200,00" in html
+    assert "no altera la continuidad del Negocio" in html

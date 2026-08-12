@@ -1218,6 +1218,30 @@ class Participacion(models.Model):
     )
 
     # =========================
+    # BAJA DEL INVERSOR
+    # =========================
+    # Salir antes de tiempo no está previsto en el contrato: hace falta un
+    # acuerdo de resolución firmado por las dos partes. Estos campos guardan lo
+    # que ese acuerdo pacta, que es lo que después hay que poder acreditar.
+    fecha_baja = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Fecha del acuerdo de resolución. Con ella la participación deja de contar.",
+    )
+    importe_devuelto = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Lo que se le devuelve al salir: aportación más lo devengado hasta la fecha.",
+    )
+    motivo_baja = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Por ejemplo: cesión de su posición a otro inversor.",
+    )
+
+    # =========================
     # CONTROL
     # =========================
     creado = models.DateTimeField(auto_now_add=True)

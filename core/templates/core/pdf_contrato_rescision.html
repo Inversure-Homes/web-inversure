@@ -1,0 +1,227 @@
+{% load formatting %}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Acuerdo de resolución · {{ cliente.nombre }}</title>
+
+  {% comment %}
+    Acuerdo de resolución de mutuo acuerdo.
+
+    Ni el préstamo ni la cuenta en participación prevén que el inversor salga
+    antes de tiempo: el préstamo solo permite la amortización anticipada por
+    parte de la prestataria, y la cuenta en participación dura lo que dure el
+    negocio. Por eso la salida no es un derecho que se ejerce, sino un acuerdo
+    que firman los dos, y este documento es ese acuerdo.
+
+    Lo que de verdad importa aquí es la cláusula de finiquito: sin ella, alguien
+    puede cobrar y reclamar después.
+  {% endcomment %}
+  <style>
+    @page {
+      size: A4; margin: 22mm 20mm;
+      @bottom-center {
+        content: "Acuerdo de resolución · página " counter(page) " de " counter(pages);
+        font-family: Arial, sans-serif; font-size: 8pt; color: #6b7280;
+      }
+    }
+    @page :first { @bottom-center { content: normal; } }
+    body {
+      margin: 0; font-family: Arial, Helvetica, sans-serif;
+      font-size: 10.5pt; line-height: 1.55; color: #111827; text-align: justify;
+    }
+    h1 { color: #20304d; font-size: 17pt; text-align: center; margin: 0 0 4px; }
+    .lugar { text-align: center; color: #4b5563; margin: 0 0 24px; }
+    h2 {
+      color: #1f304d; font-size: 10.5pt; letter-spacing: .1em;
+      text-align: center; margin: 20px 0 10px;
+    }
+    p { margin: 0 0 10px; }
+    .clausula { margin-bottom: 12px; break-inside: avoid; }
+    .titulo { font-weight: bold; }
+    table.datos { width: 100%; border-collapse: collapse; margin: 8px 0 14px; font-size: 10pt; }
+    table.datos th, table.datos td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; }
+    table.datos th { background: #f3f4f6; width: 40%; }
+    .firmas { margin-top: 46px; width: 100%; table-layout: fixed; break-inside: avoid; }
+    .firmas td {
+      width: 45%; padding-top: 54px; border-top: 1px solid #111827;
+      vertical-align: top; font-size: 10pt; text-align: left;
+    }
+    .firmas .hueco { width: 10%; border: 0; padding: 0; }
+  </style>
+</head>
+<body>
+
+  <h1>ACUERDO DE RESOLUCIÓN DE MUTUO ACUERDO</h1>
+  <p class="lugar">En {{ gestor.poblacion }}, a {{ baja.fecha|fecha_larga }}</p>
+
+  <h2>INTERVIENEN</h2>
+
+  <p>De una parte,</p>
+  <p>
+    <strong>{{ gestor.representante }}</strong>, mayor de edad, con D.N.I.
+    número {{ gestor.representante_dni }}, en representación de
+    <strong>{{ gestor.razon_social }}</strong>, con C.I.F. {{ gestor.cif }} y
+    domicilio en {{ gestor.domicilio }}. En adelante,
+    <strong>{% if es_prestamo %}LA PRESTATARIA{% else %}EL GESTOR{% endif %}</strong>.
+  </p>
+
+  <p>Y de otra,</p>
+  <p>
+    <strong>{{ cliente.nombre }}</strong>, mayor de edad, con DNI
+    {{ cliente.dni_cif|default:"__________" }} y domicilio en
+    {{ cliente.direccion_postal|default:"__________" }}. En adelante,
+    <strong>{% if es_prestamo %}EL PRESTAMISTA{% else %}EL PARTÍCIPE{% endif %}</strong>.
+  </p>
+
+  <h2>EXPONEN</h2>
+
+  <p>
+    <strong>I.—</strong> Que con fecha
+    <strong>{{ baja.contrato_fecha|fecha_larga }}</strong> ambas partes
+    suscribieron un
+    {% if es_prestamo %}contrato de préstamo de dinero{% else %}contrato de
+    constitución de cuenta en participación{% endif %}
+    relativo a <strong>{{ proyecto.nombre }}</strong>, en virtud del cual
+    {% if es_prestamo %}el prestamista entregó{% else %}el partícipe aportó{% endif %}
+    la cantidad de <strong>{{ baja.aportacion_letra }}</strong>
+    ({{ baja.aportacion|es_number }} €). En adelante, el <strong>Contrato</strong>.
+  </p>
+
+  <p>
+    <strong>II.—</strong> Que el Contrato no contempla su terminación anticipada
+    a instancia de
+    {% if es_prestamo %}la parte prestamista{% else %}el partícipe{% endif %},
+    por lo que su resolución antes del vencimiento requiere el acuerdo de ambas
+    partes.
+  </p>
+
+  <p>
+    <strong>III.—</strong> Que ambas partes tienen interés en dar por terminada
+    la relación contractual{% if baja.motivo %}, por el siguiente motivo:
+    {{ baja.motivo }}{% endif %}, y a tal fin suscriben el presente acuerdo con
+    arreglo a las siguientes
+  </p>
+
+  <h2>CLÁUSULAS</h2>
+
+  <div class="clausula">
+    <p>
+      <span class="titulo">Primera.— Resolución.</span> Las partes acuerdan
+      resolver de mutuo acuerdo el Contrato con efectos desde el día
+      <strong>{{ baja.fecha|fecha_larga }}</strong>, quedando extinguidas a
+      partir de esa fecha todas las obligaciones recíprocas derivadas del mismo,
+      salvo las que expresamente se establecen en este acuerdo.
+    </p>
+  </div>
+
+  <div class="clausula">
+    <p>
+      <span class="titulo">Segunda.— Liquidación.</span> Practicada la
+      liquidación de la relación hasta la fecha de efectos, resulta a favor de
+      {% if es_prestamo %}la parte prestamista{% else %}el partícipe{% endif %}
+      la cantidad que se detalla:
+    </p>
+
+    <table class="datos">
+      <tbody>
+        <tr>
+          <th>{% if es_prestamo %}Capital prestado{% else %}Aportación realizada{% endif %}</th>
+          <td>{{ baja.aportacion|es_number }} €</td>
+        </tr>
+        {% if baja.rendimiento %}
+          <tr>
+            <th>{% if es_prestamo %}Intereses devengados{% else %}Resultado que le corresponde{% endif %}</th>
+            <td>{{ baja.rendimiento|es_number }} €</td>
+          </tr>
+        {% endif %}
+        <tr>
+          <th><strong>Total a devolver</strong></th>
+          <td><strong>{{ baja.total|es_number }} €</strong> ({{ baja.total_letra }})</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      Dicha cantidad se abonará mediante transferencia bancaria a la cuenta
+      n.º <strong>{{ cliente.iban|default:"__________" }}</strong>, de la que
+      {% if es_prestamo %}la parte prestamista{% else %}el partícipe{% endif %}
+      manifiesta ser titular, en el plazo máximo de
+      <strong>{{ baja.dias_pago }} días</strong> desde la firma del presente
+      acuerdo. El resguardo de la transferencia servirá de recibo y de la más
+      fiel carta de pago.
+    </p>
+  </div>
+
+  <div class="clausula">
+    <p>
+      <span class="titulo">Tercera.— Finiquito.</span> Con el cobro de la
+      cantidad indicada en la cláusula anterior,
+      {% if es_prestamo %}la parte prestamista{% else %}el partícipe{% endif %}
+      se dará por íntegramente saldado y finiquitado, declarando que nada más
+      tiene que reclamar a
+      {% if es_prestamo %}la prestataria{% else %}el gestor{% endif %}
+      por ningún concepto derivado del Contrato, ya sea por principal,
+      {% if es_prestamo %}intereses{% else %}resultados{% endif %}, gastos,
+      indemnizaciones o cualquier otro.
+    </p>
+    <p>
+      Recíprocamente, {% if es_prestamo %}la prestataria{% else %}el gestor{% endif %}
+      declara que nada tiene que reclamar a
+      {% if es_prestamo %}la parte prestamista{% else %}el partícipe{% endif %}
+      por razón del Contrato.
+    </p>
+  </div>
+
+  {% if not es_prestamo %}
+    <div class="clausula">
+      <p>
+        <span class="titulo">Cuarta.— Efectos sobre el negocio.</span> La salida
+        del partícipe no altera la continuidad del Negocio ni los porcentajes de
+        participación de los restantes partícipes, cuya cuota se mantiene en los
+        términos pactados en sus respectivos contratos.
+      </p>
+    </div>
+  {% endif %}
+
+  <div class="clausula">
+    <p>
+      <span class="titulo">{% if es_prestamo %}Cuarta{% else %}Quinta{% endif %}.— Confidencialidad y datos.</span>
+      Subsisten las obligaciones de confidencialidad asumidas en el Contrato.
+      {{ gestor.razon_social }} conservará los datos personales y la
+      documentación económica derivados de la relación durante los plazos
+      exigidos por la normativa contable y fiscal, transcurridos los cuales
+      procederá a su supresión o anonimización, conforme a la información
+      facilitada en su momento.
+    </p>
+  </div>
+
+  <div class="clausula">
+    <p>
+      <span class="titulo">{% if es_prestamo %}Quinta{% else %}Sexta{% endif %}.— Ley y fuero.</span>
+      El presente acuerdo se rige por el Derecho español. Para cualquier
+      controversia, las partes se someten a los Juzgados y Tribunales de
+      {{ gestor.fuero }}, con renuncia a su propio fuero.
+    </p>
+  </div>
+
+  <p>
+    Y en prueba de conformidad, firman las partes el presente acuerdo por
+    duplicado y a un solo efecto en el lugar y fecha indicados.
+  </p>
+
+  <table class="firmas">
+    <tr>
+      <td>
+        <strong>{% if es_prestamo %}La Prestataria{% else %}El Gestor{% endif %}</strong><br>
+        {{ gestor.razon_social }}<br>{{ gestor.representante }}
+      </td>
+      <td class="hueco"></td>
+      <td>
+        <strong>{% if es_prestamo %}El Prestamista{% else %}El Partícipe{% endif %}</strong><br>
+        {{ cliente.nombre }}<br>DNI {{ cliente.dni_cif|default:"__________" }}
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>

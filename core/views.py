@@ -52,7 +52,7 @@ from .models import GastoProyecto, IngresoProyecto, ChecklistItem
 from .models import FirmaContrato, IntentoPinPortal
 from .models import Cliente, Participacion, InversorPerfil, InversorPushSubscription, SolicitudParticipacion, ComunicacionInversor, DocumentoProyecto, DocumentoInversor, FacturaGasto, JustificanteIngreso
 from .contratos import condiciones as condiciones_prestamo
-from .contratos import condiciones_cuenta_participe
+from .contratos import condiciones_baja, condiciones_cuenta_participe
 from .correo_contratos import enviar_codigo_contrato, enviar_contrato_firmado, enviar_invitacion_firma
 from .firmas import ErrorFirma
 from .firmas import comprobar_codigo as comprobar_codigo_firma
@@ -6408,6 +6408,16 @@ def inversor_contrato(request, token: str, participacion_id: int):
                             "pdf_completo": completo,
                         },
                     )
+                    # La participación se confirma al firmar, no al emitir.
+                    # Mientras está pendiente no cuenta en el capital captado ni
+                    # en los paneles: el dinero se da por comprometido cuando
+                    # hay firma, no cuando se manda el contrato.
+                    if participacion.estado == "pendiente":
+                        participacion.estado = "confirmada"
+                        if not participacion.fecha_aportacion:
+                            participacion.fecha_aportacion = participacion.contrato_fecha or timezone.localdate()
+                        participacion.save(update_fields=["estado", "fecha_aportacion"])
+
                     enviar_contrato_firmado(participacion, email, completo)
                     return redirect("core:inversor_contrato", token=token, participacion_id=participacion.id)
 
@@ -9074,6 +9084,51 @@ def contrato_emitir(request, proyecto_id: int, participacion_id: int):
             "mensaje": "Contrato enviado a {}.".format(email),
         }
     )
+
+def contrato_rescision(request, proyecto_id: int, participacion_id: int):
+    """
+    Acuerdo de resolución para dar de baja a un inversor.
+
+    Ni el préstamo ni la cuenta en participación prevén que el inversor salga
+    antes de tiempo, así que la salida no es un derecho que se ejerce sino un
+    acuerdo que firman los dos. Este documento es ese acuerdo, y lo que de
+    verdad importa en él es el finiquito: sin esa cláusula, alguien puede
+    cobrar y reclamar después.
+
+    Con `?fecha=AAAA-MM-DD` se fija la fecha de efectos; con `?rendimiento=`,
+    lo devengado, que en una cuenta en participación depende del resultado del
+    negocio y no se puede calcular solo.
+    """
+    participacion = get_object_or_404(
+        Participacion.objects.select_related("cliente", "proyecto"),
+        id=participacion_id,
+        proyecto_id=proyecto_id,
+    )
+    if not _user_can_edit_project(request.user, participacion.proyecto):
+        messages.error(request, "No tienes acceso a este proyecto.")
+        return redirect("core:lista_proyectos")
+
+    fecha = _parse_date(request.GET.get("fecha")) if request.GET.get("fecha") else None
+    rendimiento = request.GET.get("rendimiento")
+    respuesta = render(
+        request,
+        "core/pdf_contrato_rescision.html",
+        {
+            "cliente": participacion.cliente,
+            "participacion": participacion,
+            "proyecto": participacion.proyecto,
+            "gestor": settings.PRESTATARIA,
+            "es_prestamo": _proyecto_es_conciertos(participacion.proyecto),
+            "baja": condiciones_baja(
+                participacion,
+                fecha=fecha,
+                rendimiento=_parse_decimal(rendimiento) if rendimiento else None,
+                motivo=request.GET.get("motivo", ""),
+            ),
+        },
+    )
+    nombre = "acuerdo-resolucion-{}".format(slugify(participacion.cliente.nombre or participacion.id))
+    return _respuesta_pdf(request, respuesta, nombre)
 
 def proyecto_participacion_detalle(request, proyecto_id: int, participacion_id: int):
     try:

@@ -326,3 +326,32 @@ def test_sin_permiso_sobre_el_proyecto_no_se_emite():
 
     assert r.status_code == 403
     assert len(mail.outbox) == 0
+
+
+def test_la_participacion_se_confirma_al_firmar():
+    """
+    Se crea pendiente al emitir y se confirma al firmar. Mientras está
+    pendiente no cuenta en el capital captado: el dinero se da por comprometido
+    cuando hay firma, no cuando se manda el contrato.
+    """
+    perfil, participacion = _escenario()
+    participacion.estado = "pendiente"
+    participacion.save(update_fields=["estado"])
+
+    c = Client()
+    c.post(_url(perfil, participacion), {"pedir_codigo": "1"})
+    _firmar(c, perfil, participacion, _codigo_del_correo())
+
+    participacion.refresh_from_db()
+    assert participacion.estado == "confirmada"
+    assert participacion.fecha_aportacion is not None
+
+
+def test_una_participacion_pendiente_no_cuenta_en_el_capital():
+    """Es lo que hace seguro emitir antes de que firme."""
+    _perfil, participacion = _escenario()
+    participacion.estado = "pendiente"
+    participacion.save(update_fields=["estado"])
+
+    confirmadas = Participacion.objects.filter(proyecto=participacion.proyecto, estado="confirmada")
+    assert participacion not in confirmadas
