@@ -205,9 +205,13 @@ Verificado en producción: portada, política, noticias y `healthz` en 200; ERP,
 admin y CMS redirigiendo al login; y los estáticos servidos con su hash, que es
 lo que prueba que el manifiesto se generó.
 
-`django-two-factor-auth` 1.15.2 y `django-auditlog` 2.3.0 siguen en versiones
-antiguas. Funcionan con la 5.2 y `pip check` no protesta, pero conviene
-actualizarlas en su propio paso.
+`django-auditlog` (2.3.0 → 3.4.1) y `django-two-factor-auth` (1.15.2 → 1.18.1)
+actualizadas también el 12/08/2026, en commits separados. auditlog aporta cinco
+migraciones sobre una tabla de 10.703 filas, que se aplican en segundos;
+verificado en producción por la columna «Correlation ID» del admin, que solo
+existe después de migrar, y porque el contador sigue subiendo. De
+two-factor-auth se comprobó lo que ninguna prueba mira: que un dispositivo TOTP
+existente sigue validando, con el mismo código generado en las dos versiones.
 
 ---
 
