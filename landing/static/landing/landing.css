@@ -156,8 +156,16 @@ body.landing-body {
 }
 
 .btn-outline {
+  /* Sin esto, los `.btn-outline` que son <button> y no <a> salen con el fondo
+     gris claro que les pone el navegador, y el texto blanco encima queda
+     ilegible. Pasaba con «Proponer proyecto» y con «Rechazar» de las cookies:
+     los dos son <button>; los que son <a> se veían bien porque un enlace es
+     transparente por defecto. */
+  background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.4);
   color: #f7f7fb;
+  font: inherit;
+  cursor: pointer;
 }
 
 .hero__meta {

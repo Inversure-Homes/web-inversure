@@ -2611,6 +2611,14 @@ def _safe_float(v, default: float = 0.0) -> float:
             v = s
         return float(v)
     except (TypeError, ValueError):
+        # Aquí es donde una cifra económica se convierte en «0 €» sin que nadie
+        # se entere. Un valor ausente es normal y no dice nada; uno presente que
+        # no se deja interpretar es un dato mal guardado, y en un informe de
+        # rentabilidad un cero silencioso miente más que un error.
+        if v not in (None, ""):
+            logging.getLogger(__name__).warning(
+                "Valor económico no interpretable (%r); se usa %r en su lugar.", v, default
+            )
         return default
 
 

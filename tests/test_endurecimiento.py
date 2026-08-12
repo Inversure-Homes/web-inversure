@@ -2,6 +2,8 @@
 Los tres endurecimientos que quedaban de la auditoría: A3, M3 y M2.
 """
 
+import os
+
 import pytest
 from django.contrib.auth.hashers import make_password
 from django.test import Client
@@ -145,3 +147,79 @@ def test_queda_registro_de_los_intentos():
 
     assert IntentoPinPortal.objects.filter(perfil=perfil, acertado=False).count() == 1
     assert IntentoPinPortal.objects.filter(perfil=perfil, acertado=True).count() == 1
+
+
+# --- D3 · un dato ilegible deja de convertirse en «0 €» en silencio --------
+
+
+def test_un_importe_ilegible_avisa_en_el_log(caplog):
+    """
+    En un informe de rentabilidad, un cero silencioso miente más que un error.
+    Se sigue devolviendo el valor por defecto para no tumbar la página, pero
+    queda constancia de que había un dato y no se pudo leer.
+    """
+    from core.views import _safe_float
+
+    with caplog.at_level("WARNING"):
+        assert _safe_float("no es un número") == 0.0
+    assert "no interpretable" in caplog.text
+
+
+def test_un_valor_ausente_no_ensucia_el_log(caplog):
+    """Que no haya dato es normal y no dice nada; solo interesa el ilegible."""
+    from core.views import _safe_float
+
+    with caplog.at_level("WARNING"):
+        assert _safe_float(None) == 0.0
+        assert _safe_float("") == 0.0
+    assert "no interpretable" not in caplog.text
+
+
+def test_los_formatos_españoles_se_siguen_leyendo(caplog):
+    from core.views import _safe_float
+
+    with caplog.at_level("WARNING"):
+        assert _safe_float("1.234,56 €") == 1234.56
+        assert _safe_float("12,5 %") == 12.5
+    assert "no interpretable" not in caplog.text
+
+
+# --- A2 · sin claves no se arranca en producción ---------------------------
+
+
+def test_produccion_exige_las_claves():
+    """
+    La barrera vive en `settings`, que se evalúa al importar, así que se
+    comprueba ejecutando un proceso aparte: es la única forma de ver lo que
+    pasaría en un arranque de verdad.
+    """
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    raiz = Path(__file__).resolve().parent.parent
+    entorno = {
+        "PATH": os.environ.get("PATH", ""),
+        "DJANGO_SETTINGS_MODULE": "config.settings",
+        "DJANGO_DEBUG": "0",
+        "PYTHONPATH": str(raiz),
+    }
+    r = subprocess.run(
+        [sys.executable, "-c", "import django; django.setup()"],
+        capture_output=True,
+        text=True,
+        env=entorno,
+        cwd=raiz,
+    )
+    assert r.returncode != 0
+    assert "SENSITIVE_DATA_KEY" in r.stderr
+
+    entorno.update({"DJANGO_SECRET_KEY": "una-clave-larga-de-verdad", "SENSITIVE_DATA_KEY": "otra-distinta"})
+    r = subprocess.run(
+        [sys.executable, "-c", "import django; django.setup()"],
+        capture_output=True,
+        text=True,
+        env=entorno,
+        cwd=raiz,
+    )
+    assert r.returncode == 0, r.stderr

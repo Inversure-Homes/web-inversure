@@ -3,6 +3,7 @@ from pathlib import Path
 
 import dj_database_url
 import sentry_sdk
+from django.core.exceptions import ImproperlyConfigured
 from sentry_sdk.integrations.django import DjangoIntegration
 
 # =========================
@@ -221,6 +222,32 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 
 SENSITIVE_DATA_KEY = os.environ.get("SENSITIVE_DATA_KEY", "")
 SENSITIVE_DATA_HMAC_KEY = os.environ.get("SENSITIVE_DATA_HMAC_KEY", "")
+
+# Fuera de desarrollo, sin estas claves no se arranca.
+#
+# `SECRET_KEY` tiene un valor por defecto escrito en el repositorio, y la clave
+# de cifrado cae en ella si no se define aparte. Un entorno nuevo —una copia de
+# pruebas, una migración de hosting— arrancaría tan contento cifrando los DNI y
+# los IBAN con una constante pública, y nadie se enteraría: no falla nada, solo
+# deja de proteger.
+#
+# Por eso el fallo es al arrancar y no un aviso en el log: un aviso en el log no
+# lo lee nadie.
+if not DEBUG:
+    _sin_definir = [
+        nombre
+        for nombre, valor in (
+            ("DJANGO_SECRET_KEY", os.environ.get("DJANGO_SECRET_KEY") or os.environ.get("SECRET_KEY")),
+            ("SENSITIVE_DATA_KEY", SENSITIVE_DATA_KEY),
+        )
+        if not valor
+    ]
+    if _sin_definir:
+        raise ImproperlyConfigured(
+            "Faltan variables de entorno obligatorias en producción: {}. "
+            "Sin ellas, los datos sensibles se cifrarían con la clave de ejemplo "
+            "del repositorio.".format(", ".join(_sin_definir))
+        )
 
 
 def _build_database_config(database_url: str | None) -> dict[str, dict[str, object]]:
