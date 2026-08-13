@@ -56,7 +56,10 @@
     .clausula { margin-bottom: 12px; break-inside: avoid; }
     .clausula > .titulo { font-weight: bold; }
 
+    .clausula.larga { break-inside: auto; }
+
     table.calendario {
+      break-inside: avoid;
       width: 100%;
       border-collapse: collapse;
       margin: 8px 0 12px;
@@ -106,9 +109,20 @@
       border: 1px solid #111827; margin-right: 7px; vertical-align: -1px;
     }
     .aviso { font-size: 9pt; color: #4b5563; }
+
+    /* Membrete. El original llevaba logotipo en la cabecera del .docx; aquí va
+       incrustado en base64 porque WeasyPrint no descarga recursos externos. */
+    .membrete { text-align: center; margin: 0 0 18px; }
+    .membrete img { height: 46px; }
   </style>
 </head>
 <body>
+
+  {% if logo_data_uri %}
+    <div class="membrete">
+      <img src="{{ logo_data_uri }}" alt="">
+    </div>
+  {% endif %}
 
   <h1>CONTRATO DE PRÉSTAMO DE DINERO</h1>
   <p class="lugar">En {{ prestataria.poblacion }}, a {{ condiciones.firma|fecha_larga }}</p>
@@ -221,7 +235,7 @@
     <p>El resguardo de ingreso o transferencia servirá de recibo y de la más fiel carta de pago.</p>
   </div>
 
-  <div class="clausula">
+  <div class="clausula larga">
     <p>
       <span class="titulo">Tercera.—</span> El presente préstamo de dinero
       devengará un interés fijo del
@@ -240,7 +254,12 @@
 
     <table class="calendario">
       <thead>
-        <tr><th>Período</th><th>Meses</th><th>Vencimiento</th><th>Importe</th></tr>
+        <tr>
+          <th>Período</th><th>Meses</th><th>Vencimiento</th>
+          <th>Interés bruto</th>
+          <th>Retención {{ condiciones.retencion_periodo.pct_texto }} %</th>
+          <th>Líquido a percibir</th>
+        </tr>
       </thead>
       <tbody>
         {% for p in condiciones.periodos %}
@@ -248,12 +267,16 @@
             <td>Período {{ p.numero }}</td>
             <td>{{ p.desde_mes }}–{{ p.hasta_mes }}</td>
             <td>{{ p.vencimiento|date:"d/m/Y" }}</td>
-            <td>{{ condiciones.importe_por_periodo|es_number }} €</td>
+            <td>{{ condiciones.retencion_periodo.bruto|es_number }} €</td>
+            <td>−{{ condiciones.retencion_periodo.retencion|es_number }} €</td>
+            <td>{{ condiciones.retencion_periodo.neto|es_number }} €</td>
           </tr>
         {% endfor %}
         <tr>
-          <td colspan="3"><strong>Total de intereses</strong></td>
-          <td><strong>{{ condiciones.intereses_totales|es_number }} €</strong></td>
+          <td colspan="3"><strong>Totales</strong></td>
+          <td><strong>{{ condiciones.retencion_total.bruto|es_number }} €</strong></td>
+          <td><strong>−{{ condiciones.retencion_total.retencion|es_number }} €</strong></td>
+          <td><strong>{{ condiciones.retencion_total.neto|es_number }} €</strong></td>
         </tr>
       </tbody>
     </table>
@@ -264,9 +287,46 @@
     </p>
   </div>
 
+  <div class="clausula larga">
+    <p>
+      <span class="titulo">Cuarta.— Régimen fiscal y retención a cuenta.</span>
+      Los intereses pactados en la cláusula anterior se expresan en términos
+      <strong>brutos</strong>. Dichos intereses constituyen para la parte
+      prestamista un rendimiento del capital mobiliario sujeto a retención a
+      cuenta del Impuesto sobre la Renta de las Personas Físicas, de conformidad
+      con los artículos 25.2 y 99 de la Ley 35/2006, del IRPF, y concordantes de
+      su Reglamento.
+    </p>
+    <p>
+      En consecuencia, la parte prestataria, en su condición de obligada a
+      retener, practicará sobre cada liquidación de intereses la retención que
+      resulte legalmente aplicable en el momento del devengo, actualmente del
+      <strong>{{ condiciones.retencion_periodo.pct_texto }} %</strong>, e
+      ingresará su importe en la Hacienda Pública mediante la correspondiente
+      autoliquidación. La parte prestamista percibirá, por tanto, el importe
+      líquido resultante que figura en la última columna del cuadro anterior.
+    </p>
+    <p>
+      La retención así practicada no constituye un coste para la parte
+      prestamista, sino un pago anticipado de su propio impuesto, que le será
+      deducible de la cuota de su declaración anual. A tal efecto, la prestataria
+      le facilitará dentro del plazo legalmente previsto el
+      <strong>certificado de retenciones e ingresos a cuenta</strong>
+      correspondiente a cada ejercicio.
+    </p>
+    <p>
+      Si durante la vigencia del contrato se modificase el tipo de retención
+      legalmente aplicable, o si la parte prestamista acreditase hallarse en un
+      supuesto de exención, exclusión o tipo distinto —en particular, por no ser
+      residente fiscal en España o por tratarse de una persona jurídica—, se
+      aplicará el tipo que en cada caso corresponda, sin que ello suponga
+      modificación alguna del interés bruto pactado.
+    </p>
+  </div>
+
   <div class="clausula">
     <p>
-      <span class="titulo">Cuarta.—</span> La parte prestataria podrá amortizar
+      <span class="titulo">Quinta.—</span> La parte prestataria podrá amortizar
       parcial o totalmente el préstamo con carácter anticipado en cualquier
       momento durante su vigencia. De este modo podrá cancelarlo anticipadamente
       cuando lo considere conveniente, previo pago de la cantidad entregada y de
@@ -278,7 +338,7 @@
 
   <div class="clausula">
     <p>
-      <span class="titulo">Quinta.— Vencimiento anticipado.</span> Será de
+      <span class="titulo">Sexta.— Vencimiento anticipado.</span> Será de
       cuenta de quien incumpla las obligaciones que se derivan del presente
       documento la totalidad de los gastos que suponga a la otra parte exigir su
       cumplimiento, tanto judiciales como extrajudiciales, incluidos derechos de
@@ -289,7 +349,7 @@
 
   <div class="clausula">
     <p>
-      <span class="titulo">Sexta.—</span> La prestataria no podrá ceder ni
+      <span class="titulo">Séptima.—</span> La prestataria no podrá ceder ni
       transmitir, total ni parcialmente, su posición contractual ni los derechos
       y obligaciones derivados del presente contrato sin el previo
       consentimiento escrito de la prestamista.
@@ -298,7 +358,7 @@
 
   <div class="clausula">
     <p>
-      <span class="titulo">Séptima.—</span> El presente préstamo se regirá por
+      <span class="titulo">Octava.—</span> El presente préstamo se regirá por
       lo establecido en el presente contrato y, en lo no previsto, por las
       disposiciones aplicables del Código Civil.
     </p>
@@ -306,7 +366,7 @@
 
   <div class="clausula">
     <p>
-      <span class="titulo">Octava.—</span> Todas las comunicaciones entre las
+      <span class="titulo">Novena.—</span> Todas las comunicaciones entre las
       partes derivadas del presente contrato se realizarán por escrito y se
       dirigirán a las siguientes personas y domicilios:
     </p>
@@ -332,7 +392,7 @@
 
   <div class="clausula">
     <p>
-      <span class="titulo">Novena.—</span> Para la resolución de cualquier
+      <span class="titulo">Décima.—</span> Para la resolución de cualquier
       cuestión o controversia que se suscite en relación con la interpretación,
       aplicación, cumplimiento y ejecución del presente contrato, las partes,
       con renuncia a su fuero propio, se someten a los Juzgados y Tribunales de
@@ -342,7 +402,7 @@
 
   <div class="clausula">
     <p>
-      <span class="titulo">Décima.— Protección de datos.</span> Ambas partes
+      <span class="titulo">Undécima.— Protección de datos.</span> Ambas partes
       tratarán los datos personales de la otra con la única finalidad de
       ejecutar el presente contrato y cumplir las obligaciones legales que de él
       se derivan. El anexo que acompaña a este documento recoge la información

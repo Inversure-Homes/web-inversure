@@ -69,9 +69,20 @@
       border: 1px solid #111827; margin-right: 7px; vertical-align: -1px;
     }
     .aviso { font-size: 8.5pt; color: #4b5563; }
+
+    /* Membrete. El original llevaba logotipo en la cabecera del .docx; aquí va
+       incrustado en base64 porque WeasyPrint no descarga recursos externos. */
+    .membrete { text-align: center; margin: 0 0 18px; }
+    .membrete img { height: 46px; }
   </style>
 </head>
 <body>
+
+  {% if logo_data_uri %}
+    <div class="membrete">
+      <img src="{{ logo_data_uri }}" alt="">
+    </div>
+  {% endif %}
 
   <h1>CONTRATO DE CUENTA PARTÍCIPE</h1>
   <p class="lugar">En {{ gestor.poblacion }}, a {{ contrato.fecha|fecha_larga }}</p>
@@ -246,6 +257,31 @@
     <p>7.4.— El beneficio o la pérdida se repartirá en estricta proporcionalidad entre el Gestor y el Partícipe de acuerdo con la participación de cada uno. En todo caso, <strong>la participación del Partícipe en las pérdidas quedará limitada a las Aportaciones efectuadas</strong>.</p>
     <p>7.5.— El pago del beneficio se realizará mediante transferencia bancaria.</p>
     <p>7.6.— En caso de arrendamiento de los inmuebles, durante su periodo el Gestor realizará cierres parciales y trimestrales sobre la evolución del Negocio, realizará una aplicación parcial del resultado en el plazo de diez días tras finalizar cada trimestre natural, y el pago del beneficio, si lo hubiese, en los cinco días siguientes.</p>
+    <p>
+      7.7.— <strong>Retención a cuenta.</strong> Los importes que en virtud de
+      las cláusulas anteriores correspondan al Partícipe se entienden expresados
+      en términos <strong>brutos</strong>. El resultado positivo obtenido por el
+      Partícipe constituye para éste un rendimiento del capital mobiliario
+      derivado de la cesión a terceros de capitales propios, sujeto a retención
+      a cuenta del Impuesto sobre la Renta de las Personas Físicas conforme a
+      los artículos 25.2 y 99 de la Ley 35/2006 y concordantes de su Reglamento.
+      En consecuencia, el Gestor, como obligado a retener, practicará sobre cada
+      pago la retención legalmente aplicable en el momento del devengo,
+      actualmente del <strong>{{ contrato.retencion_pct_texto }} %</strong>,
+      ingresará su importe en la Hacienda Pública y abonará al Partícipe el
+      líquido resultante.
+    </p>
+    <p>
+      7.8.— La retención no constituye un coste para el Partícipe, sino un pago
+      anticipado de su propio impuesto, deducible de la cuota de su declaración
+      anual. El Gestor le facilitará dentro del plazo legalmente previsto el
+      <strong>certificado de retenciones e ingresos a cuenta</strong> de cada
+      ejercicio. Si se modificase el tipo legalmente aplicable, o si el Partícipe
+      acreditase hallarse en un supuesto de exención, exclusión o tipo distinto
+      —en particular, por no ser residente fiscal en España o por tratarse de una
+      persona jurídica—, se aplicará el que en cada caso corresponda, sin que
+      ello altere el reparto de resultados pactado.
+    </p>
   </div>
 
   <div class="bloque">

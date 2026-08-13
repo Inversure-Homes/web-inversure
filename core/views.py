@@ -6308,6 +6308,7 @@ def _pdf_contrato(request, participacion) -> bytes:
             "cliente": participacion.cliente,
             "participacion": participacion,
             "proyecto": participacion.proyecto,
+            "logo_data_uri": _logo_data_uri(),
             **extra,
         },
         request,
@@ -9002,6 +9003,7 @@ def contrato_prestamo(request, proyecto_id: int, participacion_id: int):
         plantilla = "core/pdf_contrato_cuenta_participe.html"
         prefijo = "contrato-cuenta-participe"
         extra = {
+            "logo_data_uri": _logo_data_uri(),
             "gestor": settings.PRESTATARIA,
             "contrato": condiciones_cuenta_participe(participacion),
         }
@@ -9010,6 +9012,7 @@ def contrato_prestamo(request, proyecto_id: int, participacion_id: int):
         "cliente": participacion.cliente,
         "participacion": participacion,
         "proyecto": participacion.proyecto,
+        "logo_data_uri": _logo_data_uri(),
         **extra,
     }
     respuesta = render(request, plantilla, contexto)
@@ -9117,6 +9120,7 @@ def contrato_rescision(request, proyecto_id: int, participacion_id: int):
             "cliente": participacion.cliente,
             "participacion": participacion,
             "proyecto": participacion.proyecto,
+            "logo_data_uri": _logo_data_uri(),
             "gestor": settings.PRESTATARIA,
             "es_prestamo": _proyecto_es_conciertos(participacion.proyecto),
             "baja": condiciones_baja(

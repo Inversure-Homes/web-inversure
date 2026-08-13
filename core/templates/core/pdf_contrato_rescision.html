@@ -47,9 +47,20 @@
       vertical-align: top; font-size: 10pt; text-align: left;
     }
     .firmas .hueco { width: 10%; border: 0; padding: 0; }
+
+    /* Membrete. El original llevaba logotipo en la cabecera del .docx; aquí va
+       incrustado en base64 porque WeasyPrint no descarga recursos externos. */
+    .membrete { text-align: center; margin: 0 0 18px; }
+    .membrete img { height: 46px; }
   </style>
 </head>
 <body>
+
+  {% if logo_data_uri %}
+    <div class="membrete">
+      <img src="{{ logo_data_uri }}" alt="">
+    </div>
+  {% endif %}
 
   <h1>ACUERDO DE RESOLUCIÓN DE MUTUO ACUERDO</h1>
   <p class="lugar">En {{ gestor.poblacion }}, a {{ baja.fecha|fecha_larga }}</p>
@@ -130,16 +141,34 @@
         </tr>
         {% if baja.rendimiento %}
           <tr>
-            <th>{% if es_prestamo %}Intereses devengados{% else %}Resultado que le corresponde{% endif %}</th>
+            <th>{% if es_prestamo %}Intereses devengados (brutos){% else %}Resultado que le corresponde (bruto){% endif %}</th>
             <td>{{ baja.rendimiento|es_number }} €</td>
+          </tr>
+          <tr>
+            <th>Retención a cuenta del IRPF ({{ baja.retencion.pct_texto }} %)</th>
+            <td>−{{ baja.retencion.retencion|es_number }} €</td>
           </tr>
         {% endif %}
         <tr>
-          <th><strong>Total a devolver</strong></th>
-          <td><strong>{{ baja.total|es_number }} €</strong> ({{ baja.total_letra }})</td>
+          <th><strong>Total líquido a percibir</strong></th>
+          <td><strong>{{ baja.total_neto|es_number }} €</strong> ({{ baja.total_neto_letra }})</td>
         </tr>
       </tbody>
     </table>
+
+    {% if baja.rendimiento %}
+      <p>
+        La retención indicada se practica sobre
+        {% if es_prestamo %}los intereses{% else %}el resultado{% endif %}, y no
+        sobre {% if es_prestamo %}el capital prestado{% else %}la aportación{% endif %},
+        que se restituye íntegramente. Dicha retención no constituye un coste
+        para {% if es_prestamo %}la parte prestamista{% else %}el partícipe{% endif %},
+        sino un pago anticipado de su propio impuesto, y
+        {% if es_prestamo %}la prestataria{% else %}el gestor{% endif %} le
+        facilitará el correspondiente certificado de retenciones e ingresos a
+        cuenta del ejercicio.
+      </p>
+    {% endif %}
 
     <p>
       Dicha cantidad se abonará mediante transferencia bancaria a la cuenta

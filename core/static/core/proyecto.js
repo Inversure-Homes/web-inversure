@@ -3228,6 +3228,7 @@ function bindParticipaciones() {
             <td class="text-end">
               <a class="btn btn-sm btn-outline-primary" href="${url}${r.id}/contrato/" target="_blank" rel="noopener noreferrer">Contrato</a>
               <button type="button" class="btn btn-sm btn-outline-success inv-emitir" data-nombre="${r.cliente_nombre}">Emitir</button>
+              <button type="button" class="btn btn-sm btn-outline-warning inv-resolucion" data-nombre="${r.cliente_nombre}">Resolución</button>
               <button type="button" class="btn btn-sm btn-outline-secondary inv-save">Guardar</button>
               <button type="button" class="btn btn-sm btn-outline-danger inv-del">Borrar</button>
             </td>
@@ -3268,6 +3269,29 @@ function bindParticipaciones() {
 
   tabla.addEventListener("click", async (e) => {
     const btnDel = e.target.closest(".inv-del");
+    const btnResolucion = e.target.closest(".inv-resolucion");
+    if (btnResolucion) {
+      const fila = btnResolucion.closest("tr");
+      const id = fila && fila.dataset.id;
+      if (!id) return;
+      const nombre = btnResolucion.dataset.nombre || "el inversor";
+      // La fecha de efectos decide cuántos meses se devengan, así que se pide
+      // siempre en vez de dar por buena la de hoy.
+      const hoy = new Date().toISOString().slice(0, 10);
+      const fecha = prompt(`Fecha de efectos de la resolución de ${nombre} (AAAA-MM-DD).\n\nDe ella depende el interés devengado que hay que devolverle.`, hoy);
+      if (!fecha) return;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha.trim())) {
+        alert("La fecha debe ir en formato AAAA-MM-DD.");
+        return;
+      }
+      const motivo = prompt("Motivo (opcional). Aparece en el acuerdo.", "cesión de su posición en el negocio a otro inversor");
+      if (motivo === null) return;
+      const params = new URLSearchParams({ fecha: fecha.trim() });
+      if (motivo.trim()) params.set("motivo", motivo.trim());
+      window.open(`${url}${id}/rescision/?${params}`, "_blank", "noopener");
+      return;
+    }
+
     const btnEmitir = e.target.closest(".inv-emitir");
     if (btnEmitir) {
       const fila = btnEmitir.closest("tr");

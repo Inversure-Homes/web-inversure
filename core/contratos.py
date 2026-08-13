@@ -178,6 +178,8 @@ def condiciones(participacion, firma: date | None = None) -> dict:
         "importe_por_periodo": por_periodo,
         "intereses_totales": por_periodo * len(periodos),
         "periodos": periodos,
+        "retencion_periodo": con_retencion(por_periodo, participacion),
+        "retencion_total": con_retencion(por_periodo * len(periodos), participacion),
     }
 
 
@@ -222,6 +224,7 @@ def condiciones_cuenta_participe(participacion, firma: date | None = None) -> di
         "participacion_minima": PARTICIPACION_MINIMA,
         "minimo_letra": importe_en_letra(PARTICIPACION_MINIMA),
         "concepto_transferencia": concepto,
+        "retencion_pct_texto": con_retencion(0, participacion)["pct_texto"],
     }
 
 
@@ -299,6 +302,10 @@ def condiciones_baja(participacion, fecha: date | None = None, rendimiento=None,
 
     rendimiento = Decimal(rendimiento or 0)
     total = aportacion + rendimiento
+    # La retención sólo pesa sobre el rendimiento: devolver el capital no es
+    # renta, así que retener sobre él sería retener sobre dinero que ya era suyo.
+    retencion = con_retencion(rendimiento, participacion)
+    total_neto = total - retencion["retencion"]
 
     return {
         "fecha": fecha,
@@ -310,6 +317,9 @@ def condiciones_baja(participacion, fecha: date | None = None, rendimiento=None,
         "total_letra": importe_en_letra(total),
         "dias_pago": DIAS_PAGO_RESCISION,
         "motivo": motivo or participacion.motivo_baja or "",
+        "retencion": retencion,
+        "total_neto": total_neto,
+        "total_neto_letra": importe_en_letra(total_neto),
     }
 
 
@@ -317,3 +327,30 @@ def _es_conciertos(proyecto) -> bool:
     extra = getattr(proyecto, "extra", None) or {}
     tipo = (extra.get("tipo") or "").strip().lower() if isinstance(extra, dict) else ""
     return tipo == "conciertos" or (proyecto.nombre or "").strip().lower() == "conciertos"
+
+
+# --- Retención ------------------------------------------------------------
+#
+# Los intereses de un préstamo y el resultado de una cuenta en participación
+# son rendimientos del capital mobiliario, y quien los paga está obligado a
+# retener e ingresar a cuenta del IRPF. Inversure ya lo hace —el ERP calcula la
+# retención y emite el certificado— pero los contratos no lo decían, y eso deja
+# abierto si las cifras pactadas eran brutas o netas. Un contrato ambiguo se
+# interpreta contra quien lo redactó.
+
+
+def con_retencion(bruto, participacion=None) -> dict:
+    """Desglosa un importe bruto en retención y líquido a percibir."""
+    from .finance import retencion_pct_for_tipo_persona
+
+    tipo = getattr(getattr(participacion, "cliente", None), "tipo_persona", "F") or "F"
+    pct = Decimal(str(retencion_pct_for_tipo_persona(tipo)))
+    bruto = Decimal(bruto or 0)
+    retencion = (bruto * pct / 100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return {
+        "pct": pct,
+        "pct_texto": ("{:f}".format(pct.normalize()).replace(".", ",")),
+        "bruto": bruto,
+        "retencion": retencion,
+        "neto": bruto - retencion,
+    }

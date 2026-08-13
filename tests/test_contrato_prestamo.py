@@ -414,10 +414,16 @@ def test_el_acuerdo_suma_aportacion_y_devengado():
         participacion_id=participacion.id,
     ).content.decode()
 
-    assert "50.000,00" in html  # aportación
-    assert "5.000,00" in html  # dos períodos devengados
-    assert "55.000,00" in html  # total a devolver
-    assert "CINCUENTA Y CINCO MIL EUROS" in html
+    assert "50.000,00" in html  # aportación, que se devuelve íntegra
+    assert "5.000,00" in html  # dos períodos devengados, en bruto
+
+    # Sobre los intereses —y sólo sobre ellos— se retiene a cuenta del IRPF.
+    # Devolver el capital no es renta, así que retener sobre él sería retener
+    # sobre dinero que ya era suyo.
+    assert "950,00" in html  # 19 % de 5.000
+    assert "54.050,00" in html  # líquido: 50.000 + 5.000 − 950
+    assert "CINCUENTA Y CUATRO MIL CINCUENTA EUROS" in html
+    assert "certificado de retenciones" in html
 
 
 def test_el_acuerdo_de_una_cuenta_participe_habla_de_partícipe():
@@ -435,3 +441,104 @@ def test_el_acuerdo_de_una_cuenta_participe_habla_de_partícipe():
     # En una cuenta en participación el resultado no se calcula solo.
     assert "1.200,00" in html
     assert "no altera la continuidad del Negocio" in html
+
+
+def test_el_boton_de_resolucion_esta_en_los_dos_sitios():
+    """
+    La tabla la repinta `proyecto.js` con `innerHTML`, así que un botón que
+    solo esté en la plantilla de Django se ve un instante y desaparece. Ya me
+    pasó con el de «Contrato».
+    """
+    from pathlib import Path
+
+    raiz = Path(core_views.__file__).resolve().parent
+    js = (raiz / "static" / "core" / "proyecto.js").read_text("utf-8")
+    plantilla = (raiz / "templates" / "core" / "proyecto.html").read_text("utf-8")
+
+    assert "inv-resolucion" in js
+    assert "/rescision/" in js
+    assert "core:contrato_rescision" in plantilla
+
+
+def test_la_fecha_de_efectos_se_pide_siempre():
+    """
+    De ella depende cuántos meses se devengan, así que no vale dar por buena la
+    de hoy sin preguntar.
+    """
+    from pathlib import Path
+
+    js = (Path(core_views.__file__).resolve().parent / "static" / "core" / "proyecto.js").read_text("utf-8")
+    manejador = js.split("inv-resolucion")[2]
+
+    assert "prompt(" in manejador
+    assert "AAAA-MM-DD" in manejador
+
+
+def test_el_prestamo_advierte_de_la_retencion_y_desglosa_el_liquido():
+    """
+    El contrato prometía «5 % del principal» y la tabla enseñaba el bruto. Si
+    después se ingresa un 19 % menos, el prestamista puede sostener que se le
+    prometió esa cifra limpia, y la ambigüedad se interpreta contra quien
+    redactó el contrato (art. 1288 CC). Por eso el papel lo dice y lo desglosa.
+    """
+    proyecto, participacion = _escenario()  # 50.000 € al 5 % bimensual
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    html = core_views.contrato_prestamo(
+        _peticion(jefe, "/x/?html=1"),
+        proyecto_id=proyecto.id,
+        participacion_id=participacion.id,
+    ).content.decode()
+
+    assert "Régimen fiscal y retención a cuenta" in html
+    assert "brutos" in html
+    assert "certificado de retenciones" in html
+
+    # 5 % de 50.000 = 2.500 brutos por período; 19 % = 475; líquido 2.025.
+    assert "2.500,00" in html
+    assert "475,00" in html
+    assert "2.025,00" in html
+
+
+def test_la_cuenta_participe_tambien_menciona_la_retencion():
+    proyecto, participacion = _escenario_inmobiliario()
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    html = core_views.contrato_prestamo(
+        _peticion(jefe, "/x/?html=1"),
+        proyecto_id=proyecto.id,
+        participacion_id=participacion.id,
+    ).content.decode()
+
+    assert "Retención a cuenta" in html
+    assert "certificado de retenciones" in html
+
+
+def test_la_retencion_no_toca_el_capital_devuelto():
+    """Sin rendimiento no hay renta, y por tanto no hay nada que retener."""
+    from core.contratos import condiciones_baja
+
+    _proyecto, participacion = _escenario_inmobiliario()
+    baja = condiciones_baja(participacion, date(2026, 10, 1), rendimiento=0)
+
+    assert baja["retencion"]["retencion"] == Decimal("0")
+    assert baja["total_neto"] == baja["aportacion"]
+
+
+def test_los_contratos_llevan_membrete():
+    proyecto, participacion = _escenario()
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    for vista, kwargs in (
+        (core_views.contrato_prestamo, {}),
+        (core_views.contrato_rescision, {}),
+    ):
+        html = vista(
+            _peticion(jefe, "/x/?html=1"),
+            proyecto_id=proyecto.id,
+            participacion_id=participacion.id,
+            **kwargs,
+        ).content.decode()
+        assert 'class="membrete"' in html
+        # Incrustado, no enlazado: WeasyPrint no descarga recursos externos.
+        assert "data:image/" in html
