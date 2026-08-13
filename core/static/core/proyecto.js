@@ -3231,7 +3231,9 @@ function bindParticipaciones() {
             <td class="text-end">
               <a class="btn btn-sm btn-outline-primary" href="${url}${r.id}/contrato/" target="_blank" rel="noopener noreferrer">Contrato</a>
               <button type="button" class="btn btn-sm btn-outline-success inv-emitir" data-nombre="${r.cliente_nombre}">Emitir</button>
-              <button type="button" class="btn btn-sm btn-outline-warning inv-resolucion" data-nombre="${r.cliente_nombre}">Resolución</button>
+              ${r.fecha_baja
+                ? `<span class="badge text-bg-secondary align-middle" title="Baja registrada">Baja ${String(r.fecha_baja).slice(0, 10).split("-").reverse().join("/")}</span>`
+                : `<button type="button" class="btn btn-sm btn-outline-warning inv-resolucion" data-nombre="${r.cliente_nombre}">Resolución</button>`}
               <button type="button" class="btn btn-sm btn-outline-secondary inv-save">Guardar</button>
               <button type="button" class="btn btn-sm btn-outline-danger inv-del">Borrar</button>
             </td>
@@ -3318,6 +3320,36 @@ function bindParticipaciones() {
       const params = new URLSearchParams({ fecha: fecha.trim() });
       if (motivo.trim()) params.set("motivo", motivo.trim());
       window.open(`${url}${id}/rescision/?${params}`, "_blank", "noopener");
+
+      // Generar el acuerdo y dar de baja son dos cosas distintas: el documento
+      // se saca para revisarlo y para que lo firmen, y la baja se registra
+      // cuando ya está firmado. Por eso se pregunta aparte y por defecto no.
+      const darDeBaja = confirm(
+        `Se ha abierto el acuerdo de resolución de ${nombre}.\n\n` +
+        `¿Registrar YA su baja con efectos ${fecha.trim()}?\n\n` +
+        `Dejará de participar en el proyecto y de contar en el capital captado. ` +
+        `Hazlo cuando el acuerdo esté firmado; si aún no lo está, cancela y vuelve a este botón después.`
+      );
+      if (!darDeBaja) return;
+
+      const respBaja = await postJson(`${url}${id}/baja/`, {
+        fecha: fecha.trim(),
+        motivo: motivo.trim(),
+      }, { keepalive: false });
+      if (!respBaja.ok) {
+        let msg = "No se pudo registrar la baja.";
+        try {
+          const d = await respBaja.json();
+          if (d && d.error) msg = d.error;
+        } catch (e) {}
+        alert(msg);
+        return;
+      }
+      try {
+        const d = await respBaja.json();
+        alert(`Baja registrada. Se le devuelven ${formatEuro(d.importe_devuelto)} líquidos.`);
+      } catch (e) {}
+      await loadRows();
       return;
     }
 

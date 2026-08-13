@@ -749,3 +749,114 @@ def test_aprobar_dos_veces_no_duplica_el_capital_captado():
     _aprobar(jefe, solicitud)
 
     assert Participacion.objects.filter(cliente=solicitud.inversor.cliente, proyecto=proyecto).count() == 1
+
+
+# --- La baja del inversor --------------------------------------------------
+
+
+def _baja(user, proyecto, participacion, **campos):
+    import json
+
+    from django.test import RequestFactory
+
+    peticion = RequestFactory().post("/x/", data=json.dumps(campos), content_type="application/json")
+    peticion.user = user
+    SessionMiddleware(lambda r: None).process_request(peticion)
+    peticion.session.save()
+    peticion._messages = FallbackStorage(peticion)
+    return core_views.participacion_baja(
+        peticion, proyecto_id=proyecto.id, participacion_id=participacion.id
+    )
+
+
+def test_generar_el_acuerdo_no_da_de_baja_a_nadie():
+    """
+    El acuerdo se saca para revisarlo y para que lo firmen. Si el mismo botón
+    diera de baja, previsualizar un documento sacaría a alguien de la inversión
+    sin haberlo pactado.
+    """
+    proyecto, participacion = _escenario()
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    core_views.contrato_rescision(
+        _peticion(jefe, "/x/?html=1&fecha=2026-10-01"),
+        proyecto_id=proyecto.id,
+        participacion_id=participacion.id,
+    )
+
+    participacion.refresh_from_db()
+    assert participacion.fecha_baja is None
+    assert participacion.estado == "confirmada"
+
+
+def test_la_baja_registra_lo_que_dice_el_acuerdo():
+    proyecto, participacion = _escenario()  # 50.000 € al 5 % desde el 23/06/2026
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    r = _baja(jefe, proyecto, participacion, fecha="2026-10-23", motivo="cesión de su posición")
+    assert r.status_code == 200
+
+    participacion.refresh_from_db()
+    assert participacion.fecha_baja == date(2026, 10, 23)
+    assert participacion.motivo_baja == "cesión de su posición"
+    assert participacion.estado == "cancelada"
+    # 50.000 + 5.000 devengados − 950 de retención.
+    assert participacion.importe_devuelto == Decimal("54050.00")
+
+
+def test_al_darse_de_baja_deja_de_contar_en_el_capital_captado():
+    """Es la razón de ser de la baja: que el inversor deje de estar presente."""
+    from django.db.models import Sum
+
+    proyecto, participacion = _escenario()
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    def captado():
+        return Participacion.objects.filter(proyecto=proyecto, estado="confirmada").aggregate(
+            t=Sum("importe_invertido")
+        )["t"] or Decimal("0")
+
+    assert captado() == Decimal("50000")
+    _baja(jefe, proyecto, participacion, fecha="2026-10-23")
+    assert captado() == Decimal("0")
+
+
+def test_no_se_puede_dar_de_baja_dos_veces():
+    proyecto, participacion = _escenario()
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    assert _baja(jefe, proyecto, participacion, fecha="2026-10-23").status_code == 200
+    r = _baja(jefe, proyecto, participacion, fecha="2026-12-01")
+    assert r.status_code == 409
+
+    participacion.refresh_from_db()
+    assert participacion.fecha_baja == date(2026, 10, 23)
+
+
+def test_la_baja_exige_fecha_de_efectos():
+    """De ella depende el devengo, así que no vale suponer la de hoy."""
+    proyecto, participacion = _escenario()
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    assert _baja(jefe, proyecto, participacion).status_code == 400
+    participacion.refresh_from_db()
+    assert participacion.fecha_baja is None
+
+
+def test_sin_permisos_no_se_da_de_baja_a_nadie():
+    proyecto, participacion = _escenario()
+    mirón = _usuario(use_custom_perms=True, role="", can_proyectos=False, can_clientes=True)
+
+    assert _baja(mirón, proyecto, participacion, fecha="2026-10-23").status_code == 403
+    participacion.refresh_from_db()
+    assert participacion.estado == "confirmada"
+
+
+def test_el_boton_de_baja_esta_en_el_javascript():
+    """La tabla la repinta el JS: lo que no esté ahí no llega a existir."""
+    from pathlib import Path
+
+    js = (Path(__file__).resolve().parent.parent / "core" / "static" / "core" / "proyecto.js").read_text("utf-8")
+    assert "/baja/" in js
+    # Y una vez dada de baja, ya no se ofrece resolverla otra vez.
+    assert "fecha_baja" in js

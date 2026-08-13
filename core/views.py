@@ -8839,6 +8839,7 @@ def proyecto_participaciones(request, proyecto_id: int):
                 "contrato_fecha": p.contrato_fecha.isoformat() if p.contrato_fecha else "",
                 "contrato_meses": p.contrato_meses,
                 "contrato_interes_bimensual": float(p.contrato_interes_bimensual or 0),
+                "fecha_baja": p.fecha_baja.isoformat() if p.fecha_baja else "",
             })
         total = sum([p["importe_invertido"] for p in participaciones]) if participaciones else 0
         return JsonResponse({"ok": True, "participaciones": participaciones, "total": total})
@@ -9178,6 +9179,81 @@ def contrato_rescision(request, proyecto_id: int, participacion_id: int):
     )
     nombre = "acuerdo-resolucion-{}".format(slugify(participacion.cliente.nombre or participacion.id))
     return _respuesta_pdf(request, respuesta, nombre)
+
+
+@require_POST
+def participacion_baja(request, proyecto_id: int, participacion_id: int):
+    """
+    Da de baja al inversor: deja de participar en el proyecto.
+
+    Va aparte de generar el acuerdo a propósito. El documento se saca para
+    revisarlo y para que lo firmen; la baja se registra cuando ese acuerdo ya
+    está firmado. Si el mismo botón hiciera las dos cosas, previsualizar un
+    acuerdo sacaría a alguien de la inversión sin haberlo pactado.
+
+    Lo que queda guardado —fecha de efectos, importe devuelto y motivo— es lo
+    que después hay que poder acreditar, y es justo lo que dice el acuerdo.
+    """
+    participacion = get_object_or_404(
+        Participacion.objects.select_related("cliente", "proyecto"),
+        id=participacion_id,
+        proyecto_id=proyecto_id,
+    )
+    if not _user_can_edit_project(request.user, participacion.proyecto):
+        _admin_notify(
+            request,
+            participacion.proyecto,
+            "Intento sin permisos: baja de inversor",
+            "Se intentó dar de baja a un inversor sin permisos.",
+        )
+        return JsonResponse({"ok": False, "error": "No tienes permisos para editar este proyecto."}, status=403)
+
+    if participacion.fecha_baja:
+        return JsonResponse(
+            {"ok": False, "error": "Este inversor ya está dado de baja el {}.".format(
+                participacion.fecha_baja.strftime("%d/%m/%Y"))},
+            status=409,
+        )
+
+    data = json.loads(request.body or "{}")
+    fecha = _parse_date(data.get("fecha")) if data.get("fecha") else None
+    if fecha is None:
+        return JsonResponse({"ok": False, "error": "Falta la fecha de efectos de la resolución."}, status=400)
+
+    # El importe devuelto se calcula igual que en el acuerdo, para que lo
+    # registrado y lo firmado no puedan discrepar.
+    rendimiento = _parse_decimal(data.get("rendimiento")) if data.get("rendimiento") not in (None, "") else None
+    condiciones = condiciones_baja(
+        participacion, fecha=fecha, rendimiento=rendimiento, motivo=data.get("motivo", "")
+    )
+
+    participacion.fecha_baja = fecha
+    participacion.importe_devuelto = condiciones["total_neto"]
+    participacion.motivo_baja = (data.get("motivo") or "")[:300]
+    participacion.estado = "cancelada"
+    participacion.save(update_fields=["fecha_baja", "importe_devuelto", "motivo_baja", "estado"])
+
+    _admin_notify(
+        request,
+        participacion.proyecto,
+        "Baja de inversor",
+        "{} deja {} con efectos {}. Se le devuelven {:.2f} € líquidos.".format(
+            participacion.cliente.nombre,
+            participacion.proyecto.nombre,
+            fecha.strftime("%d/%m/%Y"),
+            float(condiciones["total_neto"]),
+        ),
+    )
+    logging.getLogger(__name__).info(
+        "Baja de participación %s (%s) con efectos %s",
+        participacion.id, participacion.cliente.nombre, fecha,
+    )
+
+    return JsonResponse({
+        "ok": True,
+        "fecha_baja": fecha.isoformat(),
+        "importe_devuelto": float(condiciones["total_neto"]),
+    })
 
 def proyecto_participacion_detalle(request, proyecto_id: int, participacion_id: int):
     try:

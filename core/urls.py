@@ -74,6 +74,11 @@ urlpatterns = [
         views.contrato_rescision,
         name="contrato_rescision",
     ),
+    path(
+        "proyectos/<int:proyecto_id>/participaciones/<int:participacion_id>/baja/",
+        views.participacion_baja,
+        name="participacion_baja",
+    ),
 
     # Clientes
     path("clientes/", views.clientes, name="clientes"),
