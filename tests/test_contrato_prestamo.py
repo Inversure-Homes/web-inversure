@@ -369,15 +369,18 @@ def test_lo_devengado_va_por_meses_al_2_5_por_ciento():
     assert intereses_devengados(participacion, date(2030, 1, 1)) == Decimal("15000")
 
 
-def test_los_dias_sueltos_se_pueden_prorratear_o_no():
-    """La diferencia entre convenios es real, así que se elige explícitamente."""
+def test_los_dias_sueltos_no_cuentan():
+    """
+    Criterio de Inversure: se pagan meses completos. Los días del último mes no
+    se prorratean, salvo que se pida expresamente.
+    """
     from core.contratos import intereses_devengados
 
     _proyecto, participacion = _escenario()  # 50.000 € desde el 23/06/2026
     hasta = date(2026, 9, 1)  # dos meses y nueve días
 
-    assert intereses_devengados(participacion, hasta, prorratear_dias=False) == Decimal("2500")
-    assert intereses_devengados(participacion, hasta) > Decimal("2500")
+    assert intereses_devengados(participacion, hasta) == Decimal("2500")
+    assert intereses_devengados(participacion, hasta, prorratear_dias=True) > Decimal("2500")
 
 
 def test_el_acuerdo_de_resolucion_lleva_el_finiquito():

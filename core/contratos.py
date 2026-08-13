@@ -250,7 +250,7 @@ def meses_transcurridos(desde: date, hasta: date) -> tuple[int, int]:
     return max(0, meses), max(0, (hasta - ancla).days)
 
 
-def intereses_devengados(participacion, hasta: date, prorratear_dias: bool = True) -> Decimal:
+def intereses_devengados(participacion, hasta: date, prorratear_dias: bool = False) -> Decimal:
     """
     Lo devengado por un préstamo hasta la fecha de salida, al tipo mensual.
 
@@ -259,8 +259,10 @@ def intereses_devengados(participacion, hasta: date, prorratear_dias: bool = Tru
     mensual. No es lo mismo que contar períodos completos, y la diferencia es
     dinero: quien lleve siete meses cobra siete, no seis.
 
-    Con `prorratear_dias` los días sueltos del último mes cuentan su parte. Sin
-    él, solo se pagan los meses completos.
+    Se pagan **meses completos**, que es el criterio de Inversure: los días
+    sueltos del último mes no se prorratean. Con `prorratear_dias=True` sí, por
+    si algún día se pacta de otra forma; es un convenio, no un cálculo, y por
+    eso se elige a la vista en lugar de quedar escondido en una fórmula.
     """
     import calendar
 
