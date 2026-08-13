@@ -9386,12 +9386,20 @@ def proyecto_solicitud_detalle(request, proyecto_id: int, solicitud_id: int):
         solicitud.save()
 
         if estado == "aprobada":
-            # Crear participación confirmada si no existe una igual
-            Participacion.objects.create(
+            # Aprobar dos veces la misma solicitud creaba dos participaciones, y
+            # con ellas el doble de capital captado. El comentario decía «si no
+            # existe una igual», pero la comprobación no estaba escrita.
+            Participacion.objects.get_or_create(
                 proyecto=solicitud.proyecto,
                 cliente=solicitud.inversor.cliente,
                 importe_invertido=solicitud.importe_solicitado,
-                estado="confirmada",
+                defaults={
+                    "estado": "confirmada",
+                    # Las mismas condiciones por tipo de proyecto que en el alta
+                    # manual: esta es la otra puerta por la que entra un
+                    # inversor, y el contrato que se le emita es el mismo.
+                    **_condiciones_contrato_pactadas({}, _proyecto_es_conciertos(solicitud.proyecto)),
+                },
             )
             _admin_notify(
                 request,

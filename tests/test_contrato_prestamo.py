@@ -693,3 +693,59 @@ def test_el_formulario_de_alta_pide_las_condiciones():
         assert campo in plantilla, campo
         assert campo in js, campo
     assert "contrato_interes_bimensual" in js
+
+
+def _aprobar(user, solicitud):
+    import json
+
+    from django.test import RequestFactory
+
+    peticion = RequestFactory().patch(
+        "/x/", data=json.dumps({"estado": "aprobada", "confirm": True}), content_type="application/json"
+    )
+    peticion.user = user
+    SessionMiddleware(lambda r: None).process_request(peticion)
+    peticion.session.save()
+    peticion._messages = FallbackStorage(peticion)
+    return core_views.proyecto_solicitud_detalle(
+        peticion, proyecto_id=solicitud.proyecto_id, solicitud_id=solicitud.id
+    )
+
+
+def _solicitud(proyecto, importe="20000"):
+    from core.models import InversorPerfil, SolicitudParticipacion
+
+    cliente = Cliente.objects.create(nombre="Quien solicita entrar", dni_cif="22222222J")
+    perfil = InversorPerfil.objects.create(cliente=cliente)
+    return SolicitudParticipacion.objects.create(
+        proyecto=proyecto, inversor=perfil, importe_solicitado=Decimal(importe)
+    )
+
+
+def test_aprobar_una_solicitud_deja_lista_la_participacion_con_sus_condiciones():
+    """La otra puerta por la que entra un inversor tiene que dejarlo igual."""
+    from core.contratos import MESES_NEGOCIO
+
+    proyecto, _ = _escenario_inmobiliario()
+    solicitud = _solicitud(proyecto)
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    assert _aprobar(jefe, solicitud).status_code == 200
+    nueva = Participacion.objects.get(cliente=solicitud.inversor.cliente, proyecto=proyecto)
+    assert nueva.estado == "confirmada"
+    assert nueva.contrato_meses == MESES_NEGOCIO
+
+
+def test_aprobar_dos_veces_no_duplica_el_capital_captado():
+    """
+    Se podía aprobar la misma solicitud otra vez y salían dos participaciones,
+    con lo que el capital captado se contaba doble.
+    """
+    proyecto, _ = _escenario_inmobiliario()
+    solicitud = _solicitud(proyecto)
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    _aprobar(jefe, solicitud)
+    _aprobar(jefe, solicitud)
+
+    assert Participacion.objects.filter(cliente=solicitud.inversor.cliente, proyecto=proyecto).count() == 1
