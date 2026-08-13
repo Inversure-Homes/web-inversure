@@ -542,3 +542,154 @@ def test_los_contratos_llevan_membrete():
         assert 'class="membrete"' in html
         # Incrustado, no enlazado: WeasyPrint no descarga recursos externos.
         assert "data:image/" in html
+
+
+# --- El alta del inversor fija las condiciones del contrato ----------------
+
+
+def _json(respuesta):
+    """`JsonResponse` no trae `.json()`: eso lo pone el cliente de pruebas."""
+    import json
+
+    return json.loads(respuesta.content)
+
+
+def _alta(user, proyecto, cliente, **campos):
+    import json
+
+    from django.test import RequestFactory
+
+    peticion = RequestFactory().post(
+        "/x/",
+        data=json.dumps({"cliente_id": cliente.id, "importe_invertido": "16000", **campos}),
+        content_type="application/json",
+    )
+    peticion.user = user
+    SessionMiddleware(lambda r: None).process_request(peticion)
+    peticion.session.save()
+    peticion._messages = FallbackStorage(peticion)
+    return core_views.proyecto_participaciones(peticion, proyecto_id=proyecto.id)
+
+
+def test_el_alta_en_conciertos_deja_el_prestamo_a_doce_meses_al_cinco():
+    proyecto, _ = _escenario()
+    cliente = Cliente.objects.create(nombre="Juan Jesús Fernández", dni_cif="76429174J")
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    r = _alta(jefe, proyecto, cliente, fecha_aportacion="2026-09-01")
+    assert r.status_code == 200
+    datos = _json(r)
+    assert datos["ok"] and datos["contrato"] == "prestamo"
+
+    nueva = Participacion.objects.get(id=datos["id"])
+    assert nueva.contrato_meses == 12
+    assert nueva.contrato_interes_bimensual == Decimal("5")
+
+
+def test_el_alta_en_un_inmobiliario_dura_lo_que_el_negocio():
+    """
+    El valor por defecto del modelo son doce meses, que es lo que dura un
+    préstamo de Conciertos. Una cuenta en participación dura lo que el negocio,
+    y dejarla en doce le habría puesto al contrato un plazo que nadie pactó.
+    """
+    from core.contratos import MESES_NEGOCIO
+
+    proyecto, _ = _escenario_inmobiliario()
+    cliente = Cliente.objects.create(nombre="Una inversora", dni_cif="00000000T")
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    datos = _json(_alta(jefe, proyecto, cliente))
+    assert datos["contrato"] == "cuenta_participe"
+    assert Participacion.objects.get(id=datos["id"]).contrato_meses == MESES_NEGOCIO
+
+
+def test_el_alta_respeta_lo_que_se_haya_pactado():
+    proyecto, _ = _escenario()
+    cliente = Cliente.objects.create(nombre="Otro inversor", dni_cif="11111111H")
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    datos = _json(
+        _alta(
+            jefe, proyecto, cliente,
+            fecha_aportacion="2026-09-01",
+            contrato_fecha="2026-08-28",
+            contrato_meses="18",
+            contrato_interes_bimensual="4.5",
+        )
+    )
+
+    nueva = Participacion.objects.get(id=datos["id"])
+    assert nueva.contrato_fecha == date(2026, 8, 28)
+    assert nueva.contrato_meses == 18
+    assert nueva.contrato_interes_bimensual == Decimal("4.5")
+
+    # Y el contrato que sale es el que se pactó, no el de por defecto.
+    html = core_views.contrato_prestamo(
+        _peticion(jefe, "/x/?html=1"), proyecto_id=proyecto.id, participacion_id=nueva.id
+    ).content.decode()
+    assert "4,50 %" in html
+    assert "28 de agosto de 2026" in html
+
+
+def _patch(user, proyecto, participacion, **campos):
+    import json
+
+    from django.test import RequestFactory
+
+    peticion = RequestFactory().patch("/x/", data=json.dumps(campos), content_type="application/json")
+    peticion.user = user
+    SessionMiddleware(lambda r: None).process_request(peticion)
+    peticion.session.save()
+    peticion._messages = FallbackStorage(peticion)
+    return core_views.proyecto_participacion_detalle(
+        peticion, proyecto_id=proyecto.id, participacion_id=participacion.id
+    )
+
+
+def test_corregir_la_fecha_no_reescribe_el_plazo():
+    """Mandar un campo no puede arrastrar los valores por defecto del resto."""
+    proyecto, participacion = _escenario_inmobiliario()
+    participacion.contrato_meses = 9
+    participacion.save(update_fields=["contrato_meses"])
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    assert _patch(jefe, proyecto, participacion, contrato_fecha="2026-07-01").status_code == 200
+    participacion.refresh_from_db()
+    assert participacion.contrato_fecha == date(2026, 7, 1)
+    assert participacion.contrato_meses == 9
+
+
+def test_un_contrato_firmado_ya_no_se_puede_retocar():
+    """
+    La huella de la firma se calcula sobre el PDF exacto que se firmó. Cambiar
+    después las condiciones dejaría un contrato firmado que ya no se puede
+    reproducir, y la firma pasaría a no acreditar nada.
+    """
+    from core.models import FirmaContrato
+
+    proyecto, participacion = _escenario()
+    FirmaContrato.objects.create(
+        participacion=participacion,
+        tipo=FirmaContrato.Tipo.PRESTAMO,
+        estado=FirmaContrato.Estado.FIRMADO,
+    )
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    r = _patch(jefe, proyecto, participacion, contrato_interes_bimensual="1")
+    assert r.status_code == 409
+    participacion.refresh_from_db()
+    assert participacion.contrato_interes_bimensual == Decimal("5")
+
+
+def test_el_formulario_de_alta_pide_las_condiciones():
+    """Si no está en la plantilla, el alta se queda con los valores por defecto."""
+    from pathlib import Path
+
+    raiz = Path(__file__).resolve().parent.parent
+    plantilla = (raiz / "core" / "templates" / "core" / "proyecto.html").read_text("utf-8")
+    js = (raiz / "core" / "static" / "core" / "proyecto.js").read_text("utf-8")
+
+    for campo in ("inv_contrato_fecha", "inv_contrato_meses", "inv_contrato_interes"):
+        assert campo in plantilla, campo
+        assert campo in js, campo
+    assert "contrato_interes_bimensual" in js

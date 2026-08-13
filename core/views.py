@@ -373,6 +373,43 @@ def _user_matches_responsable(user, proyecto: Proyecto) -> bool:
     return responsable_raw in {username, full_name}
 
 
+def _condiciones_contrato_pactadas(data: dict, es_conciertos: bool) -> dict:
+    """
+    Las condiciones que irán al contrato, leídas del alta del inversor.
+
+    Se fijan al darlo de alta y no después porque el contrato que se emite
+    tiene que ser el que se pactó con esa persona. Cada tipo de proyecto trae
+    las suyas: Conciertos es un préstamo a doce meses al 5 % bimensual; los
+    proyectos inmobiliarios son cuentas en participación que duran lo que dura
+    el negocio, que son seis meses. Si un inversor pacta otra cosa, se cambia
+    aquí y queda guardado en su participación.
+    """
+    from .contratos import MESES_NEGOCIO
+
+    valores = {}
+
+    fecha = _parse_date(data.get("contrato_fecha")) if data.get("contrato_fecha") else None
+    if fecha is not None:
+        valores["contrato_fecha"] = fecha
+
+    meses = _parse_decimal(data.get("contrato_meses"))
+    if meses is not None and meses > 0:
+        valores["contrato_meses"] = int(meses)
+    elif not es_conciertos:
+        # El valor por defecto del modelo son doce meses, que es lo que dura un
+        # préstamo de Conciertos. Una cuenta en participación dura lo que el
+        # negocio, y dejarla en doce le pondría al contrato un plazo que nadie
+        # ha pactado.
+        valores["contrato_meses"] = MESES_NEGOCIO
+
+    if es_conciertos:
+        interes = _parse_decimal(data.get("contrato_interes_bimensual"))
+        if interes is not None and interes >= 0:
+            valores["contrato_interes_bimensual"] = interes
+
+    return valores
+
+
 def _proyecto_es_conciertos(proyecto_or_extra) -> bool:
     extra = {}
     nombre = ""
@@ -8799,6 +8836,9 @@ def proyecto_participaciones(request, proyecto_id: int):
                 "fecha_aportacion": (_fecha_aportacion_participacion(p) or getattr(p, "creado", timezone.now())).isoformat(),
                 "fecha": (_fecha_aportacion_participacion(p) or getattr(p, "creado", timezone.now())).isoformat(),
                 "estado": p.estado,
+                "contrato_fecha": p.contrato_fecha.isoformat() if p.contrato_fecha else "",
+                "contrato_meses": p.contrato_meses,
+                "contrato_interes_bimensual": float(p.contrato_interes_bimensual or 0),
             })
         total = sum([p["importe_invertido"] for p in participaciones]) if participaciones else 0
         return JsonResponse({"ok": True, "participaciones": participaciones, "total": total})
@@ -8853,6 +8893,7 @@ def proyecto_participaciones(request, proyecto_id: int):
             "importe_invertido": importe,
             "porcentaje_participacion": porcentaje,
             "estado": "confirmada",
+            **_condiciones_contrato_pactadas(data, es_conciertos),
         }
         if _participacion_supports_fecha_aportacion():
             create_kwargs["fecha_aportacion"] = fecha_aportacion
@@ -8861,7 +8902,7 @@ def proyecto_participaciones(request, proyecto_id: int):
                 "fecha_aportacion": fecha_aportacion.isoformat(),
             }
         try:
-            Participacion.objects.create(**create_kwargs)
+            participacion = Participacion.objects.create(**create_kwargs)
         except Exception as exc:
             if "fecha_aportacion" not in str(exc).lower():
                 raise
@@ -8869,14 +8910,18 @@ def proyecto_participaciones(request, proyecto_id: int):
             fallback_data["fecha_aportacion"] = fecha_aportacion.isoformat()
             create_kwargs.pop("fecha_aportacion", None)
             create_kwargs["beneficio_override_data"] = fallback_data
-            Participacion.objects.create(**create_kwargs)
+            participacion = Participacion.objects.create(**create_kwargs)
         _admin_notify(
             request,
             proyecto,
             "Nueva participación creada",
             f"Se ha creado una participación para {cliente.nombre} por {float(importe):.2f} €.",
         )
-        return JsonResponse({"ok": True})
+        return JsonResponse({
+            "ok": True,
+            "id": participacion.id,
+            "contrato": "prestamo" if es_conciertos else "cuenta_participe",
+        })
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
 
@@ -9168,6 +9213,26 @@ def proyecto_participacion_detalle(request, proyecto_id: int, participacion_id: 
                         extra["fecha_aportacion"] = fecha.isoformat()
                         part.beneficio_override_data = extra
                         update_fields.append("beneficio_override_data")
+            # Las condiciones del contrato se pueden corregir mientras no esté
+            # firmado. Después no: un contrato firmado tiene que poder
+            # reproducirse tal y como se firmó, y la huella de la firma se
+            # calcula sobre ese PDF exacto.
+            if any(c in data for c in ("contrato_fecha", "contrato_meses", "contrato_interes_bimensual")):
+                if part.firmas.filter(estado=FirmaContrato.Estado.FIRMADO).exists():
+                    return JsonResponse(
+                        {"ok": False, "error": "El contrato ya está firmado: no se pueden cambiar sus condiciones."},
+                        status=409,
+                    )
+                pactadas = _condiciones_contrato_pactadas(data, _proyecto_es_conciertos(part.proyecto))
+                for campo, valor in pactadas.items():
+                    # Sólo lo que venga en la petición: al dar de alta se
+                    # rellenan los valores por defecto que falten, pero aquí
+                    # mandar la fecha no puede reescribir de paso el plazo.
+                    if campo not in data:
+                        continue
+                    setattr(part, campo, valor)
+                    update_fields.append(campo)
+
             if "estado" in data:
                 nuevo_estado = (data.get("estado") or part.estado)
                 if nuevo_estado != part.estado:

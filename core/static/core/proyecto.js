@@ -3146,6 +3146,9 @@ function bindParticipaciones() {
   const elCliente = document.getElementById("inv_cliente");
   const elFechaAportacion = document.getElementById("inv_fecha_aportacion");
   const elImporte = document.getElementById("inv_importe");
+  const elContratoFecha = document.getElementById("inv_contrato_fecha");
+  const elContratoMeses = document.getElementById("inv_contrato_meses");
+  const elContratoInteres = document.getElementById("inv_contrato_interes");
   const url = window.PROYECTO_PARTICIPACIONES_URL || "";
   if (!tabla || !btnAdd || !url) return;
   const esConciertos = !!window.PROYECTO_CONCIERTOS_MODE;
@@ -3252,6 +3255,15 @@ function bindParticipaciones() {
     }
     const payload = { cliente_id: clienteId, importe_invertido: importe };
     if (esConciertos) payload.fecha_aportacion = fechaAportacion;
+
+    // Las condiciones del contrato viajan con el alta: el contrato que se le
+    // emita a este inversor tiene que ser el que se pactó con él.
+    if (elContratoFecha && elContratoFecha.value) payload.contrato_fecha = elContratoFecha.value;
+    if (elContratoMeses && elContratoMeses.value) payload.contrato_meses = elContratoMeses.value;
+    if (esConciertos && elContratoInteres && elContratoInteres.value) {
+      payload.contrato_interes_bimensual = elContratoInteres.value;
+    }
+
     const resp = await postJson(url, payload, { keepalive: false });
     if (!resp.ok) {
       let msg = "No se pudo añadir la participación.";
@@ -3262,9 +3274,26 @@ function bindParticipaciones() {
       alert(msg);
       return;
     }
+
+    let creada = null;
+    try {
+      creada = await resp.json();
+    } catch (e) {}
+
     if (elImporte) elImporte.value = "";
     if (elFechaAportacion) elFechaAportacion.value = "";
+    if (elContratoFecha) elContratoFecha.value = "";
     await loadRows();
+
+    // Dar de alta al inversor y emitirle el contrato son el mismo trámite, así
+    // que se ofrece aquí en vez de obligar a buscar su fila. Sólo se abre el
+    // documento: enviárselo es otro botón, porque eso le llega a una persona.
+    if (creada && creada.id) {
+      const tipo = creada.contrato === "prestamo" ? "de préstamo" : "de cuenta en participación";
+      if (confirm(`Participación creada.\n\n¿Abrir su contrato ${tipo} para revisarlo?`)) {
+        window.open(`${url}${creada.id}/contrato/`, "_blank", "noopener");
+      }
+    }
   });
 
   tabla.addEventListener("click", async (e) => {

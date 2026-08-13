@@ -1103,6 +1103,44 @@
                         </div>
                     </div>
 
+                    {% comment %}
+                      Condiciones del contrato. Se fijan al dar de alta al
+                      inversor porque el contrato que se le emite tiene que ser
+                      el que se pactó con él, y cada uno puede pactar las suyas.
+
+                      Vienen rellenas con lo habitual de cada tipo de proyecto:
+                      Conciertos es un préstamo a doce meses al 5 % bimensual;
+                      los inmobiliarios son cuentas en participación que duran
+                      lo que dura el negocio, seis meses, y ahí el rendimiento
+                      no es un interés pactado sino el resultado de la venta.
+                    {% endcomment %}
+                    <div class="row g-3 align-items-end mt-1">
+                        <div class="col-12">
+                            <div class="form-text mb-0">
+                                Condiciones del contrato
+                                {% if es_conciertos %}de préstamo{% else %}de cuenta en participación{% endif %}.
+                                Se pueden corregir mientras no esté firmado.
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="inv_contrato_fecha">Fecha de firma</label>
+                            <input type="date" class="form-control" id="inv_contrato_fecha">
+                            <div class="form-text">Si se deja vacía se usa la de la aportación.</div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label" for="inv_contrato_meses">Duración (meses)</label>
+                            <input type="number" min="1" step="1" class="form-control" id="inv_contrato_meses"
+                                   value="{% if es_conciertos %}12{% else %}6{% endif %}">
+                        </div>
+                        {% if es_conciertos %}
+                        <div class="col-md-2">
+                            <label class="form-label" for="inv_contrato_interes">Interés bimensual (%)</label>
+                            <input type="number" min="0" step="0.01" class="form-control" id="inv_contrato_interes" value="5">
+                            <div class="form-text">Seis períodos al año.</div>
+                        </div>
+                        {% endif %}
+                    </div>
+
                     <div class="table-responsive mt-3">
                         <table class="table table-sm align-middle">
                             <thead>
