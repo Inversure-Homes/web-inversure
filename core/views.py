@@ -6335,6 +6335,9 @@ def _pdf_contrato(request, participacion) -> bytes:
             "participacion": participacion,
             "proyecto": participacion.proyecto,
             "logo_data_uri": _logo_data_uri(),
+            "portada_data_uri": _logo_data_uri("core/contrato_portada.png"),
+            "isotipo_data_uri": _logo_data_uri("core/contrato_isotipo.png"),
+            "marca_agua_data_uri": _logo_data_uri("core/contrato_marca_agua.png"),
             **extra,
         },
         request,
@@ -9046,6 +9049,9 @@ def contrato_prestamo(request, proyecto_id: int, participacion_id: int):
         "participacion": participacion,
         "proyecto": participacion.proyecto,
         "logo_data_uri": _logo_data_uri(),
+        "portada_data_uri": _logo_data_uri("core/contrato_portada.png"),
+        "isotipo_data_uri": _logo_data_uri("core/contrato_isotipo.png"),
+        "marca_agua_data_uri": _logo_data_uri("core/contrato_marca_agua.png"),
         **extra,
     }
     respuesta = render(request, plantilla, contexto)

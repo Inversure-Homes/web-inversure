@@ -6,6 +6,7 @@ mano. La razón no es la comodidad: el contrato original traía el calendario de
 liquidaciones tecleado y con la fecha de vencimiento equivocada en un año.
 """
 
+import re
 from datetime import date
 from decimal import Decimal
 
@@ -474,30 +475,48 @@ def test_la_fecha_de_efectos_se_pide_siempre():
     assert "AAAA-MM-DD" in manejador
 
 
-def test_el_prestamo_advierte_de_la_retencion_y_desglosa_el_liquido():
+def test_el_prestamo_reproduce_el_contrato_firmado():
     """
-    El contrato prometía «5 % del principal» y la tabla enseñaba el bruto. Si
-    después se ingresa un 19 % menos, el prestamista puede sostener que se le
-    prometió esa cifra limpia, y la ambigüedad se interpreta contra quien
-    redactó el contrato (art. 1288 CC). Por eso el papel lo dice y lo desglosa.
+    El contrato de préstamo tiene que ser el que Inversure viene firmando: las
+    mismas ocho cláusulas, en el mismo orden, y sólo cambian los datos de la
+    parte prestamista y los económicos.
+
+    Un contrato tiene el alcance que tiene su texto. Añadirle cláusulas «que
+    mejoran» cambia lo que las partes pactan, y eso no lo decide quien monta la
+    plantilla: llegué a colarle una de gastos de reclamación que no existía.
     """
-    proyecto, participacion = _escenario()  # 50.000 € al 5 % bimensual
+    proyecto, participacion = _escenario()
     jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
 
     html = core_views.contrato_prestamo(
-        _peticion(jefe, "/x/?html=1"),
-        proyecto_id=proyecto.id,
-        participacion_id=participacion.id,
+        _peticion(jefe, "/x/?html=1"), proyecto_id=proyecto.id, participacion_id=participacion.id
     ).content.decode()
 
-    assert "Régimen fiscal y retención a cuenta" in html
-    assert "brutos" in html
-    assert "certificado de retenciones" in html
+    # El HTML viene con saltos y sangrías: se comparan palabras, no espacios.
+    cuerpo = " ".join(html.split("ANEXO")[0].split())
+    ordinales = re.findall(r"(Primera|Segunda|Tercera|Cuarta|Quinta|Sexta|Séptima|Octava|Novena|Décima)\.-", cuerpo)
+    assert ordinales == ["Primera", "Segunda", "Tercera", "Cuarta", "Quinta", "Sexta", "Séptima", "Octava"]
 
-    # 5 % de 50.000 = 2.500 brutos por período; 19 % = 475; líquido 2.025.
-    assert "2.500,00" in html
-    assert "475,00" in html
-    assert "2.025,00" in html
+    # Cada cláusula, por su contenido y en su sitio.
+    for ordinal, texto in [
+        ("Cuarta", "podrá amortizar parcial o totalmente"),
+        ("Quinta", "no podrá ceder ni transmitir"),
+        ("Sexta", "disposiciones aplicables del Código Civil"),
+        ("Séptima", "Todas las comunicaciones entre las partes"),
+        ("Octava", "Juzgados y Tribunales"),
+    ]:
+        trozo = cuerpo.split(ordinal + ".-", 1)[1][:600]
+        assert texto in trozo, ordinal
+
+    # Y nada que el contrato firmado no diga.
+    for invento in ["Vencimiento anticipado", "Régimen fiscal", "se imputará la entrega", "interes_total_pct"]:
+        assert invento not in cuerpo, invento
+
+    # Las cantidades, como en el papel: en letra y en cifra sin céntimos.
+    assert "CINCUENTA MIL EUROS" in cuerpo
+    assert "50.000 €" in cuerpo
+    assert "cinco por ciento (5%)" in cuerpo
+    assert "DOCE (12) MESES" in cuerpo
 
 
 def test_la_cuenta_participe_tambien_menciona_la_retencion():
@@ -529,18 +548,22 @@ def test_los_contratos_llevan_membrete():
     proyecto, participacion = _escenario()
     jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
 
-    for vista, kwargs in (
-        (core_views.contrato_prestamo, {}),
-        (core_views.contrato_rescision, {}),
-    ):
-        html = vista(
-            _peticion(jefe, "/x/?html=1"),
-            proyecto_id=proyecto.id,
-            participacion_id=participacion.id,
-            **kwargs,
-        ).content.decode()
-        assert 'class="membrete"' in html
-        # Incrustado, no enlazado: WeasyPrint no descarga recursos externos.
+    prestamo = core_views.contrato_prestamo(
+        _peticion(jefe, "/x/?html=1"), proyecto_id=proyecto.id, participacion_id=participacion.id
+    ).content.decode()
+    # El préstamo reproduce la papelería del contrato firmado: portada,
+    # isotipo arriba a la derecha y marca de agua.
+    assert 'class="portada"' in prestamo
+    assert 'class="isotipo"' in prestamo
+    assert "marca_agua" not in prestamo  # incrustada, no enlazada
+
+    rescision = core_views.contrato_rescision(
+        _peticion(jefe, "/x/?html=1"), proyecto_id=proyecto.id, participacion_id=participacion.id
+    ).content.decode()
+    assert 'class="membrete"' in rescision
+
+    # Incrustado, no enlazado: WeasyPrint no descarga recursos externos.
+    for html in (prestamo, rescision):
         assert "data:image/" in html
 
 
@@ -627,7 +650,7 @@ def test_el_alta_respeta_lo_que_se_haya_pactado():
     html = core_views.contrato_prestamo(
         _peticion(jefe, "/x/?html=1"), proyecto_id=proyecto.id, participacion_id=nueva.id
     ).content.decode()
-    assert "4,50 %" in html
+    assert "cuatro con cincuenta por ciento (4,50%)" in html
     assert "28 de agosto de 2026" in html
 
 

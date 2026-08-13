@@ -65,6 +65,10 @@ PRESTATARIA = {
     "fuero": os.environ.get("PRESTATARIA_FUERO", "Málaga"),
     "email": os.environ.get("PRESTATARIA_EMAIL", "administracion@inversurehomes.es"),
     "iban": os.environ.get("PRESTATARIA_IBAN", "ES41 0081 1508 1600 0146 1056"),
+    # El contrato firmado señala este correo para las comunicaciones entre las
+    # partes, que no es el general de administración. Se deja aparte porque
+    # cambiarlo altera un dato del contrato, no una dirección cualquiera.
+    "email_notificaciones": os.environ.get("PRESTATARIA_EMAIL_NOTIFICACIONES", "mximenez@inversurehomes.es"),
     "representante": os.environ.get("PRESTATARIA_REPRESENTANTE", "DON MIGUEL ÁNGEL PÉREZ RODRÍGUEZ"),
     "representante_dni": os.environ.get("PRESTATARIA_REPRESENTANTE_DNI", "74.871.983-Z"),
     "representante_domicilio": os.environ.get("PRESTATARIA_REPRESENTANTE_DOMICILIO", "Málaga, en Ildefonso Marzo 18"),

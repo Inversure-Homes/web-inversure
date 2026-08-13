@@ -173,7 +173,13 @@ def condiciones(participacion, firma: date | None = None) -> dict:
         "meses": meses,
         "capital": capital,
         "capital_letra": importe_en_letra(capital),
+        # El contrato firmado escribe «50.000 €», sin céntimos cuando no los
+        # hay. Es la cifra que acompaña a la cantidad en letra, y conviene que
+        # se lea igual que en el papel que se viene firmando.
+        "capital_cifra": cifra_contrato(capital),
         "interes_periodo": interes,
+        "interes_letra": porcentaje_en_letra(interes),
+        "meses_letra": numero_en_letra(meses),
         "interes_total_pct": interes * len(periodos),
         "importe_por_periodo": por_periodo,
         "intereses_totales": por_periodo * len(periodos),
@@ -367,3 +373,32 @@ def con_retencion(bruto, participacion=None) -> dict:
         "retencion": retencion,
         "neto": bruto - retencion,
     }
+
+
+def numero_en_letra(n: int) -> str:
+    """«12» → «DOCE». El contrato firmado escribe «DOCE (12) MESES»."""
+    return _apocopado(_hasta_999(int(n))).upper() if n else "CERO"
+
+
+def porcentaje_en_letra(pct) -> str:
+    """«5» → «cinco por ciento (5%)», como en el contrato firmado."""
+    pct = Decimal(pct or 0)
+    entero = int(pct)
+    if pct == entero:
+        letra = _hasta_999(entero) or "cero"
+        cifra = "{}%".format(entero)
+    else:
+        decimales = int((pct - entero) * 100)
+        letra = "{} con {}".format(_hasta_999(entero) or "cero", _hasta_999(decimales))
+        cifra = "{:.2f}%".format(pct).replace(".", ",")
+    return "{} por ciento ({})".format(letra, cifra)
+
+
+def cifra_contrato(importe) -> str:
+    """«50000» → «50.000»; «1234.5» → «1.234,50». Sin céntimos si no los hay."""
+    importe = Decimal(importe or 0).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    entero = int(importe)
+    miles = "{:,}".format(entero).replace(",", ".")
+    if importe == entero:
+        return miles
+    return "{},{:02d}".format(miles, int((importe - entero) * 100))
