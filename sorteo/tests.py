@@ -759,7 +759,7 @@ class InformeDeRentabilidad(TestCase):
             def __init__(self, string, base_url=None):
                 self.string = string
 
-            def write_pdf(self):
+            def write_pdf(self, **kwargs):  # el real recibe `font_config`
                 return b"%PDF-falso"
 
         with patch.dict(sys.modules, {"weasyprint": SimpleNamespace(HTML=_FalsoHTML)}):

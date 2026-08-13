@@ -53,6 +53,7 @@ from .models import FirmaContrato, IntentoPinPortal
 from .models import Cliente, Participacion, InversorPerfil, InversorPushSubscription, SolicitudParticipacion, ComunicacionInversor, DocumentoProyecto, DocumentoInversor, FacturaGasto, JustificanteIngreso
 from .contratos import condiciones as condiciones_prestamo
 from .contratos import condiciones_baja, condiciones_cuenta_participe
+from .pdf import render_pdf
 from .correo_contratos import enviar_codigo_contrato, enviar_contrato_firmado, enviar_invitacion_firma
 from .firmas import ErrorFirma
 from .firmas import comprobar_codigo as comprobar_codigo_firma
@@ -1803,8 +1804,7 @@ def _build_carta_pdf_with_error(
                 "resumen_fiscal": resumen_fiscal,
             },
         )
-        from weasyprint import HTML  # defer import
-        pdf = HTML(string=html, base_url=request.build_absolute_uri("/") if request else None).write_pdf()
+        pdf = render_pdf(html, request.build_absolute_uri("/") if request else None)
         return pdf, None
     except Exception as e:
         return None, str(e)
@@ -1838,8 +1838,7 @@ def _build_anexos_cover_pdf(request) -> bytes | None:
                 "logo_url": logo_url,
             },
         )
-        from weasyprint import HTML  # defer import
-        return HTML(string=html, base_url=request.build_absolute_uri("/") if request else None).write_pdf()
+        return render_pdf(html, request.build_absolute_uri("/") if request else None)
     except Exception:
         return None
 
@@ -2133,8 +2132,7 @@ def _catastro_datos_pdf_bytes(request, datos: dict):
                 "nota": "Datos no protegidos del Catastro. Uso informativo; pueden variar.",
             },
         )
-        from weasyprint import HTML  # defer import
-        return HTML(string=html, base_url=request.build_absolute_uri("/") if request else None).write_pdf()
+        return render_pdf(html, request.build_absolute_uri("/") if request else None)
     except Exception:
         return None
 
@@ -2159,8 +2157,7 @@ def _documento_pdf_bytes(request, documento: DocumentoProyecto) -> bytes | None:
             "logo_data_uri": _logo_data_uri(),
         },
     )
-    from weasyprint import HTML  # defer import
-    return HTML(string=html, base_url=request.build_absolute_uri("/") if request else None).write_pdf()
+    return render_pdf(html, request.build_absolute_uri("/") if request else None)
 
 
 def _merge_pdf_with_documentos(base_pdf: bytes, anexos: list[DocumentoProyecto], request=None) -> bytes | None:
@@ -2220,12 +2217,7 @@ def _respuesta_pdf(request, respuesta, nombre_fichero: str):
         return respuesta
 
     try:
-        from weasyprint import HTML  # defer import
-
-        pdf = HTML(
-            string=respuesta.content.decode("utf-8"),
-            base_url=request.build_absolute_uri("/"),
-        ).write_pdf()
+        pdf = render_pdf(respuesta.content.decode("utf-8"), request.build_absolute_uri("/"))
     except Exception:
         logging.getLogger(__name__).exception("Fallo al generar el PDF de %s; se devuelve el HTML", nombre_fichero)
         return respuesta
@@ -2241,9 +2233,8 @@ def _build_presentacion_html(request, context: dict) -> str:
 
 def _build_presentacion_pdf(request, context: dict) -> bytes | None:
     try:
-        from weasyprint import HTML  # defer import
         html = _build_presentacion_html(request, context)
-        return HTML(string=html, base_url=request.build_absolute_uri("/") if request else None).write_pdf()
+        return render_pdf(html, request.build_absolute_uri("/") if request else None)
     except Exception:
         logging.getLogger(__name__).exception("Fallo al generar PDF de presentacion")
         return None
@@ -6336,8 +6327,6 @@ def _contrato_de(participacion):
 
 def _pdf_contrato(request, participacion) -> bytes:
     """El PDF del contrato, que es lo que se firma y de lo que sale la huella."""
-    from weasyprint import HTML  # defer import
-
     plantilla, _tipo, extra = _contrato_de(participacion)
     html = render_to_string(
         plantilla,
@@ -6350,7 +6339,7 @@ def _pdf_contrato(request, participacion) -> bytes:
         },
         request,
     )
-    return HTML(string=html, base_url=request.build_absolute_uri("/")).write_pdf()
+    return render_pdf(html, request.build_absolute_uri("/"))
 
 
 AUTORIZACIONES = {
@@ -6430,10 +6419,8 @@ def inversor_contrato(request, token: str, participacion_id: int):
                         },
                         request,
                     )
-                    from weasyprint import HTML  # defer import
-
                     completo = unir_pdfs(
-                        pdf, HTML(string=evidencias, base_url=request.build_absolute_uri("/")).write_pdf()
+                        pdf, render_pdf(evidencias, request.build_absolute_uri("/"))
                     )
                     sellar_firma(
                         firma,

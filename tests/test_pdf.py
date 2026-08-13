@@ -25,7 +25,9 @@ def test_build_presentacion_pdf_uses_weasyprint_mock(monkeypatch):
             captured["string"] = string
             captured["base_url"] = base_url
 
-        def write_pdf(self):
+        def write_pdf(self, **kwargs):
+            # `**kwargs` porque el real recibe `font_config`, que se comparte
+            # para no destruir el font map de Pango en cada PDF.
             return b"pdf-bytes"
 
     monkeypatch.setitem(sys.modules, "weasyprint", SimpleNamespace(HTML=_FakeHTML))
@@ -245,3 +247,87 @@ def test_si_weasyprint_falla_el_informe_sigue_saliendo_en_html():
 
     assert response.status_code == 200
     assert "text/html" in response["Content-Type"]
+
+
+# --- La configuración de fuentes se comparte -------------------------------
+
+
+@pytest.fixture
+def fuentes_limpias():
+    """
+    Vacía la caché por hilo antes y después.
+
+    Los tests comparten hilo, y hay otros que sustituyen `weasyprint` por un
+    doble sin submódulos: si uno de ésos corre antes, deja cacheado que no hay
+    configuración y estas comprobaciones se saltarían sin comprobar nada.
+    """
+    from core.pdf import _local, _vivas
+
+    for _ in range(2):
+        if hasattr(_local, "config"):
+            del _local.config
+        _vivas.clear()
+        yield
+        return
+
+
+def test_la_configuracion_de_fuentes_es_la_misma_siempre(fuentes_limpias):
+    """
+    WeasyPrint monta una `FontConfiguration` nueva por cada `write_pdf()` si no
+    se le pasa una, y al recogerla el recolector, Pango desmonta su font map y
+    harfbuzz destruye caras de tipografía que ya no valen: el proceso se cae
+    entero con SIGSEGV. Se veía como una caída de la suite una de cada doce,
+    siempre durante el recolector, que era el momento pero no la causa.
+
+    Compartir una que no se destruye nunca evita esa ruta.
+    """
+    from core.pdf import _configuracion_fuentes, _vivas
+
+    primera = _configuracion_fuentes()
+    if primera is None:
+        pytest.skip("WeasyPrint no expone FontConfiguration en este entorno")
+
+    assert _configuracion_fuentes() is primera
+    # Y alguien se queda con una referencia fuerte, que es lo que impide que
+    # llegue a finalizarse aunque muera el hilo que la creó.
+    assert any(v is primera for v in _vivas)
+
+
+def test_el_pdf_se_genera_con_la_configuracion_compartida(monkeypatch, fuentes_limpias):
+    from core import pdf as core_pdf
+
+    recogido = {}
+
+    class _FalsoHTML:
+        def __init__(self, string, base_url=None):
+            recogido["base_url"] = base_url
+
+        def write_pdf(self, **kwargs):
+            recogido["font_config"] = kwargs.get("font_config")
+            return b"%PDF-falso"
+
+    monkeypatch.setitem(sys.modules, "weasyprint", SimpleNamespace(HTML=_FalsoHTML))
+
+    esperada = core_pdf._configuracion_fuentes()
+    assert esperada is not None, "sin configuración esto no comprobaría nada"
+    assert core_pdf.render_pdf("<p>x</p>", "https://ejemplo.test/") == b"%PDF-falso"
+    assert recogido["base_url"] == "https://ejemplo.test/"
+    assert recogido["font_config"] is esperada
+
+
+def test_ningun_pdf_se_genera_saltandose_el_ayudante():
+    """
+    Si alguien vuelve a llamar a `write_pdf()` por su cuenta, vuelve la caída.
+    El único sitio que puede hacerlo es `core/pdf.py`.
+    """
+    from pathlib import Path
+
+    raiz = Path(__file__).resolve().parent.parent
+    culpables = []
+    for ruta in list(raiz.glob("*/views*.py")) + list(raiz.glob("*/views/*.py")):
+        if ".venv" in str(ruta) or ".claude" in str(ruta):
+            continue
+        if "write_pdf(" in ruta.read_text("utf-8"):
+            culpables.append(str(ruta.relative_to(raiz)))
+
+    assert culpables == [], "generan el PDF sin compartir las fuentes: {}".format(culpables)

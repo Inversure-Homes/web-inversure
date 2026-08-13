@@ -303,9 +303,9 @@ def informe(request, pk):
     if request.GET.get("html"):
         return HttpResponse(html)
 
-    from weasyprint import HTML  # defer import: necesita pango y cairo
+    from core.pdf import render_pdf
 
-    pdf = HTML(string=html, base_url=request.build_absolute_uri("/")).write_pdf()
+    pdf = render_pdf(html, request.build_absolute_uri("/"))
     respuesta = HttpResponse(pdf, content_type="application/pdf")
     respuesta["Content-Disposition"] = 'inline; filename="informe-rifa-{}.pdf"'.format(
         slugify(estudio.nombre) or estudio.pk

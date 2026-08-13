@@ -635,7 +635,7 @@ class SecurityHardeningTests(TestCase):
                 self.string = string
                 self.base_url = base_url
 
-            def write_pdf(self):
+            def write_pdf(self, **kwargs):  # el real recibe `font_config`
                 return b"pdf-bytes"
 
         fake_weasyprint = SimpleNamespace(HTML=_FakeHTML)

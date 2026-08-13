@@ -389,9 +389,9 @@ def relacion(request, pk):
     html = render_to_string("sorteo/relacion_notarial.html", contexto, request)
 
     if request.GET.get("pdf"):
-        from weasyprint import HTML  # defer import
+        from core.pdf import render_pdf
 
-        pdf = HTML(string=html, base_url=request.build_absolute_uri("/")).write_pdf()
+        pdf = render_pdf(html, request.build_absolute_uri("/"))
         respuesta = HttpResponse(pdf, content_type="application/pdf")
         respuesta["Content-Disposition"] = 'attachment; filename="relacion-participaciones-{}.pdf"'.format(sorteo.slug)
         return respuesta
