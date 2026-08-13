@@ -97,7 +97,6 @@ _DEFAULT_ALLOWED_HOSTS = [
     "web-inversure-1.onrender.com",
     "inversurehomes.es",
     "www.inversurehomes.es",
-    "app.inversurehomes.es",
 ]
 if DEBUG:
     _DEFAULT_ALLOWED_HOSTS.extend(["localhost", "127.0.0.1", "[::1]"])
@@ -194,6 +193,7 @@ MIDDLEWARE = [
     "auditlog.middleware.AuditlogMiddleware",
     "django_otp.middleware.OTPMiddleware",
     "config.middleware.MaintenanceModeMiddleware",
+    "config.middleware.CabecerasSeguridadMiddleware",
     "accounts.middleware.UserSessionMiddleware",
     "accounts.middleware.RoleAccessMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -427,6 +427,15 @@ EMAIL_BACKEND = os.environ.get(
     "EMAIL_BACKEND",
     "django.core.mail.backends.console.EmailBackend",
 )
+# El valor por defecto escribe los correos en el log y devuelve éxito: sin
+# error, sin rebote, sin nada. En desarrollo va bien; en producción significa
+# que no llegan ni las invitaciones a firmar el contrato ni los códigos de
+# verificación, y nadie se entera. Que no arranque es mejor que enviar al vacío.
+if not DEBUG and "console" in EMAIL_BACKEND:
+    raise ImproperlyConfigured(
+        "EMAIL_BACKEND apunta al backend de consola con DEBUG apagado: los correos "
+        "no se enviarían a nadie. Define EMAIL_BACKEND (y EMAIL_HOST) en el entorno."
+    )
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
 EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")

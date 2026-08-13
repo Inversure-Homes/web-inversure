@@ -1,6 +1,12 @@
+import logging
+import os
 from decimal import Decimal
+from xml.sax.saxutils import escape
 
 from django.conf import settings
+from django.contrib.staticfiles.storage import staticfiles_storage
+from django.http import HttpResponse
+from django.urls import reverse
 from django.core.cache import cache
 from django.core.mail import send_mail
 from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
@@ -11,6 +17,8 @@ from django.utils import timezone
 from core.models import DocumentoProyecto, GastoProyecto, IngresoProyecto, Proyecto
 from core.views import _build_dashboard_context, _s3_presigned_url
 from .models import LandingLead, Noticia
+
+log = logging.getLogger(__name__)
 
 
 def landing_home(request):
@@ -419,6 +427,13 @@ def landing_home(request):
             "lead_success": lead_success,
             "lead_error": lead_error,
             "lead_token": lead_token,
+            # Cuando exista la ficha de Google se pone su URL en el entorno y
+            # el botón aparece solo. Mientras tanto no se enseña nada, en vez
+            # de un enlace a «#» que decía «próximamente».
+            "resenas_google_url": os.environ.get("RESENAS_GOOGLE_URL", "").strip(),
+            # Para el aviso de protección de datos del formulario: quién es el
+            # responsable del tratamiento y dónde reclamar.
+            "prestataria": settings.PRESTATARIA,
         },
     )
 
@@ -447,3 +462,69 @@ def terminos(request):
 
 def maintenance(request):
     return render(request, "landing/maintenance.html")
+
+
+# --- robots.txt y sitemap.xml ----------------------------------------------
+#
+# No existían: los dos devolvían 404. Sin robots.txt un rastreador no sabe qué
+# no debe mirar, y sin sitemap depende de encontrar los enlaces por su cuenta.
+
+
+def robots(request):
+    """Qué puede rastrearse y dónde está el mapa del sitio."""
+    lineas = [
+        "User-agent: *",
+        # El ERP y el CMS ya exigen sesión, pero no hay razón para que un
+        # rastreador se pasee por ellos ni los liste.
+        "Disallow: /app/",
+        "Disallow: /cms/",
+        "Disallow: /admin/",
+        "Disallow: /account/",
+        "Disallow: /documents/",
+        "",
+        "Sitemap: {}://{}/sitemap.xml".format(request.scheme, request.get_host()),
+        "",
+    ]
+    return HttpResponse("\n".join(lineas), content_type="text/plain; charset=utf-8")
+
+
+def sitemap(request):
+    """Las páginas públicas, con la fecha de las noticias cuando se sabe."""
+    base = "{}://{}".format(request.scheme, request.get_host())
+    urls = [
+        (reverse("landing:home"), None, "weekly", "1.0"),
+        (reverse("landing:noticias_list"), None, "weekly", "0.6"),
+        (reverse("landing:privacidad"), None, "yearly", "0.3"),
+        (reverse("landing:cookies"), None, "yearly", "0.3"),
+        (reverse("landing:terminos"), None, "yearly", "0.3"),
+    ]
+    try:
+        for noticia in Noticia.objects.all()[:200]:
+            fecha = getattr(noticia, "fecha", None) or getattr(noticia, "creado", None)
+            urls.append((
+                reverse("landing:noticia_detail", args=[noticia.slug]),
+                fecha.date().isoformat() if hasattr(fecha, "date") else (fecha.isoformat() if fecha else None),
+                "monthly",
+                "0.5",
+            ))
+    except Exception:
+        # Un sitemap incompleto sirve; uno que revienta la petición, no.
+        log.exception("No se pudieron añadir las noticias al sitemap")
+
+    partes = ['<?xml version="1.0" encoding="UTF-8"?>',
+              '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for ruta, fecha, frecuencia, prioridad in urls:
+        partes.append("  <url>")
+        partes.append("    <loc>{}{}</loc>".format(base, escape(ruta)))
+        if fecha:
+            partes.append("    <lastmod>{}</lastmod>".format(fecha))
+        partes.append("    <changefreq>{}</changefreq>".format(frecuencia))
+        partes.append("    <priority>{}</priority>".format(prioridad))
+        partes.append("  </url>")
+    partes.append("</urlset>")
+    return HttpResponse("\n".join(partes), content_type="application/xml; charset=utf-8")
+
+
+def favicon(request):
+    """/favicon.ico lo piden rastreadores y clientes que ignoran el <link>."""
+    return redirect(staticfiles_storage.url("core/pwa/icon-180.png"), permanent=True)

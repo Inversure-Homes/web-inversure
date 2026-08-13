@@ -215,6 +215,22 @@ def test_produccion_exige_las_claves():
     assert "SENSITIVE_DATA_KEY" in r.stderr
 
     entorno.update({"DJANGO_SECRET_KEY": "una-clave-larga-de-verdad", "SENSITIVE_DATA_KEY": "otra-distinta"})
+
+    # Con las claves puestas pero sin backend de correo tampoco arranca: el
+    # valor por defecto escribe los correos en el log y devuelve éxito, así que
+    # en producción no llegarían ni las invitaciones a firmar ni los códigos de
+    # verificación, y nadie se enteraría.
+    r = subprocess.run(
+        [sys.executable, "-c", "import django; django.setup()"],
+        capture_output=True,
+        text=True,
+        env=entorno,
+        cwd=raiz,
+    )
+    assert r.returncode != 0
+    assert "EMAIL_BACKEND" in r.stderr
+
+    entorno["EMAIL_BACKEND"] = "django.core.mail.backends.smtp.EmailBackend"
     r = subprocess.run(
         [sys.executable, "-c", "import django; django.setup()"],
         capture_output=True,
@@ -223,3 +239,60 @@ def test_produccion_exige_las_claves():
         cwd=raiz,
     )
     assert r.returncode == 0, r.stderr
+
+
+def test_las_cabeceras_de_seguridad_que_django_no_trae():
+    """
+    La CSP va a propósito sin `script-src`: hay scripts y estilos en línea en
+    28 plantillas del ERP, y una política con `'unsafe-inline'` no protegería
+    de nada mientras da la impresión contraria. Lo que sí se puede cerrar hoy
+    —marcos, plugins, base de URLs y destino de los formularios— se cierra.
+    """
+    from django.test import Client
+
+    respuesta = Client().get("/")
+    csp = respuesta.headers.get("Content-Security-Policy", "")
+
+    for directiva in ["frame-ancestors 'none'", "object-src 'none'", "base-uri 'self'", "form-action 'self'"]:
+        assert directiva in csp, directiva
+
+    assert "unsafe-inline" not in csp, "una CSP con unsafe-inline aparenta proteger sin hacerlo"
+    assert "camera=()" in respuesta.headers.get("Permissions-Policy", "")
+
+
+def test_la_landing_no_pide_nada_a_terceros():
+    """
+    Las tipografías se pedían a fonts.googleapis.com y los iconos a jsDelivr,
+    lo que enviaba la IP de cada visitante a Google antes de que aceptara nada.
+    Ahora se sirven desde el propio dominio. Los iconos, directamente, no se
+    usaban en ninguna plantilla.
+    """
+    from pathlib import Path
+
+    base = (Path(__file__).resolve().parent.parent / "landing" / "templates" / "landing" / "base.html").read_text("utf-8")
+    for tercero in ["fonts.googleapis.com", "fonts.gstatic.com", "cdn.jsdelivr.net"]:
+        assert tercero not in base, tercero
+    assert "landing/fuentes.css" in base
+
+
+def test_la_landing_se_puede_compartir():
+    """Sin estas etiquetas, el enlace compartido sale pelado."""
+    from django.test import Client
+
+    html = Client().get("/").content.decode()
+    for etiqueta in ['property="og:title"', 'property="og:image"', 'property="og:description"',
+                     'name="twitter:card"', 'name="description"']:
+        assert etiqueta in html, etiqueta
+
+
+def test_los_formularios_informan_de_proteccion_de_datos():
+    """
+    El artículo 13 del RGPD obliga a informar al recoger los datos, y estos son
+    los formularios por los que entra un inversor nuevo.
+    """
+    from django.test import Client
+
+    html = Client().get("/").content.decode()
+    assert html.count("lead-form__privacidad") == 2, "los dos formularios, no uno"
+    assert "B-75265843" in html
+    assert "/privacidad/" in html

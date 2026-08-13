@@ -202,6 +202,20 @@
             Mensaje
             <textarea name="mensaje" rows="3" required></textarea>
           </label>
+          {% comment %}
+            Aviso de protección de datos en el propio formulario. El artículo 13
+            del RGPD obliga a informar en el momento de recoger los datos, y
+            este es el formulario por el que entra un inversor nuevo: recoge
+            nombre, correo, teléfono y capital estimado.
+          {% endcomment %}
+          <p class="lead-form__privacidad">
+            Responsable: <strong>{{ prestataria.razon_social }}</strong> (CIF {{ prestataria.cif }}),
+            {{ prestataria.domicilio }}. Usamos tus datos únicamente para atender tu solicitud
+            y ponernos en contacto contigo. No se ceden a terceros. Puedes ejercer tus derechos
+            de acceso, rectificación y supresión escribiendo a
+            <a href="mailto:{{ prestataria.email }}">{{ prestataria.email }}</a>.
+            Más detalle en la <a href="{% url 'landing:privacidad' %}">política de privacidad</a>.
+          </p>
           <button type="submit" class="btn-solid">Quiero participar</button>
         </form>
       </div>
@@ -248,6 +262,20 @@
             Mensaje
             <textarea name="mensaje" rows="3" required></textarea>
           </label>
+          {% comment %}
+            Aviso de protección de datos en el propio formulario. El artículo 13
+            del RGPD obliga a informar en el momento de recoger los datos, y
+            este es el formulario por el que entra un inversor nuevo: recoge
+            nombre, correo, teléfono y capital estimado.
+          {% endcomment %}
+          <p class="lead-form__privacidad">
+            Responsable: <strong>{{ prestataria.razon_social }}</strong> (CIF {{ prestataria.cif }}),
+            {{ prestataria.domicilio }}. Usamos tus datos únicamente para atender tu solicitud
+            y ponernos en contacto contigo. No se ceden a terceros. Puedes ejercer tus derechos
+            de acceso, rectificación y supresión escribiendo a
+            <a href="mailto:{{ prestataria.email }}">{{ prestataria.email }}</a>.
+            Más detalle en la <a href="{% url 'landing:privacidad' %}">política de privacidad</a>.
+          </p>
           <button type="submit" class="btn-solid">Enviar propuesta</button>
         </form>
       </div>
@@ -270,9 +298,18 @@
             </article>
           {% endfor %}
         </div>
-        <div class="review-cta">
-          <a class="btn-outline" href="#" aria-disabled="true">Ver reseñas en Google (próximamente)</a>
-        </div>
+        {% comment %}
+          Aquí había un enlace a «#» que decía «Ver reseñas en Google
+          (próximamente)». Un «próximamente» en producción resta más de lo que
+          suma, y un enlace que no lleva a ningún sitio molesta al que lo pulsa.
+          Cuando exista la ficha de Google, se pone el enlace de verdad con
+          `RESENAS_GOOGLE_URL`.
+        {% endcomment %}
+        {% if resenas_google_url %}
+          <div class="review-cta">
+            <a class="btn-outline" href="{{ resenas_google_url }}" target="_blank" rel="noopener noreferrer">Ver reseñas en Google</a>
+          </div>
+        {% endif %}
       </div>
     </section>
 

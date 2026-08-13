@@ -868,3 +868,34 @@ body.landing-body {
     padding: 48px 0;
   }
 }
+
+/* Aviso de protección de datos del formulario: presente y legible, pero sin
+   competir con los campos. */
+.lead-form__privacidad {
+  font-size: .78rem;
+  line-height: 1.5;
+  color: rgba(226, 232, 240, .72);
+  margin: .25rem 0 1rem;
+}
+.lead-form__privacidad a {
+  color: #d4a853;
+  text-decoration: underline;
+}
+
+/* Áreas táctiles: los botones se quedaban en 36 px y los enlaces del pie en
+   23 px. La recomendación son 44 px, y en el móvil se nota al fallar el dedo. */
+@media (max-width: 768px) {
+  .landing-nav__actions .btn-outline,
+  .landing-nav__actions .btn-solid,
+  .landing-nav__actions .landing-cta,
+  .cookie-banner__actions button {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .landing-footer a {
+    display: inline-block;
+    padding: .55rem 0;
+    min-height: 44px;
+  }
+}
