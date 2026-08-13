@@ -328,6 +328,55 @@
     </p>
   </div>
 
+  {% comment %}
+    Cláusula añadida al articulado que se venía firmando, y va la última a
+    propósito: así las ocho anteriores conservan su número y su texto, y quien
+    compare este contrato con uno anterior ve una cláusula añadida en vez de
+    ocho movidas de sitio.
+
+    Existe porque el contrato pactaba «5 % del principal» sin decir si esa
+    cifra era bruta o neta, y sobre ella se retiene. Un contrato ambiguo se
+    interpreta contra quien lo redactó (art. 1288 CC).
+  {% endcomment %}
+  <div class="clausula">
+    <p>
+      <span class="titulo">Novena.- Régimen fiscal y retención a cuenta.</span>
+      Los intereses pactados en la cláusula Tercera se expresan en términos
+      <strong>brutos</strong>. Constituyen para la parte prestamista un
+      rendimiento del capital mobiliario sujeto a retención a cuenta del
+      Impuesto sobre la Renta de las Personas Físicas, conforme a los artículos
+      25.2 y 99 de la Ley 35/2006 y concordantes de su Reglamento.
+    </p>
+    <p>
+      En consecuencia, la parte prestataria, como obligada a retener, practicará
+      sobre cada liquidación la retención legalmente aplicable en el momento del
+      devengo, actualmente del
+      <strong>{{ condiciones.retencion_periodo.pct_texto }} %</strong>, e
+      ingresará su importe en la Hacienda Pública. Cada uno de los períodos
+      relacionados en la cláusula Tercera asciende, por tanto, a
+      <strong>{{ condiciones.retencion_periodo.bruto|es_number }} €</strong>
+      brutos, de los que se retendrán
+      {{ condiciones.retencion_periodo.retencion|es_number }} €, resultando un
+      líquido a percibir de
+      <strong>{{ condiciones.retencion_periodo.neto|es_number }} €</strong>.
+    </p>
+    <p>
+      La retención no constituye un coste para la parte prestamista, sino un
+      pago anticipado de su propio impuesto, deducible de la cuota de su
+      declaración anual. A tal efecto, la prestataria le facilitará dentro del
+      plazo legalmente previsto el <strong>certificado de retenciones e ingresos
+      a cuenta</strong> correspondiente a cada ejercicio.
+    </p>
+    <p>
+      Si durante la vigencia del contrato se modificase el tipo legalmente
+      aplicable, o si la parte prestamista acreditase hallarse en un supuesto de
+      exención, exclusión o tipo distinto —en particular, por no ser residente
+      fiscal en España o por tratarse de una persona jurídica—, se aplicará el
+      que en cada caso corresponda, sin que ello suponga modificación alguna del
+      interés bruto pactado en la cláusula Tercera.
+    </p>
+  </div>
+
   <p>
     Y en prueba de su conformidad, firman las partes el presente contrato de
     Préstamo en dos ejemplares y a un solo efecto.

@@ -495,7 +495,13 @@ def test_el_prestamo_reproduce_el_contrato_firmado():
     # El HTML viene con saltos y sangrías: se comparan palabras, no espacios.
     cuerpo = " ".join(html.split("ANEXO")[0].split())
     ordinales = re.findall(r"(Primera|Segunda|Tercera|Cuarta|Quinta|Sexta|Séptima|Octava|Novena|Décima)\.-", cuerpo)
-    assert ordinales == ["Primera", "Segunda", "Tercera", "Cuarta", "Quinta", "Sexta", "Séptima", "Octava"]
+    # Las ocho del firmado, en su orden, más la de retención al final: así las
+    # anteriores conservan su número y quien compare dos contratos ve una
+    # cláusula añadida en vez de ocho movidas de sitio.
+    assert ordinales == [
+        "Primera", "Segunda", "Tercera", "Cuarta",
+        "Quinta", "Sexta", "Séptima", "Octava", "Novena",
+    ]
 
     # Cada cláusula, por su contenido y en su sitio.
     for ordinal, texto in [
@@ -509,7 +515,7 @@ def test_el_prestamo_reproduce_el_contrato_firmado():
         assert texto in trozo, ordinal
 
     # Y nada que el contrato firmado no diga.
-    for invento in ["Vencimiento anticipado", "Régimen fiscal", "se imputará la entrega", "interes_total_pct"]:
+    for invento in ["Vencimiento anticipado", "se imputará la entrega", "interes_total_pct"]:
         assert invento not in cuerpo, invento
 
     # Las cantidades, como en el papel: en letra y en cifra sin céntimos.
@@ -517,6 +523,14 @@ def test_el_prestamo_reproduce_el_contrato_firmado():
     assert "50.000 €" in cuerpo
     assert "cinco por ciento (5%)" in cuerpo
     assert "DOCE (12) MESES" in cuerpo
+
+    # El calendario sigue siendo la lista de vencimientos del firmado, sin
+    # importes; el desglose bruto/retención/líquido vive en la cláusula Novena.
+    calendario = cuerpo.split("calendario de liquidaciones:", 1)[1].split("Novena", 1)[0]
+    assert "2.500" not in calendario
+    trozo = cuerpo.split("Novena.-", 1)[1]
+    assert "2.500,00 €" in trozo and "475,00 €" in trozo and "2.025,00 €" in trozo
+    assert "certificado de retenciones" in trozo
 
 
 def test_la_cuenta_participe_tambien_menciona_la_retencion():
