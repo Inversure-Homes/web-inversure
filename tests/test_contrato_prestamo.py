@@ -860,3 +860,73 @@ def test_el_boton_de_baja_esta_en_el_javascript():
     assert "/baja/" in js
     # Y una vez dada de baja, ya no se ofrece resolverla otra vez.
     assert "fecha_baja" in js
+
+
+def test_el_acuerdo_no_le_atribuye_al_prestamo_un_proyecto():
+    """
+    El contrato de préstamo no menciona ningún proyecto: la cantidad se entrega
+    «para su actividad empresarial» de la prestataria. Decir en el acuerdo que
+    fue «relativo a Conciertos» le atribuiría un destino concreto que sus
+    firmantes no pactaron, y el nombre además vive en el ERP y no en el papel.
+
+    El Contrato se identifica por su clase, su fecha, las partes y el importe,
+    que es lo que sí consta en él.
+    """
+    proyecto, participacion = _escenario()
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    html = core_views.contrato_rescision(
+        _peticion(jefe, "/x/?html=1&fecha=2026-10-23"),
+        proyecto_id=proyecto.id,
+        participacion_id=participacion.id,
+    ).content.decode()
+
+    assert "Conciertos" not in html
+    assert "contrato de préstamo de dinero" in html
+    assert "23 de junio de 2026" in html  # la fecha del contrato lo identifica
+    assert "CINCUENTA MIL EUROS" in html
+
+
+def test_el_acuerdo_de_cuenta_participe_se_remite_al_negocio_del_contrato():
+    """
+    Tampoco aquí vale el nombre del ERP: el contrato habla del «Negocio» y de
+    los inmuebles del Anexo I, y así es como hay que remitirse a él.
+    """
+    proyecto, participacion = _escenario_inmobiliario()
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    html = core_views.contrato_rescision(
+        _peticion(jefe, "/x/?html=1&fecha=2026-10-01&rendimiento=1200"),
+        proyecto_id=proyecto.id,
+        participacion_id=participacion.id,
+    ).content.decode()
+
+    assert proyecto.nombre not in html
+    assert "Negocio descrito en el mismo" in html
+
+
+def test_se_puede_poner_la_fecha_que_consta_en_el_contrato_firmado():
+    """
+    En producción `contrato_fecha` está vacía y se recurre a la de la
+    aportación, que no tiene por qué ser la de la firma: el contrato de Jorge
+    de Diego está firmado el 23/06 y su aportación consta el 29/06. El acuerdo
+    afirma «con fecha X ambas partes suscribieron», así que tiene que poder
+    decir la del papel.
+    """
+    proyecto, participacion = _escenario()
+    participacion.contrato_fecha = None
+    participacion.fecha_aportacion = date(2026, 6, 29)
+    participacion.save()
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    sin_indicar = core_views.contrato_rescision(
+        _peticion(jefe, "/x/?html=1&fecha=2026-10-23"),
+        proyecto_id=proyecto.id, participacion_id=participacion.id,
+    ).content.decode()
+    assert "29 de junio de 2026" in sin_indicar
+
+    con_la_del_papel = core_views.contrato_rescision(
+        _peticion(jefe, "/x/?html=1&fecha=2026-10-23&contrato_fecha=2026-06-23"),
+        proyecto_id=proyecto.id, participacion_id=participacion.id,
+    ).content.decode()
+    assert "23 de junio de 2026" in con_la_del_papel

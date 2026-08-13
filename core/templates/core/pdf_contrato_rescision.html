@@ -86,16 +86,29 @@
 
   <h2>EXPONEN</h2>
 
+  {% comment %}
+    El Contrato se identifica por lo que consta en él: su clase, su fecha, las
+    partes y el importe. No por el nombre del proyecto en el ERP.
+
+    Es una distinción que importa. El préstamo no menciona ningún proyecto: la
+    cantidad se entrega «para su actividad empresarial» de la prestataria, y
+    decir que fue «relativo a Conciertos» le atribuiría al contrato un destino
+    concreto que sus firmantes no pactaron. La cuenta en participación tampoco
+    se identifica por un nombre: habla del «Negocio» y de los inmuebles del
+    Anexo I. Ese nombre vive en el ERP, no en el papel que se está resolviendo.
+  {% endcomment %}
   <p>
     <strong>I.—</strong> Que con fecha
     <strong>{{ baja.contrato_fecha|fecha_larga }}</strong> ambas partes
     suscribieron un
     {% if es_prestamo %}contrato de préstamo de dinero{% else %}contrato de
-    constitución de cuenta en participación{% endif %}
-    relativo a <strong>{{ proyecto.nombre }}</strong>, en virtud del cual
+    constitución de cuenta en participación{% endif %},
+    en virtud del cual
     {% if es_prestamo %}el prestamista entregó{% else %}el partícipe aportó{% endif %}
     la cantidad de <strong>{{ baja.aportacion_letra }}</strong>
-    ({{ baja.aportacion|es_number }} €). En adelante, el <strong>Contrato</strong>.
+    ({{ baja.aportacion|es_number }} €){% if not es_prestamo %}, quedando
+    partícipe en los resultados del Negocio descrito en el mismo{% endif %}.
+    En adelante, el <strong>Contrato</strong>.
   </p>
 
   <p>

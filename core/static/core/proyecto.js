@@ -3315,9 +3315,23 @@ function bindParticipaciones() {
         alert("La fecha debe ir en formato AAAA-MM-DD.");
         return;
       }
+      // El acuerdo afirma «con fecha X ambas partes suscribieron el Contrato».
+      // Sin esto se usa la de la aportación, que no tiene por qué ser la de la
+      // firma que consta en el papel.
+      const contratoFecha = prompt(
+        `Fecha que consta en el contrato firmado de ${nombre} (AAAA-MM-DD).\n\n` +
+        `Déjalo vacío para usar la de su aportación.`, ""
+      );
+      if (contratoFecha === null) return;
+      if (contratoFecha.trim() && !/^\d{4}-\d{2}-\d{2}$/.test(contratoFecha.trim())) {
+        alert("La fecha debe ir en formato AAAA-MM-DD.");
+        return;
+      }
+
       const motivo = prompt("Motivo (opcional). Aparece en el acuerdo.", "cesión de su posición en el negocio a otro inversor");
       if (motivo === null) return;
       const params = new URLSearchParams({ fecha: fecha.trim() });
+      if (contratoFecha.trim()) params.set("contrato_fecha", contratoFecha.trim());
       if (motivo.trim()) params.set("motivo", motivo.trim());
       window.open(`${url}${id}/rescision/?${params}`, "_blank", "noopener");
 

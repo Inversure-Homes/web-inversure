@@ -288,8 +288,21 @@ def intereses_devengados(participacion, hasta: date, prorratear_dias: bool = Fal
     return (capital * mensual / 100 * devengo).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
-def condiciones_baja(participacion, fecha: date | None = None, rendimiento=None, motivo: str = "") -> dict:
-    """Lo que el acuerdo de resolución necesita saber."""
+def condiciones_baja(
+    participacion,
+    fecha: date | None = None,
+    rendimiento=None,
+    motivo: str = "",
+    contrato_fecha: date | None = None,
+) -> dict:
+    """
+    Lo que el acuerdo de resolución necesita saber.
+
+    `contrato_fecha` permite poner la fecha que consta en el papel firmado. Sin
+    ella se recurre a la de la aportación, que no tiene por qué coincidir: los
+    contratos firmados hasta ahora no la traen guardada, y el acuerdo afirma
+    «con fecha X ambas partes suscribieron», así que conviene poder corregirla.
+    """
     fecha = fecha or participacion.fecha_baja or date.today()
     aportacion = Decimal(participacion.importe_invertido or 0)
 
@@ -309,7 +322,7 @@ def condiciones_baja(participacion, fecha: date | None = None, rendimiento=None,
 
     return {
         "fecha": fecha,
-        "contrato_fecha": participacion.contrato_fecha or participacion.fecha_aportacion,
+        "contrato_fecha": contrato_fecha or participacion.contrato_fecha or participacion.fecha_aportacion,
         "aportacion": aportacion,
         "aportacion_letra": importe_en_letra(aportacion),
         "rendimiento": rendimiento,

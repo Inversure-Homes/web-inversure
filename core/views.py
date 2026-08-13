@@ -9161,6 +9161,9 @@ def contrato_rescision(request, proyecto_id: int, participacion_id: int):
                 fecha=fecha,
                 rendimiento=_parse_decimal(rendimiento) if rendimiento else None,
                 motivo=request.GET.get("motivo", ""),
+                contrato_fecha=_parse_date(request.GET.get("contrato_fecha"))
+                if request.GET.get("contrato_fecha")
+                else None,
             ),
         },
     )
