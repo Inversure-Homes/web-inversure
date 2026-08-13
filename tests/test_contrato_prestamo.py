@@ -247,7 +247,7 @@ def test_un_proyecto_inmobiliario_no_genera_un_prestamo():
         _peticion(jefe, "/x/?html=1"), proyecto_id=proyecto.id, participacion_id=participacion.id
     ).content.decode()
 
-    assert "CUENTA PARTÍCIPE" in html
+    assert "CONTRATO CUENTA PARTICIPE" in html
     assert "239 y siguientes del Código de Comercio" in html
     assert "CONTRATO DE PRÉSTAMO" not in html
     assert "calendario de liquidaciones" not in html
@@ -275,12 +275,13 @@ def test_el_contrato_inmobiliario_lleva_las_cifras_del_proyecto():
 
     for esperado in [
         "CIENTO TREINTA Y CINCO MIL EUROS",  # valor de adquisición en letra
-        "178.700,00",  # precio de venta estimado
-        "SIETE MIL QUINIENTOS EUROS",  # aportación en letra
+        "178.700 euros",  # precio de venta estimado
+        "7.500 euros",  # la aportación va en cifra, como en el firmado
         "5,30",  # porcentaje de participación
-        "DIEZ MIL EUROS",  # participación mínima
+        "QUINCE MIL EUROS",  # participación mínima
         "ES41 0081 1508 1600 0146 1056",  # cuenta del gestor
-        "Aportación cuenta partícipe",  # concepto para conciliar el ingreso
+        "Aportación cuenta participe",  # concepto para conciliar el ingreso
+        "BANCO SABADELL",
     ]:
         assert esperado in html, esperado
 
@@ -967,3 +968,62 @@ def test_se_puede_poner_la_fecha_que_consta_en_el_contrato_firmado():
         proyecto_id=proyecto.id, participacion_id=participacion.id,
     ).content.decode()
     assert "23 de junio de 2026" in con_la_del_papel
+
+
+def test_la_cuenta_participe_reproduce_el_contrato_firmado():
+    """
+    Comparado con el contrato firmado de Camino Suárez, al que generaba el
+    sistema le faltaba la cláusula 7.7 entera: la que define qué cuenta como
+    ingreso, qué como gasto y cómo se reparte el remanente —30 % el gestor,
+    70 % los partícipes—. Es el corazón económico de una cuenta en
+    participación, y mi cláusula de retención le había ocupado el número.
+
+    También faltaba la 7.2, y había cambiado la numeración de arábiga a romana
+    y varios títulos por mi cuenta.
+    """
+    proyecto, participacion = _escenario_inmobiliario()
+    jefe = _usuario(role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+
+    html = core_views.contrato_prestamo(
+        _peticion(jefe, "/x/?html=1"), proyecto_id=proyecto.id, participacion_id=participacion.id
+    ).content.decode()
+    cuerpo = " ".join(html.split("ANEXO")[0].split())
+
+    # Los apartados numerados del firmado, todos y en su orden.
+    apartados = re.findall(r"\b(\d{1,2}\.\d{1,2})\.-", cuerpo)
+    assert apartados == [
+        "1.1", "1.2", "1.3", "2.1", "2.2",
+        "5.1", "5.2", "5.3", "5.4", "6.1",
+        "7.1", "7.2", "7.3", "7.4", "7.5", "7.6", "7.7",
+        "9.1", "9.2", "12.1", "12.2", "14.1", "14.2", "14.3",
+        "19.1", "19.2", "19.3",
+    ]
+
+    # Los epígrafes, con la numeración arábiga y los títulos del firmado.
+    for epigrafe in [
+        "1. Objeto", "2. Aportaciones del Partícipe",
+        "3. Declaraciones y garantías del Gestor en beneficio del Partícipe",
+        "4. Destino de las Aportaciones", "5. Gestión del Negocio",
+        "6. Información económica", "7. Aplicación de los resultados del Negocio",
+        "8. Prohibición de competencia", "9. Incorporación de nuevos Partícipes",
+        "10. Domicilio de la Cuenta en Participación",
+        "11. Duración de la Cuenta en Participación y del Negocio",
+        "12. Disolución de la Cuenta en Participación",
+        "13. Extinción y liquidación de la Cuenta en Participación",
+        "14. Confidencialidad", "15. Cesión", "16. Gastos y Tributos",
+        "17. Normas de interpretación", "18. Notificaciones",
+        "19. Ley aplicable", "20. Jurisdicción",
+        "21. Retención a cuenta",   # la única añadida, y va la última
+    ]:
+        assert epigrafe in cuerpo, epigrafe
+
+    # El reparto del remanente, que es lo que se había perdido.
+    assert "treinta por ciento (30%)" in cuerpo
+    assert "setenta por ciento (70%)" in cuerpo
+    assert "Se considerarán ingresos" in cuerpo
+    assert "Se considerarán gastos" in cuerpo
+    assert "alarma y seguro de hogar" in cuerpo
+
+    # Y la cláusula que impide que esto se lea como un préstamo.
+    assert "contrato de crédito o préstamo" in cuerpo
+    assert "Autorización del Partícipe" in cuerpo

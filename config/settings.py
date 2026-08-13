@@ -80,7 +80,8 @@ PRESTATARIA = {
     "representante_profesion_inmobiliaria": os.environ.get(
         "PRESTATARIA_REPRESENTANTE_PROFESION_INMOBILIARIA", "agente inmobiliario"
     ),
-    "entidad_bancaria": os.environ.get("PRESTATARIA_ENTIDAD_BANCARIA", "SABADELL"),
+    # Como consta en el contrato firmado, no «SABADELL» a secas.
+    "entidad_bancaria": os.environ.get("PRESTATARIA_ENTIDAD_BANCARIA", "BANCO SABADELL"),
 }
 
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")

@@ -5,368 +5,395 @@
   <title>Contrato de cuenta en participación · {{ cliente.nombre }}</title>
 
   {% comment %}
-    Contrato de cuenta en participación (arts. 239 y ss. del Código de
-    Comercio) para los inversores de los proyectos inmobiliarios.
+    Contrato de constitución de cuenta en participación (arts. 239 y ss. del
+    Código de Comercio) para los inversores de los proyectos inmobiliarios.
 
-    No es el contrato de préstamo de Conciertos, y no puede parecerlo: la
-    cláusula 1.2 niega expresamente que esto sea un préstamo o un crédito, y
-    esa distinción es la que sostiene el tratamiento fiscal y la
-    responsabilidad limitada del partícipe.
+    Transcripción del contrato que Inversure viene firmando, con su numeración
+    y sus títulos. Sólo cambian los datos personales y los económicos del
+    proyecto y de la aportación.
 
-    Lo que cambia por inversor y por proyecto viene del ERP; el articulado es
-    el mismo que se viene firmando.
+    Se respeta el articulado tal cual, incluido su desajuste entre epígrafes y
+    apartados —el epígrafe 8 contiene los apartados 9.1 y 9.2, el 11 los 12.x,
+    el 13 los 14.x y el 18 los 19.x— y la «Autorización del Partícipe» que va
+    dentro de la cláusula 7 sin número propio. Cuadrar esa numeración sería
+    cambiar el documento que las partes firman, y eso no lo decide quien monta
+    la plantilla.
+
+    No es el contrato de préstamo de Conciertos y no puede parecerlo: la
+    cláusula 1.2 niega expresamente que esto sea un préstamo o un crédito, y de
+    esa distinción dependen el tratamiento fiscal y que la pérdida del partícipe
+    quede limitada a su aportación.
+
+    Nada de recursos externos: esto lo consume WeasyPrint, no un navegador.
   {% endcomment %}
   <style>
     @page {
-      size: A4;
-      margin: 20mm 18mm;
+      size: A4; margin: 20mm 18mm 18mm 18mm;
       @bottom-center {
-        content: "Contrato de cuenta en participación · " counter(page) " de " counter(pages);
-        font-family: Arial, sans-serif; font-size: 8pt; color: #6b7280;
+        content: counter(page) " de " counter(pages);
+        font-family: Arial, sans-serif; font-size: 8.5pt; color: #6b7280;
       }
+      background: url("{{ marca_agua_data_uri }}") no-repeat center 46%;
+      background-size: 74% auto;
     }
-    @page :first { @bottom-center { content: normal; } }
+    @page portada { margin: 0; background: none; @bottom-center { content: normal; } }
 
     body {
       margin: 0; font-family: Arial, Helvetica, sans-serif;
-      font-size: 10pt; line-height: 1.5; color: #111827; text-align: justify;
+      font-size: 10.5pt; line-height: 1.5; color: #1a1a2e; text-align: justify;
     }
-    h1 { color: #20304d; font-size: 18pt; text-align: center; margin: 0 0 4px; }
-    .lugar { text-align: center; color: #4b5563; margin: 0 0 22px; }
-    h2 {
-      color: #1f304d; font-size: 10.5pt; letter-spacing: .1em;
-      text-align: center; margin: 20px 0 10px;
+
+    .portada { page: portada; break-after: page; padding: 24mm 0 0; }
+    .portada .marco { position: relative; width: 75%; margin: 0 auto; }
+    .portada img { display: block; width: 100%; }
+    .portada .titulo-caja {
+      position: absolute; top: 8%; left: 0; right: 0;
+      background: #fff; padding: 5mm 4mm; text-align: center;
     }
+    .portada .titulo-caja h1 { margin: 0; color: #16233f; font-size: 17pt; }
+
+    .isotipo { text-align: right; margin: 0 0 6mm; }
+    .isotipo img { height: 13mm; }
+
+    h2.contrato {
+      color: #1f3a6e; font-size: 22pt; font-weight: normal;
+      text-align: center; margin: 0 0 12mm;
+    }
+    .lugar { text-align: right; margin: 0 0 12mm; }
+
     h3 {
-      color: #001f5f; font-size: 10.5pt; margin: 16px 0 6px;
-      break-after: avoid;
+      color: #16233f; font-size: 11pt; text-align: center;
+      margin: 8mm 0 4mm; letter-spacing: .02em;
     }
-    p { margin: 0 0 9px; }
-    ol.romanos { padding-left: 20px; }
-    .bloque { break-inside: avoid; }
-
-    table.datos { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 9.5pt; }
-    table.datos th, table.datos td { border: 1px solid #d1d5db; padding: 5px 8px; text-align: left; }
-    table.datos th { background: #f3f4f6; width: 34%; }
-
-    .destacado {
-      background: #f9fafb; border: 1px solid #d1d5db; border-radius: 4px;
-      padding: 9px 12px; margin: 10px 0;
+    h4 {
+      color: #16233f; font-size: 10.5pt; margin: 6mm 0 2mm;
+      break-after: avoid; text-align: left;
     }
+    p { margin: 0 0 8px; }
+    .sangrado { margin-left: 10mm; }
+    .banco {
+      margin: 6px 0 10px 10mm; text-align: left;
+    }
+    .banco p { margin: 0 0 3px; }
+    .destacado { text-align: center; font-size: 13pt; font-weight: bold; margin: 8px 0 12px; }
 
-    .firmas { margin-top: 40px; width: 100%; table-layout: fixed; break-inside: avoid; }
+    .firmas { margin-top: 22mm; width: 100%; table-layout: fixed; break-inside: avoid; }
     .firmas td {
-      width: 45%; padding-top: 52px; border-top: 1px solid #111827;
-      vertical-align: top; font-size: 9.5pt; text-align: left;
+      width: 45%; padding-top: 28mm; vertical-align: top;
+      font-size: 10.5pt; text-align: left;
     }
-    .firmas .hueco { width: 10%; border: 0; padding: 0; }
+    .firmas .hueco { width: 10%; padding: 0; }
 
     .anexo { break-before: page; }
-    .anexo h1 { font-size: 14pt; }
-    .casilla { font-size: 9.5pt; margin: 6px 0; }
+    .anexo h1 { font-size: 14pt; color: #16233f; text-align: center; margin: 0 0 6mm; }
+    .anexo .cuadro {
+      border: 1px solid #d1d5db; border-radius: 4px;
+      padding: 10px 12px; margin-bottom: 12px; background: #f9fafb; font-size: 10pt;
+    }
+    table.datos { width: 100%; border-collapse: collapse; font-size: 10pt; margin-bottom: 12px; }
+    table.datos th, table.datos td {
+      border: 1px solid #d1d5db; padding: 5px 8px; text-align: left; vertical-align: top;
+    }
+    table.datos th { background: #f3f4f6; width: 34%; }
+    .casilla { font-size: 10pt; margin: 6px 0; }
     .casilla .marco {
       display: inline-block; width: 11px; height: 11px;
       border: 1px solid #111827; margin-right: 7px; vertical-align: -1px;
     }
-    .aviso { font-size: 8.5pt; color: #4b5563; }
-
-    /* Membrete. El original llevaba logotipo en la cabecera del .docx; aquí va
-       incrustado en base64 porque WeasyPrint no descarga recursos externos. */
-    .membrete { text-align: center; margin: 0 0 18px; }
-    .membrete img { height: 46px; }
+    .aviso { font-size: 9pt; color: #4b5563; }
   </style>
 </head>
 <body>
 
-  {% if logo_data_uri %}
-    <div class="membrete">
-      <img src="{{ logo_data_uri }}" alt="">
+  {% if portada_data_uri %}
+    <div class="portada">
+      <div class="marco">
+        <img src="{{ portada_data_uri }}" alt="">
+        <div class="titulo-caja"><h1>CONTRATO CUENTA PARTICIPE</h1></div>
+      </div>
     </div>
   {% endif %}
 
-  <h1>CONTRATO DE CUENTA PARTÍCIPE</h1>
+  {% if isotipo_data_uri %}
+    <div class="isotipo"><img src="{{ isotipo_data_uri }}" alt=""></div>
+  {% endif %}
+
+  <h2 class="contrato">CONTRATO</h2>
+
   <p class="lugar">En {{ gestor.poblacion }}, a {{ contrato.fecha|fecha_larga }}</p>
 
-  <h2>INTERVIENEN</h2>
+  <h3>INTERVIENEN</h3>
 
-  <p>De una parte,</p>
+  <p class="sangrado">De una parte,</p>
+
   <p>
     <strong>{{ gestor.representante }}</strong>, mayor de edad,
     {{ gestor.representante_estado_civil }}, {{ gestor.representante_profesion_inmobiliaria }},
     vecino de {{ gestor.poblacion }}, domiciliado en
-    {{ gestor.representante_domicilio }}, con D.N.I. número
+    {{ gestor.representante_domicilio }}, con su D.N.I. número
     {{ gestor.representante_dni }}.
   </p>
+
   <p>
     En representación de la entidad de nacionalidad española denominada
-    <strong>{{ gestor.razon_social }}</strong>, con C.I.F. {{ gestor.cif }},
+    <strong>{{ gestor.razon_social }}</strong> con el C.I.F. {{ gestor.cif }},
     domiciliada en {{ gestor.domicilio }}. En adelante, será identificado como
-    el <strong>GESTOR</strong> o la <strong>ENTIDAD GESTORA</strong>.
+    el <strong>GESTOR O LA ENTIDAD GESTORA.</strong>
   </p>
 
-  <p>Y de otra,</p>
+  <p class="sangrado">Y de otra,</p>
+
   <p>
     <strong>{{ cliente.nombre }}</strong>, mayor de edad, con DNI
-    {{ cliente.dni_cif|default:"__________" }}, y domicilio en
-    {{ cliente.direccion_postal|default:"__________" }}, y con dirección de
-    correo electrónico {{ cliente.email|default:"__________" }}. Actúa en su
+    {{ cliente.dni_cif|default:"__________" }} y domicilio en
+    {{ cliente.direccion_postal|default:"__________" }} y con dirección de
+    correo electrónico: {{ cliente.email|default:"__________" }}. Actúa en su
     propio nombre y derecho. En adelante, será identificado como el
-    <strong>PARTÍCIPE</strong>.
+    <strong>PARTÍCIPE.</strong>
   </p>
 
-  <h2>EXPONEN</h2>
+  <h3>EXPONEN</h3>
 
   <p>
-    <strong>I.—</strong> {{ gestor.razon_social }}, asociada a la firma
-    {{ gestor.marca }}, tiene el propósito de llevar a cabo una actividad de
-    inversión inmobiliaria y a dicho fin va a adquirir los inmuebles que se
+    <strong>I.-</strong> «{{ gestor.razon_social }}» asociada a la firma
+    {{ gestor.marca }} tiene el propósito de llevar a cabo una actividad de
+    inversión inmobiliaria y a dicho fin va a adquirir el/los inmuebles que se
     relacionan en el Anexo I, que va a gestionar y pretende vender en un plazo
     razonable de {{ contrato.meses }} meses, periodo durante el cual quedará a
     su criterio la fecha de venta y la posible explotación de los inmuebles (el
     Negocio).
   </p>
   <p>
-    El valor de adquisición, incluyendo todos los gastos establecidos a tal fin,
-    incluidos gastos de gestión, otorgamiento e inscripción, asciende
-    aproximadamente a <strong>{{ contrato.adquisicion_letra }}</strong>
-    ({{ contrato.valor_adquisicion|es_number }} €).
+    El valor de adquisición, incluyendo todos los gastos vaticinados a tal fin,
+    incluidos gastos de gestión, intermediario en la compra, otorgamiento e
+    inscripción, asciende aproximadamente a
+    <strong>{{ contrato.adquisicion_letra }}</strong>
+    ({{ contrato.adquisicion_cifra }} €).
   </p>
   <p>
     No están incluidos los costes de puesta en marcha del proyecto, incluidos
-    los de adecuación de la finca, decoración y mejoras, u otros, cuya
+    los de adecuación de la finca, decoración, y mejoras, u otros, cuya
     pertinencia y utilidad se evaluarán posteriormente.
   </p>
   <p>
-    El precio de venta total estimado del inmueble objeto de esta inversión,
-    vaticinado en un escenario que el gestor considera conservador, asciende a
-    <strong>{{ contrato.precio_venta|es_number }} €</strong>. No obstante lo
+    El precio de venta total estimado de los inmuebles objeto de esta inversión,
+    vaticinados en un escenario que el gestor considera o estima conservador
+    asciende a <strong>{{ contrato.venta_cifra }} euros</strong>. No obstante lo
     anterior, el cliente queda informado de la posibilidad de venta definitiva
     del inmueble en un precio inferior al indicado para garantizar la
     rentabilidad o sostenibilidad de la inversión.
   </p>
   <p>
     El valor mínimo de participación en el negocio es de
-    <strong>{{ contrato.minimo_letra }}</strong>
-    ({{ contrato.participacion_minima|es_number }} €).
+    <strong>{{ contrato.minimo_letra }}</strong> ({{ contrato.minimo_cifra }} €)
   </p>
   <p>
-    En un anexo al presente documento se adjunta la información de los
+    En un anexo al presente documento se adjuntará la información de los
     inmuebles, el porcentaje de la inversión total en la que se participa, la
     descripción de los mismos y el rendimiento esperado.
   </p>
   <p>
-    El cuenta partícipe autoriza al gestor a realizar, dentro del plazo objeto
-    del presente contrato, las inversiones necesarias que aumenten la
+    <strong>*El cuenta participe autoriza al gestor realizar dentro del plazo
+    objeto del presente contrato las inversiones necesarias que aumenten la
     rentabilidad prevista del negocio. Este se obliga a informar de cualquier
     operación inmobiliaria adicional que pueda acometer por los medios previstos
-    en el presente documento.
+    en el presente documento.</strong>
+  </p>
+
+  <p>
+    <strong>II.-</strong> El Partícipe está interesado en contribuir
+    económicamente en el Negocio de «{{ gestor.razon_social }}», de gestión y
+    venta o explotación de los indicados inmuebles, haciéndose partícipe de sus
+    resultados en la proporción prevista en este Contrato.
+  </p>
+
+  <p>
+    <strong>III.-</strong> Que, habiendo procedido la entidad gestora al
+    estudio, análisis, preparación, estudio y coordinación de la actividad con
+    carácter previo a la formalización del presente contrato, y estando el
+    cliente interesado en contribuir y participar parcialmente el proyecto, las
+    Partes acuerdan suscribir el presente Contrato de Constitución de Cuenta en
+    Participación (en adelante, el «Contrato»), que se regirá por las
+    siguientes:
+  </p>
+
+  <h3>CLÁUSULAS</h3>
+
+  <h4>1. Objeto</h4>
+  <p>1.1.- Las Partes constituyen una Cuenta en Participación con el fin de que el Partícipe participe en los resultados económicos del Negocio del Gestor.</p>
+  <p>1.2.- Las Partes declaran expresamente que las relaciones que se deriven del presente Contrato serán las propias del gestor y del partícipe de una cuenta en participación mercantil, sin que este Contrato pueda dar lugar a la consideración de las Partes como socios o asociados de entidad alguna o a la configuración de las prestaciones o relaciones de estas como propias de un contrato de crédito o préstamo.</p>
+  <p>1.3.- La Participación del Partícipe se fija en un % de los Resultados que genere el Negocio proporcional a su cuota de participación.</p>
+
+  <h4>2. Aportaciones del Partícipe</h4>
+  <p>
+    2.1.- La Aportación Inicial que el Partícipe se obliga a realizar en este
+    acto, comprenderá la cantidad de
+    <strong>{{ contrato.aportacion_cifra }} euros</strong>, y se efectuará en
+    los siguientes plazos y forma: Transferencia bancaria en el plazo máximo de
+    dos días a la cuenta que se indicará a continuación. La ausencia de pago en
+    el plazo establecido determinará la nulidad del contrato y dejará sin efecto
+    las obligaciones pactadas en el presente contrato.
+  </p>
+  <div class="banco">
+    <p>Datos del ingreso o transferencia bancaria:</p>
+    <p>Entidad: {{ gestor.entidad_bancaria }}</p>
+    <p><strong>IBAN: {{ gestor.iban }}</strong></p>
+    <p>Concepto: {{ contrato.concepto_transferencia }}</p>
+  </div>
+  <p>
+    Si el Partícipe no abonase dicha cantidad en el plazo indicado el presente
+    contrato será nulo y carecerá de efecto alguno.
   </p>
   <p>
-    <strong>II.—</strong> El Partícipe está interesado en contribuir
-    económicamente en el Negocio de {{ gestor.razon_social }} de gestión y venta
-    o explotación del indicado inmueble, haciéndose partícipe de sus resultados
-    en la proporción prevista en este Contrato.
+    La entidad Gestora no podrá disponer de las cantidades entregadas por el
+    partícipe sino para la gestión del buen fin del negocio.
   </p>
   <p>
-    <strong>III.—</strong> Que, habiendo procedido la entidad gestora con
-    carácter previo al estudio, análisis, preparación y coordinación de la
-    actividad con carácter previo a la formalización del presente contrato, y
-    estando el cliente interesado en contribuir y participar parcialmente en el
-    proyecto, las Partes acuerdan suscribir el presente Contrato de Constitución
-    de Cuenta en Participación (en adelante, el «Contrato»), que se regirá por
-    las siguientes
+    2.2.- El Partícipe participará de los resultados del negocio en proporción a
+    su porcentaje de participación. En caso de que no pudiera llevarse a cabo el
+    negocio por causas ajenas a la entidad gestora, esta se obliga a devolver al
+    partícipe la cantidad que este haya aportado sin derecho a indemnización de
+    ningún tipo.
   </p>
+  <p>
+    El porcentaje de participación en el negocio objeto del presente contrato,
+    calculado sobre la cantidad neta que corresponda al conjunto de cuenta
+    partícipes en el negocio, es aproximadamente de:
+  </p>
+  <p class="destacado">{{ contrato.porcentaje|es_number }}%</p>
 
-  <h2>CLÁUSULAS</h2>
+  <h4>3. Declaraciones y garantías del Gestor en beneficio del Partícipe</h4>
+  <p>El Gestor declara y garantiza a favor del Partícipe, lo siguiente:</p>
+  <p>a) Que, excepto las identificadas en el Anexo I, no hay traba, cargas y gravámenes ninguno sobre el Negocio o sobre cualquiera de sus elementos.</p>
+  <p>b) Que no ha ocultado al Partícipe, o distorsionado, hechos, circunstancias, o conocimientos sobre el Negocio que, por su relevancia, de haber sido conocidos por un comerciante normal en el curso de la negociación, le hubieran llevado a renunciar a realizar las Aportaciones.</p>
+  <p>c) Capacidad societaria del Gestor.</p>
+  <p>El Gestor es una sociedad legalmente constituida y debidamente organizada de acuerdo con las leyes de España, con residencia a efectos fiscales en España, y tiene las facultades requeridas para el desarrollo del Negocio y suscribir este Contrato y para cumplir con las obligaciones derivadas del mismo.</p>
+  <p>d) Solvencia.</p>
+  <p>El Gestor: i) no ha dejado de hacer pagos ni está incurso en mora respecto de ninguna de sus obligaciones; ii) no está en situación que le haya llevado, o le pueda llevar, a concurso o liquidación, o a devenir insolvente; iii) no se han iniciado acciones para su disolución o liquidación, ni presentado ninguna petición de declaración de concurso.</p>
+  <p>e) Facultades societarias.</p>
+  <p>La firma, cumplimiento y desarrollo de este Contrato por el Gestor y la consumación de las transacciones contempladas en el mismo: (i) entran dentro de las facultades societarias del Gestor; ii) no contravienen los términos de sus estatutos; y iii) han sido debidamente autorizados mediante todas las actuaciones societarias apropiadas.</p>
 
-  <div class="bloque">
-    <h3>I.— Objeto</h3>
-    <p>1.1.— Las Partes constituyen una Cuenta en Participación con el fin de que el Partícipe participe en los resultados económicos del Negocio del Gestor.</p>
-    <p>1.2.— Las Partes declaran expresamente que las relaciones que se deriven del presente Contrato serán las propias del gestor y del partícipe de una cuenta en participación mercantil, sin que este Contrato pueda dar lugar a la consideración de las Partes como socios o asociados de entidad alguna, o a la configuración de las prestaciones o relaciones de estas como propias de un contrato de crédito o préstamo.</p>
-    <p>1.3.— La Participación del Partícipe se fija en un porcentaje de los Resultados que genere el Negocio, proporcional a su cuota de participación.</p>
-  </div>
+  <h4>4. Destino de las Aportaciones.</h4>
+  <p>El Gestor destinará las Aportaciones al Negocio y no podrá destinarla a finalidades distintas o ser empleadas de manera inadecuada a la naturaleza y finalidad del Negocio.</p>
 
-  <div class="bloque">
-    <h3>II.— Aportaciones del Partícipe</h3>
-    <p>
-      2.1.— La Aportación Inicial que el Partícipe se obliga a realizar en este
-      acto comprenderá la cantidad de
-      <strong>{{ contrato.aportacion_letra }}</strong>
-      ({{ contrato.aportacion|es_number }} €), y se efectuará mediante
-      transferencia bancaria en el plazo máximo de dos días a la cuenta que se
-      indica a continuación. La ausencia de pago en el plazo establecido
-      determinará la nulidad del contrato y dejará sin efecto las obligaciones
-      pactadas en el presente contrato.
-    </p>
+  <h4>5. Gestión del Negocio</h4>
+  <p>5.1.- El Gestor llevará a cabo la dirección y administración del Negocio sin intervención directa alguna por parte del Partícipe, con libre capacidad de decisión empresarial, pero siempre con respeto de los principios establecidos en esta cláusula.</p>
+  <p>5.2.- El Gestor deberá promover eficazmente la realización del fin común perseguido por las Partes dando a las Aportaciones del Partícipe el destino adecuado a la naturaleza y finalidad del Negocio.</p>
+  <p>5.3.- El Gestor actuará siempre en nombre propio.</p>
+  <p>5.4.- El Gestor cumplirá en todo momento y en todas sus actuaciones, incluso las no relacionadas con el Negocio, con toda la legislación que le sea aplicable, gestionando el Negocio con la diligencia propia de un buen empresario.</p>
 
-    <table class="datos">
-      <tbody>
-        <tr><th>Entidad</th><td>{{ gestor.entidad_bancaria }}</td></tr>
-        <tr><th>IBAN</th><td><strong>{{ gestor.iban }}</strong></td></tr>
-        <tr><th>Concepto</th><td>{{ contrato.concepto_transferencia }}</td></tr>
-      </tbody>
-    </table>
+  <h4>6. Información económica</h4>
+  <p>6.1.- El Gestor se compromete a mantener en todo momento el máximo grado de transparencia en la elaboración de la información económica del Negocio y a facilitar el acceso a la misma por el Partícipe con arreglo a las exigencias de la buena fe.</p>
 
-    <p>Si el Partícipe no abonase dicha cantidad en el plazo indicado, el presente contrato será nulo y carecerá de efecto alguno.</p>
-    <p>La entidad Gestora no podrá disponer de las cantidades entregadas por el partícipe sino para la gestión del buen fin del negocio.</p>
-    <p>
-      2.2.— El Partícipe participará de los resultados del negocio en proporción
-      a su porcentaje de participación. En caso de que no pudiera llevarse a cabo
-      el negocio por causas ajenas a la entidad gestora, esta se obliga a
-      devolver al partícipe la cantidad que este haya aportado sin derecho a
-      indemnización de ningún tipo.
-    </p>
+  <h4>7. Aplicación de los resultados del Negocio.</h4>
+  <p>7.1.- Dentro del plazo máximo de 2 meses desde la venta de todos los inmuebles, con la consecuente terminación del Negocio, el Gestor remitirá al Partícipe el cierre económico del Negocio así como informe del resultado.</p>
+  <p>7.2.- La propuesta de aplicación de los resultados del Negocio podrá contener uno o varios de los siguientes destinos:</p>
+  <p class="sangrado">(a) La distribución de beneficios</p>
+  <p class="sangrado">(b) La distribución de pérdidas</p>
+  <p>7.3.- La efectiva aplicación de resultados y, en su caso, el pago de beneficios al Partícipe, se efectuará dentro de los {{ contrato.dias_pago_beneficio }} días siguientes a la remisión de la propuesta de aplicación del resultado.</p>
+  <p>7.4.- El beneficio o la pérdida se repartirá en estricta proporcionalidad entre el Gestor y el Partícipe de acuerdo con la participación de cada uno. En todo caso, <strong>la participación del Partícipe en las pérdidas quedará limitada a las Aportaciones efectuadas</strong>.</p>
+  <p>7.5.- El pago del beneficio se realizará mediante transferencia bancaria.</p>
+  <p>7.6.- En caso de arrendamiento de los inmuebles, durante su periodo el Gestor realizará cierres parciales y trimestrales sobre la evolución del Negocio, y realizará una aplicación parcial del resultado en el plazo de 10 días tras finalizar cada trimestre natural, y el pago del beneficio, si lo hubiese, en los 5 días siguientes.</p>
+  <p>7.7.- Para el cálculo del beneficio o la pérdida:</p>
+  <p class="sangrado">- Se considerarán ingresos los importes obtenidos por la venta o arrendamiento del inmueble objeto de inversión (el negocio), sin considerar el IVA para el supuesto en que haya de ser sujeta a IVA la operación de venta o arrendamiento.</p>
+  <p class="sangrado">- Se considerarán gastos la cantidad invertida en la adquisición del inmueble, rehabilitación o adecuación al estado en que sea potencialmente incrementable su valor, el importe necesario para el mantenimiento de la propiedad y uso los mismos, alarma y seguro de hogar, los gastos derivados de expedientes registrales o catastrales que resulten convenientes, así como del mantenimiento y gestión por el Gestor, así como los impuestos derivados de la actividad del gestor en el más amplio sentido.</p>
+  <p class="sangrado">- A la conclusión del proyecto o negocio, estimado en un plazo de {{ contrato.meses }} meses, del resultado obtenido de la actividad tras el abono de la totalidad de los gastos, se repartirá entre <strong>EL GESTOR</strong>, que percibirá el {{ contrato.reparto_gestor_letra }} de dicho remanente, y <strong>los cuenta partícipes</strong>, que en conjunto percibirán el {{ contrato.reparto_participes_letra }} de dicho remanente, que a su vez se distribuirá entre los diferentes cuenta partícipes en proporción al porcentaje de participación que cada uno haya tenido en el negocio.</p>
+  <p class="sangrado">- Las cantidades que eventualmente pudieran devengarse por mor de una eventual futura liquidación complementaria por parte de la Administración Tributaria de la Junta de Andalucía, Administración Local o del Estado, por razón de algún impuesto relacionado con la operación o inversión objeto de este contrato, será sufragado por El GESTOR y los Partícipes en la misma proporción en que resulten beneficiarios de la misma.</p>
 
-    <div class="destacado">
-      El porcentaje de participación en el negocio objeto del presente contrato,
-      calculado sobre la cantidad neta que corresponda al conjunto de cuenta
-      partícipes en el negocio, es aproximadamente de
-      <strong>{{ contrato.porcentaje|es_number }} %</strong>.
-    </div>
-  </div>
+  <p><strong>Autorización del Partícipe.</strong></p>
+  <p>El Gestor no podrá llevar a cabo sin el consentimiento expreso del Partícipe, manifestado por escrito y con carácter específico para cada una de ellas, las siguientes operaciones:</p>
+  <p class="sangrado">(a) Modificar o sustituir su objeto social;</p>
+  <p class="sangrado">(b) Transformarse en otro tipo societario;</p>
+  <p class="sangrado">(c) Enajenar, arrendar, hipotecar o usufructuar los inmuebles salvo para conseguir el objetivo del Negocio;</p>
+  <p class="sangrado">(d) Alterar unilateralmente la base económica sobre la cuál descansa este Contrato;</p>
+  <p class="sangrado">(e) Suspender o poner término a la explotación del Negocio durante la vigencia de este</p>
 
-  <div class="bloque">
-    <h3>III.— Declaraciones del Gestor</h3>
-    <p>El Gestor es una sociedad legalmente constituida y debidamente organizada de acuerdo con las leyes de España, con residencia a efectos fiscales en España, y tiene las facultades requeridas para el desarrollo del Negocio, para suscribir este Contrato y para cumplir con las obligaciones derivadas del mismo.</p>
-    <p>El Gestor: i) no ha dejado de hacer pagos ni está incurso en mora respecto de ninguna de sus obligaciones; ii) no está en situación que le haya llevado, o le pueda llevar, a concurso o liquidación, o a devenir insolvente; iii) no se han iniciado acciones para su disolución o liquidación, ni presentado ninguna petición de declaración de concurso.</p>
-    <p>La firma, cumplimiento y desarrollo de este Contrato por el Gestor y la consumación de las transacciones contempladas en el mismo: i) entran dentro de las facultades societarias del Gestor; ii) no contravienen los términos de sus estatutos; y iii) han sido debidamente autorizados mediante todas las actuaciones societarias apropiadas.</p>
-  </div>
+  <h4>8. Prohibición de competencia.</h4>
+  <p>9.1.- El Gestor no podrá detraer elementos afectos al Negocio y aplicarlos a otra actividad.</p>
+  <p>9.2.- El Gestor se compromete frente al Partícipe durante el plazo de vigencia del contrato a no desarrollar o explotar, directa o indirectamente, el Negocio fuera del ámbito del presente Contrato.</p>
 
-  <div class="bloque">
-    <h3>IV.— Destino de las Aportaciones</h3>
-    <p>El Gestor destinará las Aportaciones al Negocio y no podrá destinarlas a finalidades distintas ni emplearlas de manera inadecuada a la naturaleza y finalidad del Negocio.</p>
-  </div>
+  <h4>9. Incorporación de nuevos Partícipes.</h4>
+  <p>La incorporación de nuevos Partícipes a la Cuenta en Participación que se constituye en virtud de este Contrato no requerirá el consentimiento del Partícipe.</p>
 
-  <div class="bloque">
-    <h3>V.— Gestión del Negocio</h3>
-    <p>5.1.— El Gestor llevará a cabo la dirección y administración del Negocio sin intervención directa alguna por parte del Partícipe, con libre capacidad de decisión empresarial, pero siempre con respeto de los principios establecidos en esta cláusula.</p>
-    <p>5.2.— El Gestor deberá promover eficazmente la realización del fin común perseguido por las Partes, dando a las Aportaciones del Partícipe el destino adecuado a la naturaleza y finalidad del Negocio.</p>
-    <p>5.3.— El Gestor actuará siempre en nombre propio.</p>
-    <p>5.4.— El Gestor cumplirá en todo momento y en todas sus actuaciones, incluso las no relacionadas con el Negocio, con toda la legislación que le sea aplicable, gestionando el Negocio con la diligencia propia de un buen empresario.</p>
-  </div>
+  <h4>10. Domicilio de la Cuenta en Participación.</h4>
+  <p>La Cuenta en Participación tendrá su domicilio en {{ gestor.domicilio }}.</p>
 
-  <div class="bloque">
-    <h3>VI.— Transparencia</h3>
-    <p>6.1.— El Gestor se compromete a mantener en todo momento el máximo grado de transparencia en la elaboración de la información económica del Negocio y a facilitar el acceso a la misma por el Partícipe con arreglo a las exigencias de la buena fe.</p>
-  </div>
+  <h4>11. Duración de la Cuenta en Participación y del Negocio.</h4>
+  <p>12.1.- La Cuenta en Participación tendrá, a partir de la fecha de la firma de este Contrato, una duración máxima de {{ contrato.meses }} meses, y coincidirá en todo caso con la duración del Negocio, que también se establece en un periodo máximo de {{ contrato.meses }} meses.</p>
+  <p>12.2.- El Gestor tendrá absoluta capacidad empresarial y libertad para decidir el momento de terminación del Negocio antes del transcurso del plazo máximo de duración del Contrato mediante la venta de todos los inmuebles objeto del Negocio, con aplicación de los principios establecidos en la cláusula V anterior. La entidad gestora por tanto será la única que realiza y organice las actividades y operaciones relativas a la actividad objeto del negocio.</p>
+  <p>El precio y condiciones de venta o transmisión serán establecidas por la entidad gestora siempre en aras a obtener la máxima rentabilidad que sea posible del negocio para cumplir con sus obligaciones derivadas del presente contrato.</p>
 
-  <div class="bloque">
-    <h3>VII.— Aplicación de resultados</h3>
-    <p>7.1.— Dentro del plazo máximo de dos meses desde la venta de todos los inmuebles, con la consecuente terminación del Negocio, el Gestor remitirá al Partícipe el cierre económico del Negocio, así como informe del resultado.</p>
-    <p>7.3.— La efectiva aplicación de resultados y, en su caso, el pago de beneficios al Partícipe se efectuará dentro de los treinta días siguientes a la remisión de la propuesta de aplicación del resultado.</p>
-    <p>7.4.— El beneficio o la pérdida se repartirá en estricta proporcionalidad entre el Gestor y el Partícipe de acuerdo con la participación de cada uno. En todo caso, <strong>la participación del Partícipe en las pérdidas quedará limitada a las Aportaciones efectuadas</strong>.</p>
-    <p>7.5.— El pago del beneficio se realizará mediante transferencia bancaria.</p>
-    <p>7.6.— En caso de arrendamiento de los inmuebles, durante su periodo el Gestor realizará cierres parciales y trimestrales sobre la evolución del Negocio, realizará una aplicación parcial del resultado en el plazo de diez días tras finalizar cada trimestre natural, y el pago del beneficio, si lo hubiese, en los cinco días siguientes.</p>
-    <p>
-      7.7.— <strong>Retención a cuenta.</strong> Los importes que en virtud de
-      las cláusulas anteriores correspondan al Partícipe se entienden expresados
-      en términos <strong>brutos</strong>. El resultado positivo obtenido por el
-      Partícipe constituye para éste un rendimiento del capital mobiliario
-      derivado de la cesión a terceros de capitales propios, sujeto a retención
-      a cuenta del Impuesto sobre la Renta de las Personas Físicas conforme a
-      los artículos 25.2 y 99 de la Ley 35/2006 y concordantes de su Reglamento.
-      En consecuencia, el Gestor, como obligado a retener, practicará sobre cada
-      pago la retención legalmente aplicable en el momento del devengo,
-      actualmente del <strong>{{ contrato.retencion_pct_texto }} %</strong>,
-      ingresará su importe en la Hacienda Pública y abonará al Partícipe el
-      líquido resultante.
-    </p>
-    <p>
-      7.8.— La retención no constituye un coste para el Partícipe, sino un pago
-      anticipado de su propio impuesto, deducible de la cuota de su declaración
-      anual. El Gestor le facilitará dentro del plazo legalmente previsto el
-      <strong>certificado de retenciones e ingresos a cuenta</strong> de cada
-      ejercicio. Si se modificase el tipo legalmente aplicable, o si el Partícipe
-      acreditase hallarse en un supuesto de exención, exclusión o tipo distinto
-      —en particular, por no ser residente fiscal en España o por tratarse de una
-      persona jurídica—, se aplicará el que en cada caso corresponda, sin que
-      ello altere el reparto de resultados pactado.
-    </p>
-  </div>
+  <h4>12. Disolución de la Cuenta en Participación</h4>
+  <p>La Cuenta en Participación se disolverá por las causas siguientes:</p>
+  <p class="sangrado">(a) Por el transcurso del tiempo de duración del Contrato o del Negocio sin necesidad de requerimiento previo o aviso alguno, sin perjuicio de que el Contrato pueda ser prorrogado por mutuo acuerdo del Gestor y de todos los Partícipes;</p>
+  <p class="sangrado">(b) Por mutuo acuerdo del Partícipe y del Gestor formalizado por escrito;</p>
+  <p class="sangrado">(c) Por el incumplimiento sustancial por cualquiera de las Partes de alguna de las obligaciones establecidas en este Contrato, excepto cuando fuese subsanable y se subsanase dentro de los {{ contrato.dias_subsanacion }} días a partir de la fecha en que se le notifique y requiera para su subsanación. Transcurrido dicho plazo sin que el incumplimiento se hubiese subsanado, se podrá dar por resuelto el Contrato, mediante la notificación por escrito a la Parte incumplidora, y reclamarle daños y perjuicios.</p>
+  <p class="sangrado">(d) Por la venta de todos los inmuebles objeto del Negocio y la consecuente terminación del mismo.</p>
 
-  <div class="bloque">
-    <h3>VIII.— Autorización del Partícipe</h3>
-    <p>El Gestor no podrá llevar a cabo, sin el consentimiento expreso del Partícipe manifestado por escrito y con carácter específico para cada una de ellas, operaciones ajenas al objeto del Negocio descrito en el presente Contrato.</p>
-  </div>
+  <h4>13. Extinción y liquidación de la Cuenta en Participación</h4>
+  <p>14.1.- Producida la extinción del contrato de Cuenta en Participación, el Gestor vendrá obligado a proceder a la venta de los inmuebles en el plazo de {{ contrato.meses_venta_tras_extincion }} meses a quien realice mejor oferta, y procederá a la aplicación del resultado conforme a la cláusula VII anterior, determinando la suma correspondiente al Partícipe en los beneficios, o en su caso en las pérdidas. Abonará al Partícipe los beneficios obtenidos y le restituirá, en su caso, las Aportaciones efectuadas como consecuencia de este Contrato.</p>
+  <p>14.2.- En caso de terminación del Negocio por la venta de todos los inmuebles antes del plazo de duración máxima de este contrato, el Gestor procederá a la aplicación del resultado conforme a la cláusula VII anterior, determinando la suma correspondiente al Partícipe en los beneficios, o en su caso en las pérdidas. Abonará al Partícipe los beneficios obtenidos y le restituirá, en su caso, las Aportaciones efectuadas como consecuencia de este Contrato.</p>
+  <p>14.3.- En caso de extinción del Contrato por incumplimiento del Partícipe, el pago de los beneficios que le correspondan –en su caso-, y la devolución de la aportación, quedarán aplazados hasta la terminación del Negocio, en pro de la conservación del Negocio y de la optimización empresarial del mismo.</p>
 
-  <div class="bloque">
-    <h3>IX.— Exclusividad</h3>
-    <p>9.1.— El Gestor no podrá detraer elementos afectos al Negocio y aplicarlos a otra actividad.</p>
-    <p>9.2.— El Gestor se compromete frente al Partícipe, durante el plazo de vigencia del contrato, a no desarrollar o explotar, directa o indirectamente, el Negocio fuera del ámbito del presente Contrato.</p>
-  </div>
+  <h4>14. Confidencialidad</h4>
+  <p>El contenido de este Contrato, así como cualquier información o datos sobre el mismo, tiene carácter confidencial y no será divulgado por las Partes, salvo:</p>
+  <p class="sangrado">(a) en cumplimiento de una obligación legal o de una orden administrativa o judicial, o</p>
+  <p class="sangrado">(b) para exigir o permitir el cumplimiento de los derechos u obligaciones derivados de este Contrato, o para información de sus asesores o auditores, siempre que ambos se comprometan a mantenerlo con carácter confidencial mediante pacto expreso o de conformidad con sus normas profesionales.</p>
 
-  <div class="bloque">
-    <h3>X.— Nuevos partícipes</h3>
-    <p>La incorporación de nuevos Partícipes a la Cuenta en Participación que se constituye en virtud de este Contrato no requerirá el consentimiento del Partícipe, pero su porcentaje de participación no se modificará por esta circunstancia.</p>
-  </div>
+  <h4>15. Cesión</h4>
+  <p>Ninguna de las Partes podrá ceder los derechos y obligaciones resultantes de este Contrato sin el previo consentimiento por escrito de la otra Parte.</p>
 
-  <div class="bloque">
-    <h3>XI.— Domicilio</h3>
-    <p>La Cuenta en Participación tendrá su domicilio en {{ gestor.domicilio }}.</p>
-  </div>
+  <h4>16. Gastos y Tributos</h4>
+  <p>Los gastos y tributos derivados de la negociación, formalización y ejecución de este Contrato serán a cargo de las Partes que se indican a continuación:</p>
+  <p class="sangrado">a) Los honorarios de los asesores y auditores u otros profesionales serán a cargo de la Parte que en cada caso los haya contratado.</p>
+  <p class="sangrado">b) Los tributos que resulten de la formalización y ejecución de este Contrato correrán a cargo de la Parte que determine en cada caso la ley.</p>
 
-  <div class="bloque">
-    <h3>XII.— Duración</h3>
-    <p>12.1.— La Cuenta en Participación tendrá, a partir de la fecha de la firma de este Contrato, una duración máxima de {{ contrato.meses }} meses, y coincidirá en todo caso con la duración del Negocio, que también se establece en un periodo máximo de {{ contrato.meses }} meses. En consecuencia, su vencimiento se producirá el <strong>{{ contrato.vencimiento|fecha_larga }}</strong>.</p>
-    <p>12.2.— El Gestor tendrá absoluta capacidad empresarial y libertad para decidir el momento de terminación del Negocio antes del transcurso del plazo máximo de duración del Contrato, mediante la venta de todos los inmuebles objeto del Negocio, con aplicación de los principios establecidos en la cláusula V anterior. La entidad gestora, por tanto, será la única que realice y organice las actividades y operaciones relativas a la actividad objeto del negocio.</p>
-    <p>El precio y condiciones de venta o transmisión serán establecidos por la entidad gestora, siempre en aras de obtener la máxima rentabilidad posible del negocio para cumplir con sus obligaciones derivadas del presente contrato.</p>
-  </div>
+  <h4>17. Normas de interpretación</h4>
+  <p>Si existieran contradicciones entre el contenido de un documento complementario o un Anexo y el contenido de las cláusulas de este Contrato, se deberá dar siempre preferencia al contenido de estas últimas.</p>
+  <p>La ilicitud, invalidez o inefectividad de cualquiera de las cláusulas de este Contrato no afectará a la eficacia del resto, siempre que los derechos y obligaciones de las Partes derivados del Contrato no se vieran afectados de forma esencial.</p>
+  <p>Este Contrato constituye el compromiso alcanzado a la fecha de su firma con respecto a las materias contenidas en el mismo, y sustituye y deroga todos los acuerdos previos en relación con su objeto.</p>
+  <p>Todos los anexos forman parte integrante de este Contrato, y tienen la misma validez y eficacia que si estuvieran incorporados a su cuerpo principal.</p>
+  <p>Las modificaciones que se hiciesen a este Contrato deberán ser redactadas por escrito en un documento firmado por las Partes.</p>
 
-  <div class="bloque">
-    <h3>XIII.— Liquidación</h3>
-    <p>14.1.— Producida la extinción del contrato de Cuenta en Participación, el Gestor vendrá obligado a proceder a la venta de los inmuebles en el plazo de ocho meses a quien realice mejor oferta, y procederá a la aplicación del resultado conforme a la cláusula VII anterior, determinando la suma correspondiente al Partícipe en los beneficios o, en su caso, en las pérdidas.</p>
-    <p>14.2.— En caso de terminación del Negocio por la venta de todos los inmuebles antes del plazo de duración máxima de este contrato, el Gestor procederá a la aplicación del resultado conforme a la cláusula VII anterior.</p>
-    <p>14.3.— En caso de extinción del Contrato por incumplimiento del Partícipe, el pago de los beneficios que le correspondan —en su caso— y la devolución de la aportación quedarán aplazados hasta la terminación del Negocio, en pro de la conservación del Negocio y de la optimización empresarial del mismo.</p>
-  </div>
+  <h4>18. Notificaciones</h4>
+  <p>19.1.- Todas las comunicaciones y notificaciones que deban realizarse las Partes en virtud de este Contrato deberán efectuarse por escrito, y mediante:</p>
+  <p class="sangrado">(a) por correo electrónico, así como por cualquier otro medio, siempre que en todos estos casos se deje constancia de su debida recepción por el destinatario o destinatarios;</p>
+  <p class="sangrado">(b) se creará un canal de comunicación directo vía alguna red social para aquellos detalles menos trascendentes en la red social que el Gestor cree más oportuna.</p>
+  <p>19.2.- Las comunicaciones y notificaciones entre las Partes deberán ser remitidas a las direcciones y a la atención de las personas que se indican en el encabezamiento de este Contrato.</p>
+  <p>19.3.- Cualquier modificación de los domicilios o personas a efectos de notificaciones deberá ser inmediatamente comunicada a la otra Parte de acuerdo con las reglas establecidas en esta Cláusula. En tanto una Parte no haya recibido notificación de tales cambios, las notificaciones que ésta realice conforme a esas reglas de acuerdo con los datos originarios se entenderán correctamente efectuadas.</p>
 
-  <div class="bloque">
-    <h3>XIV.— Confidencialidad, cesión y gastos</h3>
-    <p>El contenido de este Contrato, así como cualquier información o dato sobre el mismo, tiene carácter confidencial y no será divulgado por las Partes.</p>
-    <p>Ninguna de las Partes podrá ceder los derechos y obligaciones resultantes de este Contrato sin el previo consentimiento por escrito de la otra Parte.</p>
-    <p>Los anexos forman parte integrante de este Contrato y tienen la misma validez y eficacia que si estuvieran incorporados a su cuerpo principal. Si existieran contradicciones entre el contenido de un Anexo y el de las cláusulas de este Contrato, se dará siempre preferencia al de estas últimas.</p>
-    <p>La ilicitud, invalidez o inefectividad de cualquiera de las cláusulas de este Contrato no afectará a la eficacia del resto, siempre que los derechos y obligaciones de las Partes no se vieran afectados de forma esencial.</p>
-    <p>Las modificaciones que se hiciesen a este Contrato deberán ser redactadas por escrito en un documento firmado por las Partes.</p>
-  </div>
+  <h4>19. Ley aplicable</h4>
+  <p>Este Contrato se rige por el Derecho español. En todo lo no previsto en este Contrato se aplicarán las disposiciones contenidas en los artículos 239 y siguientes del Código de Comercio y los artículos 1665 y siguientes del Código Civil.</p>
 
-  <div class="bloque">
-    <h3>XV.— Comunicaciones</h3>
-    <p>19.1.— Todas las comunicaciones y notificaciones que deban realizarse las Partes en virtud de este Contrato deberán efectuarse por escrito, por correo electrónico o por cualquier otro medio que deje constancia de su debida recepción por el destinatario.</p>
-    <p>19.2.— Las comunicaciones se remitirán a las direcciones indicadas en el encabezamiento de este Contrato.</p>
-    <table class="datos">
-      <tbody>
-        <tr><th>Partícipe — Email</th><td>{{ cliente.email|default:"__________" }}</td></tr>
-        <tr><th>Partícipe — Dirección</th><td>{{ cliente.direccion_postal|default:"__________" }}</td></tr>
-        <tr><th>Gestor — Email</th><td>{{ gestor.email }}</td></tr>
-        <tr><th>Gestor — Dirección</th><td>{{ gestor.domicilio }}</td></tr>
-      </tbody>
-    </table>
-    <p>19.3.— Cualquier modificación de los domicilios o personas a efectos de notificaciones deberá ser inmediatamente comunicada a la otra Parte.</p>
-  </div>
+  <h4>20. Jurisdicción</h4>
+  <p>Las Partes acuerdan someter todo litigio resultante de la ejecución o interpretación de este Contrato a los juzgados y tribunales de la ciudad de {{ gestor.fuero }} (España), con renuncia expresa a su propio fuero, si otro les correspondiere.</p>
 
-  <div class="bloque">
-    <h3>XVI.— Ley aplicable y fuero</h3>
-    <p>Este Contrato se rige por el Derecho español. En todo lo no previsto se aplicarán las disposiciones contenidas en los artículos 239 y siguientes del Código de Comercio y los artículos 1665 y siguientes del Código Civil.</p>
-    <p>Las Partes acuerdan someter todo litigio resultante de la ejecución o interpretación de este Contrato a los juzgados y tribunales de la ciudad de {{ gestor.fuero }} (España), con renuncia expresa a su propio fuero, si otro les correspondiere.</p>
-  </div>
+  {% comment %}
+    Cláusula añadida al articulado que se venía firmando, y va la última para no
+    desplazar ninguna de las veinte anteriores: quien compare este contrato con
+    uno previo ve una añadida en vez de veinte movidas de sitio.
+  {% endcomment %}
+  <h4>21. Retención a cuenta</h4>
+  <p>Los importes que en virtud de la cláusula 7 correspondan al Partícipe se entienden expresados en términos <strong>brutos</strong>. El resultado positivo obtenido por el Partícipe constituye para éste un rendimiento del capital mobiliario derivado de la cesión a terceros de capitales propios, sujeto a retención a cuenta del Impuesto sobre la Renta de las Personas Físicas conforme a los artículos 25.2 y 99 de la Ley 35/2006 y concordantes de su Reglamento.</p>
+  <p>En consecuencia, el Gestor, como obligado a retener, practicará sobre cada pago la retención legalmente aplicable en el momento del devengo, actualmente del <strong>{{ contrato.retencion_pct_texto }} %</strong>, ingresará su importe en la Hacienda Pública y abonará al Partícipe el líquido resultante.</p>
+  <p>La retención no constituye un coste para el Partícipe, sino un pago anticipado de su propio impuesto, deducible de la cuota de su declaración anual. El Gestor le facilitará dentro del plazo legalmente previsto el <strong>certificado de retenciones e ingresos a cuenta</strong> de cada ejercicio. Si se modificase el tipo legalmente aplicable, o si el Partícipe acreditase hallarse en un supuesto de exención, exclusión o tipo distinto —en particular, por no ser residente fiscal en España o por tratarse de una persona jurídica—, se aplicará el que en cada caso corresponda, sin que ello altere el reparto de resultados pactado en la cláusula 7.</p>
 
-  <p style="margin-top:14px">
+  <p>
     Y en prueba de conformidad con cuanto antecede, las Partes firman este
-    Contrato por duplicado y a un solo efecto en el lugar y fecha indicados en el
-    encabezamiento.
+    Contrato por duplicado y a un solo efecto en el lugar y fecha indicados en
+    el encabezamiento.
   </p>
 
   <table class="firmas">
     <tr>
-      <td><strong>El Gestor</strong><br>{{ gestor.razon_social }}<br>{{ gestor.representante }}</td>
+      <td>{{ gestor.razon_social }}</td>
       <td class="hueco"></td>
-      <td><strong>El Partícipe</strong><br>{{ cliente.nombre }}<br>DNI {{ cliente.dni_cif|default:"__________" }}</td>
+      <td>{{ cliente.nombre }}</td>
     </tr>
   </table>
 
-  {# ---------------------------- ANEXO I ---------------------------- #}
-
   <div class="anexo">
-    <h1>ANEXO I · EL PROYECTO</h1>
+    <h1>ANEXO 1 · PROYECTO</h1>
 
     <table class="datos">
       <tbody>

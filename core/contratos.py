@@ -196,7 +196,18 @@ def condiciones(participacion, firma: date | None = None) -> dict:
 # y que la pérdida del partícipe quede limitada a su aportación.
 
 MESES_NEGOCIO = 6
-PARTICIPACION_MINIMA = Decimal("10000")
+
+# Cifras que el contrato de cuenta en participación fija en su texto. Están
+# aquí y no dentro de la plantilla porque son condiciones económicas: si alguna
+# cambia, cambia lo que se pacta, y conviene verlo de un vistazo.
+#
+# El reparto del remanente sale de la cláusula 7.7 del contrato firmado.
+PARTICIPACION_MINIMA = Decimal("15000")
+REPARTO_GESTOR_PCT = Decimal("30")
+REPARTO_PARTICIPES_PCT = Decimal("70")
+MESES_VENTA_TRAS_EXTINCION = 8
+DIAS_PAGO_BENEFICIO = 30
+DIAS_SUBSANACION = 15
 
 
 def condiciones_cuenta_participe(participacion, firma: date | None = None) -> dict:
@@ -213,7 +224,7 @@ def condiciones_cuenta_participe(participacion, firma: date | None = None) -> di
 
     # El concepto de la transferencia identifica al partícipe y al inmueble: es
     # lo que permite conciliar el ingreso cuando entran varios el mismo día.
-    concepto = 'Aportación cuenta partícipe "{}" + {}'.format(
+    concepto = 'Aportación cuenta participe "{}" + "{}"'.format(
         participacion.cliente.nombre or "", (proyecto.direccion or proyecto.nombre or "").strip()
     )
 
@@ -231,6 +242,19 @@ def condiciones_cuenta_participe(participacion, firma: date | None = None) -> di
         "minimo_letra": importe_en_letra(PARTICIPACION_MINIMA),
         "concepto_transferencia": concepto,
         "retencion_pct_texto": con_retencion(0, participacion)["pct_texto"],
+        # Las cifras se escriben como en el contrato firmado: «145.000 €», sin
+        # céntimos cuando no los hay.
+        "aportacion_cifra": cifra_contrato(aportacion),
+        "adquisicion_cifra": cifra_contrato(adquisicion),
+        "venta_cifra": cifra_contrato(venta),
+        "minimo_cifra": cifra_contrato(PARTICIPACION_MINIMA),
+        "reparto_gestor": REPARTO_GESTOR_PCT,
+        "reparto_participes": REPARTO_PARTICIPES_PCT,
+        "reparto_gestor_letra": porcentaje_en_letra(REPARTO_GESTOR_PCT),
+        "reparto_participes_letra": porcentaje_en_letra(REPARTO_PARTICIPES_PCT),
+        "meses_venta_tras_extincion": MESES_VENTA_TRAS_EXTINCION,
+        "dias_pago_beneficio": DIAS_PAGO_BENEFICIO,
+        "dias_subsanacion": DIAS_SUBSANACION,
     }
 
 
