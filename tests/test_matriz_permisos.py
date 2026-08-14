@@ -187,3 +187,59 @@ def test_el_perfil_del_inversor_se_crea_con_su_token():
     for perfil in perfiles:
         assert perfil.token, "un perfil sin token rompe el enlace a su portal"
         assert len(perfil.token) >= 32
+
+
+@pytest.mark.parametrize("ruta", ["/app/proyectos/", "/app/dashboard/"])
+def test_las_pantallas_no_consultan_mas_por_tener_mas_proyectos(ruta):
+    """
+    Las dos crecían dos consultas por proyecto.
+
+    En el listado, `_resultado_desde_memoria` recorre los gastos y los ingresos
+    de cada proyecto; su propio comentario dice «aprovecha prefetch si existe»,
+    pero nadie se lo daba.
+
+    En el panel financiero el servicio sí los precargaba, y aun así se pedían
+    uno por uno: `_beneficio_estimado_real_memoria` consultaba con
+    `objects.filter(proyecto=...)` en vez de por el gestor de la relación, y
+    así se saltaba el prefetch que ya estaba hecho.
+    """
+    from datetime import date
+
+    from django.db import connection, reset_queries
+    from django.test.utils import override_settings
+
+    from core.models import GastoProyecto, IngresoProyecto
+
+    usuario = UserFactory()
+    UserAccessFactory(user=usuario, role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+    navegador = Client()
+    _sesion_verificada(navegador, usuario)
+
+    consultas = {}
+    creados = 0
+    for total in (5, 40):
+        for i in range(creados, total):
+            proyecto = Proyecto.objects.create(
+                nombre="Proyecto {:03d}".format(i), precio_compra_inmueble=Decimal("100000")
+            )
+            GastoProyecto.objects.create(
+                proyecto=proyecto, importe=Decimal("10"), estado="confirmado",
+                categoria="otros", fecha=date(2026, 1, 1), concepto="x",
+            )
+            IngresoProyecto.objects.create(
+                proyecto=proyecto, importe=Decimal("20"), estado="confirmado",
+                fecha=date(2026, 1, 1), concepto="y",
+            )
+        creados = total
+        with override_settings(DEBUG=True):
+            navegador.get(ruta)
+            reset_queries()
+            respuesta = navegador.get(ruta)
+            consultas[total] = len(connection.queries)
+        assert respuesta.status_code == 200
+
+    assert consultas[5] == consultas[40], (
+        "{} consulta más por tener más proyectos: {} con 5, {} con 40".format(
+            ruta, consultas[5], consultas[40]
+        )
+    )

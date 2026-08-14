@@ -3792,8 +3792,19 @@ def _capital_objetivo_desde_memoria(proyecto: Proyecto, snapshot: dict | None = 
 
 
 def _beneficio_estimado_real_memoria(proyecto: Proyecto) -> dict:
-    gastos = list(GastoProyecto.objects.filter(proyecto=proyecto))
-    ingresos = list(IngresoProyecto.objects.filter(proyecto=proyecto))
+    # Por el gestor de la relación, no por `objects.filter(proyecto=...)`: así
+    # aprovecha el prefetch cuando lo hay, igual que hace
+    # `_resultado_desde_memoria`. Consultando directo se lo saltaba, y el panel
+    # financiero acababa pidiendo los gastos y los ingresos de cada proyecto uno
+    # por uno pese a traerlos ya cargados.
+    try:
+        gastos = list(proyecto.gastos_proyecto.all())
+    except Exception:
+        gastos = list(GastoProyecto.objects.filter(proyecto=proyecto))
+    try:
+        ingresos = list(proyecto.ingresos.all())
+    except Exception:
+        ingresos = list(IngresoProyecto.objects.filter(proyecto=proyecto))
 
     def _sum_importes(items):
         total = Decimal("0")
@@ -4989,7 +5000,18 @@ def lista_proyectos(request):
         return redirect("core:home")
 
     estados_cerrados = {"cerrado", "descartado"}
-    all_active = Proyecto.objects.exclude(estado__in=estados_cerrados).order_by("-id")
+    # `_get_snapshot` mira `origen_snapshot` y `origen_estudio` de cada proyecto,
+    # y sin precargarlos eso es una consulta por relación y por proyecto: dos por
+    # proyecto en cada visita al listado.
+    all_active = (
+        Proyecto.objects.select_related("origen_snapshot", "origen_estudio")
+        # `_resultado_desde_memoria` recorre los gastos y los ingresos de cada
+        # proyecto. Su propio comentario dice «aprovecha prefetch si existe»,
+        # pero nadie se lo daba: eran dos consultas por proyecto en cada visita.
+        .prefetch_related("gastos_proyecto", "ingresos")
+        .exclude(estado__in=estados_cerrados)
+        .order_by("-id")
+    )
     base_proyectos = all_active.exclude(
         Q(extra__tipo="conciertos") | Q(nombre__iexact="Conciertos")
     ).order_by("-id")
@@ -5142,7 +5164,17 @@ def lista_proyectos_cerrados(request):
         return redirect("core:home")
 
     estados_cerrados = {"cerrado", "descartado"}
-    all_closed = Proyecto.objects.filter(estado__in=estados_cerrados).order_by("-id")
+    # Mismo motivo que en el listado de activos: `_get_snapshot` recorre estas
+    # dos relaciones proyecto a proyecto.
+    all_closed = (
+        Proyecto.objects.select_related("origen_snapshot", "origen_estudio")
+        # `_resultado_desde_memoria` recorre los gastos y los ingresos de cada
+        # proyecto. Su propio comentario dice «aprovecha prefetch si existe»,
+        # pero nadie se lo daba: eran dos consultas por proyecto en cada visita.
+        .prefetch_related("gastos_proyecto", "ingresos")
+        .filter(estado__in=estados_cerrados)
+        .order_by("-id")
+    )
     base_proyectos = all_closed.exclude(
         Q(extra__tipo="conciertos") | Q(nombre__iexact="Conciertos")
     ).order_by("-id")
