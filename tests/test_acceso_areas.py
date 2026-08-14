@@ -151,3 +151,91 @@ def test_no_queda_ninguna_ruta_de_core_sin_control():
         nombre for nombre in rutas if nombre in cuerpos and not any(s in cuerpos[nombre] for s in señales)
     )
     assert sin_control == ["inversor_service_worker"], "rutas sin control: {}".format(sin_control)
+
+
+# --- El panel financiero y su API deben exigir lo mismo --------------------
+
+
+def _sesion_verificada(client, user):
+    """Sesión con el 2FA satisfecho, que es lo que pide el middleware."""
+    from django_otp.plugins.otp_totp.models import TOTPDevice
+
+    dispositivo = TOTPDevice.objects.create(user=user, name="test", confirmed=True)
+    client.force_login(user)
+    sesion = client.session
+    sesion["otp_device_id"] = dispositivo.persistent_id
+    sesion.save()
+
+
+@pytest.mark.django_db
+def test_el_panel_financiero_no_se_abre_solo_con_el_simulador():
+    """
+    `dashboard_data` devolvía 403 a quien sólo tenía el simulador, pero la
+    página `/app/dashboard/` le llegaba con los nombres de los proyectos, el
+    capital invertido y los precios de compra ya pintados dentro.
+
+    Proteger la API y olvidar la página que la precede es fácil de hacer y no
+    se ve: el 403 del AJAX da la sensación de que está cerrado.
+    """
+    from decimal import Decimal
+
+    from django.test import Client
+
+    from core.models import Proyecto
+    from tests.factories import UserAccessFactory, UserFactory
+
+    Proyecto.objects.create(
+        nombre="PROYECTO RESERVADO",
+        precio_compra_inmueble=Decimal("250000"),
+    )
+
+    apagados = dict(
+        can_simulador=False, can_estudios=False, can_proyectos=False, can_clientes=False,
+        can_inversores=False, can_usuarios=False, can_cms=False, can_facturas_preview=False,
+    )
+    usuario = UserFactory()
+    # Ojo: la factoría deja todos los permisos a True; hay que apagarlos.
+    UserAccessFactory(user=usuario, role="", use_custom_perms=True, **{**apagados, "can_simulador": True})
+
+    cliente = Client()
+    _sesion_verificada(cliente, usuario)
+
+    respuesta = cliente.get("/app/dashboard/")
+    assert respuesta.status_code == 302, "la página no puede abrirse sin permiso de proyectos"
+
+    # Y la API sigue cerrada, que es lo que ya estaba bien.
+    assert cliente.get("/app/dashboard/data/").status_code == 403
+
+    # Con el permiso, la página se abre.
+    acceso = usuario.user_access
+    acceso.can_proyectos = True
+    acceso.save()
+    assert cliente.get("/app/dashboard/").status_code == 200
+
+
+@pytest.mark.django_db
+def test_el_contador_de_inversores_dice_lo_que_hay_en_pantalla():
+    """
+    Decía «Mostrando 38 de 38» mientras pintaba ocho tarjetas, porque daba el
+    total filtrado y no el tramo visible. Quien buscaba a alguien que cayera en
+    la segunda página concluía que no estaba dado de alta.
+    """
+    from django.test import Client
+
+    from core.models import Cliente
+    from tests.factories import UserAccessFactory, UserFactory
+
+    for i in range(20):
+        Cliente.objects.create(nombre="Inversor {:02d}".format(i), dni_cif="{:08d}X".format(i))
+
+    usuario = UserFactory()
+    UserAccessFactory(user=usuario, role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+    navegador = Client()
+    _sesion_verificada(navegador, usuario)
+
+    html = navegador.get("/app/inversores/").content.decode()
+
+    assert "Mostrando 1–8" in html, "debe decir el tramo, no el total"
+    assert "de 20" in html
+    # Y la página siguiente empieza donde acaba la anterior.
+    assert "Mostrando 9–16" in navegador.get("/app/inversores/?page=2").content.decode()

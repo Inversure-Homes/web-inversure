@@ -148,8 +148,22 @@
         <button type="submit" class="btn btn-portal btn-sm w-100">Buscar</button>
       </div>
       <div class="col-md-3 text-md-end">
+        {% comment %}
+          Decía «Mostrando 38 de 38» mientras pintaba ocho tarjetas: el
+          contador daba el total filtrado, no lo que hay en pantalla. Con 38
+          inversores y páginas de 8, quien buscaba a alguien que cayera en la
+          página 2 concluía que no existía. Me pasó a mí.
+        {% endcomment %}
         <div class="inv-meta mt-2 mt-md-4">
-          Mostrando {{ total_inversores_filtrados|default:0 }} de {{ total_inversores|default:0 }}
+          {% if page_obj and page_obj.paginator.count %}
+            Mostrando {{ page_obj.start_index }}–{{ page_obj.end_index }}
+            de {{ page_obj.paginator.count }}{% if q %} encontrados{% endif %}
+            {% if not q and total_inversores != page_obj.paginator.count %}
+              (de {{ total_inversores }} en total)
+            {% endif %}
+          {% else %}
+            Sin resultados{% if q %} para «{{ q }}»{% endif %}
+          {% endif %}
         </div>
       </div>
     </form>

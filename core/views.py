@@ -4731,17 +4731,21 @@ def otros_proyectos(request):
 
 
 def dashboard(request):
+    # `dashboard_data` ya exigía este permiso; la página que pinta el estado
+    # inicial, no. Quien sólo tenía el simulador recibía un 403 al pedir los
+    # datos por AJAX, pero la propia página le llegaba con los nombres de los
+    # proyectos, el capital invertido y los precios de compra ya dentro.
+    # Proteger la API y olvidar la página que la precede es fácil de hacer y no
+    # se ve: el 403 da la sensación de que está cerrado.
+    if not _user_can_view_proyectos(request.user):
+        messages.error(request, "No tienes acceso al panel financiero.")
+        return redirect("core:home")
+
     try:
         filters = FinancialDashboardFilters.from_mapping(request.GET)
         ctx = _build_dashboard_context(request.user, filters=filters)
     except Exception as exc:
-        try:
-            import traceback
-
-            print("[dashboard] dashboard_context_error:", type(exc).__name__, str(exc))
-            traceback.print_exc()
-        except Exception:
-            pass
+        logging.getLogger(__name__).exception("No se pudo construir el contexto del panel financiero")
         ctx = _dashboard_context_from_payload(request.user, _empty_dashboard_payload())
         ctx.update(
             {
@@ -5096,14 +5100,10 @@ def lista_proyectos(request):
                     p.notificar_inversores = bool(sec.get("notificar_inversores")) if "notificar_inversores" in sec else True
             except Exception:
                 p.notificar_inversores = True
-        except Exception as exc:
-            try:
-                import traceback
-
-                print("[lista_proyectos] proyecto_error:", getattr(p, "id", None), type(exc).__name__, str(exc))
-                traceback.print_exc()
-            except Exception:
-                pass
+        except Exception:
+            logging.getLogger(__name__).exception(
+                "No se pudo preparar el proyecto %s para el listado", getattr(p, "id", None)
+            )
             p.capital_objetivo = 0.0
             p.capital_captado = 0.0
             p.roi = 0.0
@@ -5227,14 +5227,10 @@ def lista_proyectos_cerrados(request):
                     p.notificar_inversores = bool(sec.get("notificar_inversores")) if "notificar_inversores" in sec else True
             except Exception:
                 p.notificar_inversores = True
-        except Exception as exc:
-            try:
-                import traceback
-
-                print("[lista_proyectos_cerrados] proyecto_error:", getattr(p, "id", None), type(exc).__name__, str(exc))
-                traceback.print_exc()
-            except Exception:
-                pass
+        except Exception:
+            logging.getLogger(__name__).exception(
+                "No se pudo preparar el proyecto cerrado %s para el listado", getattr(p, "id", None)
+            )
             p.capital_objetivo = 0.0
             p.capital_captado = 0.0
             p.roi = 0.0
