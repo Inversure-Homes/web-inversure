@@ -127,3 +127,63 @@ def test_clientes_e_inversores_solo_para_direccion():
         assert navegadores["direccion"].get(ruta).status_code == 200, ruta
         for rol in ("marketing", "comercial"):
             assert navegadores[rol].get(ruta).status_code == 302, "{} llega a {}".format(rol, ruta)
+
+
+def test_la_lista_de_inversores_no_consulta_mas_por_tener_mas_inversores():
+    """
+    Hacía un `get_or_create` por cliente: una consulta por cada uno en cada
+    visita, y además una escritura en una petición GET. Con 30 inversores eran
+    168 consultas; con 60 habrían sido el doble.
+
+    Se mide la segunda visita a propósito: en la primera puede haber perfiles
+    que crear, que es un coste de una vez. Lo que no puede crecer es lo que se
+    paga en cada visita.
+    """
+    from django.db import connection, reset_queries
+    from django.test.utils import override_settings
+
+    usuario = UserFactory()
+    UserAccessFactory(user=usuario, role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+    navegador = Client()
+    _sesion_verificada(navegador, usuario)
+
+    consultas = {}
+    for cuantos in (5, 40):
+        Cliente.objects.all().delete()
+        for i in range(cuantos):
+            Cliente.objects.create(nombre="Inversor {:03d}".format(i), dni_cif="{:08d}Z".format(i))
+        with override_settings(DEBUG=True):
+            navegador.get("/app/inversores/")   # crea los perfiles que falten
+            reset_queries()
+            respuesta = navegador.get("/app/inversores/")
+            consultas[cuantos] = len(connection.queries)
+        assert respuesta.status_code == 200
+
+    assert consultas[5] == consultas[40], (
+        "la lista consulta más por tener más inversores: {} con 5, {} con 40".format(
+            consultas[5], consultas[40]
+        )
+    )
+
+
+def test_el_perfil_del_inversor_se_crea_con_su_token():
+    """
+    Al optimizar la lista probé con `bulk_create`, que se salta `save()` — y el
+    token del portal se genera justo ahí. Los perfiles salían sin token y el
+    enlace al portal reventaba al construirlo.
+    """
+    from core.models import InversorPerfil
+
+    usuario = UserFactory()
+    UserAccessFactory(user=usuario, role=UserAccess.ROLE_DIRECCION, use_custom_perms=False)
+    navegador = Client()
+    _sesion_verificada(navegador, usuario)
+
+    Cliente.objects.create(nombre="Sin perfil todavía", dni_cif="12345678Z")
+    assert navegador.get("/app/inversores/").status_code == 200
+
+    perfiles = list(InversorPerfil.objects.all())
+    assert perfiles, "la lista debe crear el perfil que falte"
+    for perfil in perfiles:
+        assert perfil.token, "un perfil sin token rompe el enlace a su portal"
+        assert len(perfil.token) >= 32

@@ -5425,13 +5425,36 @@ def inversores_list(request):
     clientes_base = Cliente.objects.all().order_by("nombre").prefetch_related(
         Prefetch("participaciones", queryset=participaciones_qs, to_attr="participaciones_confirmadas")
     )
-    perfiles_map = {}
-    for cliente in clientes_base:
-        perfil, _ = InversorPerfil.objects.get_or_create(cliente=cliente)
-        perfiles_map[cliente.id] = perfil
+    # `clientes_base` se materializa aquí y se reutiliza: recorrerlo y luego
+    # pedirle los ids con `values_list` ejecutaba la consulta dos veces.
+    clientes = list(clientes_base)
+
+    # Antes esto era un `get_or_create` por cliente: una consulta por cada uno
+    # —con 38 inversores, 38 consultas— y además una escritura en una petición
+    # GET, porque listar creaba los perfiles que faltaran.
+    #
+    # Los perfiles se siguen creando, porque un cliente sin perfil se caería de
+    # la lista y desaparecería de la pantalla. Pero ahora se leen todos de una
+    # vez y los que falten se crean en una sola instrucción.
+    perfiles_map = {
+        perfil.cliente_id: perfil
+        for perfil in InversorPerfil.objects.filter(cliente__in=clientes)
+    }
+    # Los que falten se crean uno a uno con `save()`, no con `bulk_create`: el
+    # token del portal se genera dentro de `save()`, y saltárselo dejaba
+    # perfiles sin token que rompían el enlace al portal del inversor.
+    # Duplicar aquí esa generación sería peor: dos sitios que tienen que
+    # acordarse de lo mismo.
+    #
+    # No importa el coste: esto sólo corre cuando falta algún perfil, no en
+    # cada visita. Lo que se ha quitado es la consulta por cliente que se hacía
+    # siempre, hubiera o no algo que crear.
+    for cliente in clientes:
+        if cliente.id not in perfiles_map:
+            perfiles_map[cliente.id] = InversorPerfil.objects.create(cliente=cliente)
 
     perfiles_ids = [p.id for p in perfiles_map.values()]
-    cliente_ids = list(clientes_base.values_list("id", flat=True))
+    cliente_ids = [c.id for c in clientes]
 
     totales = {
         row["cliente_id"]: row
@@ -5495,7 +5518,7 @@ def inversores_list(request):
     total_participaciones = 0
     total_pendientes = 0
 
-    for cliente in clientes_base:
+    for cliente in clientes:
         perfil = perfiles_map.get(cliente.id)
         if not perfil:
             continue
